@@ -4,7 +4,7 @@ export function profileProjectFromText(text) {
     const platforms = [];
     const capabilities = [];
     const uncertainties = [];
-    
+
     // Domain detection
     if (textLower.includes('game') || textLower.includes('oyun') || textLower.includes('physics') || textLower.includes('render') || textLower.includes('unity') || textLower.includes('unreal') || textLower.includes('godot')) {
         domains.push({ name: 'game', confidence: 0.85 });
@@ -21,10 +21,16 @@ export function profileProjectFromText(text) {
     if (textLower.includes('ai') || textLower.includes('yapay zeka') || textLower.includes('llm') || textLower.includes('model') || textLower.includes('gpt') || textLower.includes('agent')) {
         domains.push({ name: 'ai', confidence: 0.85 });
     }
-    if (domains.length === 0) {
-        domains.push({ name: 'web', confidence: 0.70 });
+    // Web detection must be explicit, not a fallback
+    if (textLower.includes('web') || textLower.includes('website') || textLower.includes('tarayıcı') || textLower.includes('browser') || textLower.includes('react') || textLower.includes('vue') || textLower.includes('angular') || textLower.includes('html') || textLower.includes('frontend') || textLower.includes('arayüz')) {
+        domains.push({ name: 'web', confidence: 0.75 });
     }
-    
+    // Fail-safe: unknown domain instead of defaulting to web
+    if (domains.length === 0) {
+        domains.push({ name: 'unknown', confidence: 0.20 });
+        uncertainties.push('Projenin çalışma ortamı ve kullanıcı arayüzü henüz net değil. Web, masaüstü, mobil veya CLI mı olacak?');
+    }
+
     // Platform detection
     if (textLower.includes('ios')) platforms.push('ios');
     if (textLower.includes('android')) platforms.push('android');
@@ -33,7 +39,7 @@ export function profileProjectFromText(text) {
     if (platforms.length === 0) {
         platforms.push('cross-platform');
     }
-    
+
     // Capabilities
     if (textLower.includes('database') || textLower.includes('db') || textLower.includes('kayıt') || textLower.includes('storage') || textLower.includes('depolama')) {
         capabilities.push('local-storage-persistence');
@@ -44,21 +50,54 @@ export function profileProjectFromText(text) {
     if (textLower.includes('api') || textLower.includes('http') || textLower.includes('fetch') || textLower.includes('web service') || textLower.includes('sunucu')) {
         capabilities.push('network-communication');
     }
-    
+
     // Uncertainties generator
     if (domains.some(d => d.name === 'game')) {
         uncertainties.push('Oyun mekanikleri gerçek zamanlı mı yoksa sıra tabanlı mı olacak?');
         uncertainties.push('Lokal bir save-system mi yoksa bulut tabanlı bir veritabanı mı tercih edilecek?');
     } else if (domains.some(d => d.name === 'mobile')) {
         uncertainties.push('Uygulama yerel (Swift/Kotlin) mi yoksa hibrit (Flutter/React Native) mi geliştirilecek?');
-    } else {
+    } else if (!domains.some(d => d.name === 'unknown')) {
         uncertainties.push('Kullanıcı verileri nerede depolanacak? local-first mi yoksa uzaktaki bir API sunucusunda mı?');
     }
-    
+
     return {
         domains,
         platforms,
         capabilities,
         uncertainties
     };
+}
+
+/**
+ * Generates the full project profile text block for LLM prompt injection.
+ * Returns a structured multi-line string listing all detected domains,
+ * platforms and capabilities for the LLM to reason about.
+ */
+export function buildProfilePromptBlock(profile) {
+    const lines = ['Proje Profili:'];
+
+    if (profile.domains.length > 0) {
+        lines.push('Domains:');
+        profile.domains.forEach(d => {
+            lines.push(`  - ${d.name} (confidence: ${d.confidence.toFixed(2)})`);
+        });
+    }
+
+    if (profile.platforms.length > 0) {
+        lines.push('Platforms:');
+        profile.platforms.forEach(p => lines.push(`  - ${p}`));
+    }
+
+    if (profile.capabilities.length > 0) {
+        lines.push('Capabilities:');
+        profile.capabilities.forEach(c => lines.push(`  - ${c}`));
+    }
+
+    if (profile.uncertainties.length > 0) {
+        lines.push('Belirsizlikler:');
+        profile.uncertainties.forEach(u => lines.push(`  - ${u}`));
+    }
+
+    return lines.join('\n');
 }

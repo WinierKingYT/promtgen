@@ -10,8 +10,8 @@ export const INITIAL_APP_STATE = {
     priorities: {
         ui: false,
         security: false,
-        testing: false,
-        logging: false
+        performance: false,
+        scale: false
     },
     messages: [],
     historyStack: [],

@@ -614,12 +614,12 @@ body {
     gap: 0.8rem;
 }
 
-.priority-checkbox {
+.priority-checkbox, .skill-sec-checkbox {
     cursor: pointer;
     position: relative;
 }
 
-.priority-checkbox input {
+.priority-checkbox input, .skill-sec-checkbox input {
     position: absolute;
     opacity: 0;
     cursor: pointer;
@@ -641,19 +641,19 @@ body {
     transition: var(--transition-smooth);
 }
 
-.priority-checkbox:hover .checkbox-custom {
+.priority-checkbox:hover .checkbox-custom, .skill-sec-checkbox:hover .checkbox-custom {
     background: rgba(255, 255, 255, 0.06);
     border-color: var(--border-color-hover);
 }
 
-.priority-checkbox.active .checkbox-custom {
+.priority-checkbox.active .checkbox-custom, .skill-sec-checkbox.active .checkbox-custom {
     background: rgba(6, 182, 212, 0.08);
     border-color: var(--secondary);
     color: white;
     box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
 }
 
-.priority-checkbox.active .checkbox-custom i {
+.priority-checkbox.active .checkbox-custom i, .skill-sec-checkbox.active .checkbox-custom i {
     color: var(--secondary);
 }
 

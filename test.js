@@ -3,68 +3,279 @@ import { escapeHTML } from './src/security/safe-renderer.js';
 import { validateFileMetadata } from './src/security/file-policy.js';
 import { scanForSecrets } from './src/security/secret-detector.js';
 import { getInitialCanonicalState, applyStatePatch, validateCanonicalState } from './src/state/project-state.js';
+import { WORKFLOW_STAGES } from './src/workflow/stages.js';
 import { checkWorkflowTransition } from './src/workflow/transitions.js';
-import { profileProjectFromText } from './src/planning/project-profiler.js';
+import { profileProjectFromText, buildProfilePromptBlock } from './src/planning/project-profiler.js';
 
-console.log("🚀 Running V2 Modular Engine Unit Tests...");
+let passed = 0;
+let failed = 0;
 
-// 1. Test XSS Safe Renderer
-assert.strictEqual(escapeHTML("hello <script>"), "hello &lt;script&gt;");
-console.log("✅ safe-renderer tests passed.");
+function test(name, fn) {
+    try {
+        fn();
+        console.log(`  ✅ ${name}`);
+        passed++;
+    } catch (e) {
+        console.error(`  ❌ ${name}`);
+        console.error(`     ${e.message}`);
+        failed++;
+    }
+}
 
-// 2. Test File Policy
-assert.strictEqual(validateFileMetadata("image.png", 100).valid, false);
-assert.strictEqual(validateFileMetadata("code.js", 100).valid, true);
-assert.strictEqual(validateFileMetadata("code.js", 2 * 1024 * 1024).valid, false);
-console.log("✅ file-policy tests passed.");
+// ============================================================
+// 1. XSS Safe Renderer
+// ============================================================
+console.log('\n🔐 safe-renderer tests');
+test('escapeHTML escapes script tag', () => {
+    assert.strictEqual(escapeHTML('hello <script>'), 'hello &lt;script&gt;');
+});
+test('escapeHTML escapes quotes', () => {
+    assert.strictEqual(escapeHTML('"hello"'), '&quot;hello&quot;');
+});
+test('escapeHTML escapes ampersand', () => {
+    assert.strictEqual(escapeHTML('a & b'), 'a &amp; b');
+});
+test('escapeHTML handles null/undefined safely', () => {
+    assert.strictEqual(escapeHTML(null), '');
+    assert.strictEqual(escapeHTML(undefined), '');
+});
+test('escapeHTML protects attribute injection attempt', () => {
+    const unsafe = 'x" onclick="alert(1)';
+    const safe = escapeHTML(unsafe);
+    assert.ok(!safe.includes('"'), 'Should not contain raw double-quote');
+});
 
-// 3. Test Secret Detector
-assert.strictEqual(scanForSecrets("my secret password"), false);
-assert.strictEqual(scanForSecrets("API_KEY = 'AIzaSyFakeKey_1234567890123'"), true);
-console.log("✅ secret-detector tests passed.");
+// ============================================================
+// 2. File Policy
+// ============================================================
+console.log('\n📁 file-policy tests');
+test('rejects disallowed extension (png)', () => {
+    assert.strictEqual(validateFileMetadata('image.png', 100).valid, false);
+});
+test('accepts allowed extension (js)', () => {
+    assert.strictEqual(validateFileMetadata('code.js', 100).valid, true);
+});
+test('rejects oversized file (>1MB)', () => {
+    assert.strictEqual(validateFileMetadata('code.js', 2 * 1024 * 1024).valid, false);
+});
+test('accepts exactly 1MB file', () => {
+    assert.strictEqual(validateFileMetadata('code.js', 1024 * 1024).valid, true);
+});
 
-// 4. Test Canonical Project State & Patches
+// ============================================================
+// 3. Secret Detector
+// ============================================================
+console.log('\n🔑 secret-detector tests');
+test('returns false for normal content', () => {
+    assert.strictEqual(scanForSecrets('my normal content here'), false);
+});
+test('detects API key pattern', () => {
+    assert.strictEqual(scanForSecrets("API_KEY = 'AIzaSyFakeKey_1234567890123'"), true);
+});
+test('detects PRIVATE KEY header', () => {
+    assert.strictEqual(scanForSecrets('-----BEGIN RSA PRIVATE KEY-----'), true);
+});
+test('detects AIzaSy prefix key', () => {
+    assert.strictEqual(scanForSecrets('token: AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ012'), true);
+});
+
+// ============================================================
+// 4. Canonical Project State & JSON Patch
+// ============================================================
+console.log('\n📦 project-state tests');
+
 const state = getInitialCanonicalState();
-assert.strictEqual(validateCanonicalState(state), true);
-assert.strictEqual(state.revision, 1);
 
-// Apply a patch
-const patch1 = {
-    operation: "add",
-    path: "/profile/capabilities/-",
-    value: "local-db-access"
-};
-const state2 = applyStatePatch(state, patch1);
-assert.strictEqual(state2.revision, 2);
-assert.strictEqual(state2.profile.capabilities.includes("local-db-access"), true);
+test('initial state passes validation', () => {
+    assert.strictEqual(validateCanonicalState(state), true);
+});
+test('initial state has workflowStage = IDEA_CAPTURED', () => {
+    assert.strictEqual(state.workflowStage, WORKFLOW_STAGES.IDEA_CAPTURED);
+});
+test('initial state revision is 1', () => {
+    assert.strictEqual(state.revision, 1);
+});
 
-// Test replace patch
-const patch2 = {
-    operation: "replace",
-    path: "/identity/name",
-    value: "Yeni Proje"
-};
-const state3 = applyStatePatch(state2, patch2);
-assert.strictEqual(state3.identity.name, "Yeni Proje");
-console.log("✅ project-state & JSON Patch tests passed.");
+const state2 = applyStatePatch(state, {
+    operation: 'add',
+    path: '/profile/capabilities/-',
+    value: 'local-db-access'
+});
+test('applyStatePatch add increments revision', () => {
+    assert.strictEqual(state2.revision, 2);
+});
+test('applyStatePatch add appends to array', () => {
+    assert.ok(state2.profile.capabilities.includes('local-db-access'));
+});
 
-// 5. Test Workflow Transition Rules
-// Current is IDEA_CAPTURED
-const transition1 = checkWorkflowTransition(state3, 'IDEA_CAPTURED');
-assert.strictEqual(transition1.allowed, false); // needs summary/problem + domains/uncertainties
+const state3 = applyStatePatch(state2, {
+    operation: 'replace',
+    path: '/identity/name',
+    value: 'Yeni Proje'
+});
+test('applyStatePatch replace updates value', () => {
+    assert.strictEqual(state3.identity.name, 'Yeni Proje');
+});
+test('applyStatePatch replace increments revision again', () => {
+    assert.strictEqual(state3.revision, 3);
+});
 
-// Let's modify state to satisfy conditions
-state3.identity.summary = "Bu bir test oyun projesidir.";
-state3.profile.domains = [{ name: "game", confidence: 0.9 }];
-const transition2 = checkWorkflowTransition(state3, 'IDEA_CAPTURED');
-assert.strictEqual(transition2.allowed, true);
-assert.strictEqual(transition2.nextStage, 'PROFILE_DRAFTED');
-console.log("✅ workflow-engine transitions tests passed.");
+// ============================================================
+// 5. Prototype Pollution Prevention
+// ============================================================
+console.log('\n🛡️ prototype-pollution tests');
 
-// 6. Test Project Profiler
-const profile = profileProjectFromText("Bir hyper-casual mobil oyun yapmak istiyorum.");
-assert.strictEqual(profile.domains.some(d => d.name === 'game'), true);
-assert.strictEqual(profile.platforms.includes('cross-platform'), true);
-console.log("✅ project-profiler tests passed.");
+test('blocks __proto__ path', () => {
+    const original = getInitialCanonicalState();
+    const result = applyStatePatch(original, {
+        operation: 'add',
+        path: '/__proto__/polluted',
+        value: 'HACKED'
+    });
+    assert.strictEqual(result, original, 'Should return original state unchanged');
+    assert.strictEqual(({}).polluted, undefined, 'Prototype should not be polluted');
+});
+test('blocks constructor path', () => {
+    const original = getInitialCanonicalState();
+    applyStatePatch(original, {
+        operation: 'replace',
+        path: '/constructor/name',
+        value: 'pwned'
+    });
+    assert.notStrictEqual(Object.name, 'pwned');
+});
 
-console.log("🎉 All V2 Modular Engine Unit Tests Passed Successfully!");
+// ============================================================
+// 6. Strict Schema Validation
+// ============================================================
+console.log('\n✅ validateCanonicalState strict tests');
+
+test('rejects state without workflowStage', () => {
+    const bad = getInitialCanonicalState();
+    delete bad.workflowStage;
+    assert.strictEqual(validateCanonicalState(bad), false);
+});
+test('rejects revision <= 0', () => {
+    const bad = getInitialCanonicalState();
+    bad.revision = 0;
+    assert.strictEqual(validateCanonicalState(bad), false);
+});
+test('rejects invalid confidence value', () => {
+    const bad = getInitialCanonicalState();
+    bad.profile.domains.push({ name: 'game', confidence: 1.5 });
+    assert.strictEqual(validateCanonicalState(bad), false);
+});
+test('rejects confidence < 0', () => {
+    const bad = getInitialCanonicalState();
+    bad.profile.domains.push({ name: 'web', confidence: -0.1 });
+    assert.strictEqual(validateCanonicalState(bad), false);
+});
+test('accepts valid confidence = 1.0', () => {
+    const s = getInitialCanonicalState();
+    s.profile.domains.push({ name: 'ai', confidence: 1.0 });
+    assert.strictEqual(validateCanonicalState(s), true);
+});
+test('rejects duplicate IDs across decisions/assumptions', () => {
+    const bad = getInitialCanonicalState();
+    bad.decisions.push({ id: 'ID-001', title: 'A', decision: '', reason: '' });
+    bad.assumptions.push({ id: 'ID-001', text: 'B', confidence: 'medium', status: 'active' });
+    assert.strictEqual(validateCanonicalState(bad), false);
+});
+
+// ============================================================
+// 7. Workflow Transitions - Fail Closed
+// ============================================================
+console.log('\n🔄 workflow-transitions tests');
+
+test('unknown stage returns allowed=false (fail-closed)', () => {
+    const st = getInitialCanonicalState();
+    const res = checkWorkflowTransition(st, 'NONEXISTENT_STAGE');
+    assert.strictEqual(res.allowed, false);
+});
+test('undefined stage returns allowed=false', () => {
+    const st = getInitialCanonicalState();
+    const res = checkWorkflowTransition(st, undefined);
+    assert.strictEqual(res.allowed, false);
+});
+test('IDEA_CAPTURED fails without identity.summary', () => {
+    const st = getInitialCanonicalState();
+    const res = checkWorkflowTransition(st, WORKFLOW_STAGES.IDEA_CAPTURED);
+    assert.strictEqual(res.allowed, false);
+});
+test('IDEA_CAPTURED succeeds with summary and domains', () => {
+    const st = getInitialCanonicalState();
+    st.identity.summary = 'Bu bir test projesidir.';
+    st.profile.domains = [{ name: 'game', confidence: 0.9 }];
+    const res = checkWorkflowTransition(st, WORKFLOW_STAGES.IDEA_CAPTURED);
+    assert.strictEqual(res.allowed, true);
+    assert.strictEqual(res.nextStage, WORKFLOW_STAGES.PROFILE_DRAFTED);
+});
+test('TASKS_DRAFTED -> AGENT_PACKAGE_DRAFTED (new pipeline)', () => {
+    const st = getInitialCanonicalState();
+    st.tasks = [{ id: 'T-001', title: 'task', description: 'desc' }];
+    const res = checkWorkflowTransition(st, WORKFLOW_STAGES.TASKS_DRAFTED);
+    assert.strictEqual(res.allowed, true);
+    assert.strictEqual(res.nextStage, WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED);
+});
+test('READY_FOR_EXPORT -> EXPORTED', () => {
+    const st = getInitialCanonicalState();
+    const res = checkWorkflowTransition(st, WORKFLOW_STAGES.READY_FOR_EXPORT);
+    assert.strictEqual(res.allowed, true);
+    assert.strictEqual(res.nextStage, WORKFLOW_STAGES.EXPORTED);
+});
+
+// ============================================================
+// 8. Project Profiler
+// ============================================================
+console.log('\n🧪 project-profiler tests');
+
+test('detects game domain', () => {
+    const p = profileProjectFromText('Bir oyun yapmak istiyorum unity ile');
+    assert.ok(p.domains.some(d => d.name === 'game'));
+});
+test('detects web domain explicitly', () => {
+    const p = profileProjectFromText('React ile bir web sitesi yapmak istiyorum');
+    assert.ok(p.domains.some(d => d.name === 'web'));
+});
+test('returns unknown domain (NOT web) when no domain matches', () => {
+    const p = profileProjectFromText('baskılı tişört sipariş etmek istiyorum');
+    const hasUnknown = p.domains.some(d => d.name === 'unknown');
+    const hasWeb = p.domains.some(d => d.name === 'web');
+    assert.ok(hasUnknown, 'Should have unknown domain');
+    assert.ok(!hasWeb, 'Should NOT have web domain by default');
+});
+test('unknown domain has low confidence (0.20)', () => {
+    const p = profileProjectFromText('baskılı tişört sipariş etmek istiyorum');
+    const unknown = p.domains.find(d => d.name === 'unknown');
+    assert.strictEqual(unknown?.confidence, 0.20);
+});
+test('unknown domain adds uncertainty message', () => {
+    const p = profileProjectFromText('baskılı tişört sipariş etmek istiyorum');
+    assert.ok(p.uncertainties.length > 0, 'Should have uncertainty for unknown domain');
+});
+test('buildProfilePromptBlock includes domains line', () => {
+    const p = profileProjectFromText('mobil oyun geliştirmeyi düşünüyorum');
+    const block = buildProfilePromptBlock(p);
+    assert.ok(block.includes('Domains:'));
+    assert.ok(block.includes('confidence'));
+});
+test('buildProfilePromptBlock includes platforms', () => {
+    const p = profileProjectFromText('android uygulama');
+    const block = buildProfilePromptBlock(p);
+    assert.ok(block.includes('Platforms:'));
+});
+test('game domain + cross-platform with no specific platform keyword', () => {
+    const p = profileProjectFromText('unity hyper-casual oyun');
+    assert.ok(p.platforms.includes('cross-platform'));
+});
+
+// ============================================================
+// Summary
+// ============================================================
+console.log(`\n${'='.repeat(50)}`);
+if (failed === 0) {
+    console.log(`🎉 All ${passed} tests passed!`);
+} else {
+    console.log(`⚠️  ${passed} passed, ${failed} FAILED`);
+    process.exit(1);
+}

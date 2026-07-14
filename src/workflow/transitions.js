@@ -86,21 +86,46 @@ export const TRANSITION_RULES = {
         }
     },
     [WORKFLOW_STAGES.TASKS_DRAFTED]: {
-        target: WORKFLOW_STAGES.READY_FOR_EXPORT,
+        target: WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED,
         check: (state) => {
             if (!state.tasks || state.tasks.length === 0) {
                 return { allowed: false, reason: "Geliştirme adımları boş olamaz." };
             }
             return { allowed: true };
         }
+    },
+    [WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED]: {
+        target: WORKFLOW_STAGES.REVIEW_IN_PROGRESS,
+        check: (state) => {
+            // Checks if subagents exist (which defines AGENT_PACKAGE)
+            if (!state.subagents || state.subagents.length === 0) {
+                return { allowed: false, reason: "Alt ajan prompt paketi oluşturulmalıdır." };
+            }
+            return { allowed: true };
+        }
+    },
+    [WORKFLOW_STAGES.REVIEW_IN_PROGRESS]: {
+        target: WORKFLOW_STAGES.READY_FOR_EXPORT,
+        check: (state) => {
+            // Quality review findings should be analyzed
+            return { allowed: true };
+        }
+    },
+    [WORKFLOW_STAGES.READY_FOR_EXPORT]: {
+        target: WORKFLOW_STAGES.EXPORTED,
+        check: (state) => {
+            return { allowed: true };
+        }
     }
 };
 
 export function checkWorkflowTransition(state, currentStage) {
+    if (!currentStage) {
+        return { allowed: false, reason: "Mevcut aşama tanımsız." };
+    }
     const rule = TRANSITION_RULES[currentStage];
     if (!rule) {
-        // No explicit rule, check if we can reach READY_FOR_EXPORT directly
-        return { allowed: true, nextStage: currentStage };
+        return { allowed: false, reason: `Bilinmeyen workflow aşaması: ${currentStage}` };
     }
     const result = rule.check(state);
     if (result.allowed) {
