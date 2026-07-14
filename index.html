@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Architect | Yapay Zeka Yazılım Mimarı & Prompt Otomasyonu</title>
+    <meta name="description" content="Yazılım fikirlerinizi analiz edin, kritik güvenlik/performans açıklarını kapatın ve yapay zeka kodlama araçları için kusursuz prompt dizilimleri üretin.">
+    <!-- Google Fonts: Outfit & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- JSZip Library via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Mermaid.js Library for vector diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            if (window.mermaid) {
+                window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+            }
+        });
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="stars-bg"></div>
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+
+    <!-- Header Navigation -->
+    <header class="app-header">
+        <div class="header-logo">
+            <div class="logo-icon">
+                <i data-lucide="cpu"></i>
+            </div>
+            <div class="logo-text">
+                <h1>AI-Architect</h1>
+                <span>AI Partner &amp; Config Engine</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div class="api-status-badge" id="api-status-badge">
+                <span class="status-dot"></span>
+                <span class="status-text">Çevrimdışı Şablon Modu</span>
+            </div>
+            <button class="btn btn-secondary btn-icon" id="btn-open-settings" title="API Ayarları">
+                <i data-lucide="settings"></i>
+                <span>API Ayarları</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="app-workspace">
+        
+        <!-- Left Panel: Chat & Wizard setup -->
+        <section class="panel input-panel">
+            <!-- Setup Header (Visible in Setup mode) -->
+            <div class="panel-header" id="setup-header">
+                <i data-lucide="terminal"></i>
+                <h2>Proje Kurulumu</h2>
+            </div>
+            <!-- Chat Header (Visible in Chat mode) -->
+            <div class="panel-header hidden" id="chat-header">
+                <div class="chat-header-info">
+                    <i data-lucide="message-square-code"></i>
+                    <div>
+                        <h2>Mimar Sohbet Odası</h2>
+                        <span id="chat-project-status">Web Projesi - Aktif</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.6rem;">
+                    <button class="btn btn-secondary btn-small hidden" id="btn-undo-chat" title="Son adımı geri al">
+                        <i data-lucide="undo-2"></i>
+                        <span>Geri Al</span>
+                    </button>
+                    <button class="btn btn-secondary btn-small" id="btn-reset-chat">
+                        <i data-lucide="rotate-ccw"></i>
+                        <span>Sıfırla</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel Body -->
+            <div class="panel-body flex-grow-container">
+                
+                <!-- SETUP MODE -->
+                <div id="setup-view" class="setup-layout">
+                    <!-- Previous Projects (Initially Hidden) -->
+                    <div class="previous-projects hidden" id="previous-projects-section">
+                        <h3 class="section-subtitle">Önceki Projelerim</h3>
+                        <div class="projects-history-grid" id="previous-projects-grid">
+                            <!-- Dynamic Project Cards -->
+                        </div>
+                    </div>
+
+                    <!-- Platform Auto Detection Info -->
+                    <div class="form-group">
+                        <div class="info-alert info-gradient" style="margin-bottom:0.5rem; padding: 0.8rem 1.2rem;">
+                            <div class="alert-icon"><i data-lucide="sparkles" style="color:var(--accent);"></i></div>
+                            <div class="alert-body">
+                                <h4 style="font-size:0.82rem; margin-bottom: 0.2rem;">Kategori Bağımsız Evrensel Planlama</h4>
+                                <p style="font-size:0.75rem; color:var(--text-muted);">Projenizin türü (Web, Oyun, Mobil, API vb.) ve platform ihtiyaçları girdiğiniz tanımdan otomatik olarak analiz edilecektir.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Focus Priorities -->
+                    <div class="form-group">
+                        <label class="form-label">Öncelikli Odaklar (Çoklu Seçilebilir)</label>
+                        <div class="priority-checkbox-group">
+                            <label class="priority-checkbox active">
+                                <input type="checkbox" id="focus-ui" checked>
+                                <div class="checkbox-custom">
+                                    <i data-lucide="palette"></i>
+                                    <span>Ultra Premium UI/UX</span>
+                                </div>
+                            </label>
+                            <label class="priority-checkbox active">
+                                <input type="checkbox" id="focus-security" checked>
+                                <div class="checkbox-custom">
+                                    <i data-lucide="shield-check"></i>
+                                    <span>Yüksek Güvenlik</span>
+                                </div>
+                            </label>
+                            <label class="priority-checkbox active">
+                                <input type="checkbox" id="focus-performance" checked>
+                                <div class="checkbox-custom">
+                                    <i data-lucide="zap"></i>
+                                    <span>Maks Performans</span>
+                                </div>
+                            </label>
+                            <label class="priority-checkbox active">
+                                <input type="checkbox" id="focus-scale" checked>
+                                <div class="checkbox-custom">
+                                    <i data-lucide="layers"></i>
+                                    <span>Ölçeklenebilirlik</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Tech Stack Input -->
+                    <div class="form-group">
+                        <label for="tech-stack-input" class="form-label">Teknoloji Yığını &amp; Kütüphaneler</label>
+                        <div class="input-wrapper" style="display: block;">
+                            <input type="text" id="tech-stack-input" placeholder="Örn: React, TypeScript, TailwindCSS, Node.js, SQLite" value="React, TypeScript, CSS" style="padding-right: 1rem;">
+                        </div>
+                        <div class="textarea-hint" style="margin-top: 0.1rem;">Kurallar ve SKILL.md bu teknolojilere uygun olarak özelleştirilir.</div>
+                    </div>
+
+                    <!-- Tech Version Selector -->
+                    <div class="form-group">
+                        <label for="tech-version-select" class="form-label">Sürüm Koruması (Guardbook Version)</label>
+                        <div class="input-wrapper" style="display: block;">
+                            <select id="tech-version-select" style="width:100%; padding:0.6rem 1rem; background:var(--bg-input); border:1px solid var(--border-color); border-radius:6px; color:white; font-family:var(--font-sans); font-size:0.85rem; outline:none; transition:var(--transition-smooth); cursor:pointer;">
+                                <option value="latest">Varsayılan (En Güncel Sürümler)</option>
+                                <option value="react-19">React 19 (useActionState, server components)</option>
+                                <option value="next-15">Next.js 15 (Async Route Params, React 19)</option>
+                                <option value="unity-6">Unity 6 (Render Graph, WebGL Engine)</option>
+                                <option value="flutter-3">Flutter 3.x (Material 3, Dart 3)</option>
+                                <option value="node-22">Node.js 22 (ESM module support, Native test runner)</option>
+                            </select>
+                        </div>
+                        <div class="textarea-hint" style="margin-top: 0.1rem;">Ajanın bu sürümlerdeki yeni API kurallarına uymasını sağlayan standartlar eklenir.</div>
+                    </div>
+
+                    <!-- Planning Depth Selector -->
+                    <div class="form-group">
+                        <label class="form-label">Planlama Derinliği (Planning Depth)</label>
+                        <div class="step-depth-selector">
+                            <button class="depth-btn" data-depth="quick" data-steps="3">
+                                <i data-lucide="zap"></i>
+                                <span>Hızlı (3 Adım)</span>
+                            </button>
+                            <button class="depth-btn active" data-depth="standard" data-steps="5">
+                                <i data-lucide="split"></i>
+                                <span>Standart (5 Adım)</span>
+                            </button>
+                            <button class="depth-btn" data-depth="advanced" data-steps="8">
+                                <i data-lucide="git-merge"></i>
+                                <span>Mimar (8 Adım)</span>
+                            </button>
+                            <button class="depth-btn" data-depth="enterprise" data-steps="12">
+                                <i data-lucide="shield"></i>
+                                <span>Enterprise (12 Adım)</span>
+                            </button>
+                        </div>
+                        <div class="textarea-hint" style="margin-top: 0.1rem;">Seviye arttıkça oluşturulacak teknik mimari belge, risk analizi ve prompt adımları derinleşir.</div>
+                    </div>
+
+                    <!-- Input Idea -->
+                    <div class="form-group">
+                        <label for="project-description" class="form-label">Proje Fikriniz</label>
+                        <div class="textarea-wrapper">
+                            <textarea id="project-description" placeholder="Örn: E-ticaret siteleri için sepet sayfası yapıcam. Stripe ödeme adımı ve animasyonlar eklemek istiyorum..."></textarea>
+                            <div class="textarea-hint">Kısaca yazın, mimarımız ile sohbet ederek şekillendirmeye devam edeceksiniz.</div>
+                        </div>
+                    </div>
+
+                    <!-- Action Button -->
+                    <button class="btn btn-primary btn-large btn-glow" id="btn-start-chat">
+                        <i data-lucide="message-square"></i>
+                        <span>Mimar ile Sohbeti Başlat</span>
+                    </button>
+
+                    <!-- Quick Templates -->
+                    <div class="quick-templates">
+                        <h3 class="section-subtitle">Hızlı Başlangıç Şablonları</h3>
+                        <div class="templates-grid">
+                            <button class="template-card" data-template="web-saas">
+                                <i data-lucide="layout"></i>
+                                <div>
+                                    <h4>Premium SaaS Dashboard</h4>
+                                    <p>Performanslı, responsive, veri analiz paneli.</p>
+                                </div>
+                            </button>
+                            <button class="template-card" data-template="mobile-budget">
+                                <i data-lucide="wallet"></i>
+                                <div>
+                                    <h4>Finans &amp; Bütçe Uygulaması</h4>
+                                    <p>Yerel veri tabanlı, şifreli mobil uygulama.</p>
+                                </div>
+                            </button>
+                            <button class="template-card" data-template="game-inventory">
+                                <i data-lucide="backpack"></i>
+                                <div>
+                                    <h4>Envanter &amp; Crafting Sistemi</h4>
+                                    <p>Sürükle bırak destekli RPG oyun mekaniği.</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHAT MODE (Initially Hidden) -->
+                <div id="chat-view" class="chat-layout hidden">
+                    <!-- Workflow Status Tracker Bar -->
+                    <div class="workflow-tracker-bar" id="workflow-tracker">
+                        <div class="tracker-step active" data-stage="IDEA_CAPTURED">
+                            <span class="tracker-bullet">1</span>
+                            <span class="tracker-label">Fikir Girişi</span>
+                        </div>
+                        <div class="tracker-line"></div>
+                        <div class="tracker-step" data-stage="DISCOVERY_IN_PROGRESS">
+                            <span class="tracker-bullet">2</span>
+                            <span class="tracker-label">Keşif</span>
+                        </div>
+                        <div class="tracker-line"></div>
+                        <div class="tracker-step" data-stage="SCOPE_DRAFTED">
+                            <span class="tracker-bullet">3</span>
+                            <span class="tracker-label">MVP Kapsamı</span>
+                        </div>
+                        <div class="tracker-line"></div>
+                        <div class="tracker-step" data-stage="ARCHITECTURE_DRAFTED">
+                            <span class="tracker-bullet">4</span>
+                            <span class="tracker-label">Mimari</span>
+                        </div>
+                        <div class="tracker-line"></div>
+                        <div class="tracker-step" data-stage="TASKS_DRAFTED">
+                            <span class="tracker-bullet">5</span>
+                            <span class="tracker-label">Görevler</span>
+                        </div>
+                        <div class="tracker-line"></div>
+                        <div class="tracker-step" data-stage="READY_FOR_EXPORT">
+                            <span class="tracker-bullet">6</span>
+                            <span class="tracker-label">Hazır</span>
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Chat Messages Container -->
+                    <div class="chat-messages" id="chat-messages-container">
+                        <!-- Chat bubbles appended here -->
+                    </div>
+
+                    <!-- Typing Indicator -->
+                    <div class="chat-typing hidden" id="chat-typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <span>Mimar düşünüyor...</span>
+                    </div>
+
+                    <!-- Chat Input Area -->
+                    <div class="chat-input-wrapper">
+                        <button class="btn btn-secondary btn-icon-only" id="btn-attach-file" title="Dosya Ekle (Schema, kod vb.)">
+                            <i data-lucide="paperclip"></i>
+                        </button>
+                        <input type="file" id="chat-file-input" class="hidden" accept=".sql,.json,.yaml,.yml,.js,.ts,.html,.css,.md,.txt,.py,.cs,.dart">
+                        <textarea id="chat-input-textarea" placeholder="Mimar ile konuşun... (Örn: 'Stripe yerine PayPal entegre edelim sence nasıl?')"></textarea>
+                        <button class="btn btn-primary" id="btn-send-chat" title="Gönder">
+                            <i data-lucide="send"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Right Panel: Output & Result Presentation (Focusing on AI Config Files) -->
+        <section class="panel output-panel" id="output-panel">
+            <!-- Empty State -->
+            <div class="empty-state" id="output-empty-state">
+                <div class="empty-icon">
+                    <i data-lucide="file-cog"></i>
+                </div>
+                <h3>Yapay Zeka Yapılandırma Çıktıları</h3>
+                <p>Sol taraftan başlangıç fikrini girip mimarla sohbet edin. Sohbetin her anında ajanın okuyabileceği kopyalanabilir promptlar, rules, skill ve subagent dosyaları bu alanda güncellenecektir.</p>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-state hidden" id="output-loading-state">
+                <div class="loader-circle"></div>
+                <h3 id="loading-title">Dosyalar Eşitleniyor...</h3>
+                <p id="loading-step-text">Prompt zinciri kurgulanıyor, editör kuralları ve alt ajan rolleri oluşturuluyor.</p>
+            </div>
+
+            <!-- Content State (Step 3 Output) -->
+            <div class="output-content hidden" id="output-content-state">
+                <!-- Navigation Tabs -->
+                <div class="output-tabs">
+                    <button class="tab-btn active" data-tab="pipeline">
+                        <i data-lucide="git-pull-request"></i>
+                        <span>1. Prompt Zinciri &amp; Görevler</span>
+                    </button>
+                    <button class="tab-btn" data-tab="skill">
+                        <i data-lucide="file-code"></i>
+                        <span>2. SKILL.md &amp; Kurallar</span>
+                    </button>
+                    <button class="tab-btn" data-tab="cursor">
+                        <i data-lucide="code-2"></i>
+                        <span>3. Editör &amp; Ajan Kuralları</span>
+                    </button>
+                    <button class="tab-btn" data-tab="docs">
+                        <i data-lucide="file-text"></i>
+                        <span>4. Proje Belgeleri</span>
+                    </button>
+                    <button class="tab-btn" data-tab="files">
+                        <i data-lucide="folder-tree"></i>
+                        <span>5. Klasör Yapısı</span>
+                    </button>
+                    <button class="tab-btn" data-tab="memory">
+                        <i data-lucide="brain-circuit"></i>
+                        <span>6. Proje Hafızası</span>
+                    </button>
+                    <button class="tab-btn" data-tab="reviewer">
+                        <i data-lucide="shield-alert"></i>
+                        <span>7. Kalite &amp; Sağlık Skoru</span>
+                    </button>
+                    <button class="tab-btn" data-tab="analyser">
+                        <i data-lucide="search-code"></i>
+                        <span>8. Proje Analizörü</span>
+                    </button>
+                </div>
+
+                <!-- Tab Panels -->
+                <div class="tab-panels">
+                    
+                    <!-- Tab 1: Prompt Pipeline -->
+                    <div class="tab-panel active" id="panel-pipeline">
+                        <div class="pipeline-header">
+                            <div class="pipeline-info">
+                                <h3>Geliştirme Prompt Zinciri</h3>
+                                <p>Projenizi parçalara bölerek adım adım kodlama ajanıza yaptırın. Her adımı sırayla kopyalayıp ajana verin.</p>
+                            </div>
+                            <div class="pipeline-actions" style="display: flex; gap: 0.8rem;">
+                                <button class="btn btn-secondary btn-small" id="btn-copy-all">
+                                    <i data-lucide="copy"></i>
+                                    <span>Tüm Akışı Kopyala</span>
+                                </button>
+                                <button class="btn btn-primary btn-small" id="btn-download-zip">
+                                    <i data-lucide="folder-archive"></i>
+                                    <span>ZIP Olarak İndir</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="prompt-pipeline-list" id="prompt-pipeline-list">
+                            <!-- Dynamic Prompt Steps -->
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Skill / Agent Creator (SKILL.md) -->
+                    <div class="tab-panel" id="panel-skill">
+                        <div class="skill-creator-desc">
+                            <h3>Yapay Zeka Beceri Dosyası (SKILL.md)</h3>
+                            <p>Kodlama ajanının başlangıçta okuyup projenin tüm kurallarını tek bir seferde ezberlemesini sağlayacak beceri kılavuzu. Projenizin ana dizinine <code>SKILL.md</code> olarak kaydedin.</p>
+                        </div>
+                        
+                        <!-- Modular Skill Sections Customizer -->
+                        <div class="skill-customizer" style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.2rem; background: rgba(255,255,255,0.01); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                            <label class="priority-checkbox active" style="margin-bottom:0;">
+                                <input type="checkbox" id="skill-sec-ui" checked>
+                                <div class="checkbox-custom" style="padding: 0.4rem 0.8rem; font-size: 0.78rem; border-radius: 6px;">
+                                    <i data-lucide="palette" style="width:12px; height:12px;"></i>
+                                    <span>Tasarım Kuralları</span>
+                                </div>
+                            </label>
+                            <label class="priority-checkbox active" style="margin-bottom:0;">
+                                <input type="checkbox" id="skill-sec-security" checked>
+                                <div class="checkbox-custom" style="padding: 0.4rem 0.8rem; font-size: 0.78rem; border-radius: 6px;">
+                                    <i data-lucide="shield-check" style="width:12px; height:12px;"></i>
+                                    <span>Güvenlik Yönergeleri</span>
+                                </div>
+                            </label>
+                            <label class="priority-checkbox active" style="margin-bottom:0;">
+                                <input type="checkbox" id="skill-sec-testing" checked>
+                                <div class="checkbox-custom" style="padding: 0.4rem 0.8rem; font-size: 0.78rem; border-radius: 6px;">
+                                    <i data-lucide="check-square" style="width:12px; height:12px;"></i>
+                                    <span>Test &amp; QA</span>
+                                </div>
+                            </label>
+                            <label class="priority-checkbox active" style="margin-bottom:0;">
+                                <input type="checkbox" id="skill-sec-logging" checked>
+                                <div class="checkbox-custom" style="padding: 0.4rem 0.8rem; font-size: 0.78rem; border-radius: 6px;">
+                                    <i data-lucide="file-text" style="width:12px; height:12px;"></i>
+                                    <span>Hata Yönetimi</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="code-editor-container">
+                            <div class="editor-header">
+                                <span class="filename">SKILL.md</span>
+                                <button class="btn btn-secondary btn-small btn-icon-only" id="btn-copy-skill" title="Kopyala">
+                                    <i data-lucide="copy"></i>
+                                </button>
+                            </div>
+                            <pre><code id="skill-content-code" class="language-markdown"></code></pre>
+                        </div>
+                        <div class="download-actions">
+                            <button class="btn btn-primary" id="btn-download-skill">
+                                <i data-lucide="download"></i>
+                                <span>SKILL.md Dosyasını İndir</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Editor Rules (.cursorrules / .windsurfrules) & Subagents -->
+                    <div class="tab-panel" id="panel-cursor">
+                        <div class="skill-creator-desc">
+                            <h3>Editör Kuralları &amp; Ajan Yapılandırıcı</h3>
+                            <p>Seçtiğiniz yapay zeka kodlama editörüne göre otomatik yüklenen kural dosyaları ve özel alt ajanlar için sistem promptları.</p>
+                        </div>
+                        <!-- Editor Selector Subtabs -->
+                        <div class="editor-rules-selector" style="display: flex; gap: 0.8rem; margin-bottom: 1.2rem;">
+                            <button class="rules-btn active" data-editor="cursor">
+                                <i data-lucide="mouse-pointer-click"></i>
+                                <span>Cursor (.cursorrules)</span>
+                            </button>
+                            <button class="rules-btn" data-editor="windsurf">
+                                <i data-lucide="waves"></i>
+                                <span>Windsurf (.windsurfrules)</span>
+                            </button>
+                            <button class="rules-btn" data-editor="copilot">
+                                <i data-lucide="sparkles"></i>
+                                <span>Copilot (instructions.md)</span>
+                            </button>
+                        </div>
+                        <div class="code-editor-container" style="margin-bottom: 1.5rem;">
+                            <div class="editor-header">
+                                <span class="filename" id="cursor-filename">.cursorrules</span>
+                                <button class="btn btn-secondary btn-small btn-icon-only" id="btn-copy-cursor" title="Kopyala">
+                                    <i data-lucide="copy"></i>
+                                </button>
+                            </div>
+                            <pre><code id="cursor-content-code" class="language-markdown"></code></pre>
+                        </div>
+                        <div class="download-actions" style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; justify-content: flex-end; display: flex;">
+                            <button class="btn btn-primary" id="btn-download-cursor">
+                                <i data-lucide="download"></i>
+                                <span id="btn-download-cursor-text">.cursorrules Dosyasını İndir</span>
+                            </button>
+                        </div>
+
+                        <!-- Subagents Integrated Here -->
+                        <div class="skill-creator-desc" style="margin-top: 1.5rem;">
+                            <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.2rem; color: var(--accent);">Uzman Alt Ajan Sistem Promptları</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">Projenin farklı katmanlarında görevlendireceğiniz uzman alt ajanlar için sistem prompt yönergeleri.</p>
+                        </div>
+                        <div class="subagents-workspace" style="display: flex; gap: 1.5rem; align-items: flex-start; margin-top: 1rem;">
+                            <!-- Left selector tabs for subagents (Dynamic container) -->
+                            <div class="subagent-selector" id="subagent-selector-container" style="display: flex; flex-direction: column; gap: 0.8rem; min-width: 200px; flex-shrink: 0;">
+                                <!-- Rendered dynamically by JS -->
+                            </div>
+                            <!-- Right display box -->
+                            <div class="code-editor-container" style="flex-grow: 1; margin-bottom:0;">
+                                <div class="editor-header">
+                                    <span class="filename" id="subagent-filename">ui_agent_system_prompt.txt</span>
+                                    <button class="btn btn-secondary btn-small btn-icon-only" id="btn-copy-subagent" title="Kopyala">
+                                        <i data-lucide="copy"></i>
+                                    </button>
+                                </div>
+                                <pre><code id="subagent-content-code" class="language-markdown"></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Unified Proje Belgeleri (docs/) -->
+                    <div class="tab-panel" id="panel-docs">
+                        <div class="skill-creator-desc">
+                            <h3>Evrensel Proje Belgeleri (docs/)</h3>
+                            <p>Planlama motorunun projeniz için kurguladığı temel teknik belgeler. Klasör yapısında <code>docs/</code> klasörü içine kaydedilirler.</p>
+                        </div>
+                        <div class="editor-rules-selector" id="project-docs-selector" style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.2rem;">
+                            <button class="rules-btn active" data-doc="brief">
+                                <i data-lucide="file-text"></i>
+                                <span>PROJECT_BRIEF.md</span>
+                            </button>
+                            <button class="rules-btn" data-doc="requirements">
+                                <i data-lucide="clipboard-list"></i>
+                                <span>REQUIREMENTS.md</span>
+                            </button>
+                            <button class="rules-btn" data-doc="architecture">
+                                <i data-lucide="layout"></i>
+                                <span>ARCHITECTURE.md</span>
+                            </button>
+                            <button class="rules-btn" data-doc="tech_stack">
+                                <i data-lucide="cpu"></i>
+                                <span>TECH_STACK.md</span>
+                            </button>
+                            <button class="rules-btn" data-doc="risks">
+                                <i data-lucide="shield-alert"></i>
+                                <span>RISKS.md</span>
+                            </button>
+                            <button class="rules-btn" data-doc="state_md">
+                                <i data-lucide="brain"></i>
+                                <span>state.md</span>
+                            </button>
+                        </div>
+                        <div class="code-editor-container">
+                            <div class="editor-header">
+                                <span class="filename" id="doc-filename">PROJECT_BRIEF.md</span>
+                                <button class="btn btn-secondary btn-small btn-icon-only" id="btn-copy-doc" title="Kopyala">
+                                    <i data-lucide="copy"></i>
+                                </button>
+                            </div>
+                            <pre><code id="doc-content-code" class="language-markdown"></code></pre>
+                        </div>
+                        <div class="download-actions" style="display: flex; justify-content: flex-end;">
+                            <button class="btn btn-primary" id="btn-download-doc">
+                                <i data-lucide="download"></i>
+                                <span id="btn-download-doc-text">Belgeyi İndir</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Interactive File Tree (Klasör Yapısı) -->
+                    <div class="tab-panel" id="panel-files">
+                        <div class="skill-creator-desc">
+                            <h3>Etkileşimli Klasör Yapısı &amp; Bileşen Tasarımcısı</h3>
+                            <p>Mimarın projeniz için kurguladığı dosya hiyerarşisi. Dosya ekleyebilir, silebilir ve isimlerini değiştirebilirsiniz. Değişiklikler anlık olarak adım promptlarındaki <code>[DOSYA BAĞLAM HARİTASI]</code> alanlarına enjekte edilir.</p>
+                        </div>
+                        <div class="file-tree-actions" style="margin-bottom: 1.2rem; display: flex; gap: 0.8rem;">
+                            <button class="btn btn-secondary btn-small" id="btn-add-file-tree">
+                                <i data-lucide="file-plus"></i>
+                                <span>Dosya Ekle</span>
+                            </button>
+                            <button class="btn btn-secondary btn-small" id="btn-add-folder-tree">
+                                <i data-lucide="folder-plus"></i>
+                                <span>Klasör Ekle</span>
+                            </button>
+                        </div>
+                        <div class="code-editor-container" style="padding: 1.2rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); max-height: 420px; overflow-y: auto;">
+                            <div id="file-tree-interactive-container">
+                                <!-- Rendered dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 6: Proje Hafızası & Kararlar -->
+                    <div class="tab-panel" id="panel-memory">
+                        <div class="skill-creator-desc">
+                            <h3>Sistem Kararları &amp; Proje Hafızası</h3>
+                            <p>Proje planı kurgulanırken yapay zeka ve kullanıcı tarafından kaydedilen kararlar, kabul edilen varsayımlar ve açık kalan sorular.</p>
+                        </div>
+                        <div class="memory-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem;">
+                            <!-- Decisions card list -->
+                            <div class="memory-card-section">
+                                <h4 style="font-size:0.9rem; color:var(--accent); text-transform:uppercase; margin-bottom:0.8rem; display:flex; align-items:center; gap:0.4rem;">
+                                    <i data-lucide="check-circle-2" style="width:16px;height:16px;"></i>
+                                    <span>Onaylanan Kararlar (Decisions)</span>
+                                </h4>
+                                <div id="memory-decisions-list" style="display:flex; flex-direction:column; gap:0.6rem; max-height: 400px; overflow-y:auto; padding-right:0.4rem;">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+                            <!-- Assumptions & Risks card list -->
+                            <div class="memory-card-section">
+                                <h4 style="font-size:0.9rem; color:var(--secondary); text-transform:uppercase; margin-bottom:0.8rem; display:flex; align-items:center; gap:0.4rem;">
+                                    <i data-lucide="help-circle" style="width:16px;height:16px;"></i>
+                                    <span>Varsayımlar, Riskler &amp; Sorular</span>
+                                </h4>
+                                <div id="memory-assumptions-list" style="display:flex; flex-direction:column; gap:0.6rem; max-height: 400px; overflow-y:auto; padding-right:0.4rem;">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 7: Kalite, Sağlık Skoru & Hata Giderici -->
+                    <div class="tab-panel" id="panel-reviewer">
+                        <div class="skill-creator-desc">
+                            <h3>Kalite Kontrol, Proje Sağlık Skoru &amp; Hata Giderici</h3>
+                            <p>Yazılım mimarı ve QA test sorumlusu tarafından yapılan kalite denetimleri ve entegre hata giderici araçlar.</p>
+                        </div>
+                        
+                        <div class="reviewer-overview-section" style="display: flex; gap: 2rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: var(--radius-md); margin-bottom: 2rem; align-items: center;">
+                            <!-- Health score circle representation -->
+                            <div class="health-score-gauge-container" style="position: relative; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 50%; border: 4px solid var(--border-color); flex-shrink: 0;">
+                                <div class="health-score-value" id="health-score-percentage" style="font-size: 1.8rem; font-weight: 800; color: var(--success);">85</div>
+                                <div style="position: absolute; bottom: 10px; font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted);">Sağlık</div>
+                            </div>
+                            <div class="health-score-details" style="flex-grow: 1;">
+                                <h4 style="font-size: 1rem; font-weight: 700; color: white; margin-bottom: 0.4rem;">Proje Sağlık Analizi</h4>
+                                <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">Projenin gereksinim netliği, MVP odaklılığı ve güvenlik/performans standartlarına uyumu mimar reviewer tarafından taranmıştır. Sağdaki bulguları okuyarak planınızı optimize edebilirsiniz.</p>
+                            </div>
+                        </div>
+
+                        <!-- Reviewer Findings -->
+                        <div class="skill-creator-desc" style="margin-top: 1.5rem;">
+                            <h4 style="font-size: 0.9rem; text-transform: uppercase; color: var(--accent); margin-bottom: 0.6rem;">Reviewer Denetim Bulguları</h4>
+                            <div id="reviewer-findings-container" style="display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 2.5rem;">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Integrated Debugger -->
+                        <div class="debugger-collapsible-section" style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+                            <div class="skill-creator-desc">
+                                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.2rem; color: #f59e0b;">İnteraktif Hata Giderici &amp; Geri Besleme</h4>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Ajanınız kod yazarken hata verirse logları girin. Çözüm promptunu anlık kurallara (.cursorrules) geri besleyebilirsiniz.</p>
+                            </div>
+                            <div class="debugger-inputs">
+                                <div class="form-group">
+                                    <label for="debugger-error" class="form-label">Hata Logu / Stack Trace</label>
+                                    <textarea id="debugger-error" placeholder="Örn: TypeError: Cannot read properties of undefined (reading 'map')..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="debugger-code" class="form-label">Hatalı Kod Parçası (İsteğe Bağlı)</label>
+                                    <textarea id="debugger-code" placeholder="Örn: const list = data.users.map(u => u.name);"></textarea>
+                                </div>
+                                <button class="btn btn-primary btn-glow" id="btn-solve-debug">
+                                    <i data-lucide="bug"></i>
+                                    <span>Hata Çözüm Promptu Üret</span>
+                                </button>
+                            </div>
+                            <!-- Debug Solution Display -->
+                            <div id="debugger-solution-section" class="hidden" style="margin-top: 1.5rem;">
+                                <div class="info-alert warning-gradient" style="margin-bottom: 1rem;">
+                                    <div class="alert-icon"><i data-lucide="alert-triangle"></i></div>
+                                    <div class="alert-body">
+                                        <h4>Hata Analizi</h4>
+                                        <p id="debugger-explanation">Hata nedeni bu alanda listelenecektir.</p>
+                                    </div>
+                                </div>
+                                <div class="code-editor-container">
+                                    <div class="editor-header">
+                                        <span class="filename">hotfix_prompt.txt</span>
+                                        <div class="debugger-actions" style="display: flex; gap: 0.6rem;">
+                                            <button class="btn btn-secondary btn-small" id="btn-feed-debug" style="gap: 0.4rem; padding: 0.4rem 0.6rem;">
+                                                <i data-lucide="merge" style="width:14px; height:14px; margin-right:0;"></i>
+                                                <span>Çözümü Kurallara Entegre Et</span>
+                                            </button>
+                                            <button class="btn btn-secondary btn-small btn-icon-only" id="btn-copy-debug-solution" title="Kopyala">
+                                                <i data-lucide="copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <pre><code id="debugger-solution-code" class="language-markdown"></code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 8: Mevcut Proje Analizörü (Simulation) -->
+                    <div class="tab-panel" id="panel-analyser">
+                        <div class="skill-creator-desc">
+                            <h3>Mevcut Proje Analizörü &amp; Kod Denetimi</h3>
+                            <p>Var olan projenizin klasör yapısını, <code>package.json</code>, <code>README.md</code> veya bağımlılık dosyalarını buraya yükleyip yapay zeka mimarına taratın.</p>
+                        </div>
+                        <div class="analyser-inputs" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div class="form-group">
+                                <label for="analyser-input-meta" class="form-label">Proje Yapısı veya Bağımlılık Dosyaları (JSON, package.json, veya Klasör Listesi)</label>
+                                <textarea id="analyser-input-meta" style="height: 180px; font-family:var(--font-mono); font-size:0.8rem;" placeholder="Örn:&#10;{&#10;  &quot;dependencies&quot;: {&#10;    &quot;react&quot;: &quot;^18.2.0&quot;,&#10;    &quot;next&quot;: &quot;^13.4.0&quot;&#10;  }&#10;}"></textarea>
+                            </div>
+                            <button class="btn btn-primary" id="btn-run-analyser" style="align-self: flex-start;">
+                                <i data-lucide="search-code"></i>
+                                <span>Mevcut Projeyi Analiz Et</span>
+                            </button>
+                        </div>
+
+                        <!-- Analyser Output Solution -->
+                        <div id="analyser-output-section" class="hidden" style="margin-top: 1.5rem;">
+                            <div class="info-alert info-gradient" style="margin-bottom: 1rem;">
+                                <div class="alert-icon"><i data-lucide="check-circle-2"></i></div>
+                                <div class="alert-body">
+                                    <h4>Algılanan Teknolojiler &amp; Açıklar</h4>
+                                    <p id="analyser-detection-text">Yüklenen verideki kütüphaneler ve mimari model bu alanda çözümlenecektir.</p>
+                                </div>
+                            </div>
+                            <div class="code-editor-container">
+                                <div class="editor-header">
+                                    <span class="filename">mevcut_proje_analiz_raporu.md</span>
+                                    <button class="btn btn-secondary btn-small btn-icon-only" id="btn-copy-analyser" title="Kopyala">
+                                        <i data-lucide="copy"></i>
+                                    </button>
+                                </div>
+                                <pre><code id="analyser-solution-code" class="language-markdown"></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 8: Interactive File Tree (Klasör Yapısı) -->
+                    <div class="tab-panel" id="panel-files">
+                        <div class="skill-creator-desc">
+                            <h3>Etkileşimli Klasör Yapısı &amp; Bileşen Tasarımcısı</h3>
+                            <p>Mimarın projeniz için kurguladığı dosya hiyerarşisi. Dosya ekleyebilir, silebilir ve isimlerini değiştirebilirsiniz. Değişiklikler anlık olarak adım promptlarındaki <code>[DOSYA BAĞLAM HARİTASI]</code> alanlarına enjekte edilir.</p>
+                        </div>
+                        <div class="file-tree-actions" style="margin-bottom: 1.2rem; display: flex; gap: 0.8rem;">
+                            <button class="btn btn-secondary btn-small" id="btn-add-file-tree">
+                                <i data-lucide="file-plus"></i>
+                                <span>Dosya Ekle</span>
+                            </button>
+                            <button class="btn btn-secondary btn-small" id="btn-add-folder-tree">
+                                <i data-lucide="folder-plus"></i>
+                                <span>Klasör Ekle</span>
+                            </button>
+                        </div>
+                        <div class="code-editor-container" style="padding: 1.2rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); max-height: 420px; overflow-y: auto;">
+                            <div id="file-tree-interactive-container">
+                                <!-- Rendered dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Settings Modal -->
+    <div class="modal-backdrop hidden" id="modal-settings">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i data-lucide="key-round"></i>
+                    <h3>Gemini API Yapılandırması</h3>
+                </div>
+                <button class="btn-close" id="btn-close-settings">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Fikirlerinizin yapay zeka tarafından gerçek zamanlı analiz edilmesi, dinamik mimari ve adım adım prompt zinciri üretilmesi için <strong>Gemini API Anahtarı</strong> gereklidir.</p>
+                
+                <div class="form-group">
+                    <label for="api-key-input" class="form-label">Gemini API Key</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="api-key-input" placeholder="AIzaSy...">
+                        <button class="btn-toggle-password" id="btn-toggle-password" title="Göster/Gizle">
+                            <i data-lucide="eye"></i>
+                        </button>
+                    </div>
+                    <div class="form-help">
+                        API anahtarınız tarayıcınızın <code>localStorage</code> belleğinde saklanır, asla bir sunucuya gönderilmez. <br>
+                        API anahtarınız yoksa <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Google AI Studio</a> üzerinden ücretsiz alabilirsiniz.
+                    </div>
+                </div>
+
+                <div class="info-alert warning-gradient">
+                    <div class="alert-icon"><i data-lucide="alert-circle"></i></div>
+                    <div class="alert-body">
+                        <h4>API Anahtarı Olmadan Çalışma</h4>
+                        <p>Eğer bir API anahtarınız yoksa, sistem gelişmiş <strong>Çevrimdışı Akıllı Şablon Motorunu</strong> kullanarak yine de son derece yüksek kaliteli ve optimize edilmiş prompt dizilimleri üretecektir.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-settings">Vazgeç</button>
+                <button class="btn btn-primary" id="btn-save-settings">Kaydet ve Uygula</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast hidden" id="toast">
+        <i data-lucide="check-circle" class="toast-icon"></i>
+        <span class="toast-message">Kopyalandı!</span>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
