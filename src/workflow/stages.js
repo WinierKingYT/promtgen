@@ -1,0 +1,31 @@
+export const WORKFLOW_STAGES = {
+    IDEA_CAPTURED: 'IDEA_CAPTURED',
+    PROFILE_DRAFTED: 'PROFILE_DRAFTED',
+    DISCOVERY_IN_PROGRESS: 'DISCOVERY_IN_PROGRESS',
+    MVP_DEFINED: 'MVP_DEFINED',
+    REQUIREMENTS_DRAFTED: 'REQUIREMENTS_DRAFTED',
+    TECH_OPTIONS_READY: 'TECH_OPTIONS_READY',
+    TECH_STACK_SELECTED: 'TECH_STACK_SELECTED',
+    ARCHITECTURE_DRAFTED: 'ARCHITECTURE_DRAFTED',
+    TASKS_DRAFTED: 'TASKS_DRAFTED',
+    AGENT_PACKAGE_DRAFTED: 'AGENT_PACKAGE_DRAFTED',
+    REVIEW_IN_PROGRESS: 'REVIEW_IN_PROGRESS',
+    READY_FOR_EXPORT: 'READY_FOR_EXPORT',
+    EXPORTED: 'EXPORTED'
+};
+
+export const WORKFLOW_STAGE_METADATA = {
+    [WORKFLOW_STAGES.IDEA_CAPTURED]: { label: 'Fikir Girişi', index: 0 },
+    [WORKFLOW_STAGES.PROFILE_DRAFTED]: { label: 'Profil Taslağı', index: 1 },
+    [WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS]: { label: 'Keşif ve Sorular', index: 2 },
+    [WORKFLOW_STAGES.MVP_DEFINED]: { label: 'MVP Kapsamı', index: 3 },
+    [WORKFLOW_STAGES.REQUIREMENTS_DRAFTED]: { label: 'Gereksinim Belgesi', index: 4 },
+    [WORKFLOW_STAGES.TECH_OPTIONS_READY]: { label: 'Teknoloji Seçenekleri', index: 5 },
+    [WORKFLOW_STAGES.TECH_STACK_SELECTED]: { label: 'Teknoloji Seçimi', index: 6 },
+    [WORKFLOW_STAGES.ARCHITECTURE_DRAFTED]: { label: 'Mimari Tasarım', index: 7 },
+    [WORKFLOW_STAGES.TASKS_DRAFTED]: { label: 'Görev Planı', index: 8 },
+    [WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED]: { label: 'Ajan Paketleme', index: 9 },
+    [WORKFLOW_STAGES.REVIEW_IN_PROGRESS]: { label: 'Kalite Gözden Geçirme', index: 10 },
+    [WORKFLOW_STAGES.READY_FOR_EXPORT]: { label: 'Hazır', index: 11 },
+    [WORKFLOW_STAGES.EXPORTED]: { label: 'İndirildi', index: 12 }
+};

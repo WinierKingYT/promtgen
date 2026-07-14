@@ -1,13 +1,9 @@
 {
-  "name": "promtgen-monorepo",
-  "private": true,
-  "version": "2.0.0",
+  "name": "ai-architect",
+  "version": "1.0.0",
   "type": "module",
-  "description": "PromtGen V2 Modular Proje Planlama Motoru",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "description": "Yapay Zeka Yazılım Mimarı & Prompt Otomasyonu",
+  "main": "index.html",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
