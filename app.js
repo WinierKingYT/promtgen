@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from 'https://esm.run/@google/generative-ai';
 
 // --- APPLICATION STATE & DEFAULTS ---
 const DEFAULTS = {
-    apiKey: 'AQ.Ab8RN6LJwH2cRKBjhnkYkgsUHM85Fdy8Po83pj_HWxFLQAo87w',
+    apiKey: '',
     projectType: 'web',
     priorities: {
         ui: true,
@@ -17,7 +17,7 @@ const DEFAULTS = {
 };
 
 let state = {
-    apiKey: localStorage.getItem('ai_arch_api_key') || DEFAULTS.apiKey,
+    apiKey: localStorage.getItem('ai_arch_api_key') || '',
     projectType: DEFAULTS.projectType,
     priorities: { ...DEFAULTS.priorities },
     techStack: DEFAULTS.techStack,
@@ -38,6 +38,29 @@ let state = {
     // History stack for Undo
     historyStack: [] // Array of { messages: [], currentData: {} }
 };
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+class LLMProvider {
+    static async generateContent(promptText, apiKey, isJson = false) {
+        if (!apiKey) throw new Error("API Key is required.");
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-1.5-flash",
+            generationConfig: isJson ? { responseMimeType: "application/json" } : {}
+        });
+        const result = await model.generateContent(promptText);
+        return result.response.text();
+    }
+}
 
 // --- DOM ELEMENTS ---
 const elements = {
@@ -498,8 +521,8 @@ function loadSavedProjectsList() {
         card.className = 'project-history-card';
         card.innerHTML = `
             <div class="project-history-info">
-                <h4>${proj.title}</h4>
-                <span>${proj.date} | ${proj.projectType.toUpperCase()}</span>
+                <h4>${escapeHTML(proj.title)}</h4>
+                <span>${escapeHTML(proj.date)} | ${escapeHTML(proj.projectType.toUpperCase())}</span>
             </div>
             <button class="btn-delete-project" data-id="${proj.id}" title="Sil">
                 <i data-lucide="trash-2" style="width:14px; height:14px; margin-right:0;"></i>
@@ -521,7 +544,13 @@ function loadSavedProjectsList() {
 function saveCurrentProjectState() {
     if (!state.chatStarted) return;
     
-    const projects = JSON.parse(localStorage.getItem('ai_arch_saved_projects')) || [];
+    let projects = [];
+    try {
+        projects = JSON.parse(localStorage.getItem('ai_arch_saved_projects')) || [];
+    } catch (e) {
+        console.error("Failed to parse projects list, resetting.", e);
+        projects = [];
+    }
     
     if (!state.projectId) {
         state.projectId = Date.now().toString();
@@ -529,6 +558,23 @@ function saveCurrentProjectState() {
 
     const title = state.draftDescription.substring(0, 35) + (state.draftDescription.length > 35 ? '...' : '');
     const dateStr = new Date().toLocaleDateString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+    // Track revisions (HIGH-003)
+    let oldProject = projects.find(p => p.id === state.projectId) || {};
+    let revisions = Array.isArray(oldProject.revisions) ? oldProject.revisions : [];
+    
+    if (state.currentData) {
+        revisions.push({
+            timestamp: Date.now(),
+            date: dateStr,
+            workflowStage: state.currentData.workflowStage || 'SCOPE_DRAFTED',
+            healthScore: state.currentData.healthScore || 85,
+            techStack: state.techStack
+        });
+        if (revisions.length > 15) {
+            revisions.shift();
+        }
+    }
 
     const projectObj = {
         id: state.projectId,
@@ -541,7 +587,8 @@ function saveCurrentProjectState() {
         draftDescription: state.draftDescription,
         messages: state.messages,
         currentData: state.currentData,
-        date: dateStr
+        date: dateStr,
+        revisions: revisions
     };
 
     const index = projects.findIndex(p => p.id === state.projectId);
@@ -551,23 +598,34 @@ function saveCurrentProjectState() {
         projects.unshift(projectObj);
     }
 
-    localStorage.setItem('ai_arch_saved_projects', JSON.stringify(projects));
+    try {
+        localStorage.setItem('ai_arch_saved_projects', JSON.stringify(projects));
+    } catch (e) {
+        console.error("localStorage capacity exceeded!", e);
+        showToast("Hafıza doldu! Eski projeleri silerek alan açın.", true);
+    }
 }
 
 function loadProjectSession(id) {
-    const projects = JSON.parse(localStorage.getItem('ai_arch_saved_projects')) || [];
+    let projects = [];
+    try {
+        projects = JSON.parse(localStorage.getItem('ai_arch_saved_projects')) || [];
+    } catch (e) {
+        console.error("Failed to parse projects list on load", e);
+        return;
+    }
     const proj = projects.find(p => p.id === id);
     if (!proj) return;
 
     state.projectId = proj.id;
     state.projectType = proj.projectType;
-    state.priorities = proj.priorities;
+    state.priorities = proj.priorities || { ...DEFAULTS.priorities };
     state.techStack = proj.techStack || DEFAULTS.techStack;
     state.techVersion = proj.techVersion || DEFAULTS.techVersion;
     state.stepDepth = proj.stepDepth || DEFAULTS.stepDepth;
     state.draftDescription = proj.draftDescription;
-    state.messages = proj.messages;
-    state.currentData = proj.currentData;
+    state.messages = Array.isArray(proj.messages) ? proj.messages : [];
+    state.currentData = proj.currentData ? validateProjectData(proj.currentData) : null;
     state.chatStarted = true;
     
     state.historyStack = [{
@@ -583,8 +641,13 @@ function loadProjectSession(id) {
     elements.projectDescription.value = state.draftDescription;
 
     elements.depthBtns.forEach(btn => {
-        const depthVal = parseInt(btn.getAttribute('data-depth'));
-        btn.classList.toggle('active', depthVal === state.stepDepth);
+        const depthAttr = btn.getAttribute('data-depth');
+        let matches = false;
+        if (depthAttr === 'quick' && state.stepDepth === 3) matches = true;
+        else if (depthAttr === 'standard' && state.stepDepth === 5) matches = true;
+        else if (depthAttr === 'advanced' && state.stepDepth === 8) matches = true;
+        else if (depthAttr === 'enterprise' && state.stepDepth === 12) matches = true;
+        btn.classList.toggle('active', matches);
     });
 
     toggleViews();
@@ -601,9 +664,18 @@ function loadProjectSession(id) {
 }
 
 function deleteProjectSession(id) {
-    let projects = JSON.parse(localStorage.getItem('ai_arch_saved_projects')) || [];
+    let projects = [];
+    try {
+        projects = JSON.parse(localStorage.getItem('ai_arch_saved_projects')) || [];
+    } catch (e) {
+        console.error("Failed to parse projects list on delete", e);
+    }
     projects = projects.filter(p => p.id !== id);
-    localStorage.setItem('ai_arch_saved_projects', JSON.stringify(projects));
+    try {
+        localStorage.setItem('ai_arch_saved_projects', JSON.stringify(projects));
+    } catch (e) {
+        console.error(e);
+    }
     
     if (state.projectId === id) {
         resetChatSession();
@@ -639,14 +711,60 @@ function updateUndoButtonVisibility() {
     }
 }
 
+function scanForSecrets(content) {
+    const secretRegexes = [
+        /(key|password|secret|private_key|token|auth_token|passwd|credential|api_key)\s*[:=]\s*['"[a-zA-Z0-9_\-\.]{12,}/i,
+        /-----BEGIN[ A-Z0-9_-]+PRIVATE KEY-----/i,
+        /AIzaSy[A-Za-z0-9_\-]{33}/
+    ];
+    for (const regex of secretRegexes) {
+        if (regex.test(content)) return true;
+    }
+    return false;
+}
+
 // --- CHAT FILE UPLOAD HANDLE ---
 function handleChatFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
+    // 1. File size check (Max 1MB)
+    const MAX_SIZE = 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+        showToast('Dosya boyutu çok büyük! En fazla 1MB büyüklüğünde dosyalar yüklenebilir.', true);
+        e.target.value = '';
+        return;
+    }
+
+    // 2. Extension check
+    const allowedExtensions = ['json', 'txt', 'js', 'ts', 'md', 'cs', 'xml', 'html', 'css', 'yml', 'yaml', 'py', 'java', 'go', 'sh', 'bat', 'cpp', 'h'];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!allowedExtensions.includes(ext)) {
+        showToast('Yalnızca kod ve metin tabanlı belgelere izin verilir!', true);
+        e.target.value = '';
+        return;
+    }
+
+    // 3. User Cloud Ingestion Confirmation
+    const cloudConfirm = confirm(`"${file.name}" dosyasını çözümlemek için Gemini bulut servisine göndermek istiyor musunuz?\n\nHassas verilerinizin güvenliği için dosyanın şifre veya gizli anahtar içermediğinden emin olun.`);
+    if (!cloudConfirm) {
+        e.target.value = '';
+        return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (event) => {
         const fileContent = event.target.result;
+
+        // 4. Secret scan check
+        if (scanForSecrets(fileContent)) {
+            const bypass = confirm("UYARI: Yüklediğiniz dosyada API anahtarı, şifre veya gizli anahtar (secret) benzeri hassas bir veri tespit edildi!\n\nGüvenliğiniz için bu işlemi iptal etmeniz önerilir. Yine de devam etmek istiyor musunuz?");
+            if (!bypass) {
+                e.target.value = '';
+                return;
+            }
+        }
+
         const fileSizeStr = (file.size / 1024).toFixed(1) + ' KB';
 
         state.messages.push({
@@ -721,6 +839,25 @@ async function handleStartChat() {
     }
     
     state.draftDescription = draft;
+    
+    // Dynamically detect project domain profile (HIGH-001)
+    let detectedType = 'universal';
+    const draftLower = draft.toLowerCase();
+    if (draftLower.includes('game') || draftLower.includes('oyun') || draftLower.includes('unity') || draftLower.includes('unreal') || draftLower.includes('godot') || draftLower.includes('physics') || draftLower.includes('o-oyun')) {
+        detectedType = 'game';
+    } else if (draftLower.includes('mobil') || draftLower.includes('mobile') || draftLower.includes('ios') || draftLower.includes('android') || draftLower.includes('flutter') || draftLower.includes('react native') || draftLower.includes('swift') || draftLower.includes('kotlin')) {
+        detectedType = 'mobile';
+    } else if (draftLower.includes('script') || draftLower.includes('otomasyon') || draftLower.includes('cli') || draftLower.includes('scrap') || draftLower.includes('tool') || draftLower.includes('terminal')) {
+        detectedType = 'script';
+    } else if (draftLower.includes('api') || draftLower.includes('backend') || draftLower.includes('server') || draftLower.includes('db') || draftLower.includes('veritabanı') || draftLower.includes('sql') || draftLower.includes('docker')) {
+        detectedType = 'backend';
+    } else if (draftLower.includes('ai') || draftLower.includes('yapay zeka') || draftLower.includes('rag') || draftLower.includes('llm') || draftLower.includes('gpt') || draftLower.includes('model') || draftLower.includes('gemini') || draftLower.includes('claude')) {
+        detectedType = 'ai';
+    } else if (draftLower.includes('website') || draftLower.includes('web') || draftLower.includes('tanıtım') || draftLower.includes('react') || draftLower.includes('html') || draftLower.includes('css')) {
+        detectedType = 'web';
+    }
+    state.projectType = detectedType;
+
     state.techStack = elements.techStackInput.value.trim() || DEFAULTS.techStack;
     state.techVersion = elements.techVersionSelect.value || DEFAULTS.techVersion;
     state.chatStarted = true;
@@ -833,14 +970,112 @@ async function handleSendChatMessage() {
     }
 }
 
+function validateProjectData(parsed) {
+    const valid = {};
+    if (!parsed || typeof parsed !== 'object') parsed = {};
+    
+    // Normalize prompts
+    valid.prompts = Array.isArray(parsed.prompts) ? parsed.prompts.map(p => ({
+        title: typeof p.title === 'string' ? p.title : 'Başlıksız Adım',
+        description: typeof p.description === 'string' ? p.description : '',
+        recommendedModel: typeof p.recommendedModel === 'string' ? p.recommendedModel : 'Claude 3.5 Sonnet',
+        content: typeof p.content === 'string' ? p.content : '',
+        developerNotes: typeof p.developerNotes === 'string' ? p.developerNotes : '',
+        injectNotes: p.injectNotes !== false,
+        subSteps: Array.isArray(p.subSteps) ? p.subSteps.map(s => ({
+            title: typeof s.title === 'string' ? s.title : 'Alt Başlık',
+            content: typeof s.content === 'string' ? s.content : ''
+        })) : []
+    })) : [];
+
+    // Normalize docs
+    const d = parsed.docs || {};
+    valid.docs = {
+        brief: typeof d.brief === 'string' ? d.brief : '',
+        requirements: typeof d.requirements === 'string' ? d.requirements : '',
+        architecture: typeof d.architecture === 'string' ? d.architecture : '',
+        tech_stack: typeof d.tech_stack === 'string' ? d.tech_stack : '',
+        risks: typeof d.risks === 'string' ? d.risks : '',
+        state_md: typeof d.state_md === 'string' ? d.state_md : ''
+    };
+
+    // Normalize decisions
+    valid.decisions = Array.isArray(parsed.decisions) ? parsed.decisions.map((dec, i) => ({
+        id: typeof dec.id === 'string' ? dec.id : `DEC-00${i+1}`,
+        title: typeof dec.title === 'string' ? dec.title : 'Karar Başlığı',
+        decision: typeof dec.decision === 'string' ? dec.decision : '',
+        reason: typeof dec.reason === 'string' ? dec.reason : ''
+    })) : [];
+
+    // Normalize assumptions
+    valid.assumptions = Array.isArray(parsed.assumptions) ? parsed.assumptions.map((asm, i) => ({
+        id: typeof asm.id === 'string' ? asm.id : `ASM-00${i+1}`,
+        text: typeof asm.text === 'string' ? asm.text : '',
+        confidence: typeof asm.confidence === 'string' ? asm.confidence : 'medium',
+        status: typeof asm.status === 'string' ? asm.status : 'active'
+    })) : [];
+
+    // Normalize risks
+    valid.risks = Array.isArray(parsed.risks) ? parsed.risks.map((r, i) => ({
+        id: typeof r.id === 'string' ? r.id : `RSK-00${i+1}`,
+        title: typeof r.title === 'string' ? r.title : '',
+        probability: typeof r.probability === 'string' ? r.probability : 'medium',
+        impact: typeof r.impact === 'string' ? r.impact : 'medium',
+        mitigation: typeof r.mitigation === 'string' ? r.mitigation : ''
+    })) : [];
+
+    // Normalize openQuestions
+    valid.openQuestions = Array.isArray(parsed.openQuestions) ? parsed.openQuestions.map((q, i) => ({
+        id: typeof q.id === 'string' ? q.id : `Q-00${i+1}`,
+        question: typeof q.question === 'string' ? q.question : '',
+        importance: typeof q.importance === 'string' ? q.importance : 'medium'
+    })) : [];
+
+    // Normalize findings
+    valid.findings = Array.isArray(parsed.findings) ? parsed.findings.map((f, i) => ({
+        id: typeof f.id === 'string' ? f.id : `FND-00${i+1}`,
+        title: typeof f.title === 'string' ? f.title : 'Bulgu',
+        severity: typeof f.severity === 'string' ? f.severity : 'info',
+        message: typeof f.message === 'string' ? f.message : '',
+        mitigation: typeof f.mitigation === 'string' ? f.mitigation : ''
+    })) : [];
+
+    // Clamped Health Score
+    let score = parseInt(parsed.healthScore);
+    if (isNaN(score)) score = 85;
+    valid.healthScore = Math.max(0, Math.min(100, score));
+
+    // Normalize workflowStage
+    const allowedStages = ['IDEA_CAPTURED', 'DISCOVERY_IN_PROGRESS', 'SCOPE_DRAFTED', 'MVP_DEFINED', 'READY_FOR_EXPORT'];
+    valid.workflowStage = allowedStages.includes(parsed.workflowStage) ? parsed.workflowStage : 'SCOPE_DRAFTED';
+
+    // Normalize subagents
+    valid.subagents = Array.isArray(parsed.subagents) ? parsed.subagents.map(s => ({
+        key: typeof s.key === 'string' ? s.key : 'subagent',
+        role: typeof s.role === 'string' ? s.role : 'Ajan',
+        filename: typeof s.filename === 'string' ? s.filename : 'agent.txt',
+        prompt: typeof s.prompt === 'string' ? s.prompt : ''
+    })) : [];
+
+    // Normalize fileTree
+    valid.fileTree = Array.isArray(parsed.fileTree) ? parsed.fileTree.map(f => ({
+        path: typeof f.path === 'string' ? f.path : 'unknown.txt',
+        type: typeof f.type === 'string' ? f.type : 'file',
+        description: typeof f.description === 'string' ? f.description : ''
+    })) : [];
+
+    valid.mermaidCode = typeof parsed.mermaidCode === 'string' ? parsed.mermaidCode : 'graph TD\n    A[Proje] --> B[Modüller]';
+    valid.skillMarkdown = typeof parsed.skillMarkdown === 'string' ? parsed.skillMarkdown : '';
+    valid.cursorRules = typeof parsed.cursorRules === 'string' ? parsed.cursorRules : '';
+    valid.windsurfRules = typeof parsed.windsurfRules === 'string' ? parsed.windsurfRules : '';
+    valid.copilotRules = typeof parsed.copilotRules === 'string' ? parsed.copilotRules : '';
+    valid.stateMarkdown = typeof parsed.stateMarkdown === 'string' ? parsed.stateMarkdown : '';
+
+    return valid;
+}
+
 // --- CONVERSATIONAL GEMINI API INTEGRATION ---
 async function sendChatMessageToGemini() {
-    const genAI = new GoogleGenerativeAI(state.apiKey);
-    const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        generationConfig: { responseMimeType: "application/json" }
-    });
-
     const activeFocuses = Object.keys(state.priorities).filter(k => state.priorities[k]);
     const focusesText = activeFocuses.map(f => f.toUpperCase()).join(', ');
 
@@ -949,9 +1184,17 @@ ${historyText}
 Tüm çıktıları Türkçe ver.
 `;
 
-    const result = await model.generateContent(promptText);
-    const textResponse = result.response.text();
-    return JSON.parse(textResponse);
+    try {
+        const textResponse = await LLMProvider.generateContent(promptText, state.apiKey, true);
+        const parsed = JSON.parse(textResponse);
+        if (parsed && parsed.projectFiles) {
+            parsed.projectFiles = validateProjectData(parsed.projectFiles);
+        }
+        return parsed;
+    } catch (err) {
+        console.error("Gemini API parsing/validation error:", err);
+        throw err;
+    }
 }
 
 // --- CONVERSATIONAL OFFLINE CHATBOT SIMULATOR ---
@@ -989,7 +1232,7 @@ Dosya içeriğini inceleyerek, oluşturduğum **Geliştirme Adımlarını**, **.
 Sağ paneldeki **Prompt Zinciri**, **SKILL.md**, **Editör Kuralları** ve **Alt Ajan Promptları** güncel konuşmamız doğrultusunda revize edildi. Projede dikkat etmemiz gereken güvenlik veya performans odakları hakkında konuşmaya devam etmek ister misiniz yoksa dosyaları indirmeye hazır mısınız?`;
     }
 
-    const projectFiles = generateOfflineArtifacts(state.draftDescription + ' ' + state.messages.map(m => m.content).join(' '), state.projectType, state.priorities);
+    const projectFiles = validateProjectData(generateOfflineArtifacts(state.draftDescription + ' ' + state.messages.map(m => m.content).join(' '), state.projectType, state.priorities));
 
     return {
         chatResponse,
@@ -1011,8 +1254,8 @@ function renderChatMessages() {
             bubble.innerHTML = `
                 <div class="chat-file-meta">
                     <i data-lucide="file-text"></i>
-                    <span class="filename-text">${msg.fileMeta.name}</span>
-                    <span class="filesize-text">${msg.fileMeta.size}</span>
+                    <span class="filename-text">${escapeHTML(msg.fileMeta.name)}</span>
+                    <span class="filesize-text">${escapeHTML(msg.fileMeta.size)}</span>
                 </div>
             `;
             elements.chatMessagesContainer.appendChild(bubble);
@@ -1071,13 +1314,13 @@ function displayResults(data) {
         const stepEl = document.createElement('div');
         stepEl.className = `pipeline-step ${index === 0 ? 'open' : ''}`;
         
-        const modelBadge = step.recommendedModel ? `<span class="model-recommend-badge"><i data-lucide="sparkles" style="width:10px;height:10px;margin-bottom:0;vertical-align:middle;margin-right:2px;display:inline-block;"></i>${step.recommendedModel}</span>` : '';
+        const modelBadge = step.recommendedModel ? `<span class="model-recommend-badge"><i data-lucide="sparkles" style="width:10px;height:10px;margin-bottom:0;vertical-align:middle;margin-right:2px;display:inline-block;"></i>${escapeHTML(step.recommendedModel)}</span>` : '';
         
         stepEl.innerHTML = `
             <div class="step-header">
                 <div class="step-title-group" style="width:70%;">
                     <span class="step-number">${stepIndex}</span>
-                    <h4>${step.title}</h4>
+                    <h4>${escapeHTML(step.title)}</h4>
                 </div>
                 <div class="step-actions">
                     ${modelBadge}
@@ -1089,9 +1332,9 @@ function displayResults(data) {
                 </div>
             </div>
             <div class="step-body">
-                <div class="step-description">${step.description}</div>
+                <div class="step-description">${escapeHTML(step.description)}</div>
                 <div class="prompt-box">
-                    <pre><code class="prompt-code-text" id="step-code-${index}">${getInjectedPromptContent(index)}</code></pre>
+                    <pre><code class="prompt-code-text" id="step-code-${index}">${escapeHTML(getInjectedPromptContent(index))}</code></pre>
                 </div>
                 
                 <!-- Developer Notepad Box -->
@@ -1103,7 +1346,7 @@ function displayResults(data) {
                             <span>Notu Sonraki Adımlara Ekle</span>
                         </label>
                     </div>
-                    <textarea class="step-notes-textarea" data-index="${index}" placeholder="Bu adımda aldığınız manuel kararları yazın (Örn: Port 8080 yapıldı, tablo ismi user_logs oldu)...">${step.developerNotes || ''}</textarea>
+                    <textarea class="step-notes-textarea" data-index="${index}" placeholder="Bu adımda aldığınız manuel kararları yazın (Örn: Port 8080 yapıldı, tablo ismi user_logs oldu)...">${escapeHTML(step.developerNotes || '')}</textarea>
                 </div>
 
                 <!-- Footer slice buttons -->
@@ -1181,13 +1424,13 @@ function displayResults(data) {
         decCard.style.marginBottom = '0.5rem';
         decCard.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
-                <strong style="color:var(--accent); font-size:0.8rem;">${dec.id}</strong>
-                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">${dec.title}</span>
+                <strong style="color:var(--accent); font-size:0.8rem;">${escapeHTML(dec.id)}</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">${escapeHTML(dec.title)}</span>
             </div>
-            <div style="font-size:0.8rem; color:white; margin-bottom:0.2rem;"><strong>Karar:</strong> ${dec.decision}</div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.4rem;"><strong>Gerekçe:</strong> ${dec.reason}</div>
+            <div style="font-size:0.8rem; color:white; margin-bottom:0.2rem;"><strong>Karar:</strong> ${escapeHTML(dec.decision)}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.4rem;"><strong>Gerekçe:</strong> ${escapeHTML(dec.reason)}</div>
             <div class="decision-actions" style="display:flex; gap:0.4rem;">
-                <button class="btn btn-secondary btn-small btn-dec-impact" data-id="${dec.id}" style="padding:0.1rem 0.3rem; font-size:0.65rem; background:rgba(139,92,246,0.15); color:var(--primary-hover);">Etki Analizini Göster</button>
+                <button class="btn btn-secondary btn-small btn-dec-impact" data-id="${escapeHTML(dec.id)}" style="padding:0.1rem 0.3rem; font-size:0.65rem; background:rgba(139,92,246,0.15); color:var(--primary-hover);">Etki Analizini Göster</button>
             </div>
         `;
         decCard.querySelector('.btn-dec-impact').addEventListener('click', () => {
@@ -1216,10 +1459,10 @@ function displayResults(data) {
         card.style.marginBottom = '0.5rem';
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
-                <strong style="color:var(--secondary); font-size:0.8rem;">${asm.id} (Varsayım)</strong>
-                <span style="font-size:0.7rem; padding:0.1rem 0.3rem; background:rgba(6,182,212,0.15); color:var(--secondary); border-radius:3px;">Güven: ${asm.confidence}</span>
+                <strong style="color:var(--secondary); font-size:0.8rem;">${escapeHTML(asm.id)} (Varsayım)</strong>
+                <span style="font-size:0.7rem; padding:0.1rem 0.3rem; background:rgba(6,182,212,0.15); color:var(--secondary); border-radius:3px;">Güven: ${escapeHTML(asm.confidence)}</span>
             </div>
-            <div style="font-size:0.75rem; color:white;">${asm.text}</div>
+            <div style="font-size:0.75rem; color:white;">${escapeHTML(asm.text)}</div>
         `;
         elements.memoryAssumptionsList.appendChild(card);
     });
@@ -1232,11 +1475,11 @@ function displayResults(data) {
         card.style.borderLeft = '3px solid var(--danger)';
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
-                <strong style="color:var(--danger); font-size:0.8rem;">${r.id} (Risk)</strong>
-                <span style="font-size:0.7rem; color:var(--text-muted);">Etki: ${r.impact}</span>
+                <strong style="color:var(--danger); font-size:0.8rem;">${escapeHTML(r.id)} (Risk)</strong>
+                <span style="font-size:0.7rem; color:var(--text-muted);">Etki: ${escapeHTML(r.impact)}</span>
             </div>
-            <div style="font-size:0.75rem; color:white; margin-bottom:0.2rem;"><strong>Risk:</strong> ${r.title}</div>
-            <div style="font-size:0.7rem; color:var(--text-muted);"><strong>Önlem:</strong> ${r.mitigation}</div>
+            <div style="font-size:0.75rem; color:white; margin-bottom:0.2rem;"><strong>Risk:</strong> ${escapeHTML(r.title)}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted);"><strong>Önlem:</strong> ${escapeHTML(r.mitigation)}</div>
         `;
         elements.memoryAssumptionsList.appendChild(card);
     });
@@ -1249,10 +1492,10 @@ function displayResults(data) {
         card.style.borderLeft = '3px solid var(--warning)';
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
-                <strong style="color:var(--warning); font-size:0.8rem;">${q.id} (Açık Soru)</strong>
-                <span style="font-size:0.7rem; color:var(--text-muted);">Önem: ${q.importance}</span>
+                <strong style="color:var(--warning); font-size:0.8rem;">${escapeHTML(q.id)} (Açık Soru)</strong>
+                <span style="font-size:0.7rem; color:var(--text-muted);">Önem: ${escapeHTML(q.importance)}</span>
             </div>
-            <div style="font-size:0.75rem; color:white;">${q.question}</div>
+            <div style="font-size:0.75rem; color:white;">${escapeHTML(q.question)}</div>
         `;
         elements.memoryAssumptionsList.appendChild(card);
     });
@@ -1288,11 +1531,11 @@ function displayResults(data) {
             <div class="alert-icon"><i data-lucide="${icon}"></i></div>
             <div class="alert-body" style="width: 100%;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.1rem;">
-                    <h4 style="font-size:0.82rem; color:white; margin:0;">${f.title} (${f.id})</h4>
-                    <span style="font-size:0.65rem; padding:0.1rem 0.3rem; border-radius:3px; background:rgba(255,255,255,0.08); color:var(--text-muted);">${f.severity.toUpperCase()}</span>
+                    <h4 style="font-size:0.82rem; color:white; margin:0;">${escapeHTML(f.title)} (${escapeHTML(f.id)})</h4>
+                    <span style="font-size:0.65rem; padding:0.1rem 0.3rem; border-radius:3px; background:rgba(255,255,255,0.08); color:var(--text-muted);">${escapeHTML(f.severity.toUpperCase())}</span>
                 </div>
-                <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.2rem;">${f.message}</p>
-                <p style="font-size:0.7rem; color:var(--accent); margin-bottom:0.4rem;"><strong>Çözüm Yolu:</strong> ${f.mitigation}</p>
+                <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.2rem;">${escapeHTML(f.message)}</p>
+                <p style="font-size:0.7rem; color:var(--accent); margin-bottom:0.4rem;"><strong>Çözüm Yolu:</strong> ${escapeHTML(f.mitigation)}</p>
                 <div class="finding-actions" style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.3rem;">
                     <button class="btn btn-secondary btn-small btn-finding-accept" style="padding:0.15rem 0.35rem; font-size:0.65rem;">Kabul Et</button>
                     <button class="btn btn-secondary btn-small btn-finding-reject" style="padding:0.15rem 0.35rem; font-size:0.65rem;">Reddet</button>
@@ -1313,12 +1556,12 @@ function displayResults(data) {
             fEl.querySelector('.finding-actions').style.display = 'none';
         });
         fEl.querySelector('.btn-finding-why').addEventListener('click', () => {
-            elements.chatInputTextarea.value = `${f.id} (${f.title}) bulgusunun nedenini açıklar mısın?`;
+            elements.chatInputTextarea.value = `${escapeHTML(f.id)} (${escapeHTML(f.title)}) bulgusunun nedenini açıklar mısın?`;
             elements.chatInputTextarea.focus();
             showToast('Soru giriş alanına eklendi!');
         });
         fEl.querySelector('.btn-finding-alt').addEventListener('click', () => {
-            elements.chatInputTextarea.value = `${f.id} (${f.title}) için alternatif bir çözüm üretir misin?`;
+            elements.chatInputTextarea.value = `${escapeHTML(f.id)} (${escapeHTML(f.title)}) için alternatif bir çözüm üretir misin?`;
             elements.chatInputTextarea.focus();
             showToast('İstek giriş alanına eklendi!');
         });
@@ -1406,8 +1649,8 @@ function renderFileTree() {
         itemEl.innerHTML = `
             <div class="file-tree-meta">
                 <i class="${iconClass}" data-lucide="${iconType}"></i>
-                <span class="file-name-text" id="file-name-text-${index}">${name}</span>
-                <span style="font-size:0.7rem; color:var(--text-muted); font-family:var(--font-sans); margin-left:0.4rem;">${item.description ? `- ${item.description}` : ''}</span>
+                <span class="file-name-text" id="file-name-text-${index}">${escapeHTML(name)}</span>
+                <span style="font-size:0.7rem; color:var(--text-muted); font-family:var(--font-sans); margin-left:0.4rem;">${item.description ? `- ${escapeHTML(item.description)}` : ''}</span>
             </div>
             <div class="file-tree-item-actions">
                 <button class="btn-file-tree-action btn-rename" data-index="${index}" title="Yeniden Adlandır">
@@ -1624,12 +1867,12 @@ function renderSubStepsUI(stepIndex, subSteps) {
         card.className = 'sub-step-card';
         card.innerHTML = `
             <div class="sub-step-header">
-                <h5>${sub.title}</h5>
+                <h5>${escapeHTML(sub.title)}</h5>
                 <button class="btn btn-secondary btn-small btn-copy-sub" data-step="${stepIndex}" data-sub="${subIdx}">
                     <i data-lucide="copy" style="width:12px;height:12px;margin-right:2px;"></i>Kopyala
                 </button>
             </div>
-            <pre class="sub-step-body"><code>${sub.content}</code></pre>
+            <pre class="sub-step-body"><code>${escapeHTML(sub.content)}</code></pre>
         `;
 
         card.querySelector('.btn-copy-sub').addEventListener('click', () => {
@@ -1644,12 +1887,6 @@ function renderSubStepsUI(stepIndex, subSteps) {
 
 // Slice Step with Gemini API
 async function sliceStepWithGemini(step) {
-    const genAI = new GoogleGenerativeAI(state.apiKey);
-    const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        generationConfig: { responseMimeType: "application/json" }
-    });
-
     const promptText = `
 Sen uzman bir Yapay Zeka Sistem Mimarısın. Sana verilecek olan büyük bir yazılım geliştirme promptunu, sırayla kopyalanıp yapay zeka kodlama ajanına (Cursor/Windsurf) verilebilecek **3 adet mantıksal alt-prompta (bölüme)** ayırmalısın.
 
@@ -1683,9 +1920,13 @@ Yanıtını AŞAĞIDAKİ JSON formatında dön:
 Tüm çıktıları Türkçe ver.
 `;
 
-    const result = await model.generateContent(promptText);
-    const textResponse = result.response.text();
-    return JSON.parse(textResponse);
+    try {
+        const textResponse = await LLMProvider.generateContent(promptText, state.apiKey, true);
+        return JSON.parse(textResponse);
+    } catch (err) {
+        console.error("Gemini API parsing/validation error in sliceStepWithGemini:", err);
+        throw err;
+    }
 }
 
 // Slice Step Offline Simulator
@@ -1792,7 +2033,7 @@ function renderDynamicSubagents(subagents) {
             
             btn.innerHTML = `
                 <i data-lucide="${iconName}"></i>
-                <span>${agent.role}</span>
+                <span>${escapeHTML(agent.role)}</span>
             `;
             
             btn.addEventListener('click', () => {
@@ -2220,12 +2461,6 @@ async function handleSolveDebug() {
 
 // --- GEMINI API: SOLVE DEBUG ---
 async function solveDebugWithGemini(errorLog, errorCode) {
-    const genAI = new GoogleGenerativeAI(state.apiKey);
-    const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        generationConfig: { responseMimeType: "application/json" }
-    });
-
     const promptText = `
 Sen uzman bir yazılım hata gidericisisin (debugger). Kullanıcının projesindeki hatayı analiz ederek, hatanın neden kaynaklandığını açıklayan kısa bir teknik açıklama ve kodlama ajanının hatayı tek seferde çözebilmesi için kopyalayacağı nokta atışı bir düzeltme promptu (hotfix prompt) hazırlamalısın.
 
@@ -2240,9 +2475,13 @@ Aşağıdaki JSON formatında yanıt ver:
 }
 `;
 
-    const result = await model.generateContent(promptText);
-    const textResponse = result.response.text();
-    return JSON.parse(textResponse);
+    try {
+        const textResponse = await LLMProvider.generateContent(promptText, state.apiKey, true);
+        return JSON.parse(textResponse);
+    } catch (err) {
+        console.error("Gemini API parsing/validation error in solveDebugWithGemini:", err);
+        throw err;
+    }
 }
 
 // --- OFFLINE DEBUG SOLVER ---
@@ -2711,7 +2950,7 @@ async function handleRunAnalyser() {
 - **Görev 2:** Adım promptlarına giriş validasyon testlerini yaz.`;
         }
 
-        elements.analyserDetectionText.innerHTML = `<strong>Algılanan Yapı:</strong> ${detected}`;
+        elements.analyserDetectionText.innerHTML = `<strong>Algılanan Yapı:</strong> ${escapeHTML(detected)}`;
         elements.analyserSolutionCode.textContent = report;
         elements.analyserOutputSection.classList.remove('hidden');
         showToast('Proje analizi tamamlandı!');
@@ -2757,7 +2996,7 @@ function showDecisionImpactAnalysis(id, title) {
                     <button class="btn btn-secondary btn-icon-only" id="close-impact-modal" style="border:none;background:none;color:white;cursor:pointer;"><i data-lucide="x"></i></button>
                 </div>
                 <div style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; display:flex; flex-direction:column; gap:1rem;">
-                    <p><strong>Değişiklik Konusu:</strong> Katmanlı Mimari Yapısı (${id} - ${title})</p>
+                    <p><strong>Değişiklik Konusu:</strong> Katmanlı Mimari Yapısı (${escapeHTML(id)} - ${escapeHTML(title)})</p>
                     <p><strong style="color:var(--danger);">Etki Seviyesi:</strong> YÜKSEK (Architecture Core Change)</p>
                     <div>
                         <strong>Etkilenen Belgeler:</strong>
@@ -2786,7 +3025,7 @@ function showDecisionImpactAnalysis(id, title) {
                     <button class="btn btn-secondary btn-icon-only" id="close-impact-modal" style="border:none;background:none;color:white;cursor:pointer;"><i data-lucide="x"></i></button>
                 </div>
                 <div style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; display:flex; flex-direction:column; gap:1rem;">
-                    <p><strong>Değişiklik Konusu:</strong> Local-First Veri Depolama (${id} - ${title})</p>
+                    <p><strong>Değişiklik Konusu:</strong> Local-First Veri Depolama (${escapeHTML(id)} - ${escapeHTML(title)})</p>
                     <p><strong style="color:var(--warning);">Etki Seviyesi:</strong> ORTA (Data Storage Layer)</p>
                     <div>
                         <strong>Etkilenen Belgeler:</strong>

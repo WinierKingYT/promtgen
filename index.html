@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI-Architect | Yapay Zeka Yazılım Mimarı & Prompt Otomasyonu</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://*.esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://generativelanguage.googleapis.com; img-src 'self' data: https:;">
     <meta name="description" content="Yazılım fikirlerinizi analiz edin, kritik güvenlik/performans açıklarını kapatın ve yapay zeka kodlama araçları için kusursuz prompt dizilimleri üretin.">
     <!-- Google Fonts: Outfit & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +19,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             if (window.mermaid) {
-                window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+                window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
             }
         });
     </script>
@@ -713,29 +714,6 @@
                         </div>
                     </div>
 
-                    <!-- Tab 8: Interactive File Tree (Klasör Yapısı) -->
-                    <div class="tab-panel" id="panel-files">
-                        <div class="skill-creator-desc">
-                            <h3>Etkileşimli Klasör Yapısı &amp; Bileşen Tasarımcısı</h3>
-                            <p>Mimarın projeniz için kurguladığı dosya hiyerarşisi. Dosya ekleyebilir, silebilir ve isimlerini değiştirebilirsiniz. Değişiklikler anlık olarak adım promptlarındaki <code>[DOSYA BAĞLAM HARİTASI]</code> alanlarına enjekte edilir.</p>
-                        </div>
-                        <div class="file-tree-actions" style="margin-bottom: 1.2rem; display: flex; gap: 0.8rem;">
-                            <button class="btn btn-secondary btn-small" id="btn-add-file-tree">
-                                <i data-lucide="file-plus"></i>
-                                <span>Dosya Ekle</span>
-                            </button>
-                            <button class="btn btn-secondary btn-small" id="btn-add-folder-tree">
-                                <i data-lucide="folder-plus"></i>
-                                <span>Klasör Ekle</span>
-                            </button>
-                        </div>
-                        <div class="code-editor-container" style="padding: 1.2rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); max-height: 420px; overflow-y: auto;">
-                            <div id="file-tree-interactive-container">
-                                <!-- Rendered dynamically by JS -->
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </section>
@@ -773,8 +751,8 @@
                 <div class="info-alert warning-gradient">
                     <div class="alert-icon"><i data-lucide="alert-circle"></i></div>
                     <div class="alert-body">
-                        <h4>API Anahtarı Olmadan Çalışma</h4>
-                        <p>Eğer bir API anahtarınız yoksa, sistem gelişmiş <strong>Çevrimdışı Akıllı Şablon Motorunu</strong> kullanarak yine de son derece yüksek kaliteli ve optimize edilmiş prompt dizilimleri üretecektir.</p>
+                        <h4>API Anahtarı Olmadan Çalışma (Çevrimdışı Mod)</h4>
+                        <p>Eğer bir API anahtarınız yoksa, sistem anahtar kelime eşlemeli <strong>Çevrimdışı Şablon Motorunu</strong> (yerel bir yapay zeka modeli yerine önceden tanımlanmış statik mimari şablon fall-back sistemini) kullanarak yüksek kaliteli prompt dizilimleri üretecektir.</p>
                     </div>
                 </div>
             </div>
