@@ -644,11 +644,17 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
             }
 
             appState.messages.push({ role: 'model', content: result.chatResponse });
-            appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
-            appState.currentData = result.projectFiles;
+            appState.proposedPatches = result.projectFiles.proposedPatches || [];
+            appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+            appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
             renderChatMessages();
-            displayResults(appState.currentData);
+            renderProposedPatches();
+            updateApprovalGateBanner();
+
+            if (appState.currentData) {
+                displayResults(appState.currentData);
+            }
             
             // Workflow transition checks
             const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
@@ -657,7 +663,7 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
                     operation: 'replace',
                     path: '/workflowStage',
                     value: nextStateCheck.nextStage
-                });
+                }, true);
                 showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
             }
 
@@ -862,7 +868,7 @@ async function sendChatMessageToGemini() {
         const textResponse = await geminiProvider.generateStructured(promptText, appState.apiKey);
         const parsed = JSON.parse(textResponse);
         if (parsed && parsed.projectFiles) {
-            parsed.projectFiles = validateProjectData(parsed.projectFiles);
+            parsed.projectFiles = validateProjectData(parsed.projectFiles, appState.currentProjectState?.workflowStage);
         }
         return parsed;
     } catch (err) {
@@ -894,7 +900,7 @@ Sağ paneldeki belgelere JWT tabanlı oturum doğrulama şemalarını ve şifrel
 Sağ paneldeki **Prompt Zinciri**, **SKILL.md**, **Editör Kuralları** ve **Alt Ajan Promptları** güncel konuşmamız doğrultusunda revize edildi. Projede dikkat etmemiz gereken güvenlik veya performans odakları hakkında konuşmaya devam etmek ister misiniz yoksa dosyaları indirmeye hazır mısınız?`;
     }
 
-    const projectFiles = validateProjectData(generateOfflineArtifacts(appState.draftDescription + ' ' + appState.messages.map(m => m.content).join(' '), appState.projectType, appState.priorities));
+    const projectFiles = validateProjectData(generateOfflineArtifacts(appState.draftDescription + ' ' + appState.messages.map(m => m.content).join(' '), appState.projectType, appState.priorities), appState.currentProjectState?.workflowStage);
 
     return {
         chatResponse,
@@ -2169,7 +2175,7 @@ function handleApproveCurrentStage() {
             approvedAt: new Date().toISOString(),
             notes: 'Kullanıcı onayı'
         }
-    });
+    }, true);
 
     showToast(`${WORKFLOW_STAGE_METADATA[stage]?.label || stage} aşaması onaylandı!`);
     saveCurrentProjectState();
@@ -2185,7 +2191,7 @@ function triggerWorkflowTransitionCheck() {
             operation: 'replace',
             path: '/workflowStage',
             value: nextStateCheck.nextStage
-        });
+        }, true);
         showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
         saveCurrentProjectState();
         updateWorkflowTrackerUI();

@@ -1,4 +1,5 @@
 import { WORKFLOW_STAGES } from '../workflow/stages.js';
+import { validatePatchProposal } from '../application/patch-policy.js';
 
 export function getInitialCanonicalState() {
     return {
@@ -69,8 +70,17 @@ export function getInitialCanonicalState() {
     };
 }
 
-export function applyStatePatch(state, patch) {
+export function applyStatePatch(state, patch, isSystem = false) {
     if (!patch || !patch.operation || !patch.path) return state;
+
+    // Apply patch policy validation if not system-initiated
+    if (!isSystem) {
+        const policyCheck = validatePatchProposal(state.workflowStage, patch);
+        if (!policyCheck.valid) {
+            console.warn("Blocked patch application due to policy violation:", policyCheck.reason, patch);
+            return state;
+        }
+    }
 
     const cloned = JSON.parse(JSON.stringify(state));
     const pathParts = patch.path.split('/').filter(p => p !== '');
@@ -196,7 +206,7 @@ export function validateCanonicalState(state) {
     return true;
 }
 
-export function validateProjectData(parsed) {
+export function validateProjectData(parsed, stage = null) {
     const valid = {
         proposedPatches: [],
         suggestedNextStage: "",
@@ -214,7 +224,17 @@ export function validateProjectData(parsed) {
             path: typeof p.path === 'string' ? p.path : '',
             value: p.value,
             reason: typeof p.reason === 'string' ? p.reason : 'Plan değişikliği'
-        })).filter(p => p.path !== '');
+        })).filter(p => {
+            if (p.path === '') return false;
+            if (stage) {
+                const check = validatePatchProposal(stage, p);
+                if (!check.valid) {
+                    console.warn(`Blocked invalid proposed patch for stage ${stage}:`, check.reason, p);
+                    return false;
+                }
+            }
+            return true;
+        });
     } else {
         // BACKWARDS COMPATIBILITY: Auto-convert old schema to proposed patches
         const patches = [];
@@ -350,7 +370,16 @@ export function validateProjectData(parsed) {
         valid.proposedPatches = patches.map((p, i) => ({
             id: `patch_${i + 1}_${Date.now()}`,
             ...p
-        }));
+        })).filter(p => {
+            if (stage) {
+                const check = validatePatchProposal(stage, p);
+                if (!check.valid) {
+                    console.warn(`Blocked invalid backwards compatibility patch for stage ${stage}:`, check.reason, p);
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 
     return valid;
@@ -361,7 +390,7 @@ export function syncAIResponseToCanonicalState(state, approvedPatches, suggested
 
     if (Array.isArray(approvedPatches)) {
         for (const patch of approvedPatches) {
-            currentProjectState = applyStatePatch(currentProjectState, patch);
+            currentProjectState = applyStatePatch(currentProjectState, patch, true);
         }
     }
 
@@ -373,7 +402,7 @@ export function syncAIResponseToCanonicalState(state, approvedPatches, suggested
                 stage: suggestedNextStage,
                 reason: "AI suggested stage transition"
             }
-        });
+        }, true);
     }
 
     return currentProjectState;

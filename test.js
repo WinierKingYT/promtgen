@@ -506,31 +506,116 @@ test('End-to-End Integration: Raw AI response -> validate -> sync -> canonical s
     let transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
     assert.strictEqual(transitionResult.allowed, true);
     assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.PROFILE_DRAFTED);
-    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage }, true);
 
     // Transition 2: PROFILE_DRAFTED -> DISCOVERY_IN_PROGRESS
     canonicalState.approvals.profile = { status: 'approved', revision: 1, approvedAt: new Date().toISOString(), notes: 'Test' };
     transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
     assert.strictEqual(transitionResult.allowed, true);
     assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS);
-    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage }, true);
 
     // Transition 3: DISCOVERY_IN_PROGRESS -> MVP_DEFINED
     transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
     assert.strictEqual(transitionResult.allowed, true);
     assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.MVP_DEFINED);
-    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage }, true);
 
     // Transition 4: MVP_DEFINED -> REQUIREMENTS_DRAFTED (Requires scope.mustHave and scope.outOfScope)
     canonicalState.approvals.mvpScope = { status: 'approved', revision: 1, approvedAt: new Date().toISOString(), notes: 'Test' };
     transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
     assert.strictEqual(transitionResult.allowed, true, `Transition from MVP_DEFINED failed: ${transitionResult.reason}`);
     assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.REQUIREMENTS_DRAFTED);
-    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage }, true);
 
     // Verify workflowStage was successfully progressed using checkWorkflowTransition and state patches
     assert.strictEqual(canonicalState.workflowStage, WORKFLOW_STAGES.REQUIREMENTS_DRAFTED);
     assert.ok(canonicalState.revision > 5, `Revision count should have incremented on each transition and sync patch. Current revision: ${canonicalState.revision}`);
+});
+
+// ============================================================
+// 7. Patch Policy Engine Tests
+// ============================================================
+console.log('\n🔒 patch-policy tests');
+
+import { validatePatchProposal } from './src/application/patch-policy.js';
+
+test('validatePatchProposal allows valid stage-specific paths', () => {
+    // IDEA_CAPTURED allows /identity and /profile paths
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.IDEA_CAPTURED, {
+        operation: 'replace',
+        path: '/identity/name',
+        value: 'New Project'
+    }).valid, true);
+
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.IDEA_CAPTURED, {
+        operation: 'add',
+        path: '/profile/capabilities/-',
+        value: 'auth'
+    }).valid, true);
+
+    // DISCOVERY_IN_PROGRESS allows /scope
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS, {
+        operation: 'replace',
+        path: '/scope/mustHave',
+        value: []
+    }).valid, true);
+});
+
+test('validatePatchProposal blocks unauthorized stage-specific paths', () => {
+    // IDEA_CAPTURED should block /scope
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.IDEA_CAPTURED, {
+        operation: 'replace',
+        path: '/scope/mustHave',
+        value: []
+    }).valid, false);
+
+    // DISCOVERY_IN_PROGRESS should block /identity
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS, {
+        operation: 'replace',
+        path: '/identity/name',
+        value: 'Name'
+    }).valid, false);
+});
+
+test('validatePatchProposal blocks globally forbidden paths', () => {
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.IDEA_CAPTURED, {
+        operation: 'replace',
+        path: '/workflowStage',
+        value: 'READY_FOR_EXPORT'
+    }).valid, false);
+
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.MVP_DEFINED, {
+        operation: 'replace',
+        path: '/approvals/mvpScope',
+        value: { status: 'approved' }
+    }).valid, false);
+});
+
+test('applyStatePatch blocks invalid patches on user-initiated calls', () => {
+    const original = getInitialCanonicalState();
+    // IDEA_CAPTURED is initial stage, so /scope is blocked
+    const result = applyStatePatch(original, {
+        operation: 'replace',
+        path: '/scope/mustHave',
+        value: ['Auth']
+    }, false); // isSystem = false
+
+    assert.strictEqual(result, original, 'Should return original state unchanged');
+    assert.strictEqual(result.scope.mustHave.length, 0);
+});
+
+test('applyStatePatch allows invalid patches on system-initiated calls', () => {
+    const original = getInitialCanonicalState();
+    // IDEA_CAPTURED is initial stage, but isSystem = true bypasses policy check
+    const result = applyStatePatch(original, {
+        operation: 'replace',
+        path: '/scope/mustHave',
+        value: ['Auth']
+    }, true); // isSystem = true
+
+    assert.notStrictEqual(result, original);
+    assert.strictEqual(result.scope.mustHave[0], 'Auth');
 });
 
 // ============================================================
