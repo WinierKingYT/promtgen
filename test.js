@@ -214,12 +214,14 @@ test('IDEA_CAPTURED succeeds with summary and domains', () => {
 test('TASKS_DRAFTED -> AGENT_PACKAGE_DRAFTED (new pipeline)', () => {
     const st = getInitialCanonicalState();
     st.tasks = [{ id: 'T-001', title: 'task', description: 'desc' }];
+    st.approvals.tasks = { status: 'approved', revision: 1, approvedAt: new Date().toISOString(), notes: 'Test' };
     const res = checkWorkflowTransition(st, WORKFLOW_STAGES.TASKS_DRAFTED);
     assert.strictEqual(res.allowed, true);
     assert.strictEqual(res.nextStage, WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED);
 });
 test('READY_FOR_EXPORT -> EXPORTED', () => {
     const st = getInitialCanonicalState();
+    st.approvals.finalReview = { status: 'approved', revision: 1, approvedAt: new Date().toISOString(), notes: 'Test' };
     const res = checkWorkflowTransition(st, WORKFLOW_STAGES.READY_FOR_EXPORT);
     assert.strictEqual(res.allowed, true);
     assert.strictEqual(res.nextStage, WORKFLOW_STAGES.EXPORTED);
@@ -453,11 +455,20 @@ test('End-to-End Integration: Raw AI response -> validate -> sync -> canonical s
 
     // 2. Run validateProjectData
     const validatedData = validateProjectData(rawAIResponse);
-    assert.strictEqual(validatedData.identity.name, "Akıllı Finans");
-    assert.strictEqual(validatedData.scope.mustHave[0], "Yerel veri kaydı");
-    assert.strictEqual(validatedData.requirements.functional[0], "Gelir ekleme");
-    assert.strictEqual(validatedData.architecture.components[0], "Görünüm Katmanı (React)");
+    assert.ok(validatedData.proposedPatches.length > 0);
     assert.strictEqual(validatedData.suggestedNextStage, "MVP_DEFINED");
+
+    const identityPatch = validatedData.proposedPatches.find(p => p.path === '/identity');
+    assert.strictEqual(identityPatch.value.name, "Akıllı Finans");
+
+    const scopePatch = validatedData.proposedPatches.find(p => p.path === '/scope');
+    assert.strictEqual(scopePatch.value.mustHave[0], "Yerel veri kaydı");
+
+    const reqPatch = validatedData.proposedPatches.find(p => p.path === '/requirements');
+    assert.strictEqual(reqPatch.value.functional[0], "Gelir ekleme");
+
+    const archPatch = validatedData.proposedPatches.find(p => p.path === '/architecture');
+    assert.strictEqual(archPatch.value.components[0], "Görünüm Katmanı (React)");
 
     // 3. Run syncAIResponseToCanonicalState
     let canonicalState = getInitialCanonicalState();
@@ -478,7 +489,7 @@ test('End-to-End Integration: Raw AI response -> validate -> sync -> canonical s
     assert.strictEqual(canonicalState.workflowStage, WORKFLOW_STAGES.IDEA_CAPTURED);
 
     // Run sync
-    canonicalState = syncAIResponseToCanonicalState(canonicalState, validatedData);
+    canonicalState = syncAIResponseToCanonicalState(canonicalState, validatedData.proposedPatches, validatedData.suggestedNextStage);
 
     // Verify properties successfully synced to canonical state
     assert.strictEqual(canonicalState.identity.name, "Akıllı Finans");
@@ -498,6 +509,7 @@ test('End-to-End Integration: Raw AI response -> validate -> sync -> canonical s
     canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
 
     // Transition 2: PROFILE_DRAFTED -> DISCOVERY_IN_PROGRESS
+    canonicalState.approvals.profile = { status: 'approved', revision: 1, approvedAt: new Date().toISOString(), notes: 'Test' };
     transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
     assert.strictEqual(transitionResult.allowed, true);
     assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS);
@@ -510,6 +522,7 @@ test('End-to-End Integration: Raw AI response -> validate -> sync -> canonical s
     canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
 
     // Transition 4: MVP_DEFINED -> REQUIREMENTS_DRAFTED (Requires scope.mustHave and scope.outOfScope)
+    canonicalState.approvals.mvpScope = { status: 'approved', revision: 1, approvedAt: new Date().toISOString(), notes: 'Test' };
     transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
     assert.strictEqual(transitionResult.allowed, true, `Transition from MVP_DEFINED failed: ${transitionResult.reason}`);
     assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.REQUIREMENTS_DRAFTED);

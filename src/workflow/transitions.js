@@ -16,6 +16,9 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.PROFILE_DRAFTED]: {
         target: WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS,
         check: (state) => {
+            if (!state.approvals || !state.approvals.profile || state.approvals.profile.status !== 'approved') {
+                return { allowed: false, reason: "Proje profili onaylanmalıdır (approvals.profile.status === 'approved')." };
+            }
             if (!state.profile || state.profile.uncertainties.length === 0) {
                 return { allowed: false, reason: "Keşif aşamasına geçmek için en az bir adet belirsizlik sorusu listelenmelidir." };
             }
@@ -34,6 +37,9 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.MVP_DEFINED]: {
         target: WORKFLOW_STAGES.REQUIREMENTS_DRAFTED,
         check: (state) => {
+            if (!state.approvals || !state.approvals.mvpScope || state.approvals.mvpScope.status !== 'approved') {
+                return { allowed: false, reason: "MVP kapsamı onaylanmalıdır (approvals.mvpScope.status === 'approved')." };
+            }
             if (!state.scope || state.scope.mustHave.length === 0) {
                 return { allowed: false, reason: "Must Have (Olmazsa Olmaz) kapsam listesi tanımlanmalıdır." };
             }
@@ -46,6 +52,9 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.REQUIREMENTS_DRAFTED]: {
         target: WORKFLOW_STAGES.TECH_OPTIONS_READY,
         check: (state) => {
+            if (!state.approvals || !state.approvals.requirements || state.approvals.requirements.status !== 'approved') {
+                return { allowed: false, reason: "Gereksinimler onaylanmalıdır (approvals.requirements.status === 'approved')." };
+            }
             if (!state.requirements || (state.requirements.functional.length === 0 && state.requirements.nonFunctional.length === 0)) {
                 return { allowed: false, reason: "Gereksinim analizi için fonksiyonel veya fonksiyonel olmayan gereksinimler yazılmalıdır." };
             }
@@ -70,8 +79,8 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.TECH_STACK_SELECTED]: {
         target: WORKFLOW_STAGES.ARCHITECTURE_DRAFTED,
         check: (state) => {
-            if (!state.architecture || state.architecture.components.length === 0) {
-                return { allowed: false, reason: "Mimari bileşenler ve veri akış diyagram iskeleti hazırlanmalıdır." };
+            if (!state.approvals || !state.approvals.technology || state.approvals.technology.status !== 'approved') {
+                return { allowed: false, reason: "Teknoloji seçimi onaylanmalıdır (approvals.technology.status === 'approved')." };
             }
             return { allowed: true };
         }
@@ -79,8 +88,11 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.ARCHITECTURE_DRAFTED]: {
         target: WORKFLOW_STAGES.TASKS_DRAFTED,
         check: (state) => {
-            if (!state.tasks || state.tasks.length === 0) {
-                return { allowed: false, reason: "Yapay zeka araçlarının yürüteceği adım adım kodlama görevleri (tasks) tanımlanmalıdır." };
+            if (!state.approvals || !state.approvals.architecture || state.approvals.architecture.status !== 'approved') {
+                return { allowed: false, reason: "Proje mimarisi onaylanmalıdır (approvals.architecture.status === 'approved')." };
+            }
+            if (!state.architecture || state.architecture.components.length === 0) {
+                return { allowed: false, reason: "Mimari bileşenler ve veri akış diyagram iskeleti hazırlanmalıdır." };
             }
             return { allowed: true };
         }
@@ -88,6 +100,9 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.TASKS_DRAFTED]: {
         target: WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED,
         check: (state) => {
+            if (!state.approvals || !state.approvals.tasks || state.approvals.tasks.status !== 'approved') {
+                return { allowed: false, reason: "Görev planı onaylanmalıdır (approvals.tasks.status === 'approved')." };
+            }
             if (!state.tasks || state.tasks.length === 0) {
                 return { allowed: false, reason: "Geliştirme adımları boş olamaz." };
             }
@@ -114,6 +129,9 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.READY_FOR_EXPORT]: {
         target: WORKFLOW_STAGES.EXPORTED,
         check: (state) => {
+            if (!state.approvals || !state.approvals.finalReview || state.approvals.finalReview.status !== 'approved') {
+                return { allowed: false, reason: "Son kalite kontrolü onaylanmalıdır (approvals.finalReview.status === 'approved')." };
+            }
             return { allowed: true };
         }
     }

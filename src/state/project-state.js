@@ -2,7 +2,7 @@ import { WORKFLOW_STAGES } from '../workflow/stages.js';
 
 export function getInitialCanonicalState() {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         revision: 1,
         workflowStage: WORKFLOW_STAGES.IDEA_CAPTURED,
         identity: {
@@ -37,7 +37,8 @@ export function getInitialCanonicalState() {
         architecture: {
             components: [],
             dataFlows: [],
-            integrations: []
+            integrations: [],
+            mermaidCode: ""
         },
         tasks: [],
         documents: [],
@@ -55,6 +56,15 @@ export function getInitialCanonicalState() {
         workflowSuggestion: {
             stage: null,
             reason: ""
+        },
+        approvals: {
+            profile: null,
+            mvpScope: null,
+            requirements: null,
+            technology: null,
+            architecture: null,
+            tasks: null,
+            finalReview: null
         }
     };
 }
@@ -125,7 +135,7 @@ export function validateCanonicalState(state) {
     const requiredKeys = [
         'schemaVersion', 'revision', 'workflowStage', 'identity', 'profile',
         'scope', 'requirements', 'decisions', 'assumptions', 'risks',
-        'openQuestions', 'architecture', 'tasks', 'documents', 'agentPackage', 'workflowSuggestion'
+        'openQuestions', 'architecture', 'tasks', 'documents', 'agentPackage', 'workflowSuggestion', 'approvals'
     ];
     for (const key of requiredKeys) {
         if (state[key] === undefined) return false;
@@ -147,6 +157,20 @@ export function validateCanonicalState(state) {
     if (!state.workflowSuggestion || typeof state.workflowSuggestion !== 'object') return false;
     if (state.workflowSuggestion.stage !== null && typeof state.workflowSuggestion.stage !== 'string') return false;
     if (typeof state.workflowSuggestion.reason !== 'string') return false;
+
+    // Check approvals structure
+    if (!state.approvals || typeof state.approvals !== 'object') return false;
+    const approvalKeys = ['profile', 'mvpScope', 'requirements', 'technology', 'architecture', 'tasks', 'finalReview'];
+    for (const k of approvalKeys) {
+        const app = state.approvals[k];
+        if (app !== null) {
+            if (typeof app !== 'object') return false;
+            if (app.status !== 'approved' && app.status !== 'rejected') return false;
+            if (typeof app.revision !== 'number') return false;
+            if (typeof app.approvedAt !== 'string') return false;
+            if (typeof app.notes !== 'string') return false;
+        }
+    }
 
     // Check domains confidence values
     for (const d of state.profile.domains) {
@@ -173,256 +197,182 @@ export function validateCanonicalState(state) {
 }
 
 export function validateProjectData(parsed) {
-    const valid = {};
+    const valid = {
+        proposedPatches: [],
+        suggestedNextStage: "",
+        chatResponse: ""
+    };
     if (!parsed || typeof parsed !== 'object') parsed = {};
-    
-    // Normalize prompts
-    valid.prompts = Array.isArray(parsed.prompts) ? parsed.prompts.map(p => ({
-        title: typeof p.title === 'string' ? p.title : 'Başlıksız Adım',
-        description: typeof p.description === 'string' ? p.description : '',
-        recommendedModel: typeof p.recommendedModel === 'string' ? p.recommendedModel : 'Claude 3.5 Sonnet',
-        content: typeof p.content === 'string' ? p.content : '',
-        developerNotes: typeof p.developerNotes === 'string' ? p.developerNotes : '',
-        injectNotes: p.injectNotes !== false,
-        subSteps: Array.isArray(p.subSteps) ? p.subSteps.map(s => ({
-            title: typeof s.title === 'string' ? s.title : 'Alt Başlık',
-            content: typeof s.content === 'string' ? s.content : ''
-        })) : []
-    })) : [];
 
-    // Normalize docs
-    const d = parsed.docs || {};
-    valid.docs = {
-        brief: typeof d.brief === 'string' ? d.brief : '',
-        requirements: typeof d.requirements === 'string' ? d.requirements : '',
-        architecture: typeof d.architecture === 'string' ? d.architecture : '',
-        tech_stack: typeof d.tech_stack === 'string' ? d.tech_stack : '',
-        risks: typeof d.risks === 'string' ? d.risks : '',
-        state_md: typeof d.state_md === 'string' ? d.state_md : ''
-    };
-
-    // Normalize decisions
-    valid.decisions = Array.isArray(parsed.decisions) ? parsed.decisions.map((dec, i) => ({
-        id: typeof dec.id === 'string' ? dec.id : `DEC-00${i+1}`,
-        title: typeof dec.title === 'string' ? dec.title : 'Karar Başlığı',
-        decision: typeof dec.decision === 'string' ? dec.decision : '',
-        reason: typeof dec.reason === 'string' ? dec.reason : ''
-    })) : [];
-
-    // Normalize assumptions
-    valid.assumptions = Array.isArray(parsed.assumptions) ? parsed.assumptions.map((asm, i) => ({
-        id: typeof asm.id === 'string' ? asm.id : `ASM-00${i+1}`,
-        text: typeof asm.text === 'string' ? asm.text : '',
-        confidence: typeof asm.confidence === 'string' ? asm.confidence : 'medium',
-        status: typeof asm.status === 'string' ? asm.status : 'active'
-    })) : [];
-
-    // Normalize risks
-    valid.risks = Array.isArray(parsed.risks) ? parsed.risks.map((r, i) => ({
-        id: typeof r.id === 'string' ? r.id : `RSK-00${i+1}`,
-        title: typeof r.title === 'string' ? r.title : '',
-        probability: typeof r.probability === 'string' ? r.probability : 'medium',
-        impact: typeof r.impact === 'string' ? r.impact : 'medium',
-        mitigation: typeof r.mitigation === 'string' ? r.mitigation : ''
-    })) : [];
-
-    // Normalize openQuestions
-    valid.openQuestions = Array.isArray(parsed.openQuestions) ? parsed.openQuestions.map((q, i) => ({
-        id: typeof q.id === 'string' ? q.id : `Q-00${i+1}`,
-        question: typeof q.question === 'string' ? q.question : '',
-        importance: typeof q.importance === 'string' ? q.importance : 'medium'
-    })) : [];
-
-    // Normalize findings
-    valid.findings = Array.isArray(parsed.findings) ? parsed.findings.map((f, i) => ({
-        id: typeof f.id === 'string' ? f.id : `FND-00${i+1}`,
-        title: typeof f.title === 'string' ? f.title : 'Bulgu',
-        severity: typeof f.severity === 'string' ? f.severity : 'info',
-        message: typeof f.message === 'string' ? f.message : '',
-        mitigation: typeof f.mitigation === 'string' ? f.mitigation : ''
-    })) : [];
-
-    // Clamped Health Score
-    let score = parseInt(parsed.healthScore);
-    if (isNaN(score)) score = 85;
-    valid.healthScore = Math.max(0, Math.min(100, score));
-
-    // Normalize subagents (UI data only)
-    valid.subagents = Array.isArray(parsed.subagents) ? parsed.subagents.map(s => ({
-        key: typeof s.key === 'string' ? s.key : 'subagent',
-        role: typeof s.role === 'string' ? s.role : 'Ajan',
-        filename: typeof s.filename === 'string' ? s.filename : 'agent.txt',
-        prompt: typeof s.prompt === 'string' ? s.prompt : ''
-    })) : [];
-
-    // Normalize fileTree
-    valid.fileTree = Array.isArray(parsed.fileTree) ? parsed.fileTree.map(f => ({
-        path: typeof f.path === 'string' ? f.path : 'unknown.txt',
-        type: typeof f.type === 'string' ? f.type : 'file',
-        description: typeof f.description === 'string' ? f.description : ''
-    })) : [];
-
-    valid.mermaidCode = typeof parsed.mermaidCode === 'string' ? parsed.mermaidCode : 'graph TD\n    A[Proje] --> B[Modüller]';
-    valid.skillMarkdown = typeof parsed.skillMarkdown === 'string' ? parsed.skillMarkdown : '';
-    valid.cursorRules = typeof parsed.cursorRules === 'string' ? parsed.cursorRules : '';
-    valid.windsurfRules = typeof parsed.windsurfRules === 'string' ? parsed.windsurfRules : '';
-    valid.copilotRules = typeof parsed.copilotRules === 'string' ? parsed.copilotRules : '';
-    valid.stateMarkdown = typeof parsed.stateMarkdown === 'string' ? parsed.stateMarkdown : '';
-
-    // Normalize identity
-    const idObj = parsed.identity || {};
-    valid.identity = {
-        name: typeof idObj.name === 'string' ? idObj.name : '',
-        summary: typeof idObj.summary === 'string' ? idObj.summary : '',
-        problem: typeof idObj.problem === 'string' ? idObj.problem : '',
-        desiredOutcome: typeof idObj.desiredOutcome === 'string' ? idObj.desiredOutcome : ''
-    };
-
-    // Normalize scope
-    const scObj = parsed.scope || {};
-    valid.scope = {
-        mustHave: Array.isArray(scObj.mustHave) ? scObj.mustHave.map(x => String(x)) : [],
-        shouldHave: Array.isArray(scObj.shouldHave) ? scObj.shouldHave.map(x => String(x)) : [],
-        couldHave: Array.isArray(scObj.couldHave) ? scObj.couldHave.map(x => String(x)) : [],
-        notNow: Array.isArray(scObj.notNow) ? scObj.notNow.map(x => String(x)) : [],
-        outOfScope: Array.isArray(scObj.outOfScope) ? scObj.outOfScope.map(x => String(x)) : []
-    };
-
-    // Normalize requirements
-    const reqObj = parsed.requirements || {};
-    valid.requirements = {
-        functional: Array.isArray(reqObj.functional) ? reqObj.functional.map(x => String(x)) : [],
-        nonFunctional: Array.isArray(reqObj.nonFunctional) ? reqObj.nonFunctional.map(x => String(x)) : [],
-        domainSpecific: Array.isArray(reqObj.domainSpecific) ? reqObj.domainSpecific.map(x => String(x)) : []
-    };
-
-    // Normalize architecture
-    const archObj = parsed.architecture || {};
-    valid.architecture = {
-        components: Array.isArray(archObj.components) ? archObj.components.map(x => String(x)) : [],
-        dataFlows: Array.isArray(archObj.dataFlows) ? archObj.dataFlows.map(x => String(x)) : [],
-        integrations: Array.isArray(archObj.integrations) ? archObj.integrations.map(x => String(x)) : []
-    };
-
+    valid.chatResponse = typeof parsed.chatResponse === 'string' ? parsed.chatResponse : '';
     valid.suggestedNextStage = typeof parsed.suggestedNextStage === 'string' ? parsed.suggestedNextStage : '';
+
+    if (Array.isArray(parsed.proposedPatches)) {
+        valid.proposedPatches = parsed.proposedPatches.map((p, i) => ({
+            id: typeof p.id === 'string' ? p.id : `patch_${i + 1}_${Date.now()}`,
+            operation: ['add', 'replace', 'remove', 'set'].includes(p.operation) ? p.operation : 'replace',
+            path: typeof p.path === 'string' ? p.path : '',
+            value: p.value,
+            reason: typeof p.reason === 'string' ? p.reason : 'Plan değişikliği'
+        })).filter(p => p.path !== '');
+    } else {
+        // BACKWARDS COMPATIBILITY: Auto-convert old schema to proposed patches
+        const patches = [];
+        
+        if (parsed.identity) {
+            patches.push({
+                operation: 'replace',
+                path: '/identity',
+                value: parsed.identity,
+                reason: 'Proje kimliği tanımlandı.'
+            });
+        }
+        if (parsed.scope) {
+            patches.push({
+                operation: 'replace',
+                path: '/scope',
+                value: parsed.scope,
+                reason: 'Proje kapsamı (MVP) güncellendi.'
+            });
+        }
+        if (parsed.requirements) {
+            patches.push({
+                operation: 'replace',
+                path: '/requirements',
+                value: parsed.requirements,
+                reason: 'Gereksinim listesi güncellendi.'
+            });
+        }
+        if (Array.isArray(parsed.decisions)) {
+            patches.push({
+                operation: 'replace',
+                path: '/decisions',
+                value: parsed.decisions,
+                reason: 'Mimari ve teknoloji kararları eklendi.'
+            });
+        }
+        if (Array.isArray(parsed.assumptions)) {
+            patches.push({
+                operation: 'replace',
+                path: '/assumptions',
+                value: parsed.assumptions,
+                reason: 'Proje varsayımları eklendi.'
+            });
+        }
+        if (Array.isArray(parsed.risks)) {
+            patches.push({
+                operation: 'replace',
+                path: '/risks',
+                value: parsed.risks,
+                reason: 'Risk matrisi güncellendi.'
+            });
+        }
+        if (Array.isArray(parsed.openQuestions)) {
+            patches.push({
+                operation: 'replace',
+                path: '/openQuestions',
+                value: parsed.openQuestions,
+                reason: 'Açık sorular listelendi.'
+            });
+        }
+        if (parsed.architecture) {
+            const arch = parsed.architecture;
+            patches.push({
+                operation: 'replace',
+                path: '/architecture',
+                value: {
+                    components: Array.isArray(arch.components) ? arch.components : [],
+                    dataFlows: Array.isArray(arch.dataFlows) ? arch.dataFlows : [],
+                    integrations: Array.isArray(arch.integrations) ? arch.integrations : [],
+                    mermaidCode: parsed.mermaidCode || ""
+                },
+                reason: 'Sistem mimari bileşenleri kurgulandı.'
+            });
+        }
+        if (Array.isArray(parsed.prompts)) {
+            const tasks = parsed.prompts.map((p, idx) => ({
+                id: `TASK-${(idx + 1).toString().padStart(3, '0')}`,
+                title: p.title,
+                description: p.description,
+                recommendedModel: p.recommendedModel || 'Claude 3.5 Sonnet',
+                content: p.content || ''
+            }));
+            patches.push({
+                operation: 'replace',
+                path: '/tasks',
+                value: tasks,
+                reason: 'AI kodlama adımları oluşturuldu.'
+            });
+        }
+        if (parsed.docs) {
+            const docs = Object.keys(parsed.docs).map(key => ({
+                name: key,
+                content: parsed.docs[key]
+            }));
+            patches.push({
+                operation: 'replace',
+                path: '/documents',
+                value: docs,
+                reason: 'Proje dökümantasyonu güncellendi.'
+            });
+        }
+        if (Array.isArray(parsed.findings) || parsed.healthScore) {
+            patches.push({
+                operation: 'replace',
+                path: '/reviews',
+                value: [{
+                    healthScore: typeof parsed.healthScore === 'number' ? parsed.healthScore : 85,
+                    findings: Array.isArray(parsed.findings) ? parsed.findings : [],
+                    reviewedAt: new Date().toISOString()
+                }],
+                reason: 'Kalite ve tutarlılık analizi tamamlandı.'
+            });
+        }
+        const agentPackage = {
+            subagents: Array.isArray(parsed.subagents) ? parsed.subagents : [],
+            rules: {
+                cursor: parsed.cursorRules || "",
+                windsurf: parsed.windsurfRules || "",
+                copilot: parsed.copilotRules || ""
+            },
+            skillMarkdown: parsed.skillMarkdown || "",
+            exportTargets: []
+        };
+        if (agentPackage.subagents.length > 0 || agentPackage.skillMarkdown || agentPackage.rules.cursor) {
+            patches.push({
+                operation: 'replace',
+                path: '/agentPackage',
+                value: agentPackage,
+                reason: 'Alt ajan rol tanımları ve editör kuralları paketlendi.'
+            });
+        }
+
+        valid.proposedPatches = patches.map((p, i) => ({
+            id: `patch_${i + 1}_${Date.now()}`,
+            ...p
+        }));
+    }
 
     return valid;
 }
 
-export function syncAIResponseToCanonicalState(state, projectFiles) {
+export function syncAIResponseToCanonicalState(state, approvedPatches, suggestedNextStage = null) {
     let currentProjectState = state ? JSON.parse(JSON.stringify(state)) : getInitialCanonicalState();
 
-    const patch = (path, value) => {
-        if (value === undefined || value === null) return;
-        if (Array.isArray(value) && value.length === 0) return;
-        if (typeof value === 'string' && value.trim() === '') return;
+    if (Array.isArray(approvedPatches)) {
+        for (const patch of approvedPatches) {
+            currentProjectState = applyStatePatch(currentProjectState, patch);
+        }
+    }
+
+    if (suggestedNextStage) {
         currentProjectState = applyStatePatch(currentProjectState, {
             operation: 'replace',
-            path,
-            value
-        });
-    };
-
-    // Identity
-    if (projectFiles.identity) {
-        if (projectFiles.identity.name) patch('/identity/name', projectFiles.identity.name);
-        if (projectFiles.identity.summary) patch('/identity/summary', projectFiles.identity.summary);
-        if (projectFiles.identity.problem) patch('/identity/problem', projectFiles.identity.problem);
-        if (projectFiles.identity.desiredOutcome) patch('/identity/desiredOutcome', projectFiles.identity.desiredOutcome);
-    }
-
-    // Scope
-    if (projectFiles.scope) {
-        if (Array.isArray(projectFiles.scope.mustHave) && projectFiles.scope.mustHave.length > 0)
-            patch('/scope/mustHave', projectFiles.scope.mustHave);
-        if (Array.isArray(projectFiles.scope.shouldHave) && projectFiles.scope.shouldHave.length > 0)
-            patch('/scope/shouldHave', projectFiles.scope.shouldHave);
-        if (Array.isArray(projectFiles.scope.couldHave) && projectFiles.scope.couldHave.length > 0)
-            patch('/scope/couldHave', projectFiles.scope.couldHave);
-        if (Array.isArray(projectFiles.scope.notNow) && projectFiles.scope.notNow.length > 0)
-            patch('/scope/notNow', projectFiles.scope.notNow);
-        if (Array.isArray(projectFiles.scope.outOfScope) && projectFiles.scope.outOfScope.length > 0)
-            patch('/scope/outOfScope', projectFiles.scope.outOfScope);
-    }
-
-    // Requirements
-    if (projectFiles.requirements) {
-        if (Array.isArray(projectFiles.requirements.functional) && projectFiles.requirements.functional.length > 0)
-            patch('/requirements/functional', projectFiles.requirements.functional);
-        if (Array.isArray(projectFiles.requirements.nonFunctional) && projectFiles.requirements.nonFunctional.length > 0)
-            patch('/requirements/nonFunctional', projectFiles.requirements.nonFunctional);
-        if (Array.isArray(projectFiles.requirements.domainSpecific) && projectFiles.requirements.domainSpecific.length > 0)
-            patch('/requirements/domainSpecific', projectFiles.requirements.domainSpecific);
-    }
-
-    // Decisions, assumptions, risks, openQuestions
-    if (Array.isArray(projectFiles.decisions) && projectFiles.decisions.length > 0)
-        patch('/decisions', projectFiles.decisions);
-    if (Array.isArray(projectFiles.assumptions) && projectFiles.assumptions.length > 0)
-        patch('/assumptions', projectFiles.assumptions);
-    if (Array.isArray(projectFiles.risks) && projectFiles.risks.length > 0)
-        patch('/risks', projectFiles.risks);
-    if (Array.isArray(projectFiles.openQuestions) && projectFiles.openQuestions.length > 0)
-        patch('/openQuestions', projectFiles.openQuestions);
-
-    // Architecture
-    if (projectFiles.architecture) {
-        if (Array.isArray(projectFiles.architecture.components) && projectFiles.architecture.components.length > 0)
-            patch('/architecture/components', projectFiles.architecture.components);
-        if (Array.isArray(projectFiles.architecture.dataFlows) && projectFiles.architecture.dataFlows.length > 0)
-            patch('/architecture/dataFlows', projectFiles.architecture.dataFlows);
-        if (Array.isArray(projectFiles.architecture.integrations) && projectFiles.architecture.integrations.length > 0)
-            patch('/architecture/integrations', projectFiles.architecture.integrations);
-    }
-
-    // Tasks (from prompts array)
-    if (Array.isArray(projectFiles.prompts) && projectFiles.prompts.length > 0) {
-        const tasks = projectFiles.prompts.map((p, idx) => ({
-            id: `TASK-${(idx + 1).toString().padStart(3, '0')}`,
-            title: p.title,
-            description: p.description
-        }));
-        patch('/tasks', tasks);
-    }
-
-    // Documents
-    if (projectFiles.docs) {
-        const docs = Object.keys(projectFiles.docs).map(key => ({
-            name: key,
-            content: projectFiles.docs[key]
-        }));
-        if (docs.length > 0) patch('/documents', docs);
-    }
-
-    // Agent Package
-    const agentPackage = {};
-    let hasAgentData = false;
-    if (Array.isArray(projectFiles.subagents) && projectFiles.subagents.length > 0) {
-        agentPackage.subagents = projectFiles.subagents;
-        hasAgentData = true;
-    }
-    if (typeof projectFiles.skillMarkdown === 'string' && projectFiles.skillMarkdown.trim()) {
-        agentPackage.skillMarkdown = projectFiles.skillMarkdown;
-        hasAgentData = true;
-    }
-    if (projectFiles.cursorRules || projectFiles.windsurfRules || projectFiles.copilotRules) {
-        agentPackage.rules = {
-            cursor: projectFiles.cursorRules || '',
-            windsurf: projectFiles.windsurfRules || '',
-            copilot: projectFiles.copilotRules || ''
-        };
-        hasAgentData = true;
-    }
-    if (hasAgentData) {
-        const currentPkg = currentProjectState.agentPackage || {};
-        patch('/agentPackage', { ...currentPkg, ...agentPackage });
-    }
-
-    // Suggested Next Stage -> advisory only
-    if (projectFiles.suggestedNextStage) {
-        patch('/workflowSuggestion', {
-            stage: projectFiles.suggestedNextStage,
-            reason: "AI suggested stage transition"
+            path: '/workflowSuggestion',
+            value: {
+                stage: suggestedNextStage,
+                reason: "AI suggested stage transition"
+            }
         });
     }
 

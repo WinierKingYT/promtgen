@@ -271,6 +271,17 @@
                         </div>
                     </div>
 
+                    <!-- Approval Banner -->
+                    <div id="approval-gate-banner" class="approval-gate-banner hidden">
+                        <div class="approval-info">
+                            <i data-lucide="shield-alert"></i>
+                            <span id="approval-gate-message">Mevcut aşama onay bekliyor...</span>
+                        </div>
+                        <button class="btn btn-primary btn-small btn-glow" id="btn-approve-current-stage">
+                            <i data-lucide="check-circle"></i> Onayla ve İlerle
+                        </button>
+                    </div>
+
                     <!-- Scrollable Chat Messages Container -->
                     <div class="chat-messages" id="chat-messages-container">
                         <!-- Chat bubbles appended here -->
@@ -282,6 +293,21 @@
                         <div class="typing-dot"></div>
                         <div class="typing-dot"></div>
                         <span>Mimar düşünüyor...</span>
+                    </div>
+
+                    <!-- Patch Proposals Section -->
+                    <div id="patch-proposals-container" class="patch-proposals-section hidden">
+                        <div class="patch-proposals-header">
+                            <i data-lucide="git-pull-request"></i>
+                            <h4>Önerilen Değişiklikler</h4>
+                        </div>
+                        <div class="patch-proposals-list" id="patch-proposals-list">
+                            <!-- proposed patches will render here dynamically -->
+                        </div>
+                        <div class="patch-proposals-actions">
+                            <button class="btn btn-secondary btn-small" id="btn-reject-all-patches">Tümünü Reddet</button>
+                            <button class="btn btn-primary btn-glow btn-small" id="btn-accept-all-patches">Tümünü Onayla ve Uygula</button>
+                        </div>
                     </div>
 
                     <!-- Chat Input Area -->

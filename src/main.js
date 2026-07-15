@@ -1,4 +1,5 @@
 import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, validateProjectData, syncAIResponseToCanonicalState } from './state/project-state.js';
+import { migrateProjectState } from './state/state-migrations.js';
 import { AppStateManager } from './state/app-state.js';
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
@@ -70,6 +71,15 @@ const elements = {
     chatProjectStatus: document.getElementById('chat-project-status'),
     btnAttachFile: document.getElementById('btn-attach-file'),
     chatFileInput: document.getElementById('chat-file-input'),
+
+    // Patch proposals & Approvals
+    patchProposalsContainer: document.getElementById('patch-proposals-container'),
+    patchProposalsList: document.getElementById('patch-proposals-list'),
+    btnAcceptAllPatches: document.getElementById('btn-accept-all-patches'),
+    btnRejectAllPatches: document.getElementById('btn-reject-all-patches'),
+    approvalGateBanner: document.getElementById('approval-gate-banner'),
+    approvalGateMessage: document.getElementById('approval-gate-message'),
+    btnApproveCurrentStage: document.getElementById('btn-approve-current-stage'),
 
     // Outputs tabs
     outputPanel: document.getElementById('output-panel'),
@@ -168,6 +178,8 @@ function initApp() {
     setupEventListeners();
     loadSavedProjectsList();
     toggleViews();
+    initPatchProposalListeners();
+    updateApprovalGateBanner();
 }
 
 // --- API STATUS BADGE ---
@@ -202,6 +214,8 @@ function toggleViews() {
             <span class="status-divider">|</span> 
             <strong>Tür:</strong> ${escapeHTML(typeText)}
         `;
+        updateApprovalGateBanner();
+        renderProposedPatches();
     } else {
         elements.setupHeader.classList.remove('hidden');
         elements.setupView.classList.remove('hidden');
@@ -325,6 +339,8 @@ function setupEventListeners() {
     // Reset Chat Session & Undo Chat
     elements.btnResetChat.addEventListener('click', resetChatSession);
     elements.btnUndoChat.addEventListener('click', handleUndoChat);
+
+    elements.btnApproveCurrentStage.addEventListener('click', handleApproveCurrentStage);
 
     // Add elements to File Tree
     elements.btnAddFileTree.addEventListener('click', () => handleAddFileTreeItem('file'));
@@ -457,7 +473,7 @@ function loadProjectSession(id) {
     appState.draftDescription = proj.draftDescription;
     appState.messages = Array.isArray(proj.messages) ? proj.messages : [];
     appState.currentData = proj.currentData ? validateProjectData(proj.currentData) : null;
-    appState.currentProjectState = proj.currentProjectState || null;
+    appState.currentProjectState = proj.currentProjectState ? migrateProjectState(proj.currentProjectState) : null;
     appState.chatStarted = true;
     
     appState.historyStack = [{
@@ -715,21 +731,16 @@ async function handleStartChat() {
         }
 
         appState.messages.push({ role: 'model', content: result.chatResponse });
-        appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
-        appState.currentData = result.projectFiles;
+        appState.proposedPatches = result.projectFiles.proposedPatches || [];
+        appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+        appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
         renderChatMessages();
-        displayResults(appState.currentData);
-        
-        // Workflow transition checks
-        const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
-        if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
-            appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
-                operation: 'replace',
-                path: '/workflowStage',
-                value: nextStateCheck.nextStage
-            });
-            showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
+        renderProposedPatches();
+        updateApprovalGateBanner();
+
+        if (appState.currentData) {
+            displayResults(appState.currentData);
         }
         
         appState.historyStack.push({
@@ -738,7 +749,6 @@ async function handleStartChat() {
             currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState))
         });
         updateUndoButtonVisibility();
-
         saveCurrentProjectState();
         
     } catch (error) {
@@ -748,21 +758,16 @@ async function handleStartChat() {
         await sleep(1000);
         const result = generateOfflineConversationalResponse();
         appState.messages.push({ role: 'model', content: result.chatResponse });
-        appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
-        appState.currentData = result.projectFiles;
+        appState.proposedPatches = result.projectFiles.proposedPatches || [];
+        appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+        appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         
         renderChatMessages();
-        displayResults(appState.currentData);
-        
-        // Workflow transition checks
-        const nextStateCheckCatch = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
-        if (nextStateCheckCatch.allowed && nextStateCheckCatch.nextStage !== appState.currentProjectState.workflowStage) {
-            appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
-                operation: 'replace',
-                path: '/workflowStage',
-                value: nextStateCheckCatch.nextStage
-            });
-            showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheckCatch.nextStage].label}`);
+        renderProposedPatches();
+        updateApprovalGateBanner();
+
+        if (appState.currentData) {
+            displayResults(appState.currentData);
         }
         
         appState.historyStack.push({
@@ -802,21 +807,16 @@ async function handleSendChatMessage() {
         }
 
         appState.messages.push({ role: 'model', content: result.chatResponse });
-        appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
-        appState.currentData = result.projectFiles;
+        appState.proposedPatches = result.projectFiles.proposedPatches || [];
+        appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+        appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
         renderChatMessages();
-        displayResults(appState.currentData);
-        
-        // Workflow transition checks
-        const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
-        if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
-            appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
-                operation: 'replace',
-                path: '/workflowStage',
-                value: nextStateCheck.nextStage
-            });
-            showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
+        renderProposedPatches();
+        updateApprovalGateBanner();
+
+        if (appState.currentData) {
+            displayResults(appState.currentData);
         }
 
         appState.historyStack.push({
@@ -849,6 +849,7 @@ async function sendChatMessageToGemini() {
 
     // Prompt is built in a separate, testable module
     const promptText = buildPlanningPrompt({
+        stage: appState.currentProjectState?.workflowStage || 'IDEA_CAPTURED',
         techStack: appState.techStack,
         techVersion: appState.techVersion,
         activeFocuses,
@@ -1954,4 +1955,290 @@ function loadTemplate(type) {
         elements.techVersionSelect.value = "net-8";
         elements.projectDescription.value = "JWT kimlik doğrulama, PostgreSQL entegrasyonu, loglama altyapısı ve veri validasyon mekanizmaları içeren kurumsal e-ticaret sepet yönetimi backend mikro servisi.";
     }
+}
+
+// --- V2 BETA APPROVAL & PATCH PROPOSALS SYSTEM ---
+const STAGE_APPROVAL_KEYS = {
+    'PROFILE_DRAFTED': 'profile',
+    'MVP_DEFINED': 'mvpScope',
+    'REQUIREMENTS_DRAFTED': 'requirements',
+    'TECH_STACK_SELECTED': 'technology',
+    'ARCHITECTURE_DRAFTED': 'architecture',
+    'TASKS_DRAFTED': 'tasks',
+    'READY_FOR_EXPORT': 'finalReview'
+};
+
+function renderProposedPatches() {
+    const container = elements.patchProposalsContainer;
+    const listEl = elements.patchProposalsList;
+    if (!container || !listEl) return;
+
+    if (!appState.proposedPatches || appState.proposedPatches.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    listEl.innerHTML = '';
+
+    appState.proposedPatches.forEach((patch) => {
+        const card = document.createElement('div');
+        card.className = 'patch-proposal-card';
+        card.dataset.id = patch.id;
+
+        const valString = typeof patch.value === 'object' ? JSON.stringify(patch.value, null, 2) : String(patch.value);
+
+        card.innerHTML = `
+            <div class="patch-proposal-info">
+                <div>
+                    <span class="patch-op ${escapeHTML(patch.operation)}">${escapeHTML(patch.operation)}</span>
+                    <span class="patch-path">${escapeHTML(patch.path)}</span>
+                </div>
+                <div class="patch-item-actions">
+                    <button class="btn btn-secondary btn-small btn-edit-patch" title="Düzenle">
+                        <i data-lucide="edit-3" style="width:12px;height:12px;"></i>
+                    </button>
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet">
+                        <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                    </button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla">
+                        <i data-lucide="check" style="width:12px;height:12px;"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="patch-reason"><strong>Neden:</strong> ${escapeHTML(patch.reason)}</div>
+            <div class="patch-value-preview">${escapeHTML(valString)}</div>
+            <div class="patch-edit-area hidden">
+                <textarea class="patch-edit-textarea" style="width:100%;height:100px;font-family:monospace;font-size:11px;margin-top:6px;background:rgba(0,0,0,0.3);color:#fff;border:1px solid #444;padding:4px;"></textarea>
+                <div style="display:flex;justify-content:flex-end;gap:4px;margin-top:4px;">
+                    <button class="btn btn-secondary btn-small btn-cancel-edit-patch">İptal</button>
+                    <button class="btn btn-primary btn-small btn-save-edit-patch">Kaydet</button>
+                </div>
+            </div>
+        `;
+        listEl.appendChild(card);
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+}
+
+function initPatchProposalListeners() {
+    const listEl = elements.patchProposalsList;
+    if (!listEl) return;
+
+    listEl.addEventListener('click', (e) => {
+        const btnAccept = e.target.closest('.btn-accept-patch');
+        const btnReject = e.target.closest('.btn-reject-patch');
+        const btnEdit = e.target.closest('.btn-edit-patch');
+        const btnCancel = e.target.closest('.btn-cancel-edit-patch');
+        const btnSave = e.target.closest('.btn-save-edit-patch');
+        const card = e.target.closest('.patch-proposal-card');
+        if (!card) return;
+
+        const patchId = card.dataset.id;
+        const patchIndex = appState.proposedPatches.findIndex(p => p.id === patchId);
+        if (patchIndex === -1) return;
+
+        const patch = appState.proposedPatches[patchIndex];
+
+        if (btnAccept) {
+            // Apply single patch to canonical state
+            appState.currentProjectState = applyStatePatch(appState.currentProjectState, patch);
+            updateApprovalsOnAction(patch.path);
+
+            appState.proposedPatches.splice(patchIndex, 1);
+            showToast(`Değişiklik uygulandı: ${patch.path}`);
+            saveCurrentProjectState();
+            renderProposedPatches();
+            triggerWorkflowTransitionCheck();
+        } else if (btnReject) {
+            appState.proposedPatches.splice(patchIndex, 1);
+            showToast('Değişiklik reddedildi.');
+            renderProposedPatches();
+        } else if (btnEdit) {
+            const editArea = card.querySelector('.patch-edit-area');
+            const preview = card.querySelector('.patch-value-preview');
+            const textarea = card.querySelector('.patch-edit-textarea');
+            if (editArea && textarea) {
+                editArea.classList.toggle('hidden');
+                if (preview) preview.classList.toggle('hidden');
+                textarea.value = typeof patch.value === 'object' ? JSON.stringify(patch.value, null, 2) : String(patch.value);
+            }
+        } else if (btnCancel) {
+            const editArea = card.querySelector('.patch-edit-area');
+            const preview = card.querySelector('.patch-value-preview');
+            if (editArea && preview) {
+                editArea.classList.add('hidden');
+                preview.classList.remove('hidden');
+            }
+        } else if (btnSave) {
+            const textarea = card.querySelector('.patch-edit-textarea');
+            if (textarea) {
+                try {
+                    let newVal;
+                    const rawVal = textarea.value.trim();
+                    if (rawVal.startsWith('{') || rawVal.startsWith('[')) {
+                        newVal = JSON.parse(rawVal);
+                    } else {
+                        newVal = rawVal;
+                    }
+                    patch.value = newVal;
+                    showToast('Değişiklik güncellendi.');
+                    renderProposedPatches();
+                } catch (err) {
+                    showToast('Hatalı JSON formatı!', true);
+                }
+            }
+        }
+    });
+
+    const btnAcceptAll = elements.btnAcceptAllPatches;
+    if (btnAcceptAll) {
+        btnAcceptAll.addEventListener('click', () => {
+            if (!appState.proposedPatches || appState.proposedPatches.length === 0) return;
+            
+            appState.currentProjectState = syncAIResponseToCanonicalState(
+                appState.currentProjectState,
+                appState.proposedPatches,
+                appState.suggestedNextStage
+            );
+
+            // Auto-approve corresponding approval sections
+            appState.proposedPatches.forEach(p => updateApprovalsOnAction(p.path));
+
+            appState.proposedPatches = [];
+            appState.suggestedNextStage = '';
+            showToast('Tüm öneriler uygulandı!');
+            saveCurrentProjectState();
+            renderProposedPatches();
+            triggerWorkflowTransitionCheck();
+        });
+    }
+
+    const btnRejectAll = elements.btnRejectAllPatches;
+    if (btnRejectAll) {
+        btnRejectAll.addEventListener('click', () => {
+            appState.proposedPatches = [];
+            appState.suggestedNextStage = '';
+            showToast('Tüm öneriler reddedildi.');
+            renderProposedPatches();
+        });
+    }
+}
+
+function updateApprovalsOnAction(path) {
+    // Optional automatic state changes if needed
+}
+
+function updateApprovalGateBanner() {
+    const banner = elements.approvalGateBanner;
+    const message = elements.approvalGateMessage;
+    if (!banner || !message) return;
+
+    if (!appState.currentProjectState) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const stage = appState.currentProjectState.workflowStage;
+    const approvalKey = STAGE_APPROVAL_KEYS[stage];
+
+    if (approvalKey) {
+        const approval = appState.currentProjectState.approvals[approvalKey];
+        if (!approval || approval.status !== 'approved') {
+            banner.classList.remove('hidden');
+            message.textContent = `Mevcut aşama (${WORKFLOW_STAGE_METADATA[stage]?.label || stage}) kullanıcı onayı bekliyor. Sonraki aşamaya geçmek için lütfen planlanan verileri onaylayın.`;
+            return;
+        }
+    }
+
+    banner.classList.add('hidden');
+}
+
+function handleApproveCurrentStage() {
+    const stage = appState.currentProjectState.workflowStage;
+    const approvalKey = STAGE_APPROVAL_KEYS[stage];
+    if (!approvalKey) return;
+
+    appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+        operation: 'replace',
+        path: `/approvals/${approvalKey}`,
+        value: {
+            status: 'approved',
+            revision: appState.currentProjectState.revision,
+            approvedAt: new Date().toISOString(),
+            notes: 'Kullanıcı onayı'
+        }
+    });
+
+    showToast(`${WORKFLOW_STAGE_METADATA[stage]?.label || stage} aşaması onaylandı!`);
+    saveCurrentProjectState();
+    updateApprovalGateBanner();
+    triggerWorkflowTransitionCheck();
+}
+
+function triggerWorkflowTransitionCheck() {
+    if (!appState.currentProjectState) return;
+    const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
+    if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
+        appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+            operation: 'replace',
+            path: '/workflowStage',
+            value: nextStateCheck.nextStage
+        });
+        showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
+        saveCurrentProjectState();
+        updateWorkflowTrackerUI();
+        updateApprovalGateBanner();
+    }
+}
+
+function getDerivedDataFromCanonicalState(state) {
+    if (!state) return null;
+
+    const docs = {};
+    if (Array.isArray(state.documents)) {
+        state.documents.forEach(d => {
+            docs[d.name] = d.content;
+        });
+    }
+
+    const prompts = Array.isArray(state.tasks) ? state.tasks.map(t => ({
+        title: t.title,
+        description: t.description,
+        recommendedModel: t.recommendedModel || 'Claude 3.5 Sonnet',
+        content: t.content || '',
+        subSteps: []
+    })) : [];
+
+    const agentPackage = state.agentPackage || {};
+    const subagents = Array.isArray(agentPackage.subagents) ? agentPackage.subagents.map(s => ({
+        key: s.key || 'subagent',
+        role: s.role || 'Ajan',
+        filename: s.filename || 'agent.txt',
+        prompt: s.prompt || ''
+    })) : [];
+
+    const latestReview = Array.isArray(state.reviews) && state.reviews.length > 0 ? state.reviews[state.reviews.length - 1] : null;
+
+    return {
+        identity: state.identity,
+        scope: state.scope,
+        requirements: state.requirements,
+        decisions: state.decisions,
+        assumptions: state.assumptions,
+        risks: state.risks,
+        openQuestions: state.openQuestions,
+        architecture: state.architecture,
+        mermaidCode: state.architecture?.mermaidCode || '',
+        prompts,
+        docs,
+        subagents,
+        skillMarkdown: agentPackage.skillMarkdown || '',
+        cursorRules: agentPackage.rules?.cursor || '',
+        windsurfRules: agentPackage.rules?.windsurf || '',
+        copilotRules: agentPackage.rules?.copilot || '',
+        healthScore: latestReview ? latestReview.healthScore : 85,
+        findings: latestReview ? latestReview.findings : []
+    };
 }
