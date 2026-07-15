@@ -619,6 +619,124 @@ test('applyStatePatch allows invalid patches on system-initiated calls', () => {
 });
 
 // ============================================================
+// 8. Advanced V2 Beta Integrity Tests (Transactions & Approvals)
+// ============================================================
+console.log('\n💎 transactional-patch & approval-invalidation tests');
+
+import { applyPatchTransaction } from './src/application/patch-transaction.js';
+import { invalidateApprovalsForPath, isApprovalValid, getArtifactHash } from './src/application/approval-service.js';
+import { migrateProjectState } from './src/state/state-migrations.js';
+
+test('validatePatchProposal blocks required root element removal', () => {
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.IDEA_CAPTURED, {
+        operation: 'remove',
+        path: '/identity'
+    }).valid, false, 'Should block removing root identity');
+
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS, {
+        operation: 'remove',
+        path: '/scope'
+    }).valid, false, 'Should block removing root scope');
+});
+
+test('validatePatchProposal validates value schema types', () => {
+    // Expected string, got number
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.IDEA_CAPTURED, {
+        operation: 'replace',
+        path: '/identity/name',
+        value: 123
+    }).valid, false, 'Should reject number for identity.name');
+
+    // Expected array, got string
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS, {
+        operation: 'replace',
+        path: '/scope/mustHave',
+        value: 'must be array'
+    }).valid, false, 'Should reject string for scope.mustHave');
+
+    // Expected object, got array
+    assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.IDEA_CAPTURED, {
+        operation: 'replace',
+        path: '/identity',
+        value: []
+    }).valid, false, 'Should reject array for identity');
+});
+
+test('applyPatchTransaction rolls back completely on any validation error', () => {
+    const original = getInitialCanonicalState();
+    
+    // Patch 1 is valid, Patch 2 is invalid (unauthorized path for stage)
+    const patches = [
+        { operation: 'replace', path: '/identity/name', value: 'Atomic Name' },
+        { operation: 'replace', path: '/scope/mustHave', value: ['Auth'] } // Rejected in IDEA_CAPTURED
+    ];
+
+    const result = applyPatchTransaction({
+        state: original,
+        patches,
+        stage: WORKFLOW_STAGES.IDEA_CAPTURED,
+        expectedRevision: original.revision
+    });
+
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error.includes('Yama Doğrulama Hatası'));
+    assert.strictEqual(result.state.identity.name, '', 'State must be rolled back completely');
+});
+
+test('applyPatchTransaction blocks stale updates on revision conflict', () => {
+    const original = getInitialCanonicalState();
+    
+    const result = applyPatchTransaction({
+        state: original,
+        patches: [{ operation: 'replace', path: '/identity/name', value: 'Conflict Name' }],
+        stage: WORKFLOW_STAGES.IDEA_CAPTURED,
+        expectedRevision: 99 // Conflict! Current revision is 1
+    });
+
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error.includes('Bayat Değişiklik Çakışması'));
+    assert.strictEqual(result.state.identity.name, '');
+});
+
+test('invalidateApprovalsForPath invalidates corresponding approvals', () => {
+    let state = getInitialCanonicalState();
+    state.approvals.mvpScope = { status: 'approved', revision: 1, approvedAt: 'now', artifactHash: 'abc' };
+    state.approvals.profile = { status: 'approved', revision: 1, approvedAt: 'now', artifactHash: 'def' };
+
+    // Update scope -> invalidates mvpScope
+    state = invalidateApprovalsForPath(state, '/scope/mustHave');
+    assert.strictEqual(state.approvals.mvpScope, null);
+    assert.notStrictEqual(state.approvals.profile, null, 'Unrelated approvals should remain untouched');
+});
+
+test('isApprovalValid checks artifact hash integrity', () => {
+    let state = getInitialCanonicalState();
+    state.identity.name = 'Legacy App';
+
+    // 1. Valid approval matching current hash
+    const initialHash = getArtifactHash(state, '/profile');
+    state.approvals.profile = { status: 'approved', revision: 1, approvedAt: 'now', artifactHash: initialHash };
+    assert.strictEqual(isApprovalValid(state, 'profile'), true);
+
+    // 2. Modify profile capability -> hash changes -> validation fails
+    state = applyStatePatch(state, { operation: 'add', path: '/profile/capabilities/-', value: 'auth' }, true);
+    assert.strictEqual(isApprovalValid(state, 'profile'), false, 'Should be invalid after profile changes');
+});
+
+test('migrateProjectState fail-closed quarantines invalid projects', () => {
+    // Unknown future schema throws error
+    assert.throws(() => {
+        migrateProjectState({ schemaVersion: 3, revision: 1 });
+    }, /Bilinmeyen\/Geleceğe ait şema sürümü/);
+
+    // Broken canonical state post-migration throws error
+    assert.throws(() => {
+        migrateProjectState({ schemaVersion: 1, revision: -5 }); // Invalid revision count
+    }, /Karantina/);
+});
+
+
+// ============================================================
 // Summary
 // ============================================================
 console.log(`\n${'='.repeat(50)}`);

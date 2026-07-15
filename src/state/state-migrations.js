@@ -1,8 +1,10 @@
-import { getInitialCanonicalState } from './project-state.js';
+import { getInitialCanonicalState, validateCanonicalState } from './project-state.js';
 
 /**
  * Migrates raw project states to the latest schema version (v2).
  * Ensures agentPackage, approvals, and workflowSuggestion fields are populated.
+ * Throws an error on unknown future schema versions or if canonical validation fails.
+ * 
  * @param {object} rawState
  * @returns {object} migrated state
  */
@@ -16,6 +18,11 @@ export function migrateProjectState(rawState) {
     // Set default schemaVersion if missing
     if (state.schemaVersion === undefined) {
         state.schemaVersion = 1;
+    }
+
+    // Fail-closed on future/unknown schema versions
+    if (state.schemaVersion > 2) {
+        throw new Error(`Bilinmeyen/Geleceğe ait şema sürümü tespiti (Versiyon: ${state.schemaVersion}). Yükleme engellendi.`);
     }
 
     if (state.schemaVersion === 1) {
@@ -86,6 +93,11 @@ export function migrateProjectState(rawState) {
             stage: null,
             reason: ""
         };
+    }
+
+    // Run strict validation at the end of migration
+    if (!validateCanonicalState(state)) {
+        throw new Error("Migrasyon sonrası kanonik şema validasyonu başarısız oldu (Karantina).");
     }
 
     return state;

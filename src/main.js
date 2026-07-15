@@ -1,6 +1,8 @@
 import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, validateProjectData, syncAIResponseToCanonicalState } from './state/project-state.js';
 import { migrateProjectState } from './state/state-migrations.js';
-import { AppStateManager } from './state/app-state.js';
+import { AppStateManager, INITIAL_APP_STATE } from './state/app-state.js';
+import { applyPatchTransaction } from './application/patch-transaction.js';
+import { getArtifactHash, APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid } from './application/approval-service.js';
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
 import { WORKFLOW_STAGES, WORKFLOW_STAGE_METADATA } from './workflow/stages.js';
@@ -464,23 +466,31 @@ function loadProjectSession(id) {
     const proj = projects.find(p => p.id === id);
     if (!proj) return;
 
-    appState.projectId = proj.id;
-    appState.projectType = proj.projectType;
-    appState.priorities = proj.priorities || { ...INITIAL_APP_STATE.priorities };
-    appState.techStack = proj.techStack || DEFAULTS.techStack;
-    appState.techVersion = proj.techVersion || DEFAULTS.techVersion;
-    appState.stepDepth = proj.stepDepth || DEFAULTS.stepDepth;
-    appState.draftDescription = proj.draftDescription;
-    appState.messages = Array.isArray(proj.messages) ? proj.messages : [];
-    appState.currentData = proj.currentData ? validateProjectData(proj.currentData) : null;
-    appState.currentProjectState = proj.currentProjectState ? migrateProjectState(proj.currentProjectState) : null;
-    appState.chatStarted = true;
-    
-    appState.historyStack = [{
-        messages: JSON.parse(JSON.stringify(appState.messages)),
-        currentData: JSON.parse(JSON.stringify(appState.currentData)),
-        currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState))
-    }];
+    try {
+        appState.projectId = proj.id;
+        appState.projectType = proj.projectType;
+        appState.priorities = proj.priorities || { ...INITIAL_APP_STATE.priorities };
+        appState.techStack = proj.techStack || DEFAULTS.techStack;
+        appState.techVersion = proj.techVersion || DEFAULTS.techVersion;
+        appState.stepDepth = proj.stepDepth || DEFAULTS.stepDepth;
+        appState.draftDescription = proj.draftDescription;
+        appState.messages = Array.isArray(proj.messages) ? proj.messages : [];
+        
+        // Fail-closed storage loading and migration
+        appState.currentProjectState = proj.currentProjectState ? migrateProjectState(proj.currentProjectState) : null;
+        appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+        
+        // Restore pending patches and suggested stage
+        appState.proposedPatches = Array.isArray(proj.proposedPatches) ? proj.proposedPatches : [];
+        appState.suggestedNextStage = typeof proj.suggestedNextStage === 'string' ? proj.suggestedNextStage : '';
+        
+        appState.chatStarted = true;
+        
+        appState.historyStack = [{
+            messages: JSON.parse(JSON.stringify(appState.messages)),
+            currentData: JSON.parse(JSON.stringify(appState.currentData)),
+            currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState))
+        }];
 
     // Restore UI Inputs
     elements.techStackInput.value = appState.techStack;
@@ -507,7 +517,23 @@ function loadProjectSession(id) {
         elements.contentState.classList.add('hidden');
     }
     
-    showToast('Proje başarıyla yüklendi!');
+        showToast('Proje başarıyla yüklendi!');
+    } catch (err) {
+        console.error("Project load or migration failure:", err);
+        showToast(`Proje Yükleme Hatası (Karantina): ${err.message}`, true);
+        
+        // Safe quarantine state fallback
+        appState.projectId = proj.id;
+        appState.chatStarted = false;
+        appState.currentProjectState = null;
+        appState.currentData = null;
+        appState.proposedPatches = [];
+        appState.suggestedNextStage = '';
+        
+        elements.emptyState.classList.remove('hidden');
+        elements.contentState.classList.add('hidden');
+        toggleViews();
+    }
 }
 
 function saveCurrentProjectState() {
@@ -527,8 +553,9 @@ function saveCurrentProjectState() {
         stepDepth: appState.stepDepth,
         draftDescription: appState.draftDescription,
         messages: appState.messages,
-        currentData: appState.currentData,
         currentProjectState: appState.currentProjectState,
+        proposedPatches: appState.proposedPatches,
+        suggestedNextStage: appState.suggestedNextStage,
         date: dateStr
     };
 
@@ -2048,15 +2075,30 @@ function initPatchProposalListeners() {
         const patch = appState.proposedPatches[patchIndex];
 
         if (btnAccept) {
-            // Apply single patch to canonical state
-            appState.currentProjectState = applyStatePatch(appState.currentProjectState, patch);
-            updateApprovalsOnAction(patch.path);
+            // Apply single patch to canonical state transactionally
+            const txResult = applyPatchTransaction({
+                state: appState.currentProjectState,
+                patches: [patch],
+                stage: appState.currentProjectState.workflowStage,
+                expectedRevision: appState.currentProjectState.revision
+            });
 
-            appState.proposedPatches.splice(patchIndex, 1);
-            showToast(`Değişiklik uygulandı: ${patch.path}`);
-            saveCurrentProjectState();
-            renderProposedPatches();
-            triggerWorkflowTransitionCheck();
+            if (txResult.success) {
+                appState.currentProjectState = txResult.state;
+                appState.proposedPatches.splice(patchIndex, 1);
+                appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+                
+                showToast(`Değişiklik uygulandı: ${patch.path}`);
+                saveCurrentProjectState();
+                renderProposedPatches();
+                triggerWorkflowTransitionCheck();
+                
+                if (appState.currentData) {
+                    displayResults(appState.currentData);
+                }
+            } else {
+                showToast(`Değişiklik Uygulanamadı: ${txResult.error}`, true);
+            }
         } else if (btnReject) {
             appState.proposedPatches.splice(patchIndex, 1);
             showToast('Değişiklik reddedildi.');
@@ -2103,21 +2145,44 @@ function initPatchProposalListeners() {
         btnAcceptAll.addEventListener('click', () => {
             if (!appState.proposedPatches || appState.proposedPatches.length === 0) return;
             
-            appState.currentProjectState = syncAIResponseToCanonicalState(
-                appState.currentProjectState,
-                appState.proposedPatches,
-                appState.suggestedNextStage
-            );
+            // Apply all proposed patches atomically
+            const txResult = applyPatchTransaction({
+                state: appState.currentProjectState,
+                patches: appState.proposedPatches,
+                stage: appState.currentProjectState.workflowStage,
+                expectedRevision: appState.currentProjectState.revision
+            });
 
-            // Auto-approve corresponding approval sections
-            appState.proposedPatches.forEach(p => updateApprovalsOnAction(p.path));
+            if (txResult.success) {
+                appState.currentProjectState = txResult.state;
+                
+                // Set workflow suggestion system-wide if provided
+                if (appState.suggestedNextStage) {
+                    appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+                        operation: 'replace',
+                        path: '/workflowSuggestion',
+                        value: {
+                            stage: appState.suggestedNextStage,
+                            reason: "AI suggested stage transition"
+                        }
+                    }, true);
+                }
 
-            appState.proposedPatches = [];
-            appState.suggestedNextStage = '';
-            showToast('Tüm öneriler uygulandı!');
-            saveCurrentProjectState();
-            renderProposedPatches();
-            triggerWorkflowTransitionCheck();
+                appState.proposedPatches = [];
+                appState.suggestedNextStage = '';
+                appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+                
+                showToast('Tüm öneriler uygulandı!');
+                saveCurrentProjectState();
+                renderProposedPatches();
+                triggerWorkflowTransitionCheck();
+                
+                if (appState.currentData) {
+                    displayResults(appState.currentData);
+                }
+            } else {
+                showToast(`Öneriler Uygulanamadı: ${txResult.error}`, true);
+            }
         });
     }
 
@@ -2150,8 +2215,7 @@ function updateApprovalGateBanner() {
     const approvalKey = STAGE_APPROVAL_KEYS[stage];
 
     if (approvalKey) {
-        const approval = appState.currentProjectState.approvals[approvalKey];
-        if (!approval || approval.status !== 'approved') {
+        if (!isApprovalValid(appState.currentProjectState, approvalKey)) {
             banner.classList.remove('hidden');
             message.textContent = `Mevcut aşama (${WORKFLOW_STAGE_METADATA[stage]?.label || stage}) kullanıcı onayı bekliyor. Sonraki aşamaya geçmek için lütfen planlanan verileri onaylayın.`;
             return;
@@ -2166,6 +2230,9 @@ function handleApproveCurrentStage() {
     const approvalKey = STAGE_APPROVAL_KEYS[stage];
     if (!approvalKey) return;
 
+    const path = APPROVAL_KEY_TO_ARTIFACT_PATH[approvalKey];
+    const hash = getArtifactHash(appState.currentProjectState, path);
+
     appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
         operation: 'replace',
         path: `/approvals/${approvalKey}`,
@@ -2173,7 +2240,8 @@ function handleApproveCurrentStage() {
             status: 'approved',
             revision: appState.currentProjectState.revision,
             approvedAt: new Date().toISOString(),
-            notes: 'Kullanıcı onayı'
+            notes: 'Kullanıcı onayı',
+            artifactHash: hash
         }
     }, true);
 

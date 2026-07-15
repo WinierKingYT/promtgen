@@ -1,5 +1,6 @@
 import { WORKFLOW_STAGES } from '../workflow/stages.js';
 import { validatePatchProposal } from '../application/patch-policy.js';
+import { invalidateApprovalsForPath } from '../application/approval-service.js';
 
 export function getInitialCanonicalState() {
     return {
@@ -82,7 +83,8 @@ export function applyStatePatch(state, patch, isSystem = false) {
         }
     }
 
-    const cloned = JSON.parse(JSON.stringify(state));
+    let cloned = JSON.parse(JSON.stringify(state));
+    cloned = invalidateApprovalsForPath(cloned, patch.path);
     const pathParts = patch.path.split('/').filter(p => p !== '');
 
     // Prevent Prototype Pollution

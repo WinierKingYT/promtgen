@@ -16,6 +16,7 @@ export const INITIAL_APP_STATE = {
     messages: [],
     historyStack: [],
     proposedPatches: [], // Active AI proposed patches awaiting approval
+    suggestedNextStage: "", // AI suggested workflow stage transition
     currentProjectState: null // Will hold the Canonical Project State
 };
 
