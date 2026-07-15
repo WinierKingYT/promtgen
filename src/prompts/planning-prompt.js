@@ -62,8 +62,8 @@ CRITICAL INSTRUCTIONS FOR CONFIGURATION OUTPUTS:
 9. Sağlık ve Kalite Analizi:
    - 'healthScore': 0-100 arası bir tamsayı.
    - 'findings': [ { "id": "FND-001", "title": "...", "severity": "info|warning", "message": "...", "mitigation": "..." } ]
-10. Akış Aşaması:
-    - 'workflowStage': Şu değerlerden biri: 'IDEA_CAPTURED', 'PROFILE_DRAFTED', 'DISCOVERY_IN_PROGRESS', 'MVP_DEFINED', 'REQUIREMENTS_DRAFTED', 'TECH_OPTIONS_READY', 'TECH_STACK_SELECTED', 'ARCHITECTURE_DRAFTED', 'TASKS_DRAFTED', 'AGENT_PACKAGE_DRAFTED', 'REVIEW_IN_PROGRESS', 'READY_FOR_EXPORT', 'EXPORTED'.
+10. Önerilen Akış Aşaması:
+    - 'suggestedNextStage': Modelin projenin olgunluğuna göre önerdiği bir sonraki aşama (Örn: 'DISCOVERY_IN_PROGRESS', 'MVP_DEFINED' vb.). Bu değer yalnızca tavsiye niteliğindedir.
 
 Yanıtını AŞAĞIDAKİ JSON formatında dön:
 {
@@ -98,7 +98,7 @@ Yanıtını AŞAĞIDAKİ JSON formatında dön:
     "openQuestions": [ "..." ],
     "healthScore": 85,
     "findings": [ "..." ],
-    "workflowStage": "PROFILE_DRAFTED"
+    "suggestedNextStage": "PROFILE_DRAFTED"
   }
 }
 

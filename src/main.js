@@ -157,6 +157,13 @@ function initApp() {
     if (appState.apiKey) {
         elements.apiKeyInput.value = appState.apiKey;
     }
+    // Sync priority state from DOM (Fix #4: DOM is the source of truth at startup)
+    elements.priorityCheckboxes.forEach(cb => {
+        const p = cb.getAttribute('data-priority');
+        if (p && p in appState.priorities) {
+            appState.priorities[p] = cb.checked;
+        }
+    });
     updateApiStatusBadge();
     setupEventListeners();
     loadSavedProjectsList();
@@ -265,12 +272,15 @@ function setupEventListeners() {
         });
     });
 
-    // Skill Section Checkboxes
+    // Skill Section Checkboxes — single merged listener (Fix #3)
     document.querySelectorAll('.skill-sec-checkbox input').forEach(cb => {
         cb.addEventListener('change', () => {
             const label = cb.closest('.skill-sec-checkbox');
             if (label) {
                 label.classList.toggle('active', cb.checked);
+            }
+            if (appState.currentData) {
+                elements.skillCode.textContent = getFilteredSkillMarkdown();
             }
         });
     });
@@ -291,16 +301,6 @@ function setupEventListeners() {
     });
     elements.chatFileInput.addEventListener('change', handleChatFileUpload);
 
-    // Dynamic Skill checklist customizer
-    elements.skillCheckboxes.forEach(cb => {
-        cb.addEventListener('change', () => {
-            const label = cb.closest('.priority-checkbox');
-            label.classList.toggle('active', cb.checked);
-            if (appState.currentData) {
-                elements.skillCode.textContent = getFilteredSkillMarkdown();
-            }
-        });
-    });
 
     // Templates
     elements.templates.forEach(card => {
@@ -555,108 +555,113 @@ function syncAIResponseToCanonicalState(projectFiles) {
     if (!appState.currentProjectState) {
         appState.currentProjectState = getInitialCanonicalState();
     }
-    
-    // Sync identity
+
+    // Helper: only patch if AI actually provided a non-empty value
+    const patch = (path, value) => {
+        if (value === undefined || value === null) return;
+        if (Array.isArray(value) && value.length === 0) return;
+        if (typeof value === 'string' && value.trim() === '') return;
+        appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+            operation: 'replace',
+            path,
+            value
+        });
+    };
+
+    // Identity
     if (projectFiles.identity) {
-        appState.currentProjectState.identity = {
-            ...appState.currentProjectState.identity,
-            ...projectFiles.identity
-        };
+        if (projectFiles.identity.name) patch('/identity/name', projectFiles.identity.name);
+        if (projectFiles.identity.summary) patch('/identity/summary', projectFiles.identity.summary);
+        if (projectFiles.identity.problem) patch('/identity/problem', projectFiles.identity.problem);
+        if (projectFiles.identity.desiredOutcome) patch('/identity/desiredOutcome', projectFiles.identity.desiredOutcome);
     }
-    
-    // Sync profile
-    if (projectFiles.profile) {
-        appState.currentProjectState.profile = {
-            ...appState.currentProjectState.profile,
-            ...projectFiles.profile
-        };
-    }
-    
-    // Sync scope
+
+    // Scope — only patch if AI returned real data, never inject artificial defaults
     if (projectFiles.scope) {
-        appState.currentProjectState.scope = {
-            ...appState.currentProjectState.scope,
-            ...projectFiles.scope
-        };
-    } else if (projectFiles.docs && projectFiles.docs.brief) {
-        if (appState.currentProjectState.scope.mustHave.length === 0) {
-            appState.currentProjectState.scope.mustHave = ["Uygulama temel iskeleti", "Yerel saklama entegrasyonu"];
-            appState.currentProjectState.scope.outOfScope = ["Çok kullanıcılı bulut senkronizasyonu"];
-        }
+        if (Array.isArray(projectFiles.scope.mustHave) && projectFiles.scope.mustHave.length > 0)
+            patch('/scope/mustHave', projectFiles.scope.mustHave);
+        if (Array.isArray(projectFiles.scope.shouldHave) && projectFiles.scope.shouldHave.length > 0)
+            patch('/scope/shouldHave', projectFiles.scope.shouldHave);
+        if (Array.isArray(projectFiles.scope.outOfScope) && projectFiles.scope.outOfScope.length > 0)
+            patch('/scope/outOfScope', projectFiles.scope.outOfScope);
     }
-    
-    // Sync requirements
+
+    // Requirements — only patch if AI returned real data
     if (projectFiles.requirements) {
-        appState.currentProjectState.requirements = {
-            ...appState.currentProjectState.requirements,
-            ...projectFiles.requirements
-        };
-    } else {
-        if (appState.currentProjectState.requirements.functional.length === 0) {
-            appState.currentProjectState.requirements.functional = ["Kullanıcı veri girdisi alabilmeli", "Verileri ekrana çizebilmeli"];
-        }
+        if (Array.isArray(projectFiles.requirements.functional) && projectFiles.requirements.functional.length > 0)
+            patch('/requirements/functional', projectFiles.requirements.functional);
+        if (Array.isArray(projectFiles.requirements.nonFunctional) && projectFiles.requirements.nonFunctional.length > 0)
+            patch('/requirements/nonFunctional', projectFiles.requirements.nonFunctional);
     }
-    
-    // Sync decisions
-    if (Array.isArray(projectFiles.decisions)) {
-        appState.currentProjectState.decisions = projectFiles.decisions;
-    }
-    
-    // Sync assumptions
-    if (Array.isArray(projectFiles.assumptions)) {
-        appState.currentProjectState.assumptions = projectFiles.assumptions;
-    }
-    
-    // Sync risks
-    if (Array.isArray(projectFiles.risks)) {
-        appState.currentProjectState.risks = projectFiles.risks;
-    }
-    
-    // Sync openQuestions
-    if (Array.isArray(projectFiles.openQuestions)) {
-        appState.currentProjectState.openQuestions = projectFiles.openQuestions;
-    }
-    
-    // Sync architecture
+
+    // Decisions, assumptions, risks, openQuestions
+    if (Array.isArray(projectFiles.decisions) && projectFiles.decisions.length > 0)
+        patch('/decisions', projectFiles.decisions);
+    if (Array.isArray(projectFiles.assumptions) && projectFiles.assumptions.length > 0)
+        patch('/assumptions', projectFiles.assumptions);
+    if (Array.isArray(projectFiles.risks) && projectFiles.risks.length > 0)
+        patch('/risks', projectFiles.risks);
+    if (Array.isArray(projectFiles.openQuestions) && projectFiles.openQuestions.length > 0)
+        patch('/openQuestions', projectFiles.openQuestions);
+
+    // Architecture — only patch if AI returned real components
     if (projectFiles.architecture) {
-        appState.currentProjectState.architecture = {
-            ...appState.currentProjectState.architecture,
-            ...projectFiles.architecture
-        };
-    } else {
-        if (appState.currentProjectState.architecture.components.length === 0) {
-            appState.currentProjectState.architecture.components = ["UI Katmanı", "Veri Servisi"];
-        }
+        if (Array.isArray(projectFiles.architecture.components) && projectFiles.architecture.components.length > 0)
+            patch('/architecture/components', projectFiles.architecture.components);
+        if (Array.isArray(projectFiles.architecture.dataFlows) && projectFiles.architecture.dataFlows.length > 0)
+            patch('/architecture/dataFlows', projectFiles.architecture.dataFlows);
     }
-    
-    // Sync tasks
-    if (Array.isArray(projectFiles.prompts)) {
-        appState.currentProjectState.tasks = projectFiles.prompts.map((p, idx) => ({
-            id: `TASK-${(idx+1).toString().padStart(3, '0')}`,
+
+    // Tasks (from prompts array)
+    if (Array.isArray(projectFiles.prompts) && projectFiles.prompts.length > 0) {
+        const tasks = projectFiles.prompts.map((p, idx) => ({
+            id: `TASK-${(idx + 1).toString().padStart(3, '0')}`,
             title: p.title,
             description: p.description
         }));
+        patch('/tasks', tasks);
     }
-    
-    // Sync documents
+
+    // Documents
     if (projectFiles.docs) {
-        appState.currentProjectState.documents = Object.keys(projectFiles.docs).map(key => ({
+        const docs = Object.keys(projectFiles.docs).map(key => ({
             name: key,
             content: projectFiles.docs[key]
         }));
-    }
-    
-    // Sync stage if LLM returns it - validate against known stages first
-    if (projectFiles.workflowStage) {
-        const validStages = Object.values(WORKFLOW_STAGES);
-        if (validStages.includes(projectFiles.workflowStage)) {
-            appState.currentProjectState.workflowStage = projectFiles.workflowStage;
-        } else {
-            console.warn(`LLM returned unknown workflowStage: ${projectFiles.workflowStage}. Ignored.`);
-        }
+        if (docs.length > 0) patch('/documents', docs);
     }
 
-    appState.currentProjectState.revision += 1;
+    // Agent Package — sync subagents and editor rules into canonical agentPackage (Fix #2)
+    const agentPackage = {};
+    let hasAgentData = false;
+    if (Array.isArray(projectFiles.subagents) && projectFiles.subagents.length > 0) {
+        agentPackage.subagents = projectFiles.subagents;
+        hasAgentData = true;
+    }
+    if (typeof projectFiles.skillMarkdown === 'string' && projectFiles.skillMarkdown.trim()) {
+        agentPackage.skillMarkdown = projectFiles.skillMarkdown;
+        hasAgentData = true;
+    }
+    if (projectFiles.cursorRules || projectFiles.windsurfRules || projectFiles.copilotRules) {
+        agentPackage.rules = {
+            cursor: projectFiles.cursorRules || '',
+            windsurf: projectFiles.windsurfRules || '',
+            copilot: projectFiles.copilotRules || ''
+        };
+        hasAgentData = true;
+    }
+    if (hasAgentData) {
+        const currentPkg = appState.currentProjectState.agentPackage || {};
+        patch('/agentPackage', { ...currentPkg, ...agentPackage });
+    }
+
+    // IMPORTANT: workflowStage is NOT written here.
+    // Stage advances ONLY through checkWorkflowTransition() — AI cannot bypass it. (Fix #1)
+    // The LLM's suggestedNextStage (if returned) is stored as a hint only, never applied directly.
+    if (projectFiles.suggestedNextStage) {
+        appState.currentProjectState._suggestedNextStage = projectFiles.suggestedNextStage;
+    }
+    // Note: revision is incremented automatically by every applyStatePatch call above.
 }
 
 // --- CHAT FILE UPLOAD HANDLE ---
@@ -980,11 +985,10 @@ function validateProjectData(parsed) {
     if (isNaN(score)) score = 85;
     valid.healthScore = Math.max(0, Math.min(100, score));
 
-    // Normalize workflowStage
-    const allowedStages = ['IDEA_CAPTURED', 'DISCOVERY_IN_PROGRESS', 'SCOPE_DRAFTED', 'MVP_DEFINED', 'READY_FOR_EXPORT'];
-    valid.workflowStage = allowedStages.includes(parsed.workflowStage) ? parsed.workflowStage : 'SCOPE_DRAFTED';
+    // workflowStage is REMOVED from validateProjectData — AI cannot set stage directly (Fix #1)
+    // Stage is managed exclusively by checkWorkflowTransition() in main.js
 
-    // Normalize subagents
+    // Normalize subagents (UI data only — canonical agentPackage is updated separately)
     valid.subagents = Array.isArray(parsed.subagents) ? parsed.subagents.map(s => ({
         key: typeof s.key === 'string' ? s.key : 'subagent',
         role: typeof s.role === 'string' ? s.role : 'Ajan',
@@ -2028,7 +2032,7 @@ Tasarım Standardı: Modern cam efekti (glassmorphism) ve Outfit yazı tipi stan
         openQuestions,
         healthScore: 90,
         findings,
-        workflowStage: "SCOPE_DRAFTED",
+        suggestedNextStage: "SCOPE_DRAFTED",
         skillMarkdown
     };
 }

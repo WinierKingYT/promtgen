@@ -8,10 +8,10 @@ export const INITIAL_APP_STATE = {
     draftDescription: "",
     projectType: "universal",
     priorities: {
-        ui: false,
-        security: false,
-        performance: false,
-        scale: false
+        ui: true,
+        security: true,
+        performance: true,
+        scale: true
     },
     messages: [],
     historyStack: [],

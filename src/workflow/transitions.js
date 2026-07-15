@@ -97,9 +97,9 @@ export const TRANSITION_RULES = {
     [WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED]: {
         target: WORKFLOW_STAGES.REVIEW_IN_PROGRESS,
         check: (state) => {
-            // Checks if subagents exist (which defines AGENT_PACKAGE)
-            if (!state.subagents || state.subagents.length === 0) {
-                return { allowed: false, reason: "Alt ajan prompt paketi oluşturulmalıdır." };
+            // Must have at least one subagent in the canonical agentPackage
+            if (!state.agentPackage || !Array.isArray(state.agentPackage.subagents) || state.agentPackage.subagents.length === 0) {
+                return { allowed: false, reason: "Alt ajan prompt paketi (agentPackage.subagents) oluşturulmalıdır." };
             }
             return { allowed: true };
         }

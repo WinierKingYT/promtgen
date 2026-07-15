@@ -41,7 +41,17 @@ export function getInitialCanonicalState() {
         },
         tasks: [],
         documents: [],
-        reviews: []
+        reviews: [],
+        agentPackage: {
+            subagents: [],
+            rules: {
+                cursor: "",
+                windsurf: "",
+                copilot: ""
+            },
+            skillMarkdown: "",
+            exportTargets: []
+        }
     };
 }
 
@@ -109,9 +119,9 @@ export function applyStatePatch(state, patch) {
 export function validateCanonicalState(state) {
     if (!state || typeof state !== 'object') return false;
     const requiredKeys = [
-        'schemaVersion', 'revision', 'workflowStage', 'identity', 'profile', 
-        'scope', 'requirements', 'decisions', 'assumptions', 'risks', 
-        'openQuestions', 'architecture', 'tasks', 'documents'
+        'schemaVersion', 'revision', 'workflowStage', 'identity', 'profile',
+        'scope', 'requirements', 'decisions', 'assumptions', 'risks',
+        'openQuestions', 'architecture', 'tasks', 'documents', 'agentPackage'
     ];
     for (const key of requiredKeys) {
         if (state[key] === undefined) return false;
@@ -119,6 +129,15 @@ export function validateCanonicalState(state) {
 
     if (typeof state.revision !== 'number' || state.revision <= 0) return false;
     if (!Array.isArray(state.profile.domains)) return false;
+
+    // Check agentPackage structure (Fix #2)
+    if (!state.agentPackage || typeof state.agentPackage !== 'object') return false;
+    if (!Array.isArray(state.agentPackage.subagents)) return false;
+    if (!state.agentPackage.rules || typeof state.agentPackage.rules !== 'object') return false;
+    if (typeof state.agentPackage.rules.cursor !== 'string') return false;
+    if (typeof state.agentPackage.rules.windsurf !== 'string') return false;
+    if (typeof state.agentPackage.rules.copilot !== 'string') return false;
+    if (typeof state.agentPackage.skillMarkdown !== 'string') return false;
 
     // Check domains confidence values
     for (const d of state.profile.domains) {

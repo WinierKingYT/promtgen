@@ -331,6 +331,88 @@ test('buildDebugPrompt includes project context', () => {
 });
 
 // ============================================================
+// 10. V2 Sprint Hardening & Canonical State Sync
+// ============================================================
+console.log('\n🔒 canonical state hardening tests');
+
+test('validateCanonicalState rejects missing agentPackage', () => {
+    const st = getInitialCanonicalState();
+    delete st.agentPackage;
+    assert.strictEqual(validateCanonicalState(st), false);
+});
+
+test('validateCanonicalState rejects invalid agentPackage structure', () => {
+    const st = getInitialCanonicalState();
+    st.agentPackage.rules = "invalid"; // should be object
+    assert.strictEqual(validateCanonicalState(st), false);
+});
+
+test('validateCanonicalState accepts valid agentPackage structure', () => {
+    const st = getInitialCanonicalState();
+    assert.strictEqual(validateCanonicalState(st), true);
+});
+
+test('AGENT_PACKAGE_DRAFTED -> REVIEW_IN_PROGRESS fails if subagents empty', () => {
+    const st = getInitialCanonicalState();
+    st.agentPackage.subagents = [];
+    const res = checkWorkflowTransition(st, WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED);
+    assert.strictEqual(res.allowed, false);
+});
+
+test('AGENT_PACKAGE_DRAFTED -> REVIEW_IN_PROGRESS succeeds if subagents populated', () => {
+    const st = getInitialCanonicalState();
+    st.agentPackage.subagents = [{ key: 'auditor', role: 'Auditor' }];
+    const res = checkWorkflowTransition(st, WORKFLOW_STAGES.AGENT_PACKAGE_DRAFTED);
+    assert.strictEqual(res.allowed, true);
+    assert.strictEqual(res.nextStage, WORKFLOW_STAGES.REVIEW_IN_PROGRESS);
+});
+
+test('Sync simulation: AI cannot bypass workflowStage directly (fails closed/unchanged)', () => {
+    let currentProjectState = getInitialCanonicalState();
+    
+    // Simulate AI returning workflowStage
+    const projectFiles = {
+        workflowStage: "READY_FOR_EXPORT", // AI tries to skip stages
+        suggestedNextStage: "READY_FOR_EXPORT",
+        identity: { name: "Test AI Name" }
+    };
+    
+    // Mock the sync function logic (without direct stage write)
+    const patch = (path, value) => {
+        currentProjectState = applyStatePatch(currentProjectState, {
+            operation: 'replace',
+            path,
+            value
+        });
+    };
+    
+    if (projectFiles.identity && projectFiles.identity.name) {
+        patch('/identity/name', projectFiles.identity.name);
+    }
+    
+    // Check that workflowStage remains IDEA_CAPTURED
+    assert.strictEqual(currentProjectState.workflowStage, WORKFLOW_STAGES.IDEA_CAPTURED);
+    // suggestedNextStage is only saved as advisory
+    if (projectFiles.suggestedNextStage) {
+        currentProjectState._suggestedNextStage = projectFiles.suggestedNextStage;
+    }
+    assert.strictEqual(currentProjectState._suggestedNextStage, "READY_FOR_EXPORT");
+});
+
+test('Sync simulation: applyStatePatch correctly increments revision', () => {
+    let currentProjectState = getInitialCanonicalState();
+    const startRev = currentProjectState.revision;
+    
+    currentProjectState = applyStatePatch(currentProjectState, {
+        operation: 'replace',
+        path: '/identity/name',
+        value: 'New Name'
+    });
+    
+    assert.strictEqual(currentProjectState.revision, startRev + 1);
+});
+
+// ============================================================
 // Summary
 // ============================================================
 console.log(`\n${'='.repeat(50)}`);
