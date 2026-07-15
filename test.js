@@ -6,6 +6,7 @@ import { getInitialCanonicalState, applyStatePatch, validateCanonicalState } fro
 import { WORKFLOW_STAGES } from './src/workflow/stages.js';
 import { checkWorkflowTransition } from './src/workflow/transitions.js';
 import { profileProjectFromText, buildProfilePromptBlock } from './src/planning/project-profiler.js';
+import { buildPlanningPrompt, buildDebugPrompt } from './src/prompts/planning-prompt.js';
 
 let passed = 0;
 let failed = 0;
@@ -267,6 +268,66 @@ test('buildProfilePromptBlock includes platforms', () => {
 test('game domain + cross-platform with no specific platform keyword', () => {
     const p = profileProjectFromText('unity hyper-casual oyun');
     assert.ok(p.platforms.includes('cross-platform'));
+});
+
+
+// ============================================================
+// 9. Prompt Builder Module
+// ============================================================
+console.log('\n📝 planning-prompt module tests');
+
+test('buildPlanningPrompt includes techStack', () => {
+    const prompt = buildPlanningPrompt({
+        techStack: 'React (Vite)',
+        techVersion: '18.x',
+        activeFocuses: ['ui', 'security'],
+        profile: null,
+        stepDepth: 5,
+        historyText: 'Kullanıcı: Merhaba'
+    });
+    assert.ok(prompt.includes('React (Vite)'), 'Should include techStack');
+    assert.ok(prompt.includes('18.x'), 'Should include techVersion');
+});
+test('buildPlanningPrompt includes focusesText', () => {
+    const prompt = buildPlanningPrompt({
+        techStack: 'x',
+        techVersion: 'y',
+        activeFocuses: ['performance', 'scale'],
+        profile: null,
+        stepDepth: 3,
+        historyText: ''
+    });
+    assert.ok(prompt.includes('PERFORMANCE'), 'Should include PERFORMANCE focus');
+    assert.ok(prompt.includes('SCALE'), 'Should include SCALE focus');
+});
+test('buildPlanningPrompt includes profile block when profile given', () => {
+    const profile = { domains: [{ name: 'ai', confidence: 0.9 }], platforms: ['browser'], capabilities: [], uncertainties: [] };
+    const prompt = buildPlanningPrompt({
+        techStack: 'x', techVersion: 'y', activeFocuses: [], profile, stepDepth: 3, historyText: ''
+    });
+    assert.ok(prompt.includes('ai'), 'Should include domain name from profile');
+});
+test('buildPlanningPrompt includes stepDepth count', () => {
+    const prompt = buildPlanningPrompt({
+        techStack: 'x', techVersion: 'y', activeFocuses: [], profile: null, stepDepth: 7, historyText: ''
+    });
+    assert.ok(prompt.includes('7'), 'Should include stepDepth number');
+});
+test('buildDebugPrompt includes error log', () => {
+    const prompt = buildDebugPrompt({
+        projectContext: 'React finans app',
+        errorLog: 'TypeError: cannot read properties of undefined',
+        errorCode: ''
+    });
+    assert.ok(prompt.includes('TypeError: cannot read properties of undefined'), 'Should contain error log');
+});
+test('buildDebugPrompt includes project context', () => {
+    const prompt = buildDebugPrompt({
+        projectContext: 'Unity oyun projesi',
+        errorLog: 'NullReferenceException',
+        errorCode: ''
+    });
+    assert.ok(prompt.includes('Unity oyun projesi'), 'Should contain project context');
 });
 
 // ============================================================
