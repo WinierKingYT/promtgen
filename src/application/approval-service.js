@@ -1,3 +1,5 @@
+import { ARTIFACT_DEPENDENCIES } from '../domain/artifact-dependencies.js';
+
 export const APPROVAL_KEY_TO_ARTIFACT_PATH = {
     'profile': '/profile',
     'mvpScope': '/scope',
@@ -18,13 +20,6 @@ const PATH_PREFIX_TO_APPROVAL_KEY = {
     '/reviews': 'finalReview'
 };
 
-/**
- * Synchronously computes a 32-bit FNV-1a hash of any JavaScript value/object.
- * Used to detect content changes of planning artifacts.
- * 
- * @param {any} val - Value to hash
- * @returns {string} hex hash
- */
 export function computeHash(val) {
     const str = JSON.stringify(val || "");
     let h = 2166136261;
@@ -35,9 +30,6 @@ export function computeHash(val) {
     return (h >>> 0).toString(16);
 }
 
-/**
- * Resolves the state sub-object at a given path.
- */
 function getArtifactValue(state, path) {
     const parts = path.split('/').filter(p => p !== '');
     let current = state;
@@ -48,57 +40,135 @@ function getArtifactValue(state, path) {
     return current;
 }
 
-/**
- * Computes hash of the artifact value in the canonical state.
- */
 export function getArtifactHash(state, path) {
     const val = getArtifactValue(state, path);
     return computeHash(val);
 }
 
-/**
- * Checks if a specific approval in the state is valid and matches the current artifact contents.
- * 
- * @param {object} state - Project canonical state
- * @param {string} approvalKey - Key under state.approvals
- * @returns {boolean} true if approved and hash matches, false otherwise
- */
 export function isApprovalValid(state, approvalKey) {
     if (!state || !state.approvals) return false;
     const approval = state.approvals[approvalKey];
     if (!approval || approval.status !== 'approved') return false;
 
     const path = APPROVAL_KEY_TO_ARTIFACT_PATH[approvalKey];
-    if (!path) return true; // If not mapped, assume valid
+    if (!path) return true;
 
-    // Backwards compatibility for legacy approvals loaded without a hash
     if (approval.artifactHash === undefined) return true;
 
     const currentHash = getArtifactHash(state, path);
     return approval.artifactHash === currentHash;
 }
 
-/**
- * Automatically invalidates approvals in the state if a patch path modifies their associated artifacts.
- * Returns the modified state with invalidated approvals set to null.
- * 
- * @param {object} state - Project canonical state
- * @param {string} patchPath - Path that was modified by a patch
- * @returns {object} updated state
- */
+export function getApprovalStatus(state, approvalKey) {
+    if (!state || !state.approvals) return { status: 'none' };
+    const approval = state.approvals[approvalKey];
+    if (!approval) return { status: 'none' };
+    return {
+        status: approval.status,
+        artifactHash: approval.artifactHash,
+        approvedAt: approval.approvedAt,
+        notes: approval.notes
+    };
+}
+
+export function isApprovalCurrent(state, approvalKey) {
+    const approval = state.approvals?.[approvalKey];
+    if (!approval || approval.status !== 'approved') return false;
+    const path = APPROVAL_KEY_TO_ARTIFACT_PATH[approvalKey];
+    if (!path) return true;
+    const currentHash = getArtifactHash(state, path);
+    return approval.artifactHash === currentHash;
+}
+
+export function approveArtifact(state, approvalKey, notes = 'Kullanıcı onayı') {
+    const path = APPROVAL_KEY_TO_ARTIFACT_PATH[approvalKey];
+    if (!path) return state;
+
+    const hash = getArtifactHash(state, path);
+    const cloned = JSON.parse(JSON.stringify(state));
+    cloned.approvals[approvalKey] = {
+        status: 'approved',
+        artifactHash: hash,
+        approvedAt: new Date().toISOString(),
+        notes
+    };
+    return cloned;
+}
+
+export function rejectArtifact(state, approvalKey, notes = 'Reddedildi') {
+    const cloned = JSON.parse(JSON.stringify(state));
+    if (cloned.approvals[approvalKey]) {
+        cloned.approvals[approvalKey] = {
+            status: 'rejected',
+            artifactHash: cloned.approvals[approvalKey].artifactHash || null,
+            approvedAt: new Date().toISOString(),
+            notes
+        };
+    }
+    return cloned;
+}
+
+export function invalidateApproval(state, approvalKey) {
+    const cloned = JSON.parse(JSON.stringify(state));
+    if (cloned.approvals[approvalKey]) {
+        cloned.approvals[approvalKey] = null;
+    }
+    return cloned;
+}
+
 export function invalidateApprovalsForPath(state, patchPath) {
     if (!state || !state.approvals) return state;
     const cloned = JSON.parse(JSON.stringify(state));
 
-    // Check which approval keys need to be invalidated
+    const directKey = PATH_PREFIX_TO_APPROVAL_KEY[patchPath];
+    const affectedKeys = new Set();
+
     for (const [prefix, key] of Object.entries(PATH_PREFIX_TO_APPROVAL_KEY)) {
         if (patchPath === prefix || patchPath.startsWith(prefix + '/')) {
-            if (cloned.approvals[key] !== null) {
-                console.log(`[Approval Invalidation] Path '${patchPath}' modified. Invalidating approval for '${key}'.`);
-                cloned.approvals[key] = null;
+            affectedKeys.add(key);
+        }
+    }
+
+    for (const key of affectedKeys) {
+        if (cloned.approvals[key] !== null) {
+            cloned.approvals[key] = null;
+        }
+    }
+
+    for (const key of affectedKeys) {
+        const downstream = ARTIFACT_DEPENDENCIES[key];
+        if (downstream) {
+            for (const depKey of downstream) {
+                if (cloned.approvals[depKey] !== null) {
+                    cloned.approvals[depKey] = null;
+                }
             }
         }
     }
 
     return cloned;
+}
+
+export function getDownstreamInvalidations(state, patchPath) {
+    let approvalKey = PATH_PREFIX_TO_APPROVAL_KEY[patchPath];
+    if (!approvalKey) {
+        for (const [prefix, key] of Object.entries(PATH_PREFIX_TO_APPROVAL_KEY)) {
+            if (patchPath === prefix || patchPath.startsWith(prefix + '/')) {
+                approvalKey = key;
+                break;
+            }
+        }
+    }
+    if (!approvalKey) return [];
+
+    const invalidated = [];
+    const downstream = ARTIFACT_DEPENDENCIES[approvalKey];
+    if (downstream) {
+        for (const depKey of downstream) {
+            if (state.approvals[depKey] !== null) {
+                invalidated.push(depKey);
+            }
+        }
+    }
+    return invalidated;
 }

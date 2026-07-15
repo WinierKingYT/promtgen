@@ -558,7 +558,7 @@ test('validatePatchProposal allows valid stage-specific paths', () => {
     assert.strictEqual(validatePatchProposal(WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS, {
         operation: 'replace',
         path: '/scope/mustHave',
-        value: []
+        value: ['Feature A']
     }).valid, true);
 });
 
@@ -665,10 +665,9 @@ test('validatePatchProposal validates value schema types', () => {
 test('applyPatchTransaction rolls back completely on any validation error', () => {
     const original = getInitialCanonicalState();
     
-    // Patch 1 is valid, Patch 2 is invalid (unauthorized path for stage)
     const patches = [
         { operation: 'replace', path: '/identity/name', value: 'Atomic Name' },
-        { operation: 'replace', path: '/scope/mustHave', value: ['Auth'] } // Rejected in IDEA_CAPTURED
+        { operation: 'replace', path: '/scope/mustHave', value: ['Auth'] }
     ];
 
     const result = applyPatchTransaction({
@@ -679,7 +678,7 @@ test('applyPatchTransaction rolls back completely on any validation error', () =
     });
 
     assert.strictEqual(result.success, false);
-    assert.ok(result.error.includes('Yama Doğrulama Hatası'));
+    assert.ok(result.error.code === 'INVALID_PATCH_VALUE');
     assert.strictEqual(result.state.identity.name, '', 'State must be rolled back completely');
 });
 
@@ -690,11 +689,11 @@ test('applyPatchTransaction blocks stale updates on revision conflict', () => {
         state: original,
         patches: [{ operation: 'replace', path: '/identity/name', value: 'Conflict Name' }],
         stage: WORKFLOW_STAGES.IDEA_CAPTURED,
-        expectedRevision: 99 // Conflict! Current revision is 1
+        expectedRevision: 99
     });
 
     assert.strictEqual(result.success, false);
-    assert.ok(result.error.includes('Bayat Değişiklik Çakışması'));
+    assert.ok(result.error.message.includes('Bayat'));
     assert.strictEqual(result.state.identity.name, '');
 });
 
@@ -724,15 +723,16 @@ test('isApprovalValid checks artifact hash integrity', () => {
 });
 
 test('migrateProjectState fail-closed quarantines invalid projects', () => {
-    // Unknown future schema throws error
-    assert.throws(() => {
-        migrateProjectState({ schemaVersion: 3, revision: 1 });
-    }, /Bilinmeyen\/Geleceğe ait şema sürümü/);
+    // Unknown future schema returns error
+    const result1 = migrateProjectState({ schemaVersion: 99, revision: 1 });
+    assert.strictEqual(result1.success, false);
+    assert.ok(result1.errors.length > 0);
+    assert.ok(result1.recoveryState);
 
-    // Broken canonical state post-migration throws error
-    assert.throws(() => {
-        migrateProjectState({ schemaVersion: 1, revision: -5 }); // Invalid revision count
-    }, /Karantina/);
+    // Broken canonical state post-migration returns error
+    const result2 = migrateProjectState({ schemaVersion: 1, revision: -5 });
+    assert.strictEqual(result2.success, false);
+    assert.ok(result2.errors.length > 0);
 });
 
 

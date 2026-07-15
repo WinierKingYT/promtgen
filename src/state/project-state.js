@@ -67,7 +67,18 @@ export function getInitialCanonicalState() {
             architecture: null,
             tasks: null,
             finalReview: null
-        }
+        },
+        pendingChangeSet: {
+            baseRevision: 0,
+            sourceStage: null,
+            suggestedNextStage: null,
+            patches: [],
+            rejectedPatches: [],
+            editedPatches: [],
+            createdAt: null,
+            approvalStatus: 'pending'
+        },
+        eventLog: []
     };
 }
 
@@ -147,7 +158,8 @@ export function validateCanonicalState(state) {
     const requiredKeys = [
         'schemaVersion', 'revision', 'workflowStage', 'identity', 'profile',
         'scope', 'requirements', 'decisions', 'assumptions', 'risks',
-        'openQuestions', 'architecture', 'tasks', 'documents', 'agentPackage', 'workflowSuggestion', 'approvals'
+        'openQuestions', 'architecture', 'tasks', 'documents', 'agentPackage', 'workflowSuggestion', 'approvals',
+        'pendingChangeSet', 'eventLog'
     ];
     for (const key of requiredKeys) {
         if (state[key] === undefined) return false;
@@ -178,7 +190,7 @@ export function validateCanonicalState(state) {
         if (app !== null) {
             if (typeof app !== 'object') return false;
             if (app.status !== 'approved' && app.status !== 'rejected') return false;
-            if (typeof app.revision !== 'number') return false;
+            if (typeof app.artifactHash !== 'string' && typeof app.revision !== 'number') return false;
             if (typeof app.approvedAt !== 'string') return false;
             if (typeof app.notes !== 'string') return false;
         }
@@ -190,6 +202,14 @@ export function validateCanonicalState(state) {
             return false;
         }
     }
+
+    // Check pendingChangeSet structure
+    if (!state.pendingChangeSet || typeof state.pendingChangeSet !== 'object') return false;
+    if (typeof state.pendingChangeSet.baseRevision !== 'number') return false;
+    if (!Array.isArray(state.pendingChangeSet.patches)) return false;
+
+    // Check eventLog structure
+    if (!Array.isArray(state.eventLog)) return false;
 
     // Check ID uniqueness
     const ids = new Set();

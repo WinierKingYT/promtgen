@@ -12,7 +12,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test.js"
+    "test": "node test.js && node tests/unit/stage-contracts.test.js && node tests/unit/patch-policy.test.js && node tests/unit/approval-service.test.js && node tests/integration/patch-transaction.test.js && node tests/integration/persistence.test.js && node tests/workflow/complete-workflow.test.js && node tests/domain/traceability-graph.test.js"
   },
   "devDependencies": {
     "vite": "^5.0.0"

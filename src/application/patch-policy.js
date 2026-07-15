@@ -1,6 +1,5 @@
-import { isPatchPathAllowed, validateValueByPath } from '../workflow/stage-contracts.js';
+import { isPatchPathAllowed, validateValueByPath, validateValueBySchema, REQUIRED_ROOT_PATHS } from '../workflow/stage-contracts.js';
 
-// Paths that are strictly forbidden from being modified by AI patches in any stage
 export const GLOBAL_FORBIDDEN_PATHS = [
     '/workflowStage',
     '/schemaVersion',
@@ -8,18 +7,11 @@ export const GLOBAL_FORBIDDEN_PATHS = [
     '/approvals',
     '/approvals/*',
     '/workflowSuggestion',
-    '/workflowSuggestion/*'
+    '/workflowSuggestion/*',
+    '/pendingChangeSet',
+    '/pendingChangeSet/*'
 ];
 
-const ROOT_FIELDS = [
-    '/identity', '/profile', '/scope', '/requirements', '/decisions',
-    '/assumptions', '/risks', '/openQuestions', '/architecture', '/tasks',
-    '/documents', '/reviews', '/agentPackage', '/workflowSuggestion', '/approvals'
-];
-
-/**
- * Checks if a given patch path matches a policy pattern.
- */
 function pathMatchesPattern(path, pattern) {
     if (pattern.endsWith('/*')) {
         const prefix = pattern.slice(0, -2);
@@ -28,13 +20,6 @@ function pathMatchesPattern(path, pattern) {
     return path === pattern;
 }
 
-/**
- * Validates a single JSON Patch proposal against the current workflow stage's policy.
- * 
- * @param {string} stage - Current workflow stage
- * @param {object} patch - The patch object (operation, path, value)
- * @returns {object} { valid: boolean, reason?: string }
- */
 export function validatePatchProposal(stage, patch) {
     if (!patch || typeof patch !== 'object') {
         return { valid: false, reason: "Geçersiz patch nesnesi." };
@@ -49,25 +34,21 @@ export function validatePatchProposal(stage, patch) {
         return { valid: false, reason: `Geçersiz patch operasyonu: ${operation}` };
     }
 
-    // 1. Prototype Pollution Check
     const pathParts = path.split('/').filter(p => p !== '');
     const hasPollution = pathParts.some(part => part === '__proto__' || part === 'constructor' || part === 'prototype');
     if (hasPollution) {
         return { valid: false, reason: `Güvenlik İhlali: Prototype pollution tespiti (${path})` };
     }
 
-    // 2. Global Forbidden Paths Check
     const isGlobalForbidden = GLOBAL_FORBIDDEN_PATHS.some(pattern => pathMatchesPattern(path, pattern));
     if (isGlobalForbidden) {
         return { valid: false, reason: `Güvenlik İhlali: Kritik sistem alanları patch ile değiştirilemez (${path})` };
     }
 
-    // 3. Required Root Remove Protection
-    if (ROOT_FIELDS.includes(path) && operation === 'remove') {
+    if (REQUIRED_ROOT_PATHS.includes(path) && operation === 'remove') {
         return { valid: false, reason: `Güvenlik İhlali: Kritik kök alan silinemez (${path})` };
     }
 
-    // 4. Stage-Specific Policy Check (Allowed Paths)
     const isAllowed = isPatchPathAllowed(stage, path);
     if (!isAllowed) {
         return { 
@@ -76,13 +57,20 @@ export function validatePatchProposal(stage, patch) {
         };
     }
 
-    // 5. Value Schema Validation (for non-remove operations)
     if (operation !== 'remove') {
         const schemaCheck = validateValueByPath(path, value);
         if (!schemaCheck.valid) {
             return {
                 valid: false,
                 reason: `Şema İhlali: '${path}' için geçersiz değer tipi. Hata: ${schemaCheck.reason}`
+            };
+        }
+
+        const valueSchemaCheck = validateValueBySchema(path, value);
+        if (!valueSchemaCheck.valid) {
+            return {
+                valid: false,
+                reason: `Değer Şeması İhlali: '${path}' için geçersiz değer. Hata: ${valueSchemaCheck.reason}`
             };
         }
     }

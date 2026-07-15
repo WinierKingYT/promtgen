@@ -2,10 +2,11 @@ import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, vali
 import { migrateProjectState } from './state/state-migrations.js';
 import { AppStateManager, INITIAL_APP_STATE } from './state/app-state.js';
 import { applyPatchTransaction } from './application/patch-transaction.js';
-import { getArtifactHash, APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid } from './application/approval-service.js';
+import { APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid, approveArtifact } from './application/approval-service.js';
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
 import { WORKFLOW_STAGES, WORKFLOW_STAGE_METADATA } from './workflow/stages.js';
+import { STAGE_APPROVAL_KEYS } from './workflow/stage-contracts.js';
 import { checkWorkflowTransition } from './workflow/transitions.js';
 import { profileProjectFromText } from './planning/project-profiler.js';
 import { buildPlanningPrompt, buildDebugPrompt } from './prompts/planning-prompt.js';
@@ -13,6 +14,7 @@ import { exportProjectToZip } from './exporters/zip-exporter.js';
 import { escapeHTML } from './security/safe-renderer.js';
 import { validateFileMetadata } from './security/file-policy.js';
 import { scanForSecrets } from './security/secret-detector.js';
+import { TraceabilityGraph } from './domain/traceability-graph.js';
 
 // --- DEFAULTS ---
 const DEFAULTS = {
@@ -476,8 +478,19 @@ function loadProjectSession(id) {
         appState.draftDescription = proj.draftDescription;
         appState.messages = Array.isArray(proj.messages) ? proj.messages : [];
         
-        // Fail-closed storage loading and migration
-        appState.currentProjectState = proj.currentProjectState ? migrateProjectState(proj.currentProjectState) : null;
+        // Fail-closed storage loading and migration with quarantine
+        if (proj.currentProjectState) {
+            const migrationResult = migrateProjectState(proj.currentProjectState);
+            if (migrationResult.success) {
+                appState.currentProjectState = migrationResult.state;
+            } else {
+                console.error("Migration quarantine:", migrationResult.errors);
+                showToast(`Proje kaydı doğrulanamadı. Kurtarma deneniyor...`, true);
+                appState.currentProjectState = migrationResult.recoveryState;
+            }
+        } else {
+            appState.currentProjectState = null;
+        }
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         
         // Restore pending patches and suggested stage
@@ -543,6 +556,15 @@ function saveCurrentProjectState() {
     const dateStr = new Date().toLocaleDateString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
 
+    const pendingData = {
+        baseRevision: appState.currentProjectState?.revision || 0,
+        sourceStage: appState.currentProjectState?.workflowStage || null,
+        suggestedNextStage: appState.suggestedNextStage || null,
+        patches: appState.proposedPatches || [],
+        createdAt: new Date().toISOString(),
+        approvalStatus: appState.proposedPatches?.length > 0 ? 'pending' : 'none'
+    };
+
     const projectObj = {
         id: appState.projectId,
         title: title,
@@ -556,7 +578,8 @@ function saveCurrentProjectState() {
         currentProjectState: appState.currentProjectState,
         proposedPatches: appState.proposedPatches,
         suggestedNextStage: appState.suggestedNextStage,
-        date: dateStr
+        date: dateStr,
+        pendingChangeSet: pendingData
     };
 
     storageRepo.saveProject(projectObj);
@@ -1570,6 +1593,41 @@ function renderProjectMemory(data) {
 }
 
 function showDecisionImpactAnalysis(id, title) {
+    const graph = TraceabilityGraph.buildFromState(appState.currentProjectState);
+    const impact = graph.getImpactAnalysis(id ? [id] : []);
+
+    let impactHtml = '';
+    if (impact.length > 0) {
+        impactHtml = '<ul style="padding-left:1.2rem; margin-top:0.3rem;">';
+        for (const item of impact) {
+            impactHtml += `<li><strong>${escapeHTML(item.node.label)}</strong> (${escapeHTML(item.node.type)})</li>`;
+        }
+        impactHtml += '</ul>';
+    } else {
+        impactHtml = '<p style="color:var(--text-muted);">Bu kararın etkilediği başka öge bulunamadı.</p>';
+    }
+
+    const allNodes = graph.getAllNodes();
+    const gaps = graph.getCoverageGaps();
+    let gapsHtml = '';
+    if (gaps.requirementsWithoutDecisions.length > 0 || gaps.unlinkedNodes.length > 0) {
+        gapsHtml = '<div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border-color);">';
+        gapsHtml += '<strong style="color:var(--warning);">Kapsam Boşlukları:</strong>';
+        if (gaps.requirementsWithoutDecisions.length > 0) {
+            gapsHtml += `<p style="font-size:0.75rem;">⚠️ ${gaps.requirementsWithoutDecisions.length} gereksinim karara bağlanmamış</p>`;
+        }
+        if (gaps.decisionsWithoutComponents.length > 0) {
+            gapsHtml += `<p style="font-size:0.75rem;">⚠️ ${gaps.decisionsWithoutComponents.length} karar bileşene atanmamış</p>`;
+        }
+        if (gaps.componentsWithoutTasks.length > 0) {
+            gapsHtml += `<p style="font-size:0.75rem;">⚠️ ${gaps.componentsWithoutTasks.length} bileşen için görev tanımlanmamış</p>`;
+        }
+        if (gaps.unlinkedNodes.length > 0) {
+            gapsHtml += `<p style="font-size:0.75rem;">🔗 ${gaps.unlinkedNodes.length} bağlantısız düğüm</p>`;
+        }
+        gapsHtml += '</div>';
+    }
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.style.position = 'fixed';
@@ -1585,21 +1643,19 @@ function showDecisionImpactAnalysis(id, title) {
     modal.style.justifyContent = 'center';
     
     let details = `
-        <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); width:90%; max-width:500px; padding:2rem; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+        <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); width:90%; max-width:550px; padding:2rem; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h3 style="color:var(--secondary); margin:0; display:flex; align-items:center; gap:0.5rem;"><i data-lucide="shield-alert"></i> <span>Değişiklik Etki Analizi</span></h3>
                 <button class="btn btn-secondary btn-icon-only" id="close-impact-modal" style="border:none;background:none;color:white;cursor:pointer;"><i data-lucide="x"></i></button>
             </div>
             <div style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; display:flex; flex-direction:column; gap:1rem;">
                 <p><strong>Değişiklik Konusu:</strong> ${escapeHTML(id)} - ${escapeHTML(title)}</p>
-                <p><strong style="color:var(--warning);">Etki Seviyesi:</strong> ORTA (Data Storage Layer)</p>
+                <p><strong style="color:var(--warning);">İzlenebilirlik Zinciri:</strong> ${allNodes.length} düğüm, ${graph.toJSON().edges.length} bağlantı</p>
                 <div>
-                    <strong>Etkilenen Belgeler:</strong>
-                    <ul style="padding-left:1.2rem; margin-top:0.3rem;">
-                        <li>PROJECT_BRIEF.md</li>
-                        <li>ARCHITECTURE.md</li>
-                    </ul>
+                    <strong>Etkilenen Ögeler:</strong>
+                    ${impactHtml}
                 </div>
+                ${gapsHtml}
             </div>
         </div>
     `;
@@ -1991,15 +2047,7 @@ function loadTemplate(type) {
 }
 
 // --- V2 BETA APPROVAL & PATCH PROPOSALS SYSTEM ---
-const STAGE_APPROVAL_KEYS = {
-    'PROFILE_DRAFTED': 'profile',
-    'MVP_DEFINED': 'mvpScope',
-    'REQUIREMENTS_DRAFTED': 'requirements',
-    'TECH_STACK_SELECTED': 'technology',
-    'ARCHITECTURE_DRAFTED': 'architecture',
-    'TASKS_DRAFTED': 'tasks',
-    'READY_FOR_EXPORT': 'finalReview'
-};
+// STAGE_APPROVAL_KEYS now imported from ./workflow/stage-contracts.js
 
 function renderProposedPatches() {
     const container = elements.patchProposalsContainer;
@@ -2230,20 +2278,7 @@ function handleApproveCurrentStage() {
     const approvalKey = STAGE_APPROVAL_KEYS[stage];
     if (!approvalKey) return;
 
-    const path = APPROVAL_KEY_TO_ARTIFACT_PATH[approvalKey];
-    const hash = getArtifactHash(appState.currentProjectState, path);
-
-    appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
-        operation: 'replace',
-        path: `/approvals/${approvalKey}`,
-        value: {
-            status: 'approved',
-            revision: appState.currentProjectState.revision,
-            approvedAt: new Date().toISOString(),
-            notes: 'Kullanıcı onayı',
-            artifactHash: hash
-        }
-    }, true);
+    appState.currentProjectState = approveArtifact(appState.currentProjectState, approvalKey, 'Kullanıcı onayı');
 
     showToast(`${WORKFLOW_STAGE_METADATA[stage]?.label || stage} aşaması onaylandı!`);
     saveCurrentProjectState();

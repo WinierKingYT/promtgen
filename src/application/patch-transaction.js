@@ -1,79 +1,119 @@
 import { validatePatchProposal } from './patch-policy.js';
 import { applyStatePatch, validateCanonicalState } from '../state/project-state.js';
+import { invalidateApprovalsForPath, getDownstreamInvalidations } from './approval-service.js';
 
-/**
- * Executes a transaction of multiple JSON patches on the canonical project state.
- * Performs validation of the stage policy, value schemas, revision alignment, 
- * and strict canonical validation. Rolls back completely on any failure.
- * 
- * @param {object} options
- * @param {object} options.state - Current canonical state
- * @param {object[]} options.patches - List of patches to apply
- * @param {string} options.stage - Current workflow stage
- * @param {number} [options.expectedRevision] - Optional expected revision count to prevent stale updates
- * @returns {object} { success: boolean, state: object, error?: string }
- */
 export function applyPatchTransaction({ state, patches, stage, expectedRevision }) {
     if (!state) {
-        return { success: false, error: "Geçersiz durum: State bulunamadı." };
+        return { success: false, state: null, error: { code: 'NO_STATE', message: "Geçersiz durum: State bulunamadı." } };
     }
 
-    // 1. Expected Revision check (Conflict prevention)
     if (expectedRevision !== undefined && expectedRevision !== null) {
         if (state.revision !== expectedRevision) {
-            return { 
-                success: false, 
-                error: `Bayat Değişiklik Çakışması: Beklenen revizyon ${expectedRevision}, mevcut revizyon ${state.revision}. Lütfen sayfayı yenileyip tekrar deneyin.`,
-                state 
+            return {
+                success: false,
+                state,
+                error: {
+                    code: 'STALE_REVISION',
+                    message: `Bayat Değişiklik Çakışması: Beklenen revizyon ${expectedRevision}, mevcut revizyon ${state.revision}. Lütfen sayfayı yenileyip tekrar deneyin.`
+                },
+                appliedPatches: [],
+                invalidatedApprovals: [],
+                auditEvents: []
             };
         }
     }
 
     if (!Array.isArray(patches) || patches.length === 0) {
-        return { success: true, state };
+        return { success: true, state, appliedPatches: [], invalidatedApprovals: [], auditEvents: [] };
     }
 
-    // Clone state for transaction rollback isolation
-    let transactionState = JSON.parse(JSON.stringify(state));
-
-    // 2. Validate all patches first (Atomic pre-check)
-    for (const patch of patches) {
+    for (let i = 0; i < patches.length; i++) {
+        const patch = patches[i];
         const check = validatePatchProposal(stage, patch);
         if (!check.valid) {
             return {
                 success: false,
-                error: `Yama Doğrulama Hatası (Path: ${patch.path}): ${check.reason}`,
-                state
+                state,
+                error: {
+                    code: 'INVALID_PATCH_VALUE',
+                    patchId: patch.id || `PAT-${String(i + 1).padStart(3, '0')}`,
+                    message: check.reason
+                },
+                appliedPatches: [],
+                invalidatedApprovals: [],
+                auditEvents: []
             };
         }
     }
 
-    // 3. Apply patches one by one
+    let transactionState = JSON.parse(JSON.stringify(state));
+    const appliedPatches = [];
+    const allInvalidated = new Set();
+    let revisionBefore = transactionState.revision;
+
     try {
         for (const patch of patches) {
-            // Apply as system-approved since we pre-validated
             transactionState = applyStatePatch(transactionState, patch, true);
+
+            const downstream = getDownstreamInvalidations(transactionState, patch.path);
+            downstream.forEach(k => allInvalidated.add(k));
+
+            transactionState = invalidateApprovalsForPath(transactionState, patch.path);
+
+            appliedPatches.push(patch.id || patch.path);
         }
     } catch (err) {
         return {
             success: false,
-            error: `Yama Uygulama Hatası: ${err.message}`,
-            state
+            state,
+            error: {
+                code: 'APPLICATION_ERROR',
+                message: `Yama Uygulama Hatası: ${err.message}`
+            },
+            appliedPatches: [],
+            invalidatedApprovals: [],
+            auditEvents: []
         };
     }
 
-    // 4. Strict Canonical Schema Validation on the resulting state
     const isValidCanonical = validateCanonicalState(transactionState);
     if (!isValidCanonical) {
         return {
             success: false,
-            error: "Nihai kanonik durum doğrulanamadı. Değişiklikler şema bütünlüğünü bozuyor.",
-            state
+            state,
+            error: {
+                code: 'CANONICAL_VIOLATION',
+                message: "Nihai kanonik durum doğrulanamadı. Değişiklikler şema bütünlüğünü bozuyor."
+            },
+            appliedPatches: [],
+            invalidatedApprovals: [],
+            auditEvents: []
         };
+    }
+
+    const invalidatedApprovals = [...allInvalidated];
+    
+    const auditEvents = appliedPatches.map((patchId, i) => ({
+        type: 'PATCH_APPLIED',
+        patchId,
+        path: patches[i]?.path,
+        operation: patches[i]?.operation,
+        timestamp: new Date().toISOString()
+    }));
+
+    if (invalidatedApprovals.length > 0) {
+        auditEvents.push({
+            type: 'APPROVALS_INVALIDATED',
+            keys: invalidatedApprovals,
+            timestamp: new Date().toISOString()
+        });
     }
 
     return {
         success: true,
-        state: transactionState
+        state: transactionState,
+        appliedPatches,
+        invalidatedApprovals,
+        auditEvents
     };
 }
