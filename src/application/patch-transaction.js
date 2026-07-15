@@ -1,10 +1,23 @@
 import { validatePatchProposal } from './patch-policy.js';
-import { applyStatePatch, validateCanonicalState } from '../state/project-state.js';
+import { applyStatePatch as applyStatePatchV2, validateCanonicalState as validateV2 } from '../state/project-state.js';
+import { applyV3StatePatch as applyStatePatchV3, validateV3State as validateV3 } from '../state/project-state-v3.js';
 import { invalidateApprovalsForPath, getDownstreamInvalidations } from './approval-service.js';
+
+function isV3(state) {
+    return state && state.schemaVersion === 3;
+}
+
+function applyPatch(state, patch, isSystem) {
+    return isV3(state) ? applyStatePatchV3(state, patch, isSystem) : applyStatePatchV2(state, patch, isSystem);
+}
+
+function validateState(state) {
+    return isV3(state) ? validateV3(state) : validateV2(state);
+}
 
 export function applyPatchTransaction({ state, patches, stage, expectedRevision }) {
     if (!state) {
-        return { success: false, state: null, error: { code: 'NO_STATE', message: "Geçersiz durum: State bulunamadı." } };
+        return { success: false, state: null, error: { code: 'NO_STATE', message: 'Geçersiz durum: State bulunamadı.' } };
     }
 
     if (expectedRevision !== undefined && expectedRevision !== null) {
@@ -14,7 +27,7 @@ export function applyPatchTransaction({ state, patches, stage, expectedRevision 
                 state,
                 error: {
                     code: 'STALE_REVISION',
-                    message: `Bayat Değişiklik Çakışması: Beklenen revizyon ${expectedRevision}, mevcut revizyon ${state.revision}. Lütfen sayfayı yenileyip tekrar deneyin.`
+                    message: `Bayat Değişiklik Çakışması: Beklenen revizyon ${expectedRevision}, mevcut revizyon ${state.revision}.`
                 },
                 appliedPatches: [],
                 invalidatedApprovals: [],
@@ -53,7 +66,7 @@ export function applyPatchTransaction({ state, patches, stage, expectedRevision 
 
     try {
         for (const patch of patches) {
-            transactionState = applyStatePatch(transactionState, patch, true);
+            transactionState = applyPatch(transactionState, patch, true);
 
             const downstream = getDownstreamInvalidations(transactionState, patch.path);
             downstream.forEach(k => allInvalidated.add(k));
@@ -76,14 +89,14 @@ export function applyPatchTransaction({ state, patches, stage, expectedRevision 
         };
     }
 
-    const isValidCanonical = validateCanonicalState(transactionState);
+    const isValidCanonical = validateState(transactionState);
     if (!isValidCanonical) {
         return {
             success: false,
             state,
             error: {
                 code: 'CANONICAL_VIOLATION',
-                message: "Nihai kanonik durum doğrulanamadı. Değişiklikler şema bütünlüğünü bozuyor."
+                message: 'Nihai kanonik durum doğrulanamadı. Değişiklikler şema bütünlüğünü bozuyor.'
             },
             appliedPatches: [],
             invalidatedApprovals: [],
@@ -92,7 +105,7 @@ export function applyPatchTransaction({ state, patches, stage, expectedRevision 
     }
 
     const invalidatedApprovals = [...allInvalidated];
-    
+
     const auditEvents = appliedPatches.map((patchId, i) => ({
         type: 'PATCH_APPLIED',
         patchId,

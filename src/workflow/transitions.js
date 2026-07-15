@@ -1,16 +1,20 @@
 import { STAGE_CONTRACTS } from './stage-contracts.js';
+import { checkPhaseCompletion, getPhaseNext } from './phase-contracts.js';
 
-/**
- * Checks if the canonical project state is eligible to transition from currentStage to the next stage.
- * Uses the completionCheck and nextStage mapping defined in the unified STAGE_CONTRACTS.
- * 
- * @param {object} state - Canonical project state
- * @param {string} currentStage - Current workflow stage
- * @returns {object} { allowed: boolean, nextStage?: string, reason?: string }
- */
+export function checkPhaseTransition(state, currentPhase) {
+    if (!currentPhase) {
+        return { allowed: false, reason: 'Mevcut faz tanımsız.' };
+    }
+    const result = checkPhaseCompletion(state, currentPhase);
+    if (result.allowed) {
+        return { allowed: true, nextPhase: getPhaseNext(currentPhase) };
+    }
+    return result;
+}
+
 export function checkWorkflowTransition(state, currentStage) {
     if (!currentStage) {
-        return { allowed: false, reason: "Mevcut aşama tanımsız." };
+        return { allowed: false, reason: 'Mevcut aşama tanımsız.' };
     }
     const contract = STAGE_CONTRACTS[currentStage];
     if (!contract) {

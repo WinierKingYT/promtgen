@@ -7,7 +7,10 @@ import { BrowserStorageRepository } from './storage/browser-storage-repository.j
 import { GeminiProvider } from './ai/gemini-provider.js';
 import { WORKFLOW_STAGES, WORKFLOW_STAGE_METADATA } from './workflow/stages.js';
 import { STAGE_APPROVAL_KEYS } from './workflow/stage-contracts.js';
-import { checkWorkflowTransition } from './workflow/transitions.js';
+import { checkWorkflowTransition, checkPhaseTransition } from './workflow/transitions.js';
+import { UNIVERSAL_PHASE_METADATA } from './workflow/phases.js';
+import { PHASE_APPROVAL_KEYS as PHASE_APPROVAL_KEYS_MAP } from './workflow/phase-contracts.js';
+import { applyV3StatePatch } from './state/project-state-v3.js';
 import { profileProjectFromText } from './planning/project-profiler.js';
 import { buildPlanningPrompt, buildDebugPrompt } from './prompts/planning-prompt.js';
 import { exportProjectToZip } from './exporters/zip-exporter.js';
@@ -33,6 +36,26 @@ const geminiProvider = new GeminiProvider();
 
 // Helper sleep function
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// --- V3 COMPAT HELPERS ---
+function getStageOrPhase(state) {
+    if (!state) return 'IDEA_CAPTURED';
+    if (state.schemaVersion === 3) return state.phase || 'IDEA_CAPTURED';
+    return state.workflowStage || 'IDEA_CAPTURED';
+}
+function getStageLabel(stage) {
+    return WORKFLOW_STAGE_METADATA[stage]?.label || UNIVERSAL_PHASE_METADATA[stage]?.label || stage;
+}
+function getApprovalKeyForStage(stage) {
+    return STAGE_APPROVAL_KEYS[stage] || PHASE_APPROVAL_KEYS_MAP[stage] || null;
+}
+function isV3State(state) {
+    return state && state.schemaVersion === 3;
+}
+function applyStatePatchVersionAware(state, patch, isSystem) {
+    if (isV3State(state)) return applyV3StatePatch(state, patch, isSystem);
+    return applyStatePatch(state, patch, isSystem);
+}
 
 // --- DOM ELEMENTS ---
 const elements = {
@@ -558,7 +581,7 @@ function saveCurrentProjectState() {
 
     const pendingData = {
         baseRevision: appState.currentProjectState?.revision || 0,
-        sourceStage: appState.currentProjectState?.workflowStage || null,
+        sourceStage: getStageOrPhase(appState.currentProjectState),
         suggestedNextStage: appState.suggestedNextStage || null,
         patches: appState.proposedPatches || [],
         createdAt: new Date().toISOString(),
@@ -707,14 +730,18 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
             }
             
             // Workflow transition checks
-            const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
-            if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
-                appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+            const currentStage = getStageOrPhase(appState.currentProjectState);
+            const nextStateCheck = isV3State(appState.currentProjectState)
+                ? checkPhaseTransition(appState.currentProjectState, currentStage)
+                : checkWorkflowTransition(appState.currentProjectState, currentStage);
+            if (nextStateCheck.allowed && nextStateCheck.nextStage !== currentStage) {
+                const transitionPath = isV3State(appState.currentProjectState) ? '/phase' : '/workflowStage';
+                appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
                     operation: 'replace',
-                    path: '/workflowStage',
+                    path: transitionPath,
                     value: nextStateCheck.nextStage
                 }, true);
-                showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
+                showToast(`Durum İlerlemesi: ${getStageLabel(nextStateCheck.nextStage)}`);
             }
 
             appState.historyStack.push({
@@ -905,7 +932,7 @@ async function sendChatMessageToGemini() {
 
     // Prompt is built in a separate, testable module
     const promptText = buildPlanningPrompt({
-        stage: appState.currentProjectState?.workflowStage || 'IDEA_CAPTURED',
+        stage: getStageOrPhase(appState.currentProjectState),
         techStack: appState.techStack,
         techVersion: appState.techVersion,
         activeFocuses,
@@ -918,7 +945,7 @@ async function sendChatMessageToGemini() {
         const textResponse = await geminiProvider.generateStructured(promptText, appState.apiKey);
         const parsed = JSON.parse(textResponse);
         if (parsed && parsed.projectFiles) {
-            parsed.projectFiles = validateProjectData(parsed.projectFiles, appState.currentProjectState?.workflowStage);
+            parsed.projectFiles = validateProjectData(parsed.projectFiles, getStageOrPhase(appState.currentProjectState));
         }
         return parsed;
     } catch (err) {
@@ -950,7 +977,7 @@ Sağ paneldeki belgelere JWT tabanlı oturum doğrulama şemalarını ve şifrel
 Sağ paneldeki **Prompt Zinciri**, **SKILL.md**, **Editör Kuralları** ve **Alt Ajan Promptları** güncel konuşmamız doğrultusunda revize edildi. Projede dikkat etmemiz gereken güvenlik veya performans odakları hakkında konuşmaya devam etmek ister misiniz yoksa dosyaları indirmeye hazır mısınız?`;
     }
 
-    const projectFiles = validateProjectData(generateOfflineArtifacts(appState.draftDescription + ' ' + appState.messages.map(m => m.content).join(' '), appState.projectType, appState.priorities), appState.currentProjectState?.workflowStage);
+    const projectFiles = validateProjectData(generateOfflineArtifacts(appState.draftDescription + ' ' + appState.messages.map(m => m.content).join(' '), appState.projectType, appState.priorities), getStageOrPhase(appState.currentProjectState));
 
     return {
         chatResponse,
@@ -2127,7 +2154,7 @@ function initPatchProposalListeners() {
             const txResult = applyPatchTransaction({
                 state: appState.currentProjectState,
                 patches: [patch],
-                stage: appState.currentProjectState.workflowStage,
+                stage: getStageOrPhase(appState.currentProjectState),
                 expectedRevision: appState.currentProjectState.revision
             });
 
@@ -2197,7 +2224,7 @@ function initPatchProposalListeners() {
             const txResult = applyPatchTransaction({
                 state: appState.currentProjectState,
                 patches: appState.proposedPatches,
-                stage: appState.currentProjectState.workflowStage,
+                stage: getStageOrPhase(appState.currentProjectState),
                 expectedRevision: appState.currentProjectState.revision
             });
 
@@ -2206,14 +2233,22 @@ function initPatchProposalListeners() {
                 
                 // Set workflow suggestion system-wide if provided
                 if (appState.suggestedNextStage) {
-                    appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
-                        operation: 'replace',
-                        path: '/workflowSuggestion',
-                        value: {
-                            stage: appState.suggestedNextStage,
-                            reason: "AI suggested stage transition"
-                        }
-                    }, true);
+                    if (isV3State(appState.currentProjectState)) {
+                        appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
+                            operation: 'replace',
+                            path: '/pendingChangeSet/suggestedNextPhase',
+                            value: appState.suggestedNextStage
+                        }, true);
+                    } else {
+                        appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
+                            operation: 'replace',
+                            path: '/workflowSuggestion',
+                            value: {
+                                stage: appState.suggestedNextStage,
+                                reason: "AI suggested stage transition"
+                            }
+                        }, true);
+                    }
                 }
 
                 appState.proposedPatches = [];
@@ -2259,13 +2294,13 @@ function updateApprovalGateBanner() {
         return;
     }
 
-    const stage = appState.currentProjectState.workflowStage;
-    const approvalKey = STAGE_APPROVAL_KEYS[stage];
+    const stage = getStageOrPhase(appState.currentProjectState);
+    const approvalKey = getApprovalKeyForStage(stage);
 
     if (approvalKey) {
         if (!isApprovalValid(appState.currentProjectState, approvalKey)) {
             banner.classList.remove('hidden');
-            message.textContent = `Mevcut aşama (${WORKFLOW_STAGE_METADATA[stage]?.label || stage}) kullanıcı onayı bekliyor. Sonraki aşamaya geçmek için lütfen planlanan verileri onaylayın.`;
+            message.textContent = `Mevcut aşama (${getStageLabel(stage)}) kullanıcı onayı bekliyor. Sonraki aşamaya geçmek için lütfen planlanan verileri onaylayın.`;
             return;
         }
     }
@@ -2274,13 +2309,13 @@ function updateApprovalGateBanner() {
 }
 
 function handleApproveCurrentStage() {
-    const stage = appState.currentProjectState.workflowStage;
-    const approvalKey = STAGE_APPROVAL_KEYS[stage];
+    const stage = getStageOrPhase(appState.currentProjectState);
+    const approvalKey = getApprovalKeyForStage(stage);
     if (!approvalKey) return;
 
     appState.currentProjectState = approveArtifact(appState.currentProjectState, approvalKey, 'Kullanıcı onayı');
 
-    showToast(`${WORKFLOW_STAGE_METADATA[stage]?.label || stage} aşaması onaylandı!`);
+    showToast(`${getStageLabel(stage)} aşaması onaylandı!`);
     saveCurrentProjectState();
     updateApprovalGateBanner();
     triggerWorkflowTransitionCheck();
@@ -2288,14 +2323,18 @@ function handleApproveCurrentStage() {
 
 function triggerWorkflowTransitionCheck() {
     if (!appState.currentProjectState) return;
-    const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
-    if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
-        appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+    const currentStage = getStageOrPhase(appState.currentProjectState);
+    const nextStateCheck = isV3State(appState.currentProjectState)
+        ? checkPhaseTransition(appState.currentProjectState, currentStage)
+        : checkWorkflowTransition(appState.currentProjectState, currentStage);
+    if (nextStateCheck.allowed && nextStateCheck.nextStage !== currentStage) {
+        const transitionPath = isV3State(appState.currentProjectState) ? '/phase' : '/workflowStage';
+        appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
             operation: 'replace',
-            path: '/workflowStage',
+            path: transitionPath,
             value: nextStateCheck.nextStage
         }, true);
-        showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
+        showToast(`Durum İlerlemesi: ${getStageLabel(nextStateCheck.nextStage)}`);
         saveCurrentProjectState();
         updateWorkflowTrackerUI();
         updateApprovalGateBanner();
@@ -2304,6 +2343,8 @@ function triggerWorkflowTransitionCheck() {
 
 function getDerivedDataFromCanonicalState(state) {
     if (!state) return null;
+
+    const isV3 = isV3State(state);
 
     const docs = {};
     if (Array.isArray(state.documents)) {
@@ -2320,33 +2361,63 @@ function getDerivedDataFromCanonicalState(state) {
         subSteps: []
     })) : [];
 
-    const agentPackage = state.agentPackage || {};
-    const subagents = Array.isArray(agentPackage.subagents) ? agentPackage.subagents.map(s => ({
-        key: s.key || 'subagent',
-        role: s.role || 'Ajan',
-        filename: s.filename || 'agent.txt',
-        prompt: s.prompt || ''
-    })) : [];
+    let agentPackage = {};
+    let subagents = [];
+    let skillMarkdown = '';
+    let cursorRules = '';
+    let windsurfRules = '';
+    let copilotRules = '';
+
+    if (isV3) {
+        const docAgent = state.documents.find(d => d.name === 'agentPackage');
+        if (docAgent) {
+            try { agentPackage = JSON.parse(docAgent.content); } catch (e) { agentPackage = {}; }
+        }
+        subagents = Array.isArray(agentPackage.subagents) ? agentPackage.subagents.map(s => ({
+            key: s.key || 'subagent',
+            role: s.role || 'Ajan',
+            filename: s.filename || 'agent.txt',
+            prompt: s.prompt || ''
+        })) : [];
+        skillMarkdown = agentPackage.skillMarkdown || '';
+        cursorRules = agentPackage.rules?.cursor || '';
+        windsurfRules = agentPackage.rules?.windsurf || '';
+        copilotRules = agentPackage.rules?.copilot || '';
+    } else {
+        agentPackage = state.agentPackage || {};
+        subagents = Array.isArray(agentPackage.subagents) ? agentPackage.subagents.map(s => ({
+            key: s.key || 'subagent',
+            role: s.role || 'Ajan',
+            filename: s.filename || 'agent.txt',
+            prompt: s.prompt || ''
+        })) : [];
+        skillMarkdown = agentPackage.skillMarkdown || '';
+        cursorRules = agentPackage.rules?.cursor || '';
+        windsurfRules = agentPackage.rules?.windsurf || '';
+        copilotRules = agentPackage.rules?.copilot || '';
+    }
 
     const latestReview = Array.isArray(state.reviews) && state.reviews.length > 0 ? state.reviews[state.reviews.length - 1] : null;
+
+    const architecture = isV3 ? (state.moduleData?.software?.architecture || null) : state.architecture;
 
     return {
         identity: state.identity,
         scope: state.scope,
-        requirements: state.requirements,
+        requirements: isV3 ? state.objectives : state.requirements,
         decisions: state.decisions,
         assumptions: state.assumptions,
         risks: state.risks,
         openQuestions: state.openQuestions,
-        architecture: state.architecture,
-        mermaidCode: state.architecture?.mermaidCode || '',
+        architecture,
+        mermaidCode: architecture?.mermaidCode || '',
         prompts,
         docs,
         subagents,
-        skillMarkdown: agentPackage.skillMarkdown || '',
-        cursorRules: agentPackage.rules?.cursor || '',
-        windsurfRules: agentPackage.rules?.windsurf || '',
-        copilotRules: agentPackage.rules?.copilot || '',
+        skillMarkdown,
+        cursorRules,
+        windsurfRules,
+        copilotRules,
         healthScore: latestReview ? latestReview.healthScore : 85,
         findings: latestReview ? latestReview.findings : []
     };

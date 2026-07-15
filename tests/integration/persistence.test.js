@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { getInitialCanonicalState, validateCanonicalState } from '../../src/state/project-state.js';
+import { validateV3State } from '../../src/state/project-state-v3.js';
 import { migrateProjectState } from '../../src/state/state-migrations.js';
 
 let passed = 0;
@@ -57,7 +58,7 @@ test('migrateProjectState quarantines future schema version', () => {
 test('migrateProjectState returns fresh state for empty input', () => {
     const result = migrateProjectState(null);
     assert.strictEqual(result.success, true);
-    assert.ok(result.migrationsApplied.includes('fresh-start'));
+    assert.ok(result.migrationsApplied.includes('fresh-start-v3'));
 });
 
 test('migrateProjectState migrates v1 to v3', () => {
@@ -74,7 +75,7 @@ test('migrateProjectState validates canonical state after migration', () => {
     const oldState = makeValidV2State();
     const result = migrateProjectState(oldState);
     assert.strictEqual(result.success, true);
-    assert.ok(validateCanonicalState(result.state));
+    assert.ok(validateV3State(result.state));
 });
 
 test('rejectedPatches and editedPatches are preserved', () => {

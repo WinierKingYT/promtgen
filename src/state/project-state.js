@@ -85,7 +85,6 @@ export function getInitialCanonicalState() {
 export function applyStatePatch(state, patch, isSystem = false) {
     if (!patch || !patch.operation || !patch.path) return state;
 
-    // Apply patch policy validation if not system-initiated
     if (!isSystem) {
         const policyCheck = validatePatchProposal(state.workflowStage, patch);
         if (!policyCheck.valid) {
@@ -98,7 +97,6 @@ export function applyStatePatch(state, patch, isSystem = false) {
     cloned = invalidateApprovalsForPath(cloned, patch.path);
     const pathParts = patch.path.split('/').filter(p => p !== '');
 
-    // Prevent Prototype Pollution
     const polluted = pathParts.some(part => part === '__proto__' || part === 'constructor' || part === 'prototype');
     if (polluted) {
         console.warn("Blocked prototype pollution path attempt:", patch.path);
@@ -168,7 +166,6 @@ export function validateCanonicalState(state) {
     if (typeof state.revision !== 'number' || state.revision <= 0) return false;
     if (!Array.isArray(state.profile.domains)) return false;
 
-    // Check agentPackage structure (Fix #2)
     if (!state.agentPackage || typeof state.agentPackage !== 'object') return false;
     if (!Array.isArray(state.agentPackage.subagents)) return false;
     if (!state.agentPackage.rules || typeof state.agentPackage.rules !== 'object') return false;
@@ -177,12 +174,10 @@ export function validateCanonicalState(state) {
     if (typeof state.agentPackage.rules.copilot !== 'string') return false;
     if (typeof state.agentPackage.skillMarkdown !== 'string') return false;
 
-    // Check workflowSuggestion structure
     if (!state.workflowSuggestion || typeof state.workflowSuggestion !== 'object') return false;
     if (state.workflowSuggestion.stage !== null && typeof state.workflowSuggestion.stage !== 'string') return false;
     if (typeof state.workflowSuggestion.reason !== 'string') return false;
 
-    // Check approvals structure
     if (!state.approvals || typeof state.approvals !== 'object') return false;
     const approvalKeys = ['profile', 'mvpScope', 'requirements', 'technology', 'architecture', 'tasks', 'finalReview'];
     for (const k of approvalKeys) {
@@ -196,22 +191,18 @@ export function validateCanonicalState(state) {
         }
     }
 
-    // Check domains confidence values
     for (const d of state.profile.domains) {
         if (typeof d.confidence !== 'number' || d.confidence < 0 || d.confidence > 1) {
             return false;
         }
     }
 
-    // Check pendingChangeSet structure
     if (!state.pendingChangeSet || typeof state.pendingChangeSet !== 'object') return false;
     if (typeof state.pendingChangeSet.baseRevision !== 'number') return false;
     if (!Array.isArray(state.pendingChangeSet.patches)) return false;
 
-    // Check eventLog structure
     if (!Array.isArray(state.eventLog)) return false;
 
-    // Check ID uniqueness
     const ids = new Set();
     const listsToCheck = [state.decisions, state.assumptions, state.risks, state.openQuestions];
     for (const list of listsToCheck) {
@@ -258,7 +249,6 @@ export function validateProjectData(parsed, stage = null) {
             return true;
         });
     } else {
-        // BACKWARDS COMPATIBILITY: Auto-convert old schema to proposed patches
         const patches = [];
         
         if (parsed.identity) {

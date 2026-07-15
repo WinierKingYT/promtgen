@@ -7,21 +7,27 @@ export const APPROVAL_KEY_TO_ARTIFACT_PATH = {
     'technology': '/decisions',
     'architecture': '/architecture',
     'tasks': '/tasks',
-    'finalReview': '/reviews'
+    'finalReview': '/reviews',
+    'objectives': '/objectives',
+    'scope': '/scope',
+    'deliverables': '/deliverables',
+    'executionPlan': '/tasks'
 };
 
-const PATH_PREFIX_TO_APPROVAL_KEY = {
-    '/profile': 'profile',
-    '/scope': 'mvpScope',
-    '/requirements': 'requirements',
-    '/decisions': 'technology',
-    '/architecture': 'architecture',
-    '/tasks': 'tasks',
-    '/reviews': 'finalReview'
+const PATH_PREFIX_TO_APPROVAL_KEYS = {
+    '/profile': ['profile'],
+    '/scope': ['scope', 'mvpScope'],
+    '/requirements': ['requirements'],
+    '/decisions': ['technology'],
+    '/architecture': ['architecture'],
+    '/tasks': ['tasks', 'executionPlan'],
+    '/reviews': ['finalReview'],
+    '/objectives': ['objectives'],
+    '/deliverables': ['deliverables']
 };
 
 export function computeHash(val) {
-    const str = JSON.stringify(val || "");
+    const str = JSON.stringify(val || '');
     let h = 2166136261;
     for (let i = 0; i < str.length; i++) {
         h ^= str.charCodeAt(i);
@@ -82,10 +88,13 @@ export function isApprovalCurrent(state, approvalKey) {
 
 export function approveArtifact(state, approvalKey, notes = 'Kullanıcı onayı') {
     const path = APPROVAL_KEY_TO_ARTIFACT_PATH[approvalKey];
-    if (!path) return state;
+    if (!path) {
+        if (!state.approvals || state.approvals[approvalKey] === undefined) return state;
+    }
 
-    const hash = getArtifactHash(state, path);
     const cloned = JSON.parse(JSON.stringify(state));
+    const targetPath = path || '/';
+    const hash = targetPath === '/' ? computeHash({ approvedAt: Date.now() }) : getArtifactHash(state, targetPath);
     cloned.approvals[approvalKey] = {
         status: 'approved',
         artifactHash: hash,
@@ -120,17 +129,18 @@ export function invalidateApprovalsForPath(state, patchPath) {
     if (!state || !state.approvals) return state;
     const cloned = JSON.parse(JSON.stringify(state));
 
-    const directKey = PATH_PREFIX_TO_APPROVAL_KEY[patchPath];
     const affectedKeys = new Set();
 
-    for (const [prefix, key] of Object.entries(PATH_PREFIX_TO_APPROVAL_KEY)) {
+    for (const [prefix, keys] of Object.entries(PATH_PREFIX_TO_APPROVAL_KEYS)) {
         if (patchPath === prefix || patchPath.startsWith(prefix + '/')) {
-            affectedKeys.add(key);
+            for (const key of keys) {
+                affectedKeys.add(key);
+            }
         }
     }
 
     for (const key of affectedKeys) {
-        if (cloned.approvals[key] !== null) {
+        if (cloned.approvals[key] !== null && cloned.approvals[key] !== undefined) {
             cloned.approvals[key] = null;
         }
     }
@@ -139,7 +149,7 @@ export function invalidateApprovalsForPath(state, patchPath) {
         const downstream = ARTIFACT_DEPENDENCIES[key];
         if (downstream) {
             for (const depKey of downstream) {
-                if (cloned.approvals[depKey] !== null) {
+                if (cloned.approvals[depKey] !== null && cloned.approvals[depKey] !== undefined) {
                     cloned.approvals[depKey] = null;
                 }
             }
@@ -149,24 +159,29 @@ export function invalidateApprovalsForPath(state, patchPath) {
     return cloned;
 }
 
-export function getDownstreamInvalidations(state, patchPath) {
-    let approvalKey = PATH_PREFIX_TO_APPROVAL_KEY[patchPath];
-    if (!approvalKey) {
-        for (const [prefix, key] of Object.entries(PATH_PREFIX_TO_APPROVAL_KEY)) {
-            if (patchPath === prefix || patchPath.startsWith(prefix + '/')) {
-                approvalKey = key;
-                break;
-            }
+function getMatchingApprovalKeys(patchPath) {
+    for (const [prefix, keys] of Object.entries(PATH_PREFIX_TO_APPROVAL_KEYS)) {
+        if (patchPath === prefix || patchPath.startsWith(prefix + '/')) {
+            return keys;
         }
     }
-    if (!approvalKey) return [];
+    return [];
+}
+
+export function getDownstreamInvalidations(state, patchPath) {
+    const matchingKeys = getMatchingApprovalKeys(patchPath);
+    if (matchingKeys.length === 0) return [];
 
     const invalidated = [];
-    const downstream = ARTIFACT_DEPENDENCIES[approvalKey];
-    if (downstream) {
-        for (const depKey of downstream) {
-            if (state.approvals[depKey] !== null) {
-                invalidated.push(depKey);
+    const seen = new Set();
+    for (const key of matchingKeys) {
+        const downstream = ARTIFACT_DEPENDENCIES[key];
+        if (downstream) {
+            for (const depKey of downstream) {
+                if (!seen.has(depKey) && state.approvals[depKey] !== null) {
+                    invalidated.push(depKey);
+                    seen.add(depKey);
+                }
             }
         }
     }

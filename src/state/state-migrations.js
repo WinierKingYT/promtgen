@@ -1,4 +1,5 @@
 import { getInitialCanonicalState, validateCanonicalState } from './project-state.js';
+import { getInitialV3State, validateV3State, legacyMigrateToV3 } from './project-state-v3.js';
 
 const MIGRATIONS = [
     { from: 1, to: 2, fn: migrateV1toV2 },
@@ -7,7 +8,20 @@ const MIGRATIONS = [
 
 export function migrateProjectState(rawState) {
     if (!rawState || typeof rawState !== 'object') {
-        return { success: true, state: getInitialCanonicalState(), migrationsApplied: ['fresh-start'] };
+        return { success: true, state: getInitialV3State(), migrationsApplied: ['fresh-start-v3'] };
+    }
+
+    if (rawState.schemaVersion === 3) {
+        const valid = validateV3State(rawState);
+        if (!valid) {
+            return {
+                success: false,
+                recoveryState: getInitialV3State(),
+                originalState: rawState,
+                errors: ['v3 state validasyonu başarısız.']
+            };
+        }
+        return { success: true, state: JSON.parse(JSON.stringify(rawState)), migrationsApplied: [] };
     }
 
     const state = JSON.parse(JSON.stringify(rawState));
@@ -21,9 +35,9 @@ export function migrateProjectState(rawState) {
     if (state.schemaVersion > 3) {
         return {
             success: false,
-            recoveryState: getInitialCanonicalState(),
+            recoveryState: getInitialV3State(),
             originalState: rawState,
-            errors: [`Bilinmeyen/Geleceğe ait şema sürümü tespiti (Versiyon: ${state.schemaVersion}). Yükleme engellendi.`]
+            errors: [`Bilinmeyen/Geleceğe ait şema sürümü (v${state.schemaVersion}). Yükleme engellendi.`]
         };
     }
 
@@ -45,8 +59,8 @@ export function migrateProjectState(rawState) {
     if (!state.pendingChangeSet) {
         state.pendingChangeSet = {
             baseRevision: 0,
-            sourceStage: null,
-            suggestedNextStage: null,
+            sourcePhase: state.phase || null,
+            suggestedNextPhase: null,
             patches: [],
             rejectedPatches: [],
             editedPatches: [],
@@ -64,8 +78,8 @@ export function migrateProjectState(rawState) {
     }
 
     try {
-        if (!validateCanonicalState(state)) {
-            errors.push("Migrasyon sonrası kanonik şema validasyonu başarısız oldu.");
+        if (!validateV3State(state)) {
+            errors.push('Migrasyon sonrası validasyon başarısız oldu.');
         }
     } catch (err) {
         errors.push(`Validasyon hatası: ${err.message}`);
@@ -74,7 +88,7 @@ export function migrateProjectState(rawState) {
     if (errors.length > 0) {
         return {
             success: false,
-            recoveryState: getInitialCanonicalState(),
+            recoveryState: getInitialV3State(),
             originalState: rawState,
             errors
         };
@@ -91,47 +105,64 @@ function migrateV1toV2(state) {
     if (!state.agentPackage || typeof state.agentPackage !== 'object') {
         state.agentPackage = {
             subagents: [],
-            rules: { cursor: "", windsurf: "", copilot: "" },
-            skillMarkdown: "",
+            rules: { cursor: '', windsurf: '', copilot: '' },
+            skillMarkdown: '',
             exportTargets: []
         };
     }
-
     if (!state.workflowSuggestion || typeof state.workflowSuggestion !== 'object') {
-        state.workflowSuggestion = { stage: null, reason: "" };
+        state.workflowSuggestion = { stage: null, reason: '' };
     }
-
     if (!state.approvals || typeof state.approvals !== 'object') {
         state.approvals = {
             profile: null, mvpScope: null, requirements: null,
             technology: null, architecture: null, tasks: null, finalReview: null
         };
     }
-
     if (!state.documents) {
         state.documents = [];
     }
 }
 
 function migrateV2toV3(state) {
-    if (!state.pendingChangeSet || typeof state.pendingChangeSet !== 'object') {
+    const v3 = legacyMigrateToV3(state);
+
+    state.schemaVersion = 3;
+    state.phase = v3.phase;
+    delete state.workflowStage;
+
+    state.objectives = v3.objectives;
+    state.stakeholders = v3.stakeholders;
+    state.constraints = v3.constraints;
+    state.scope = v3.scope;
+    state.deliverables = v3.deliverables;
+    state.workstreams = v3.workstreams;
+    state.tasks = v3.tasks;
+    state.dependencies = v3.dependencies;
+    state.artifacts = v3.artifacts;
+    state.approvals = v3.approvals;
+    state.moduleData = v3.moduleData;
+    state.profile = v3.profile;
+
+    delete state.requirements;
+    delete state.architecture;
+    delete state.agentPackage;
+    delete state.workflowSuggestion;
+
+    if (!state.documents) state.documents = [];
+    if (!state.reviews) state.reviews = [];
+    if (!state.eventLog) state.eventLog = [];
+
+    if (!state.pendingChangeSet) {
         state.pendingChangeSet = {
             baseRevision: 0,
-            sourceStage: null,
-            suggestedNextStage: null,
+            sourcePhase: state.phase || null,
+            suggestedNextPhase: null,
             patches: [],
             rejectedPatches: [],
             editedPatches: [],
             createdAt: null,
             approvalStatus: 'pending'
         };
-    }
-
-    if (!state.eventLog || !Array.isArray(state.eventLog)) {
-        state.eventLog = [];
-    }
-
-    if (!state.documents) {
-        state.documents = [];
     }
 }
