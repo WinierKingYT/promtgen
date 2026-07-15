@@ -1,4 +1,4 @@
-import { getInitialCanonicalState, applyStatePatch, validateCanonicalState } from './state/project-state.js';
+import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, validateProjectData, syncAIResponseToCanonicalState } from './state/project-state.js';
 import { AppStateManager } from './state/app-state.js';
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
@@ -551,118 +551,7 @@ function updateUndoButtonVisibility() {
     }
 }
 
-function syncAIResponseToCanonicalState(projectFiles) {
-    if (!appState.currentProjectState) {
-        appState.currentProjectState = getInitialCanonicalState();
-    }
-
-    // Helper: only patch if AI actually provided a non-empty value
-    const patch = (path, value) => {
-        if (value === undefined || value === null) return;
-        if (Array.isArray(value) && value.length === 0) return;
-        if (typeof value === 'string' && value.trim() === '') return;
-        appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
-            operation: 'replace',
-            path,
-            value
-        });
-    };
-
-    // Identity
-    if (projectFiles.identity) {
-        if (projectFiles.identity.name) patch('/identity/name', projectFiles.identity.name);
-        if (projectFiles.identity.summary) patch('/identity/summary', projectFiles.identity.summary);
-        if (projectFiles.identity.problem) patch('/identity/problem', projectFiles.identity.problem);
-        if (projectFiles.identity.desiredOutcome) patch('/identity/desiredOutcome', projectFiles.identity.desiredOutcome);
-    }
-
-    // Scope — only patch if AI returned real data, never inject artificial defaults
-    if (projectFiles.scope) {
-        if (Array.isArray(projectFiles.scope.mustHave) && projectFiles.scope.mustHave.length > 0)
-            patch('/scope/mustHave', projectFiles.scope.mustHave);
-        if (Array.isArray(projectFiles.scope.shouldHave) && projectFiles.scope.shouldHave.length > 0)
-            patch('/scope/shouldHave', projectFiles.scope.shouldHave);
-        if (Array.isArray(projectFiles.scope.outOfScope) && projectFiles.scope.outOfScope.length > 0)
-            patch('/scope/outOfScope', projectFiles.scope.outOfScope);
-    }
-
-    // Requirements — only patch if AI returned real data
-    if (projectFiles.requirements) {
-        if (Array.isArray(projectFiles.requirements.functional) && projectFiles.requirements.functional.length > 0)
-            patch('/requirements/functional', projectFiles.requirements.functional);
-        if (Array.isArray(projectFiles.requirements.nonFunctional) && projectFiles.requirements.nonFunctional.length > 0)
-            patch('/requirements/nonFunctional', projectFiles.requirements.nonFunctional);
-    }
-
-    // Decisions, assumptions, risks, openQuestions
-    if (Array.isArray(projectFiles.decisions) && projectFiles.decisions.length > 0)
-        patch('/decisions', projectFiles.decisions);
-    if (Array.isArray(projectFiles.assumptions) && projectFiles.assumptions.length > 0)
-        patch('/assumptions', projectFiles.assumptions);
-    if (Array.isArray(projectFiles.risks) && projectFiles.risks.length > 0)
-        patch('/risks', projectFiles.risks);
-    if (Array.isArray(projectFiles.openQuestions) && projectFiles.openQuestions.length > 0)
-        patch('/openQuestions', projectFiles.openQuestions);
-
-    // Architecture — only patch if AI returned real components
-    if (projectFiles.architecture) {
-        if (Array.isArray(projectFiles.architecture.components) && projectFiles.architecture.components.length > 0)
-            patch('/architecture/components', projectFiles.architecture.components);
-        if (Array.isArray(projectFiles.architecture.dataFlows) && projectFiles.architecture.dataFlows.length > 0)
-            patch('/architecture/dataFlows', projectFiles.architecture.dataFlows);
-    }
-
-    // Tasks (from prompts array)
-    if (Array.isArray(projectFiles.prompts) && projectFiles.prompts.length > 0) {
-        const tasks = projectFiles.prompts.map((p, idx) => ({
-            id: `TASK-${(idx + 1).toString().padStart(3, '0')}`,
-            title: p.title,
-            description: p.description
-        }));
-        patch('/tasks', tasks);
-    }
-
-    // Documents
-    if (projectFiles.docs) {
-        const docs = Object.keys(projectFiles.docs).map(key => ({
-            name: key,
-            content: projectFiles.docs[key]
-        }));
-        if (docs.length > 0) patch('/documents', docs);
-    }
-
-    // Agent Package — sync subagents and editor rules into canonical agentPackage (Fix #2)
-    const agentPackage = {};
-    let hasAgentData = false;
-    if (Array.isArray(projectFiles.subagents) && projectFiles.subagents.length > 0) {
-        agentPackage.subagents = projectFiles.subagents;
-        hasAgentData = true;
-    }
-    if (typeof projectFiles.skillMarkdown === 'string' && projectFiles.skillMarkdown.trim()) {
-        agentPackage.skillMarkdown = projectFiles.skillMarkdown;
-        hasAgentData = true;
-    }
-    if (projectFiles.cursorRules || projectFiles.windsurfRules || projectFiles.copilotRules) {
-        agentPackage.rules = {
-            cursor: projectFiles.cursorRules || '',
-            windsurf: projectFiles.windsurfRules || '',
-            copilot: projectFiles.copilotRules || ''
-        };
-        hasAgentData = true;
-    }
-    if (hasAgentData) {
-        const currentPkg = appState.currentProjectState.agentPackage || {};
-        patch('/agentPackage', { ...currentPkg, ...agentPackage });
-    }
-
-    // IMPORTANT: workflowStage is NOT written here.
-    // Stage advances ONLY through checkWorkflowTransition() — AI cannot bypass it. (Fix #1)
-    // The LLM's suggestedNextStage (if returned) is stored as a hint only, never applied directly.
-    if (projectFiles.suggestedNextStage) {
-        appState.currentProjectState._suggestedNextStage = projectFiles.suggestedNextStage;
-    }
-    // Note: revision is incremented automatically by every applyStatePatch call above.
-}
+// syncAIResponseToCanonicalState is imported from project-state.js
 
 // --- CHAT FILE UPLOAD HANDLE ---
 function handleChatFileUpload(e) {
@@ -739,12 +628,23 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
             }
 
             appState.messages.push({ role: 'model', content: result.chatResponse });
-            syncAIResponseToCanonicalState(result.projectFiles);
+            appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
             appState.currentData = result.projectFiles;
 
             renderChatMessages();
             displayResults(appState.currentData);
             
+            // Workflow transition checks
+            const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
+            if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
+                appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+                    operation: 'replace',
+                    path: '/workflowStage',
+                    value: nextStateCheck.nextStage
+                });
+                showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
+            }
+
             appState.historyStack.push({
                 messages: JSON.parse(JSON.stringify(appState.messages)),
                 currentData: JSON.parse(JSON.stringify(appState.currentData)),
@@ -815,11 +715,22 @@ async function handleStartChat() {
         }
 
         appState.messages.push({ role: 'model', content: result.chatResponse });
-        syncAIResponseToCanonicalState(result.projectFiles);
+        appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
         appState.currentData = result.projectFiles;
 
         renderChatMessages();
         displayResults(appState.currentData);
+        
+        // Workflow transition checks
+        const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
+        if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
+            appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+                operation: 'replace',
+                path: '/workflowStage',
+                value: nextStateCheck.nextStage
+            });
+            showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
+        }
         
         appState.historyStack.push({
             messages: JSON.parse(JSON.stringify(appState.messages)),
@@ -837,11 +748,22 @@ async function handleStartChat() {
         await sleep(1000);
         const result = generateOfflineConversationalResponse();
         appState.messages.push({ role: 'model', content: result.chatResponse });
-        syncAIResponseToCanonicalState(result.projectFiles);
+        appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
         appState.currentData = result.projectFiles;
         
         renderChatMessages();
         displayResults(appState.currentData);
+        
+        // Workflow transition checks
+        const nextStateCheckCatch = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
+        if (nextStateCheckCatch.allowed && nextStateCheckCatch.nextStage !== appState.currentProjectState.workflowStage) {
+            appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+                operation: 'replace',
+                path: '/workflowStage',
+                value: nextStateCheckCatch.nextStage
+            });
+            showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheckCatch.nextStage].label}`);
+        }
         
         appState.historyStack.push({
             messages: JSON.parse(JSON.stringify(appState.messages)),
@@ -880,7 +802,7 @@ async function handleSendChatMessage() {
         }
 
         appState.messages.push({ role: 'model', content: result.chatResponse });
-        syncAIResponseToCanonicalState(result.projectFiles);
+        appState.currentProjectState = syncAIResponseToCanonicalState(appState.currentProjectState, result.projectFiles);
         appState.currentData = result.projectFiles;
 
         renderChatMessages();
@@ -889,7 +811,11 @@ async function handleSendChatMessage() {
         // Workflow transition checks
         const nextStateCheck = checkWorkflowTransition(appState.currentProjectState, appState.currentProjectState.workflowStage);
         if (nextStateCheck.allowed && nextStateCheck.nextStage !== appState.currentProjectState.workflowStage) {
-            appState.currentProjectState.workflowStage = nextStateCheck.nextStage;
+            appState.currentProjectState = applyStatePatch(appState.currentProjectState, {
+                operation: 'replace',
+                path: '/workflowStage',
+                value: nextStateCheck.nextStage
+            });
             showToast(`Durum İlerlemesi: ${WORKFLOW_STAGE_METADATA[nextStateCheck.nextStage].label}`);
         }
 
@@ -910,108 +836,7 @@ async function handleSendChatMessage() {
     }
 }
 
-function validateProjectData(parsed) {
-    const valid = {};
-    if (!parsed || typeof parsed !== 'object') parsed = {};
-    
-    // Normalize prompts
-    valid.prompts = Array.isArray(parsed.prompts) ? parsed.prompts.map(p => ({
-        title: typeof p.title === 'string' ? p.title : 'Başlıksız Adım',
-        description: typeof p.description === 'string' ? p.description : '',
-        recommendedModel: typeof p.recommendedModel === 'string' ? p.recommendedModel : 'Claude 3.5 Sonnet',
-        content: typeof p.content === 'string' ? p.content : '',
-        developerNotes: typeof p.developerNotes === 'string' ? p.developerNotes : '',
-        injectNotes: p.injectNotes !== false,
-        subSteps: Array.isArray(p.subSteps) ? p.subSteps.map(s => ({
-            title: typeof s.title === 'string' ? s.title : 'Alt Başlık',
-            content: typeof s.content === 'string' ? s.content : ''
-        })) : []
-    })) : [];
-
-    // Normalize docs
-    const d = parsed.docs || {};
-    valid.docs = {
-        brief: typeof d.brief === 'string' ? d.brief : '',
-        requirements: typeof d.requirements === 'string' ? d.requirements : '',
-        architecture: typeof d.architecture === 'string' ? d.architecture : '',
-        tech_stack: typeof d.tech_stack === 'string' ? d.tech_stack : '',
-        risks: typeof d.risks === 'string' ? d.risks : '',
-        state_md: typeof d.state_md === 'string' ? d.state_md : ''
-    };
-
-    // Normalize decisions
-    valid.decisions = Array.isArray(parsed.decisions) ? parsed.decisions.map((dec, i) => ({
-        id: typeof dec.id === 'string' ? dec.id : `DEC-00${i+1}`,
-        title: typeof dec.title === 'string' ? dec.title : 'Karar Başlığı',
-        decision: typeof dec.decision === 'string' ? dec.decision : '',
-        reason: typeof dec.reason === 'string' ? dec.reason : ''
-    })) : [];
-
-    // Normalize assumptions
-    valid.assumptions = Array.isArray(parsed.assumptions) ? parsed.assumptions.map((asm, i) => ({
-        id: typeof asm.id === 'string' ? asm.id : `ASM-00${i+1}`,
-        text: typeof asm.text === 'string' ? asm.text : '',
-        confidence: typeof asm.confidence === 'string' ? asm.confidence : 'medium',
-        status: typeof asm.status === 'string' ? asm.status : 'active'
-    })) : [];
-
-    // Normalize risks
-    valid.risks = Array.isArray(parsed.risks) ? parsed.risks.map((r, i) => ({
-        id: typeof r.id === 'string' ? r.id : `RSK-00${i+1}`,
-        title: typeof r.title === 'string' ? r.title : '',
-        probability: typeof r.probability === 'string' ? r.probability : 'medium',
-        impact: typeof r.impact === 'string' ? r.impact : 'medium',
-        mitigation: typeof r.mitigation === 'string' ? r.mitigation : ''
-    })) : [];
-
-    // Normalize openQuestions
-    valid.openQuestions = Array.isArray(parsed.openQuestions) ? parsed.openQuestions.map((q, i) => ({
-        id: typeof q.id === 'string' ? q.id : `Q-00${i+1}`,
-        question: typeof q.question === 'string' ? q.question : '',
-        importance: typeof q.importance === 'string' ? q.importance : 'medium'
-    })) : [];
-
-    // Normalize findings
-    valid.findings = Array.isArray(parsed.findings) ? parsed.findings.map((f, i) => ({
-        id: typeof f.id === 'string' ? f.id : `FND-00${i+1}`,
-        title: typeof f.title === 'string' ? f.title : 'Bulgu',
-        severity: typeof f.severity === 'string' ? f.severity : 'info',
-        message: typeof f.message === 'string' ? f.message : '',
-        mitigation: typeof f.mitigation === 'string' ? f.mitigation : ''
-    })) : [];
-
-    // Clamped Health Score
-    let score = parseInt(parsed.healthScore);
-    if (isNaN(score)) score = 85;
-    valid.healthScore = Math.max(0, Math.min(100, score));
-
-    // workflowStage is REMOVED from validateProjectData — AI cannot set stage directly (Fix #1)
-    // Stage is managed exclusively by checkWorkflowTransition() in main.js
-
-    // Normalize subagents (UI data only — canonical agentPackage is updated separately)
-    valid.subagents = Array.isArray(parsed.subagents) ? parsed.subagents.map(s => ({
-        key: typeof s.key === 'string' ? s.key : 'subagent',
-        role: typeof s.role === 'string' ? s.role : 'Ajan',
-        filename: typeof s.filename === 'string' ? s.filename : 'agent.txt',
-        prompt: typeof s.prompt === 'string' ? s.prompt : ''
-    })) : [];
-
-    // Normalize fileTree
-    valid.fileTree = Array.isArray(parsed.fileTree) ? parsed.fileTree.map(f => ({
-        path: typeof f.path === 'string' ? f.path : 'unknown.txt',
-        type: typeof f.type === 'string' ? f.type : 'file',
-        description: typeof f.description === 'string' ? f.description : ''
-    })) : [];
-
-    valid.mermaidCode = typeof parsed.mermaidCode === 'string' ? parsed.mermaidCode : 'graph TD\n    A[Proje] --> B[Modüller]';
-    valid.skillMarkdown = typeof parsed.skillMarkdown === 'string' ? parsed.skillMarkdown : '';
-    valid.cursorRules = typeof parsed.cursorRules === 'string' ? parsed.cursorRules : '';
-    valid.windsurfRules = typeof parsed.windsurfRules === 'string' ? parsed.windsurfRules : '';
-    valid.copilotRules = typeof parsed.copilotRules === 'string' ? parsed.copilotRules : '';
-    valid.stateMarkdown = typeof parsed.stateMarkdown === 'string' ? parsed.stateMarkdown : '';
-
-    return valid;
-}
+// validateProjectData is imported from project-state.js
 
 // --- CONVERSATIONAL GEMINI API INTEGRATION ---
 async function sendChatMessageToGemini() {

@@ -62,7 +62,12 @@ CRITICAL INSTRUCTIONS FOR CONFIGURATION OUTPUTS:
 9. Sağlık ve Kalite Analizi:
    - 'healthScore': 0-100 arası bir tamsayı.
    - 'findings': [ { "id": "FND-001", "title": "...", "severity": "info|warning", "message": "...", "mitigation": "..." } ]
-10. Önerilen Akış Aşaması:
+10. Kanonik Durum Yapıları (Mutlaka doldurulmalıdır):
+    - 'identity': { "name": "Proje Adı", "summary": "Genel özet", "problem": "Çözülen sorun", "desiredOutcome": "Beklenen sonuç" }
+    - 'scope': { "mustHave": ["..."], "shouldHave": [], "couldHave": [], "notNow": [], "outOfScope": ["..."] }
+    - 'requirements': { "functional": ["..."], "nonFunctional": [], "domainSpecific": [] }
+    - 'architecture': { "components": ["..."], "dataFlows": [], "integrations": [] }
+11. Önerilen Akış Aşaması:
     - 'suggestedNextStage': Modelin projenin olgunluğuna göre önerdiği bir sonraki aşama (Örn: 'DISCOVERY_IN_PROGRESS', 'MVP_DEFINED' vb.). Bu değer yalnızca tavsiye niteliğindedir.
 
 Yanıtını AŞAĞIDAKİ JSON formatında dön:
@@ -98,6 +103,29 @@ Yanıtını AŞAĞIDAKİ JSON formatında dön:
     "openQuestions": [ "..." ],
     "healthScore": 85,
     "findings": [ "..." ],
+    "identity": {
+      "name": "Proje İsmi",
+      "summary": "Proje Özeti",
+      "problem": "Problem Tanımı",
+      "desiredOutcome": "İstenen Hedef"
+    },
+    "scope": {
+      "mustHave": [ "Kritik özellik 1", "Kritik özellik 2" ],
+      "shouldHave": [],
+      "couldHave": [],
+      "notNow": [],
+      "outOfScope": [ "Kapsam dışı özellik 1" ]
+    },
+    "requirements": {
+      "functional": [ "Fonksiyonel gereksinim 1" ],
+      "nonFunctional": [],
+      "domainSpecific": []
+    },
+    "architecture": {
+      "components": [ "UI Bileşeni", "Veri Servisi" ],
+      "dataFlows": [],
+      "integrations": []
+    },
     "suggestedNextStage": "PROFILE_DRAFTED"
   }
 }

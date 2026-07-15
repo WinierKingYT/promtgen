@@ -2,7 +2,7 @@ import assert from 'assert';
 import { escapeHTML } from './src/security/safe-renderer.js';
 import { validateFileMetadata } from './src/security/file-policy.js';
 import { scanForSecrets } from './src/security/secret-detector.js';
-import { getInitialCanonicalState, applyStatePatch, validateCanonicalState } from './src/state/project-state.js';
+import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, validateProjectData, syncAIResponseToCanonicalState } from './src/state/project-state.js';
 import { WORKFLOW_STAGES } from './src/workflow/stages.js';
 import { checkWorkflowTransition } from './src/workflow/transitions.js';
 import { profileProjectFromText, buildProfilePromptBlock } from './src/planning/project-profiler.js';
@@ -410,6 +410,114 @@ test('Sync simulation: applyStatePatch correctly increments revision', () => {
     });
     
     assert.strictEqual(currentProjectState.revision, startRev + 1);
+});
+
+test('End-to-End Integration: Raw AI response -> validate -> sync -> canonical state -> transition checks', () => {
+    // 1. Raw AI Response Simulation (containing identity, scope, requirements, architecture, suggestedNextStage, prompts, decisions, assumptions)
+    const rawAIResponse = {
+        chatResponse: "Proje planını oluşturdum.",
+        suggestedNextStage: "MVP_DEFINED", // Advisory only
+        prompts: [
+            { title: "Giriş Kurulumu", description: "İlk adım promptu", content: "..." }
+        ],
+        docs: {
+            brief: "# Proje",
+            requirements: "# Gereksinimler"
+        },
+        identity: {
+            name: "Akıllı Finans",
+            summary: "Bütçe takip uygulaması",
+            problem: "Finansal plansızlık",
+            desiredOutcome: "Bütçe kontrolü"
+        },
+        scope: {
+            mustHave: ["Yerel veri kaydı", "Bütçe grafiği"],
+            shouldHave: ["Kategori bazlı filtre"],
+            outOfScope: ["Bulut senkronizasyonu"]
+        },
+        requirements: {
+            functional: ["Gelir ekleme", "Harcama ekleme"],
+            nonFunctional: ["Hızlı yüklenme"]
+        },
+        architecture: {
+            components: ["Görünüm Katmanı (React)", "Yerel Veritabanı"],
+            dataFlows: ["UI -> DB"]
+        },
+        decisions: [
+            { id: "DEC-001", title: "React Kullanımı", decision: "Kullanılsın", reason: "Hızlı" }
+        ],
+        assumptions: [
+            { id: "ASM-001", text: "Kullanıcı tarayıcıda çalıştıracak", confidence: "high", status: "active" }
+        ]
+    };
+
+    // 2. Run validateProjectData
+    const validatedData = validateProjectData(rawAIResponse);
+    assert.strictEqual(validatedData.identity.name, "Akıllı Finans");
+    assert.strictEqual(validatedData.scope.mustHave[0], "Yerel veri kaydı");
+    assert.strictEqual(validatedData.requirements.functional[0], "Gelir ekleme");
+    assert.strictEqual(validatedData.architecture.components[0], "Görünüm Katmanı (React)");
+    assert.strictEqual(validatedData.suggestedNextStage, "MVP_DEFINED");
+
+    // 3. Run syncAIResponseToCanonicalState
+    let canonicalState = getInitialCanonicalState();
+    
+    // Set up initial state profile so transitions can proceed past profile drafted stage
+    canonicalState = applyStatePatch(canonicalState, {
+        operation: 'replace',
+        path: '/profile/domains',
+        value: [{ name: 'web', confidence: 0.9 }]
+    });
+    canonicalState = applyStatePatch(canonicalState, {
+        operation: 'replace',
+        path: '/profile/uncertainties',
+        value: ['Veriler nasıl depolanacak?']
+    });
+
+    // Check starting stage is IDEA_CAPTURED
+    assert.strictEqual(canonicalState.workflowStage, WORKFLOW_STAGES.IDEA_CAPTURED);
+
+    // Run sync
+    canonicalState = syncAIResponseToCanonicalState(canonicalState, validatedData);
+
+    // Verify properties successfully synced to canonical state
+    assert.strictEqual(canonicalState.identity.name, "Akıllı Finans");
+    assert.strictEqual(canonicalState.scope.mustHave[0], "Yerel veri kaydı");
+    assert.strictEqual(canonicalState.requirements.functional[0], "Gelir ekleme");
+    assert.strictEqual(canonicalState.architecture.components[0], "Görünüm Katmanı (React)");
+    assert.strictEqual(canonicalState.workflowSuggestion.stage, "MVP_DEFINED");
+    // Ensure sync did NOT bypass workflowStage directly
+    assert.strictEqual(canonicalState.workflowStage, WORKFLOW_STAGES.IDEA_CAPTURED);
+
+    // 4. Run transition checks step-by-step to prove the data successfully unlocks progress!
+    
+    // Transition 1: IDEA_CAPTURED -> PROFILE_DRAFTED
+    let transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
+    assert.strictEqual(transitionResult.allowed, true);
+    assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.PROFILE_DRAFTED);
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+
+    // Transition 2: PROFILE_DRAFTED -> DISCOVERY_IN_PROGRESS
+    transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
+    assert.strictEqual(transitionResult.allowed, true);
+    assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.DISCOVERY_IN_PROGRESS);
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+
+    // Transition 3: DISCOVERY_IN_PROGRESS -> MVP_DEFINED
+    transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
+    assert.strictEqual(transitionResult.allowed, true);
+    assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.MVP_DEFINED);
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+
+    // Transition 4: MVP_DEFINED -> REQUIREMENTS_DRAFTED (Requires scope.mustHave and scope.outOfScope)
+    transitionResult = checkWorkflowTransition(canonicalState, canonicalState.workflowStage);
+    assert.strictEqual(transitionResult.allowed, true, `Transition from MVP_DEFINED failed: ${transitionResult.reason}`);
+    assert.strictEqual(transitionResult.nextStage, WORKFLOW_STAGES.REQUIREMENTS_DRAFTED);
+    canonicalState = applyStatePatch(canonicalState, { operation: 'replace', path: '/workflowStage', value: transitionResult.nextStage });
+
+    // Verify workflowStage was successfully progressed using checkWorkflowTransition and state patches
+    assert.strictEqual(canonicalState.workflowStage, WORKFLOW_STAGES.REQUIREMENTS_DRAFTED);
+    assert.ok(canonicalState.revision > 5, `Revision count should have incremented on each transition and sync patch. Current revision: ${canonicalState.revision}`);
 });
 
 // ============================================================
