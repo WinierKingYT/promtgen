@@ -2,10 +2,10 @@ import { UNIVERSAL_PHASES } from './phases.js';
 import { isApprovalValid } from '../application/approval-service.js';
 
 export const PHASE_SCHEMA_RULES = {
-    '/identity': { type: 'object', required: ['name', 'summary', 'problem', 'desiredOutcome'] },
+    '/identity': { type: 'object', required: ['name', 'summary', 'problemStatement', 'desiredOutcome'] },
     '/identity/name': { type: 'string' },
     '/identity/summary': { type: 'string' },
-    '/identity/problem': { type: 'string' },
+    '/identity/problemStatement': { type: 'string' },
     '/identity/desiredOutcome': { type: 'string' },
 
     '/profile': { type: 'object', required: ['domains', 'projectModes', 'activatedModules', 'uncertainties'] },

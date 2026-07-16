@@ -129,8 +129,16 @@ function migrateV2toV3(state) {
 
     state.schemaVersion = 3;
     state.phase = v3.phase;
+    state.projectId = v3.projectId;
+    state.lifecycle = v3.lifecycle;
+    state.configuration = v3.configuration;
+    state.entityStores = v3.entityStores;
+    state.stageHistory = v3.stageHistory;
+    state.metadata = v3.metadata;
+
     delete state.workflowStage;
 
+    state.identity = v3.identity;
     state.objectives = v3.objectives;
     state.stakeholders = v3.stakeholders;
     state.constraints = v3.constraints;

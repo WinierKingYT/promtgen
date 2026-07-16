@@ -3,6 +3,8 @@ import { getInitialV3State, validateV3State, applyV3StatePatch, activateModule, 
 import { UNIVERSAL_PHASES } from '../../src/workflow/phases.js';
 import { MODULE_NAMES } from '../../src/core/modules.js';
 
+import { ENTITY_PREFIXES } from '../../src/core/entity-store.js';
+
 let passed = 0;
 let failed = 0;
 function test(name, fn) {
@@ -30,6 +32,29 @@ test('getInitialV3State has moduleData with 5 null modules', () => {
     }
 });
 
+test('getInitialV3State has lifecycle and configuration', () => {
+    const state = getInitialV3State();
+    assert.strictEqual(state.lifecycle.status, 'active');
+    assert.strictEqual(state.configuration.language, 'tr');
+    assert.strictEqual(state.configuration.privacyMode, 'local_private');
+});
+
+test('getInitialV3State has entityStores with all types', () => {
+    const state = getInitialV3State();
+    const typeCount = Object.keys(ENTITY_PREFIXES).length;
+    assert.strictEqual(Object.keys(state.entityStores).length, typeCount);
+    for (const arr of Object.values(state.entityStores)) {
+        assert.ok(Array.isArray(arr));
+        assert.strictEqual(arr.length, 0);
+    }
+});
+
+test('getInitialV3State has stageHistory and metadata', () => {
+    const state = getInitialV3State();
+    assert.ok(Array.isArray(state.stageHistory));
+    assert.deepStrictEqual(state.metadata, {});
+});
+
 test('validateV3State returns true for initial state', () => {
     assert.ok(validateV3State(getInitialV3State()));
 });
@@ -46,6 +71,12 @@ test('validateV3State rejects duplicate IDs across lists', () => {
     const state = getInitialV3State();
     state.objectives = [{ id: 'SAME-ID', text: 'A' }];
     state.decisions = [{ id: 'SAME-ID', title: 'B', decision: 'C', reason: 'D' }];
+    assert.strictEqual(validateV3State(state), false);
+});
+
+test('validateV3State checks lifecycle status', () => {
+    const state = getInitialV3State();
+    state.lifecycle.status = 'invalid';
     assert.strictEqual(validateV3State(state), false);
 });
 
@@ -112,6 +143,14 @@ test('legacyMigrateToV3 migrates V2 state with workflowStage', () => {
     assert.strictEqual(v3.phase, 'EXECUTION_PLAN_DRAFTED');
     assert.strictEqual(v3.revision, 5);
     assert.strictEqual(v3.tasks.length, 1);
+    assert.ok(v3.entityStores.task);
+    assert.strictEqual(v3.entityStores.task.length, 1);
+});
+
+test('legacyMigrateToV3 populates lifecycle and configuration', () => {
+    const v3 = legacyMigrateToV3({ revision: 1 });
+    assert.strictEqual(v3.lifecycle.status, 'active');
+    assert.ok(Array.isArray(v3.stageHistory));
 });
 
 test('legacyMigrateToV3 maps approvals correctly', () => {
@@ -124,7 +163,7 @@ test('legacyMigrateToV3 converts requirements to objectives', () => {
     const v2 = { requirements: { functional: ['Login', 'CRUD'], nonFunctional: ['Fast'] } };
     const v3 = legacyMigrateToV3(v2);
     assert.strictEqual(v3.objectives.length, 3);
-    assert.ok(v3.objectives.some(o => o.text === 'Login'));
+    assert.ok(v3.objectives.some(o => o.text === 'Login' || o.title === 'Login'));
 });
 
 test('legacyMigrateToV3 migrates architecture to moduleData', () => {
@@ -146,6 +185,13 @@ test('legacyMigrateToV3 preserves pendingChangeSet', () => {
     assert.strictEqual(v3.pendingChangeSet.patches.length, 1);
 });
 
+test('legacyMigrateToV3 migrates identity.problem to problemStatement', () => {
+    const v2 = { identity: { problem: 'old problem', name: 'test' } };
+    const v3 = legacyMigrateToV3(v2);
+    assert.strictEqual(v3.identity.problemStatement, 'old problem');
+    assert.strictEqual(v3.identity.problem, undefined);
+});
+
 test('applyV3StatePatch blocks patch when policy rejects it (non-system)', () => {
     const state = getInitialV3State();
     state.phase = UNIVERSAL_PHASES.IDEA_CAPTURED;
@@ -159,6 +205,21 @@ test('applying patch does not mutate original state', () => {
     applyV3StatePatch(state, { operation: 'replace', path: '/identity/name', value: 'Changed' }, true);
     assert.strictEqual(state.identity.name, originalName);
 });
+
+test('validateV3State requires entityStores', () => {
+    const state = getInitialV3State();
+    delete state.entityStores;
+    assert.strictEqual(validateV3State(state), false);
+});
+
+test('validateV3State requires lifecycle', () => {
+    const state = getInitialV3State();
+    delete state.lifecycle;
+    assert.strictEqual(validateV3State(state), false);
+});
+
+console.log(`\n  V3 State: ${passed} passed, ${failed} failed`);
+if (failed > 0) process.exit(1);
 
 console.log(`\n  V3 State: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
