@@ -38,7 +38,8 @@ const v3App = new V3ProjectApplicationService();
 
 function getActiveProviderId() {
     const selected = appState.selectedProvider || PROVIDER_IDS.GEMINI;
-    if (selected === PROVIDER_IDS.OFFLINE || !appState.apiKey || appState.apiKey.length <= 10) {
+    if (selected === PROVIDER_IDS.OFFLINE) return PROVIDER_IDS.OFFLINE;
+    if (!appState.apiKey || appState.apiKey.length <= 10) {
         return PROVIDER_IDS.OFFLINE;
     }
     return selected;
@@ -77,6 +78,10 @@ const elements = {
     apiKeyInput: document.getElementById('api-key-input'),
     btnTogglePassword: document.getElementById('btn-toggle-password'),
     apiStatusBadge: document.getElementById('api-status-badge'),
+    providerSelect: document.getElementById('provider-select'),
+    apiKeyLabel: document.getElementById('api-key-label'),
+    apiKeyHelp: document.getElementById('api-key-help'),
+    apiKeyGroup: document.getElementById('api-key-group'),
     
     // View layouts
     setupHeader: document.getElementById('setup-header'),
@@ -207,8 +212,13 @@ function initApp() {
     if (window.lucide) {
         window.lucide.createIcons();
     }
+    appStateManager.loadProvider();
     if (appState.apiKey) {
         elements.apiKeyInput.value = appState.apiKey;
+    }
+    if (elements.providerSelect) {
+        elements.providerSelect.value = appState.selectedProvider || PROVIDER_IDS.GEMINI;
+        updateProviderUI();
     }
     // Sync priority state from DOM (Fix #4: DOM is the source of truth at startup)
     elements.priorityCheckboxes.forEach(cb => {
@@ -236,6 +246,26 @@ function updateApiStatusBadge() {
         elements.apiStatusBadge.classList.remove('active');
         elements.apiStatusBadge.querySelector('.status-text').textContent = 'Çevrimdışı Şablon Modu';
     }
+}
+
+const PROVIDER_CONFIG = {
+    [PROVIDER_IDS.GEMINI]: { label: 'Gemini API Anahtarı', placeholder: 'AIzaSy...', hint: 'API anahtarınızı <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Google AI Studio</a>\'dan alabilirsiniz.' },
+    [PROVIDER_IDS.NVIDIA]: { label: 'NVIDIA API Anahtarı', placeholder: 'nvapi-...', hint: 'API anahtarınızı <a href="https://build.nvidia.com/" target="_blank" rel="noopener noreferrer">NVIDIA Build</a>\'dan alabilirsiniz.' },
+    [PROVIDER_IDS.OPENAI]: { label: 'OpenAI API Anahtarı', placeholder: 'sk-...', hint: 'API anahtarınızı <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI Platform</a>\'dan alabilirsiniz.' },
+    [PROVIDER_IDS.OFFLINE]: { label: 'API Anahtarı (Gerekli Değil)', placeholder: 'Çevrimdışı mod için gerekli değil', hint: 'Çevrimdışı modda API anahtarı gereksizdir. Yerel şablon motoru kullanılır.' }
+};
+
+function updateProviderUI() {
+    const pid = elements.providerSelect?.value || PROVIDER_IDS.GEMINI;
+    const cfg = PROVIDER_CONFIG[pid] || PROVIDER_CONFIG[PROVIDER_IDS.GEMINI];
+    if (elements.apiKeyLabel) elements.apiKeyLabel.textContent = cfg.label;
+    if (elements.apiKeyInput) elements.apiKeyInput.placeholder = cfg.placeholder;
+    if (elements.apiKeyHelp) elements.apiKeyHelp.innerHTML = cfg.hint;
+    if (elements.apiKeyGroup) {
+        elements.apiKeyGroup.style.display = pid === PROVIDER_IDS.OFFLINE ? 'none' : '';
+    }
+    appStateManager.saveProvider(pid);
+    updateApiStatusBadge();
 }
 
 // --- SWITCH LAYOUT VIEWS ---
@@ -285,11 +315,17 @@ function setupEventListeners() {
     });
     elements.btnSaveSettings.addEventListener('click', () => {
         const key = elements.apiKeyInput.value.trim();
+        const pid = elements.providerSelect?.value || PROVIDER_IDS.GEMINI;
         appStateManager.saveApiKey(key);
+        appStateManager.saveProvider(pid);
         updateApiStatusBadge();
         elements.modalSettings.classList.add('hidden');
-        showToast('API Anahtarı kaydedildi!');
+        showToast('Ayarlar kaydedildi!');
     });
+
+    if (elements.providerSelect) {
+        elements.providerSelect.addEventListener('change', updateProviderUI);
+    }
 
     elements.btnTogglePassword.addEventListener('click', (e) => {
         e.preventDefault();
@@ -870,10 +906,8 @@ async function handleStartChat() {
         
     } catch (error) {
         console.error(error);
-        showToast('API bağlantı hatası oluştu! Çevrimdışı moda geçiliyor.', true);
+        showToast('API bağlantı hatası oluştu! Çevrimdışı yanıt kullanılıyor.', true);
 
-        appState.selectedProvider = PROVIDER_IDS.OFFLINE;
-        await sleep(500);
         const result = generateOfflineConversationalResponse(draft);
         const turnResult = v3App.processTurn({
             state: appState.currentProjectState,

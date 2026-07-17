@@ -1,5 +1,6 @@
 export const INITIAL_APP_STATE = {
     apiKey: "",
+    selectedProvider: "gemini",
     chatStarted: false,
     activeTab: "pipeline",
     activeSubagentKey: "",
@@ -42,6 +43,26 @@ export class AppStateManager {
             localStorage.setItem('ai_arch_api_key', key);
         } catch (e) {
             console.error("Failed to save api key to localstorage", e);
+        }
+    }
+
+    loadProvider() {
+        try {
+            const saved = localStorage.getItem('ai_arch_provider');
+            if (saved) {
+                this.state.selectedProvider = saved;
+            }
+        } catch (e) {
+            console.error("Failed to load provider from localstorage", e);
+        }
+    }
+
+    saveProvider(providerId) {
+        this.state.selectedProvider = providerId;
+        try {
+            localStorage.setItem('ai_arch_provider', providerId);
+        } catch (e) {
+            console.error("Failed to save provider to localstorage", e);
         }
     }
 }

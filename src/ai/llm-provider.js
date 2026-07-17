@@ -6,4 +6,8 @@ export class LLMProvider {
     async generateStructured(promptText, apiKey) {
         throw new Error("generateStructured not implemented");
     }
+
+    async *generateTextStream(promptText, apiKey) {
+        throw new Error("generateTextStream not implemented");
+    }
 }

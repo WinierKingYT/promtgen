@@ -20,4 +20,14 @@ export class GeminiProvider extends LLMProvider {
         const result = await model.generateContent(promptText);
         return result.response.text();
     }
+
+    async *generateTextStream(promptText, apiKey) {
+        if (!apiKey) throw new Error("API Key is required.");
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContentStream(promptText);
+        for await (const chunk of result.stream) {
+            yield chunk.text();
+        }
+    }
 }

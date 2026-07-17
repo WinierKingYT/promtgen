@@ -63,6 +63,12 @@ export class ProviderRegistry {
         if (!provider) throw new Error(`Provider bulunamadı: ${providerId}`);
         return provider.generateStructured(promptText, apiKey);
     }
+
+    generateTextStream(providerId, promptText, apiKey) {
+        const provider = this.getProvider(providerId);
+        if (!provider) throw new Error(`Provider bulunamadı: ${providerId}`);
+        return provider.generateTextStream(promptText, apiKey);
+    }
 }
 
 export { PROVIDER_IDS, PROVIDER_META };

@@ -41,4 +41,21 @@ export class OpenAICompatibleProvider extends LLMProvider {
         });
         return completion.choices[0]?.message?.content || '';
     }
+
+    async *generateTextStream(promptText, apiKey) {
+        if (!apiKey) throw new Error('API Key is required.');
+        const openai = new OpenAI({ apiKey, baseURL: this._baseURL });
+        const stream = await openai.chat.completions.create({
+            model: this._model,
+            messages: [{ role: 'user', content: promptText }],
+            temperature: 1,
+            top_p: 1,
+            max_tokens: 16384,
+            seed: 42,
+            stream: true
+        });
+        for await (const chunk of stream) {
+            yield chunk.choices[0]?.delta?.content || '';
+        }
+    }
 }

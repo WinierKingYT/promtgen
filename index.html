@@ -774,19 +774,28 @@
                 </button>
             </div>
             <div class="modal-body">
-                <p>Fikirlerinizin yapay zeka tarafından gerçek zamanlı analiz edilmesi, dinamik mimari ve adım adım prompt zinciri üretilmesi için <strong>Gemini API Anahtarı</strong> gereklidir.</p>
-                
+                <p>Fikirlerinizin yapay zeka tarafından gerçek zamanlı analiz edilmesi için bir <strong>AI Sağlayıcı</strong> seçin ve API anahtarınızı girin.</p>
+
                 <div class="form-group">
-                    <label for="api-key-input" class="form-label">Gemini API Key</label>
+                    <label for="provider-select" class="form-label">AI Sağlayıcı</label>
+                    <select id="provider-select" class="form-select">
+                        <option value="gemini">Gemini (Google)</option>
+                        <option value="nvidia">NVIDIA NIM</option>
+                        <option value="openai">OpenAI Uyumlu</option>
+                        <option value="offline">Çevrimdışı (Simülasyon)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="api-key-group">
+                    <label for="api-key-input" class="form-label" id="api-key-label">API Anahtarı</label>
                     <div class="input-wrapper">
-                        <input type="password" id="api-key-input" placeholder="AIzaSy...">
+                        <input type="password" id="api-key-input" placeholder="API anahtarınızı girin...">
                         <button class="btn-toggle-password" id="btn-toggle-password" title="Göster/Gizle">
                             <i data-lucide="eye"></i>
                         </button>
                     </div>
-                    <div class="form-help">
-                        API anahtarınız tarayıcınızın <code>localStorage</code> belleğinde saklanır, asla bir sunucuya gönderilmez. <br>
-                        API anahtarınız yoksa <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer">Google AI Studio</a> üzerinden ücretsiz alabilirsiniz.
+                    <div class="form-help" id="api-key-help">
+                        API anahtarınız tarayıcınızın <code>localStorage</code> belleğinde saklanır, asla bir sunucuya gönderilmez.
                     </div>
                 </div>
 
