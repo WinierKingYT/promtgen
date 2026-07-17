@@ -140,6 +140,24 @@ test('applies multiple patches atomically', () => {
     assert.strictEqual(result.state.identity.summary, 'Multi project summary');
 });
 
+test('revision bumps once per transaction, not per patch', () => {
+    const state = getInitialCanonicalState();
+    assert.strictEqual(state.revision, 1);
+    const result = applyPatchTransaction({
+        state,
+        patches: [
+            { operation: 'replace', path: '/identity/name', value: 'App Name' },
+            { operation: 'replace', path: '/identity/summary', value: 'App summary' }
+        ],
+        stage: WORKFLOW_STAGES.IDEA_CAPTURED,
+        expectedRevision: 1
+    });
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.state.revision, 2);
+    assert.strictEqual(result.state.identity.name, 'App Name');
+    assert.strictEqual(result.state.identity.summary, 'App summary');
+});
+
 test('approval invalidation triggers on matching path', () => {
     let state = getInitialCanonicalState();
     state = approveArtifact(state, 'profile');

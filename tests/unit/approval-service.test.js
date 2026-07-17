@@ -78,6 +78,32 @@ test('getApprovalStatus returns approved status', () => {
     assert.strictEqual(status.status, 'approved');
 });
 
+test('invalidateApproval preserves history before nulling', () => {
+    let state = getInitialCanonicalState();
+    state = approveArtifact(state, 'profile', 'Approved by PM');
+    const prevHash = state.approvals.profile.artifactHash;
+    state = invalidateApproval(state, 'profile');
+    assert.strictEqual(state.approvals.profile, null);
+    assert.ok(state.approvalHistory);
+    assert.strictEqual(state.approvalHistory.length, 1);
+    assert.strictEqual(state.approvalHistory[0].key, 'profile');
+    assert.strictEqual(state.approvalHistory[0].previous.artifactHash, prevHash);
+    assert.strictEqual(state.approvalHistory[0].previous.notes, 'Approved by PM');
+});
+
+test('invalidateApprovalsForPath preserves history for all affected keys', () => {
+    let state = getInitialCanonicalState();
+    state = approveArtifact(state, 'profile');
+    state = approveArtifact(state, 'architecture');
+    state = invalidateApprovalsForPath(state, '/profile/domains');
+    assert.strictEqual(state.approvals.profile, null);
+    assert.strictEqual(state.approvals.architecture, null);
+    assert.ok(state.approvalHistory.length >= 2);
+    const keys = state.approvalHistory.map(h => h.key);
+    assert.ok(keys.includes('profile'));
+    assert.ok(keys.includes('architecture'));
+});
+
 test('isApprovalCurrent returns true for matching hash', () => {
     let state = getInitialCanonicalState();
     state = approveArtifact(state, 'profile');

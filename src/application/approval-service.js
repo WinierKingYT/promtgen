@@ -120,6 +120,12 @@ export function rejectArtifact(state, approvalKey, notes = 'Reddedildi') {
 export function invalidateApproval(state, approvalKey) {
     const cloned = JSON.parse(JSON.stringify(state));
     if (cloned.approvals[approvalKey]) {
+        if (!cloned.approvalHistory) cloned.approvalHistory = [];
+        cloned.approvalHistory.push({
+            key: approvalKey,
+            previous: { ...cloned.approvals[approvalKey] },
+            invalidatedAt: new Date().toISOString()
+        });
         cloned.approvals[approvalKey] = null;
     }
     return cloned;
@@ -139,8 +145,15 @@ export function invalidateApprovalsForPath(state, patchPath) {
         }
     }
 
+    if (!cloned.approvalHistory) cloned.approvalHistory = [];
+
     for (const key of affectedKeys) {
         if (cloned.approvals[key] !== null && cloned.approvals[key] !== undefined) {
+            cloned.approvalHistory.push({
+                key,
+                previous: { ...cloned.approvals[key] },
+                invalidatedAt: new Date().toISOString()
+            });
             cloned.approvals[key] = null;
         }
     }
@@ -150,6 +163,12 @@ export function invalidateApprovalsForPath(state, patchPath) {
         if (downstream) {
             for (const depKey of downstream) {
                 if (cloned.approvals[depKey] !== null && cloned.approvals[depKey] !== undefined) {
+                    cloned.approvalHistory.push({
+                        key: depKey,
+                        previous: { ...cloned.approvals[depKey] },
+                        invalidatedAt: new Date().toISOString(),
+                        reason: `downstream_of_${key}`
+                    });
                     cloned.approvals[depKey] = null;
                 }
             }

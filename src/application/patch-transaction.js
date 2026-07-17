@@ -62,19 +62,19 @@ export function applyPatchTransaction({ state, patches, stage, expectedRevision 
     let transactionState = JSON.parse(JSON.stringify(state));
     const appliedPatches = [];
     const allInvalidated = new Set();
-    let revisionBefore = transactionState.revision;
+    const revisionBefore = transactionState.revision;
 
     try {
         for (const patch of patches) {
-            transactionState = applyPatch(transactionState, patch, true);
-
             const downstream = getDownstreamInvalidations(transactionState, patch.path);
             downstream.forEach(k => allInvalidated.add(k));
 
-            transactionState = invalidateApprovalsForPath(transactionState, patch.path);
+            transactionState = applyPatch(transactionState, patch, true);
 
             appliedPatches.push(patch.id || patch.path);
         }
+
+        transactionState.revision = revisionBefore + 1;
     } catch (err) {
         return {
             success: false,
