@@ -16,10 +16,6 @@ export class ContributionExecutor {
             const key = (art.title || art.name || '').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
             if (key) seenArtifactNames.add(key);
         }
-        for (const esArt of (state.entityStores?.artifact || [])) {
-            const key = (esArt.title || esArt.name || '').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-            if (key) seenArtifactNames.add(key);
-        }
 
         for (const type of CONTRIBUTION_TYPES) {
             const items = summary[type];
@@ -39,38 +35,47 @@ export class ContributionExecutor {
 
     _orderByDependencies(moduleIds) {
         const result = this.registry.resolveDependencies(moduleIds);
-        const ordered = [];
-        const added = new Set();
-        const inputSet = new Set(moduleIds);
-        const requiredSet = new Set();
+        const modules = new Map();
         for (const mod of (result.resolvedModules || [])) {
+            modules.set(mod.id, mod);
+        }
+
+        const visited = new Set();
+        const inStack = new Set();
+        const order = [];
+        const cycles = [];
+
+        function visit(id, path) {
+            if (inStack.has(id)) {
+                const cycleStart = [...path, id];
+                const idx = cycleStart.indexOf(id);
+                cycles.push(cycleStart.slice(idx));
+                return;
+            }
+            if (visited.has(id)) return;
+            visited.add(id);
+            inStack.add(id);
+
+            const mod = modules.get(id);
             if (mod && Array.isArray(mod.dependencies)) {
-                for (const dep of mod.dependencies) {
-                    if (!inputSet.has(dep) && result.resolved.includes(dep)) {
-                        requiredSet.add(dep);
+                for (const depId of mod.dependencies) {
+                    if (modules.has(depId)) {
+                        visit(depId, [...path, id]);
                     }
                 }
             }
+
+            inStack.delete(id);
+            if (!order.includes(id)) order.push(id);
         }
+
         for (const id of result.resolved) {
-            if (requiredSet.has(id) && !added.has(id)) {
-                ordered.push(id);
-                added.add(id);
-            }
-        }
-        for (const id of result.resolved) {
-            if (inputSet.has(id) && !added.has(id)) {
-                ordered.push(id);
-                added.add(id);
-            }
+            if (!visited.has(id)) visit(id, []);
         }
         for (const id of moduleIds) {
-            if (!added.has(id)) {
-                ordered.push(id);
-                added.add(id);
-            }
+            if (!order.includes(id)) order.push(id);
         }
-        return ordered;
+        return order;
     }
 
     get pendingHandlers() {
@@ -161,11 +166,6 @@ export class ContributionExecutor {
                     operation: 'add',
                     path: '/artifacts/-',
                     value: artifactValue
-                });
-                patches.push({
-                    operation: 'add',
-                    path: '/entityStores/artifact/-',
-                    value: { ...artifactValue }
                 });
                 log.push({ type: 'artifacts', moduleId, action: 'artifact_template_added', name });
             }

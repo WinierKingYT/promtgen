@@ -7,7 +7,7 @@ import { NODE_TYPES, EDGE_TYPES } from './traceability/traceability-types.js';
 import { ReviewEngine } from './reviewer/review-engine.js';
 import { ModuleRegistry } from './modules/module-registry.js';
 import { ContributionExecutor } from './modules/contribution-executor.js';
-import { getUniversalPack, getSoftwareWebPack, getGamePack, getResearchPack, getSoftwareOfflinePack, getSoftwareAuthPack } from './modules/domain-packs.js';
+import { getUniversalPack, getSoftwareWebPack, getGamePack, getResearchPack, getSoftwareOfflinePack, getSoftwareAuthPack, getSoftwarePack, getSoftwareAiPack, getPrivacyPack, getGameMultiplayerPack, getGameProceduralPack, getResearchQualitativePack, getResearchQuantitativePack, getDataAnalysisPack, getCloudOnlyPack } from './modules/domain-packs.js';
 import { EventLog, EVENT_TYPES } from './state/event-log.js';
 import { StateSnapshot } from './state/state-engine.js';
 import { StatePrivacy, SENSITIVITY_LEVELS } from './state/state-privacy.js';
@@ -36,8 +36,11 @@ export class V3ProjectApplicationService {
     initialize() {
         if (this._initialized) return;
         const packs = [
-            getUniversalPack(), getSoftwareWebPack(), getGamePack(),
-            getResearchPack(), getSoftwareOfflinePack(), getSoftwareAuthPack()
+            getUniversalPack(), getSoftwarePack(), getSoftwareWebPack(), getGamePack(),
+            getResearchPack(), getSoftwareOfflinePack(), getSoftwareAuthPack(),
+            getSoftwareAiPack(), getPrivacyPack(), getGameMultiplayerPack(),
+            getGameProceduralPack(), getResearchQualitativePack(), getResearchQuantitativePack(),
+            getDataAnalysisPack(), getCloudOnlyPack()
         ];
         for (const pack of packs) {
             try { this.moduleRegistry.register(pack); } catch {}
@@ -215,11 +218,22 @@ export class V3ProjectApplicationService {
         const ctx = ArtifactEngine.buildArtifactContextFromState(state, extraContext);
         const result = ArtifactEngine.generateArtifact(type, ctx);
         if (result.error) return { success: false, error: result.error };
+        const artifact = result.artifact;
+        const patch = { operation: 'add', path: '/artifacts/-', value: artifact, id: `create-artifact-${artifact.id}` };
+        const txResult = applyPatchTransaction({
+            state: JSON.parse(JSON.stringify(state)),
+            patches: [patch],
+            stage: state.phase,
+            expectedRevision: state.revision
+        });
+        if (!txResult.success) {
+            return { success: false, artifact, error: txResult.error };
+        }
         this.eventLog.log(EVENT_TYPES.ENTITY_UPDATED, {
-            entityId: result.artifact.id,
+            entityId: artifact.id,
             data: { type: 'artifact_generated', artifactType: type }
-        }, { revision: state.revision });
-        return { success: true, artifact: result.artifact };
+        }, { revision: txResult.state.revision });
+        return { success: true, artifact, state: txResult.state };
     }
 
     createTask(state, taskData) {
@@ -245,7 +259,21 @@ export class V3ProjectApplicationService {
     createPrompt(state, promptData) {
         const rev = state.revision;
         const prompt = PromptEngine.createPrompt(promptData, rev);
-        return { prompt, state };
+        const patch = { operation: 'add', path: '/prompts/-', value: prompt, id: `create-prompt-${prompt.id}` };
+        const txResult = applyPatchTransaction({
+            state: JSON.parse(JSON.stringify(state)),
+            patches: [patch],
+            stage: state.phase,
+            expectedRevision: rev
+        });
+        if (!txResult.success) {
+            return { prompt, state, error: txResult.error };
+        }
+        this.eventLog.log(EVENT_TYPES.ENTITY_UPDATED, {
+            entityId: prompt.id,
+            data: { type: 'prompt', title: prompt.title }
+        }, { revision: txResult.state.revision });
+        return { prompt, state: txResult.state };
     }
 
     processTurn({ state, userMessage = '', aiResponse = null, expectedRevision } = {}) {
@@ -285,10 +313,35 @@ export class V3ProjectApplicationService {
             };
         }
 
-        // 4. Build pending proposals (DO NOT modify state)
+        // 4. Discovery: detect gaps without modifying state
+        let gaps = [];
+        let readiness = null;
+        let discoveryPatches = [];
+        try {
+            gaps = DiscoveryEngine.detectGaps(state, state.phase);
+            readiness = DiscoveryEngine.assessReadiness(state, state.phase);
+
+            // If user message is provided, try to interpret as gap answer
+            if (userMessage && gaps.length > 0) {
+                const answeredGap = this._matchMessageToGap(userMessage, gaps, state);
+                if (answeredGap) {
+                    const answerResult = DiscoveryEngine.processDiscoveryAnswer(
+                        state, answeredGap.id, userMessage, originalRevision
+                    );
+                    if (answerResult.patches && answerResult.patches.length > 0) {
+                        discoveryPatches = answerResult.patches;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Discovery error:', e);
+        }
+        log.push({ step: 'discovery', gaps: gaps.length, discoveryPatches: discoveryPatches.length });
+
+        // 5. Build pending proposals (DO NOT modify state)
         const pendingProposals = {
             baseRevision: originalRevision,
-            patches,
+            patches: [...patches, ...discoveryPatches],
             decisions: normalized.proposedDecisions || [],
             artifacts: normalized.proposedArtifacts || [],
             tasks: normalized.proposedTasks || [],
@@ -301,10 +354,11 @@ export class V3ProjectApplicationService {
         this.eventLog.log('PROPOSAL_CREATED', {
             data: {
                 userMessageLength: userMessage.length,
-                patches: patches.length,
+                patches: pendingProposals.patches.length,
                 decisions: pendingProposals.decisions.length,
                 tasks: pendingProposals.tasks.length,
-                traceLinks: pendingProposals.traceLinks.length
+                traceLinks: pendingProposals.traceLinks.length,
+                discoveryPatches: discoveryPatches.length
             }
         }, { revision: originalRevision, custom: true });
 
@@ -313,10 +367,44 @@ export class V3ProjectApplicationService {
             state,
             normalized,
             pendingProposals,
-            gaps: [],
-            readiness: null,
+            gaps,
+            readiness,
             log
         };
+    }
+
+    _matchMessageToGap(userMessage, gaps, state) {
+        const msg = userMessage.toLowerCase();
+
+        // Score each gap by keyword match
+        let bestGap = null;
+        let bestScore = 0;
+
+        for (const gap of gaps) {
+            let score = 0;
+            const keywords = (gap.keywords || []).concat(
+                gap.question ? [gap.question] : [],
+                gap.field ? [gap.field] : []
+            ).map(k => k.toLowerCase());
+
+            for (const kw of keywords) {
+                if (msg.includes(kw)) {
+                    score += kw.length;
+                }
+            }
+
+            // Direct ID match
+            if (msg.includes(gap.id.toLowerCase())) {
+                score += 50;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestGap = gap;
+            }
+        }
+
+        return bestGap;
     }
 
     acceptProposalBundle(state, pendingProposals, expectedRevision) {
@@ -330,31 +418,37 @@ export class V3ProjectApplicationService {
             return { success: false, error: `Revision uyuşmazlığı: beklenen ${expectedRevision}, mevcut ${state.revision}` };
         }
 
-        // 2. Build patches: proposed patches + decisions + artifacts + tasks + traceLinks
+        // 2. Validate all proposal items
+        const validation = this._validateProposalBundle(pendingProposals, state);
+        if (!validation.valid) {
+            return { success: false, error: `Proposal doğrulama hatası: ${validation.errors.join('; ')}`, state };
+        }
+
+        // 3. Build patches with deterministic IDs
         const allPatches = [...(pendingProposals.patches || [])];
+        let patchSeq = Date.now();
 
         for (const dec of (pendingProposals.decisions || [])) {
-            allPatches.push({ operation: 'add', path: '/decisions/-', value: dec, id: `dec-${dec.id || Date.now()}` });
+            allPatches.push({ operation: 'add', path: '/decisions/-', value: dec, id: `dec-${dec.id || patchSeq++}` });
         }
         for (const art of (pendingProposals.artifacts || [])) {
-            allPatches.push({ operation: 'add', path: '/artifacts/-', value: art, id: `art-${art.id || Date.now()}` });
-            allPatches.push({ operation: 'add', path: '/entityStores/artifact/-', value: { ...art }, id: `es-art-${art.id || Date.now()}` });
+            allPatches.push({ operation: 'add', path: '/artifacts/-', value: art, id: `art-${art.id || patchSeq++}` });
         }
         for (const task of (pendingProposals.tasks || [])) {
-            allPatches.push({ operation: 'add', path: '/tasks/-', value: task, id: `task-${task.id || Date.now()}` });
+            allPatches.push({ operation: 'add', path: '/tasks/-', value: task, id: `task-${task.id || patchSeq++}` });
         }
         for (const link of (pendingProposals.traceLinks || [])) {
             if (link.source && link.target) {
                 allPatches.push({
                     operation: 'add',
                     path: '/entityStores/traceLink/-',
-                    value: { source: link.source, target: link.target, type: link.type || 'implements', id: `TL-${Date.now()}` },
-                    id: `tl-${Date.now()}`
+                    value: { source: link.source, target: link.target, type: link.type || 'implements', id: `TL-${patchSeq++}` },
+                    id: `tl-${patchSeq++}`
                 });
             }
         }
 
-        // 3. Apply all patches in single transaction
+        // 4. Apply all patches in single transaction
         const txResult = applyPatchTransaction({
             state: JSON.parse(JSON.stringify(state)),
             patches: allPatches,
@@ -368,7 +462,7 @@ export class V3ProjectApplicationService {
 
         const newState = txResult.state;
 
-        // 4. Event logging
+        // 5. Event logging
         for (const key of (txResult.invalidatedApprovals || [])) {
             this.eventLog.log(EVENT_TYPES.APPROVAL_INVALIDATED, {
                 approvalKey: key, data: { reason: 'proposal_accepted' }
@@ -384,7 +478,7 @@ export class V3ProjectApplicationService {
             }
         }, { revision: newState.revision, custom: true });
 
-        // 5. Rebuild traceability and reviewer
+        // 6. Rebuild traceability and reviewer
         this.traceability = this.buildTraceability(newState);
         this.reviewer = this.createReviewer(this.traceability);
 
@@ -394,6 +488,48 @@ export class V3ProjectApplicationService {
             appliedPatches: txResult.appliedPatches || [],
             invalidatedApprovals: txResult.invalidatedApprovals || []
         };
+    }
+
+    _validateProposalBundle(pendingProposals, state) {
+        const errors = [];
+
+        // Validate decisions
+        for (const dec of (pendingProposals.decisions || [])) {
+            if (typeof dec.title !== 'string' || !dec.title) errors.push(`Karar başlığı eksik: ${dec.id || '?'}`);
+            if (typeof dec.decision !== 'string' || !dec.decision) errors.push(`Karar metni eksik: ${dec.id || '?'}`);
+        }
+
+        // Validate artifacts
+        for (const art of (pendingProposals.artifacts || [])) {
+            if (typeof art.title !== 'string' || !art.title) errors.push(`Çıktı başlığı eksik: ${art.id || '?'}`);
+        }
+
+        // Validate tasks
+        for (const task of (pendingProposals.tasks || [])) {
+            if (typeof task.title !== 'string' || !task.title) errors.push(`Görev başlığı eksik: ${task.id || '?'}`);
+            if (!Array.isArray(task.acceptanceCriteria) && typeof task.acceptanceCriteria !== 'string') {
+                errors.push(`Görev kabul kriterleri eksik: ${task.id || '?'}`);
+            }
+        }
+
+        // Validate trace links
+        const validEdgeTypes = new Set(Object.values(EDGE_TYPES));
+        const graph = this.traceability?.graph;
+        for (const link of (pendingProposals.traceLinks || [])) {
+            if (!link.source) errors.push(`Trace link kaynak node ID eksik`);
+            if (!link.target) errors.push(`Trace link hedef node ID eksik`);
+            if (link.type && !validEdgeTypes.has(link.type)) {
+                errors.push(`Geçersiz edge tipi: ${link.type}. Geçerli: ${[...validEdgeTypes].join(', ')}`);
+            }
+            if (graph && link.source && link.target) {
+                const sourceNode = graph.getNode(link.source);
+                const targetNode = graph.getNode(link.target);
+                if (!sourceNode) errors.push(`Kaynak node bulunamadı: ${link.source}`);
+                if (!targetNode) errors.push(`Hedef node bulunamadı: ${link.target}`);
+            }
+        }
+
+        return { valid: errors.length === 0, errors };
     }
 
     _preValidatePatches(state, patches) {
@@ -440,24 +576,64 @@ export class V3ProjectApplicationService {
         const current = state.configuration?.activeModuleIds || [];
         const suggested = state.configuration?.suggestedModuleIds || [];
 
-        const toActivate = approvedIds.filter(id => !current.includes(id));
+        const toActivate = approvedIds.filter(id =>
+            !current.includes(id) && (
+                suggested.includes(id) ||
+                this.moduleRegistry.getModule(id)
+            )
+        );
 
         if (toActivate.length === 0) {
             return { success: true, state, activated: [] };
         }
 
-        const newState = JSON.parse(JSON.stringify(state));
-        newState.configuration.activeModuleIds = [...current, ...toActivate];
-        newState.revision += 1;
+        // Use patch transaction for activation
+        const txResult = applyPatchTransaction({
+            state: JSON.parse(JSON.stringify(state)),
+            patches: [
+                { operation: 'replace', path: '/configuration/activeModuleIds', value: [...current, ...toActivate], id: 'module-activation' }
+            ],
+            stage: state.phase,
+            expectedRevision: revision !== undefined ? revision : state.revision
+        });
 
+        if (!txResult.success) {
+            return { success: false, error: txResult.error, state };
+        }
+
+        const newState = txResult.state;
+
+        // Remove activated IDs from suggested
         const remaining = suggested.filter(id => !toActivate.includes(id));
         newState.configuration.suggestedModuleIds = remaining;
 
+        // Run contributions for the new modules (proposal-only)
+        let contribPatches = [];
+        if (toActivate.length > 0) {
+            try {
+                const contribResult = this.contributionExecutor.executeContributions(
+                    [...toActivate, 'universal'], newState
+                );
+                contribPatches = contribResult.patches || [];
+            } catch (e) {
+                console.warn('Module contribution error:', e);
+            }
+        }
+
         this.eventLog.log('MODULES_ACTIVATED', {
-            data: { activated: toActivate, remaining }
+            data: { activated: toActivate, remaining, contributions: contribPatches.length }
         }, { revision: newState.revision, custom: true });
 
-        return { success: true, state: newState, activated: toActivate };
+        // Rebuild traceability
+        this.traceability = this.buildTraceability(newState);
+        this.reviewer = this.createReviewer(this.traceability);
+
+        return {
+            success: true,
+            state: newState,
+            activated: toActivate,
+            contributionPatches: contribPatches
+        };
     }
 
     _validateProposal(normalized) {
@@ -519,6 +695,10 @@ export class V3ProjectApplicationService {
         return { success: true, transitioned: true, currentPhase, nextPhase: check.nextStage, state: newState };
     }
 
+    advancePhase(state) {
+        return this.checkAndApplyPhaseTransition(state);
+    }
+
     buildTraceability(state) {
         this.initialize();
         if (!state) return null;
@@ -559,14 +739,6 @@ export class V3ProjectApplicationService {
                 for (const r of esReqs) {
                     if (!g.getNode(r.id)) {
                         try { g.addNode(NODE_TYPES.REQUIREMENT, r.id, r.title || r.text || r.name || r.id, { ...r }); } catch {}
-                    }
-                }
-            }
-            const storeArtifacts = state.entityStores.artifact;
-            if (Array.isArray(storeArtifacts)) {
-                for (const a of storeArtifacts) {
-                    if (!g.getNode(a.id)) {
-                        try { g.addNode(NODE_TYPES.ARTIFACT, a.id, a.title || a.name || a.id, { ...a }); } catch {}
                     }
                 }
             }
@@ -753,11 +925,22 @@ export class V3ProjectApplicationService {
         };
     }
 
+    getTraceability(state) {
+        this.initialize();
+        if (!this.traceability) {
+            this.traceability = this.buildTraceability(state || {});
+        }
+        return this.traceability;
+    }
+
     _getPhaseApprovalKey(phase) {
         const map = {
             PROJECT_PROFILED: 'profile',
+            OBJECTIVES_DEFINED: 'objectives',
             SCOPE_DEFINED: 'scope',
-            EXECUTION_PLAN_DRAFTED: 'executionPlan'
+            DELIVERABLES_DEFINED: 'deliverables',
+            EXECUTION_PLAN_DRAFTED: 'executionPlan',
+            READY_FOR_EXPORT: 'finalReview'
         };
         return map[phase] || null;
     }

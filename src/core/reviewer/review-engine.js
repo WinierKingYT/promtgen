@@ -22,11 +22,6 @@ export class ReviewEngine {
     runReview(context, profile = 'standard') {
         const ctx = this._buildContext(context);
         const previousFindings = this.findings.getFindings();
-
-        const existingResolved = previousFindings.filter(f =>
-            f.status === 'resolved' || f.status === 'dismissed' || f.status === 'false_positive' || f.status === 'superseded'
-        );
-
         this.findings.clear();
 
         let rulesToRun;
@@ -41,7 +36,8 @@ export class ReviewEngine {
         for (const rule of rulesToRun) {
             if (rule.moduleId && rule.moduleId !== 'universal') {
                 const activeModules = ctx.activeModules || [];
-                if (!activeModules.includes(rule.moduleId) && !activeModules.some(m => m.startsWith(rule.moduleId.split('.')[0]))) continue;
+                const topLevelName = rule.moduleId.split('.')[0];
+                if (!activeModules.includes(rule.moduleId) && !activeModules.includes(topLevelName)) continue;
             }
             const result = this.rules.evaluateRule(rule, ctx);
             if (!result.passed && result.finding) {
@@ -54,8 +50,12 @@ export class ReviewEngine {
             this._runTraceabilityChecks(ctx);
         }
 
-        for (const resolved of existingResolved) {
-            this.findings.addFinding({ ...resolved });
+        const newFindings = this.findings.getFindings();
+        const newFindingRuleIds = new Set(newFindings.map(f => f.ruleId));
+        for (const existing of previousFindings) {
+            if (!newFindingRuleIds.has(existing.ruleId)) {
+                this.findings.addFinding({ ...existing });
+            }
         }
 
         const allFindings = this.findings.getFindings();
@@ -145,7 +145,7 @@ export class ReviewEngine {
         const cov = report.coverage;
         if (cov.requirements.taskCoverage < 80) {
             this.findings.addFinding({
-                ruleId: 'TRACE-REQ-TASK',
+                ruleId: 'TRACE-001',
                 category: REVIEW_CATEGORIES.TRACEABILITY,
                 severity: SEVERITY.HIGH,
                 title: 'Gereksinim-görev kapsamı düşük',
@@ -154,7 +154,7 @@ export class ReviewEngine {
         }
         if (cov.requirements.testCoverage < 60) {
             this.findings.addFinding({
-                ruleId: 'TRACE-REQ-TEST',
+                ruleId: 'TRACE-002',
                 category: REVIEW_CATEGORIES.TRACEABILITY,
                 severity: SEVERITY.MEDIUM,
                 title: 'Gereksinim-test kapsamı düşük',

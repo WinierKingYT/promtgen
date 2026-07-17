@@ -5,7 +5,7 @@ import { APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid } from './application/ap
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
 import { normalizeAIResponse, buildV3ProposalPrompt } from './ai/chat-contract.js';
-import { ProviderRegistry, PROVIDER_IDS } from './ai/provider-registry.js';
+import { ProviderRegistry, PROVIDER_IDS, PROVIDER_META } from './ai/provider-registry.js';
 import { WORKFLOW_STAGES, WORKFLOW_STAGE_METADATA } from './workflow/stages.js';
 import { STAGE_APPROVAL_KEYS } from './workflow/stage-contracts.js';
 import { checkWorkflowTransition, checkPhaseTransition } from './workflow/transitions.js';
@@ -713,7 +713,8 @@ function handleChatFileUpload(e) {
     }
 
     // 2. User Cloud Ingestion Confirmation
-    const cloudConfirm = confirm(`"${file.name}" dosyasını çözümlemek için Gemini bulut servisine göndermek istiyor musunuz?\n\nHassas verilerinizin güvenliği için dosyanın şifre veya gizli anahtar içermediğinden emin olun.`);
+    const providerLabel = PROVIDER_META[getActiveProviderId()]?.label || 'AI';
+    const cloudConfirm = confirm(`"${file.name}" dosyasını çözümlemek için ${providerLabel} bulut servisine göndermek istiyor musunuz?\n\nHassas verilerinizin güvenliği için dosyanın şifre veya gizli anahtar içermediğinden emin olun.`);
     if (!cloudConfirm) {
         e.target.value = '';
         return;
@@ -792,21 +793,8 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
             if (appState.currentData) {
                 displayResults(appState.currentData);
             }
-            
-            // Workflow transition checks
-            const currentStage = getStageOrPhase(appState.currentProjectState);
-            const nextStateCheck = isV3State(appState.currentProjectState)
-                ? checkPhaseTransition(appState.currentProjectState, currentStage)
-                : checkWorkflowTransition(appState.currentProjectState, currentStage);
-            if (nextStateCheck.allowed && nextStateCheck.nextStage !== currentStage) {
-                const transitionPath = isV3State(appState.currentProjectState) ? '/phase' : '/workflowStage';
-                appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
-                    operation: 'replace',
-                    path: transitionPath,
-                    value: nextStateCheck.nextStage
-                }, true);
-                showToast(`Durum İlerlemesi: ${getStageLabel(nextStateCheck.nextStage)}`);
-            }
+
+            triggerWorkflowTransitionCheck();
 
             appState.historyStack.push({
                 messages: JSON.parse(JSON.stringify(appState.messages)),
@@ -1717,37 +1705,37 @@ function renderProjectMemory(data) {
 }
 
 function showDecisionImpactAnalysis(id, title) {
-    const graph = TraceabilityGraph.buildFromState(appState.currentProjectState);
-    const impact = graph.getImpactAnalysis(id ? [id] : []);
+    const engine = v3App.getTraceability(appState.currentProjectState);
+    const impact = id ? engine.analyzeImpact([id]) : { effects: [] };
+    const effects = impact.effects || [];
+    const report = engine.getFullReport();
+    const allNodes = engine.graph.getAllNodes();
 
     let impactHtml = '';
-    if (impact.length > 0) {
+    if (effects.length > 0) {
         impactHtml = '<ul style="padding-left:1.2rem; margin-top:0.3rem;">';
-        for (const item of impact) {
-            impactHtml += `<li><strong>${escapeHTML(item.node.label)}</strong> (${escapeHTML(item.node.type)})</li>`;
+        for (const item of effects) {
+            impactHtml += `<li><strong>${escapeHTML(item.targetLabel || item.targetId)}</strong> (${escapeHTML(item.targetType)}) — ${escapeHTML(item.effect)}</li>`;
         }
         impactHtml += '</ul>';
     } else {
         impactHtml = '<p style="color:var(--text-muted);">Bu kararın etkilediği başka öge bulunamadı.</p>';
     }
 
-    const allNodes = graph.getAllNodes();
-    const gaps = graph.getCoverageGaps();
     let gapsHtml = '';
-    if (gaps.requirementsWithoutDecisions.length > 0 || gaps.unlinkedNodes.length > 0) {
+    const orphans = report.orphans;
+    const coverage = report.coverage;
+    if (orphans.total > 0 || coverage.requirements.taskCoverage < 100 || coverage.requirements.testCoverage < 100) {
         gapsHtml = '<div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border-color);">';
         gapsHtml += '<strong style="color:var(--warning);">Kapsam Boşlukları:</strong>';
-        if (gaps.requirementsWithoutDecisions.length > 0) {
-            gapsHtml += `<p style="font-size:0.75rem;">⚠️ ${gaps.requirementsWithoutDecisions.length} gereksinim karara bağlanmamış</p>`;
+        if (orphans.total > 0) {
+            gapsHtml += `<p style="font-size:0.75rem;">🔗 ${orphans.total} bağlantısız düğüm</p>`;
         }
-        if (gaps.decisionsWithoutComponents.length > 0) {
-            gapsHtml += `<p style="font-size:0.75rem;">⚠️ ${gaps.decisionsWithoutComponents.length} karar bileşene atanmamış</p>`;
+        if (coverage.requirements.taskCoverage < 100) {
+            gapsHtml += `<p style="font-size:0.75rem;">⚠️ Görev kapsamı: %${coverage.requirements.taskCoverage}</p>`;
         }
-        if (gaps.componentsWithoutTasks.length > 0) {
-            gapsHtml += `<p style="font-size:0.75rem;">⚠️ ${gaps.componentsWithoutTasks.length} bileşen için görev tanımlanmamış</p>`;
-        }
-        if (gaps.unlinkedNodes.length > 0) {
-            gapsHtml += `<p style="font-size:0.75rem;">🔗 ${gaps.unlinkedNodes.length} bağlantısız düğüm</p>`;
+        if (coverage.requirements.testCoverage < 100) {
+            gapsHtml += `<p style="font-size:0.75rem;">⚠️ Test kapsamı: %${coverage.requirements.testCoverage}</p>`;
         }
         gapsHtml += '</div>';
     }
@@ -1765,7 +1753,7 @@ function showDecisionImpactAnalysis(id, title) {
     modal.style.display = 'flex';
     modal.style.alignItems = 'center';
     modal.style.justifyContent = 'center';
-    
+
     let details = `
         <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); width:90%; max-width:550px; padding:2rem; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
@@ -1774,7 +1762,7 @@ function showDecisionImpactAnalysis(id, title) {
             </div>
             <div style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; display:flex; flex-direction:column; gap:1rem;">
                 <p><strong>Değişiklik Konusu:</strong> ${escapeHTML(id)} - ${escapeHTML(title)}</p>
-                <p><strong style="color:var(--warning);">İzlenebilirlik Zinciri:</strong> ${allNodes.length} düğüm, ${graph.toJSON().edges.length} bağlantı</p>
+                <p><strong style="color:var(--warning);">İzlenebilirlik Zinciri:</strong> ${allNodes.length} düğüm, ${engine.graph.toJSON().edges.length} bağlantı</p>
                 <div>
                     <strong>Etkilenen Ögeler:</strong>
                     ${impactHtml}
@@ -1783,7 +1771,7 @@ function showDecisionImpactAnalysis(id, title) {
             </div>
         </div>
     `;
-    
+
     modal.innerHTML = details;
     document.body.appendChild(modal);
 
@@ -2551,6 +2539,23 @@ function handleApproveSuggestedModules() {
         saveCurrentProjectState();
         updateModuleApprovalBanner();
         triggerWorkflowTransitionCheck();
+
+        // If contributions were generated, add them as pending proposals
+        if (result.contributionPatches && result.contributionPatches.length > 0) {
+            appState.pendingProposals = {
+                baseRevision: result.state.revision,
+                patches: result.contributionPatches,
+                decisions: [],
+                artifacts: [],
+                tasks: [],
+                traceLinks: [],
+                actions: [],
+                createdAt: new Date().toISOString()
+            };
+            appState.proposedPatches = result.contributionPatches;
+            renderProposalBundle();
+            showToast(`Modül katkıları hazır. ${result.contributionPatches.length} değişiklik önerisi var.`);
+        }
     } else {
         showToast(`Modül etkinleştirme hatası: ${result.error}`, true);
     }
@@ -2589,18 +2594,10 @@ function handleApproveCurrentStage() {
 
 function triggerWorkflowTransitionCheck() {
     if (!appState.currentProjectState) return;
-    const currentStage = getStageOrPhase(appState.currentProjectState);
-    const nextStateCheck = isV3State(appState.currentProjectState)
-        ? checkPhaseTransition(appState.currentProjectState, currentStage)
-        : checkWorkflowTransition(appState.currentProjectState, currentStage);
-    if (nextStateCheck.allowed && nextStateCheck.nextStage !== currentStage) {
-        const transitionPath = isV3State(appState.currentProjectState) ? '/phase' : '/workflowStage';
-        appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
-            operation: 'replace',
-            path: transitionPath,
-            value: nextStateCheck.nextStage
-        }, true);
-        showToast(`Durum İlerlemesi: ${getStageLabel(nextStateCheck.nextStage)}`);
+    const result = v3App.advancePhase(appState.currentProjectState);
+    if (result.success && result.transitioned) {
+        appState.currentProjectState = result.state;
+        showToast(`Durum İlerlemesi: ${getStageLabel(result.nextPhase)}`);
         saveCurrentProjectState();
         updateWorkflowTrackerUI();
         updateApprovalGateBanner();

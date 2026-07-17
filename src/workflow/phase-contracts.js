@@ -50,7 +50,8 @@ export const PHASE_CONTRACTS = {
         },
         allowedPatchPaths: [
             '/identity', '/identity/*',
-            '/profile', '/profile/*'
+            '/profile', '/profile/*',
+            '/configuration', '/configuration/*'
         ]
     },
 
@@ -74,7 +75,8 @@ export const PHASE_CONTRACTS = {
             '/objectives', '/objectives/*',
             '/assumptions', '/assumptions/*',
             '/openQuestions', '/openQuestions/*',
-            '/decisions', '/decisions/*'
+            '/decisions', '/decisions/*',
+            '/configuration', '/configuration/*'
         ]
     },
 

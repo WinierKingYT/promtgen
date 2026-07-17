@@ -406,7 +406,7 @@ ceTest('_orderByDependencies includes required deps outside input', () => {
     assert.ok(ordered.indexOf('base') < ordered.indexOf('child'));
 });
 
-ceTest('executeContributions creates entityStores artifact patches too', () => {
+ceTest('executeContributions no longer creates entityStores artifact patches', () => {
     const reg = new ModuleRegistry();
     reg.register({ id: 'a', name: 'A', contributions: { artifacts: { required: ['DUAL.md'] } } });
     const exec = new ContributionExecutor(reg);
@@ -414,7 +414,7 @@ ceTest('executeContributions creates entityStores artifact patches too', () => {
     const rootPatches = result.patches.filter(p => p.path === '/artifacts/-');
     const esPatches = result.patches.filter(p => p.path === '/entityStores/artifact/-');
     assert.strictEqual(rootPatches.length, 1);
-    assert.strictEqual(esPatches.length, 1);
+    assert.strictEqual(esPatches.length, 0);
 });
 
 console.log(`\n  Contribution Executor: ${cePassed} passed, ${ceFailed} failed`);

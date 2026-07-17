@@ -180,25 +180,6 @@ export class RuleRegistry {
               message: 'Ajandan beklenen çıktı yapısı tanımlanmamış',
               check: ctx => (ctx.prompts || []).every(p => !!(p.outputMode || p.outputSchema)) },
 
-            // Traceability rules
-            { id: 'TRACE-001', category: REVIEW_CATEGORIES.TRACEABILITY, severity: SEVERITY.HIGH,
-              title: 'Kritik gereksinimler görevlere bağlı olmalı', moduleId: 'universal',
-              message: 'Kritik gereksinimlerin uygulama görevi bulunmuyor',
-              check: ctx => {
-                  const cov = ctx.traceCoverage;
-                  if (!cov) return true;
-                  return cov.requirements.taskCoverage >= 80;
-              } },
-
-            { id: 'TRACE-002', category: REVIEW_CATEGORIES.TRACEABILITY, severity: SEVERITY.MEDIUM,
-              title: 'Kritik gereksinimler testlere bağlı olmalı', moduleId: 'universal',
-              message: 'Kritik gereksinimlerin doğrulama bağlantısı eksik',
-              check: ctx => {
-                  const cov = ctx.traceCoverage;
-                  if (!cov) return true;
-                  return cov.requirements.testCoverage >= 60;
-              } },
-
             // Approval rules
             { id: 'APPR-001', category: REVIEW_CATEGORIES.APPROVAL, severity: SEVERITY.HIGH,
               title: 'Onaylar güncel olmalı', moduleId: 'universal',
@@ -275,7 +256,7 @@ export class RuleRegistry {
             { id: 'MOD-SW-001', category: REVIEW_CATEGORIES.MODULE_SPECIFIC, severity: SEVERITY.MEDIUM,
               title: 'Web modülü: kullanıcı rolleri tanımlanmalı', moduleId: 'software.web',
               message: 'Kullanıcı rolleri ve izinleri belirtilmemiş',
-              check: ctx => !ctx.activeModules?.includes('software.web') || !!(ctx.state?.moduleData?.software?.web?.userRoles?.length > 0) }
+              check: ctx => !ctx.activeModules?.some(m => m === 'software.web' || m === 'software') || !!(ctx.state?.moduleData?.software?.web?.userRoles?.length > 0) }
         );
     }
 }
