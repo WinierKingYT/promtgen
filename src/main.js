@@ -584,7 +584,6 @@ function loadProjectSession(id) {
         
         // Restore pending proposals and suggested stage
         appState.pendingProposals = proj.pendingProposals || null;
-        appState.proposedPatches = Array.isArray(proj.proposedPatches) ? proj.proposedPatches : (appState.pendingProposals?.patches || []);
         appState.suggestedNextStage = typeof proj.suggestedNextStage === 'string' ? proj.suggestedNextStage : '';
         
         appState.chatStarted = true;
@@ -630,7 +629,6 @@ function loadProjectSession(id) {
         appState.chatStarted = false;
         appState.currentProjectState = null;
         appState.currentData = null;
-        appState.proposedPatches = [];
         appState.suggestedNextStage = '';
         
         elements.emptyState.classList.remove('hidden');
@@ -657,7 +655,6 @@ function saveCurrentProjectState() {
         messages: appState.messages,
         currentProjectState: appState.currentProjectState,
         pendingProposals: appState.pendingProposals,
-        proposedPatches: appState.proposedPatches,
         suggestedNextStage: appState.suggestedNextStage,
         date: dateStr
     };
@@ -782,7 +779,6 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
 
             appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
             appState.pendingProposals = turnResult.pendingProposals || null;
-            appState.proposedPatches = appState.pendingProposals?.patches || [];
             appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
             appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
@@ -870,11 +866,9 @@ async function handleStartChat() {
         }
 
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.proposedPatches = turnResult.pendingProposals.patches || [];
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
-        appState.proposedPatches = appState.pendingProposals?.patches || [];
 
         renderChatMessages();
         renderProposalBundle();
@@ -905,11 +899,9 @@ async function handleStartChat() {
             expectedRevision: appState.currentProjectState.revision
         });
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.proposedPatches = turnResult.pendingProposals.patches || [];
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
-        appState.proposedPatches = appState.pendingProposals?.patches || [];
         
         renderChatMessages();
         renderProposalBundle();
@@ -963,11 +955,9 @@ async function handleSendChatMessage() {
         }
 
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.proposedPatches = turnResult.pendingProposals.patches || [];
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
-        appState.proposedPatches = appState.pendingProposals?.patches || [];
 
         renderChatMessages();
         renderProposalBundle();
@@ -2166,12 +2156,13 @@ function _getProposalCount(pending) {
         (pending.decisions?.length || 0) +
         (pending.artifacts?.length || 0) +
         (pending.tasks?.length || 0) +
-        (pending.traceLinks?.length || 0);
+        (pending.traceLinks?.length || 0) +
+        (pending.actions?.length || 0) +
+        (pending.suggestedPhaseTransition ? 1 : 0);
 }
 
 function _clearProposalBundle() {
     appState.pendingProposals = null;
-    appState.proposedPatches = [];
     appState.suggestedNextStage = '';
 }
 
@@ -2311,6 +2302,48 @@ function renderProposalBundle() {
         listEl.appendChild(card);
     }
 
+    // Actions
+    for (const action of (pending.actions || [])) {
+        const card = document.createElement('div');
+        card.className = 'patch-proposal-card';
+        card.dataset.id = action.id;
+        card.dataset.type = 'action';
+        card.innerHTML = `
+            <div class="patch-proposal-info">
+                <div>
+                    <span class="proposal-type-badge action">Eylem</span>
+                    <strong>${escapeHTML(action.title || action.action || '')}</strong>
+                </div>
+                <div class="patch-item-actions">
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla"><i data-lucide="check" style="width:12px;height:12px;"></i></button>
+                </div>
+            </div>
+            <div class="patch-value-preview">${escapeHTML(action.description || action.reason || '')}</div>`;
+        listEl.appendChild(card);
+    }
+
+    // Stage transition
+    if (pending.suggestedPhaseTransition) {
+        const card = document.createElement('div');
+        card.className = 'patch-proposal-card';
+        card.dataset.id = 'stage-transition';
+        card.dataset.type = 'stageTransition';
+        card.innerHTML = `
+            <div class="patch-proposal-info">
+                <div>
+                    <span class="proposal-type-badge stageTransition">Aşama Geçişi</span>
+                    <strong>${escapeHTML(pending.suggestedPhaseTransition)}</strong>
+                </div>
+                <div class="patch-item-actions">
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla"><i data-lucide="check" style="width:12px;height:12px;"></i></button>
+                </div>
+            </div>
+            <div class="patch-reason"><strong>Önerilen aşama geçişi:</strong> ${escapeHTML(pending.suggestedPhaseTransition)}</div>`;
+        listEl.appendChild(card);
+    }
+
     if (window.lucide) window.lucide.createIcons();
 }
 
@@ -2333,17 +2366,23 @@ function initPatchProposalListeners() {
         if (!pending) return;
 
         if (btnAccept) {
-            const txResult = v3App.acceptProposalBundle(
+            const txResult = v3App.acceptProposalItem(
                 appState.currentProjectState,
                 pending,
+                itemType,
+                itemId,
                 appState.currentProjectState.revision
             );
 
             if (txResult.success) {
                 appState.currentProjectState = txResult.state;
-                _clearProposalBundle();
+                if (txResult.remainingProposals && _getProposalCount(txResult.remainingProposals) > 0) {
+                    appState.pendingProposals = txResult.remainingProposals;
+                } else {
+                    _clearProposalBundle();
+                }
                 appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
-                showToast('Öneri kabul edildi.');
+                showToast(`${itemType} önerisi kabul edildi.`);
                 saveCurrentProjectState();
                 renderProposalBundle();
                 triggerWorkflowTransitionCheck();
@@ -2362,11 +2401,15 @@ function initPatchProposalListeners() {
                 pending.tasks = (pending.tasks || []).filter(t => t.id !== itemId);
             } else if (itemType === 'traceLink') {
                 pending.traceLinks = (pending.traceLinks || []).filter(l => (l.id || `${l.source}→${l.target}`) !== itemId);
+            } else if (itemType === 'action') {
+                pending.actions = (pending.actions || []).filter(a => a.id !== itemId);
+            } else if (itemType === 'stageTransition') {
+                pending.suggestedPhaseTransition = null;
             }
             if (_getProposalCount(pending) === 0) {
                 _clearProposalBundle();
             }
-            appState.proposedPatches = pending.patches || [];
+            saveCurrentProjectState();
             showToast('Öneri reddedildi.');
             renderProposalBundle();
         } else if (btnEdit && itemType === 'patch') {
@@ -2399,6 +2442,7 @@ function initPatchProposalListeners() {
                         newVal = rawVal;
                     }
                     patch.value = newVal;
+                    saveCurrentProjectState();
                     showToast('Değişiklik güncellendi.');
                     renderProposalBundle();
                 } catch (err) {
@@ -2461,6 +2505,7 @@ function initPatchProposalListeners() {
     if (btnRejectAll) {
         btnRejectAll.addEventListener('click', () => {
             _clearProposalBundle();
+            saveCurrentProjectState();
             showToast('Tüm öneriler reddedildi.');
             renderProposalBundle();
         });
@@ -2552,7 +2597,6 @@ function handleApproveSuggestedModules() {
                 actions: [],
                 createdAt: new Date().toISOString()
             };
-            appState.proposedPatches = result.contributionPatches;
             renderProposalBundle();
             showToast(`Modül katkıları hazır. ${result.contributionPatches.length} değişiklik önerisi var.`);
         }

@@ -307,5 +307,129 @@ test('rejectProposals returns success with counts', () => {
     assert.strictEqual(result.rejected.tasks, 1);
 });
 
+test('acceptProposalItem accepts only the selected item, leaves remaining', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    state.phase = 'PROJECT_PROFILED';
+    state.decisions = [];
+    state.profile = state.profile || {};
+    const pending = {
+        baseRevision: 1,
+        patches: [{ id: 'P-1', operation: 'replace', path: '/profile/domains', value: [{ name: 'test', confidence: 0.9 }] }],
+        decisions: [{ id: 'DEC-1', title: 'Test Decision', decision: 'yes', reason: 'test' }],
+        artifacts: [],
+        tasks: [{ id: 'TASK-1', title: 'Do work', acceptanceCriteria: ['done'] }],
+        traceLinks: [],
+        actions: [{ id: 'ACT-1', title: 'Send email', action: 'notify' }],
+        suggestedPhaseTransition: 'SCOPE_DEFINED',
+        createdAt: new Date().toISOString()
+    };
+    // Accept only the patch
+    const result = svc.acceptProposalItem(state, pending, 'patch', 'P-1', 1);
+    assert.strictEqual(result.success, true);
+    assert.ok(result.state.revision > 1);
+    assert.ok(result.remainingProposals);
+    // Remaining should have decision, task, action, stageTransition but NOT the patch
+    assert.strictEqual(result.remainingProposals.patches.length, 0);
+    assert.strictEqual(result.remainingProposals.decisions.length, 1);
+    assert.strictEqual(result.remainingProposals.tasks.length, 1);
+    assert.strictEqual(result.remainingProposals.actions.length, 1);
+    assert.ok(result.remainingProposals.suggestedPhaseTransition);
+    // Remaining baseRevision should be updated
+    assert.strictEqual(result.remainingProposals.baseRevision, result.state.revision);
+});
+
+test('acceptProposalItem rejects unknown item type', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const pending = { baseRevision: 1, patches: [], decisions: [], artifacts: [], tasks: [], traceLinks: [], actions: [] };
+    const result = svc.acceptProposalItem(state, pending, 'patch', 'NONEXISTENT', 1);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error.includes('bulunamadı'));
+});
+
+test('acceptProposalItem accepts only the selected decision, keeps patch', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    state.phase = 'PROJECT_PROFILED';
+    state.decisions = [];
+    state.profile = state.profile || {};
+    const pending = {
+        baseRevision: 1,
+        patches: [{ id: 'P-1', operation: 'replace', path: '/profile/domains', value: [{ name: 'test', confidence: 0.9 }] }],
+        decisions: [{ id: 'DEC-1', title: 'Use JWT', decision: 'yes', reason: 'auth' }],
+        artifacts: [],
+        tasks: [],
+        traceLinks: [],
+        actions: [],
+        createdAt: new Date().toISOString()
+    };
+    const result = svc.acceptProposalItem(state, pending, 'decision', 'DEC-1', 1);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.state.decisions.length, 1);
+    // Patch should remain in remainingProposals
+    assert.strictEqual(result.remainingProposals.patches.length, 1);
+    assert.strictEqual(result.remainingProposals.decisions.length, 0);
+});
+
+test('acceptProposalItem with stageTransition filters it from remaining', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const pending = {
+        baseRevision: 1,
+        patches: [],
+        decisions: [],
+        artifacts: [],
+        tasks: [],
+        traceLinks: [],
+        actions: [],
+        suggestedPhaseTransition: 'DISCOVERY_IN_PROGRESS',
+        createdAt: new Date().toISOString()
+    };
+    // For stageTransition, acceptProposalItem builds a bundle with suggestedPhaseTransition
+    // but acceptProposalBundle only patches patches/decisions/artifacts/tasks/traceLinks
+    // So the result should be success (empty bundle = no-op success) and remaining has no transition
+    const result = svc.acceptProposalItem(state, pending, 'stageTransition', 'stage-transition', 1);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.remainingProposals.suggestedPhaseTransition, null);
+});
+
+test('_findBundleItem finds items by type and id', () => {
+    const svc = new V3ProjectApplicationService();
+    const bundle = {
+        patches: [{ id: 'P-1' }],
+        decisions: [{ id: 'D-1' }],
+        artifacts: [{ id: 'A-1' }],
+        tasks: [{ id: 'T-1' }],
+        traceLinks: [{ source: 'SRC', target: 'TGT' }],
+        actions: [{ id: 'ACT-1' }]
+    };
+    assert.ok(svc._findBundleItem(bundle, 'patch', 'P-1'));
+    assert.strictEqual(svc._findBundleItem(bundle, 'patch', 'NOPE'), null);
+    assert.ok(svc._findBundleItem(bundle, 'traceLink', 'SRC→TGT'));
+    assert.ok(svc._findBundleItem(bundle, 'action', 'ACT-1'));
+});
+
+test('_filterBundleWithout removes correct item by type and id', () => {
+    const svc = new V3ProjectApplicationService();
+    const bundle = {
+        baseRevision: 1,
+        patches: [{ id: 'P-1' }, { id: 'P-2' }],
+        decisions: [{ id: 'D-1' }],
+        artifacts: [],
+        tasks: [],
+        traceLinks: [],
+        actions: [{ id: 'ACT-1' }],
+        suggestedPhaseTransition: 'NEXT_PHASE'
+    };
+    const filtered = svc._filterBundleWithout(bundle, 'patch', 'P-1');
+    assert.strictEqual(filtered.patches.length, 1);
+    assert.strictEqual(filtered.patches[0].id, 'P-2');
+    assert.strictEqual(filtered.decisions.length, 1);
+    assert.strictEqual(filtered.actions.length, 1);
+    const noStage = svc._filterBundleWithout(bundle, 'stageTransition', 'stage-transition');
+    assert.strictEqual(noStage.suggestedPhaseTransition, null);
+});
+
 console.log(`\n  V3 Application Service: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

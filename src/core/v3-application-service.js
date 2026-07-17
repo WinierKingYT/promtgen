@@ -553,6 +553,85 @@ export class V3ProjectApplicationService {
         return this.acceptProposalBundle(state, pendingProposals, expectedRevision);
     }
 
+    acceptProposalItem(state, bundle, itemType, itemId, expectedRevision) {
+        this.initialize();
+        if (!state) return { success: false, error: 'State gerekli' };
+        if (!bundle) return { success: false, error: 'pendingProposals gerekli' };
+
+        // 1. Build filtered bundle for just this item
+        const item = this._findBundleItem(bundle, itemType, itemId);
+        if (!item) return { success: false, error: `${itemType} tipinde '${itemId}' bulunamadı` };
+
+        const singleBundle = {
+            baseRevision: bundle.baseRevision,
+            patches: itemType === 'patch' ? [item] : [],
+            decisions: itemType === 'decision' ? [item] : [],
+            artifacts: itemType === 'artifact' ? [item] : [],
+            tasks: itemType === 'task' ? [item] : [],
+            traceLinks: itemType === 'traceLink' ? [item] : [],
+            actions: itemType === 'action' ? [item] : [],
+            suggestedPhaseTransition: itemType === 'stageTransition' ? item : null,
+            createdAt: bundle.createdAt
+        };
+
+        // 2. Accept the single item
+        const result = this.acceptProposalBundle(state, singleBundle, expectedRevision);
+        if (!result.success) return result;
+
+        // 3. Build remaining proposals with updated revision
+        const remaining = this._filterBundleWithout(bundle, itemType, itemId);
+        remaining.baseRevision = result.state.revision;
+        remaining.createdAt = new Date().toISOString();
+
+        return {
+            success: true,
+            state: result.state,
+            remainingProposals: remaining,
+            appliedPatches: result.appliedPatches,
+            invalidatedApprovals: result.invalidatedApprovals
+        };
+    }
+
+    _findBundleItem(bundle, itemType, itemId) {
+        const lists = {
+            patch: bundle.patches,
+            decision: bundle.decisions,
+            artifact: bundle.artifacts,
+            task: bundle.tasks,
+            traceLink: bundle.traceLinks,
+            action: bundle.actions
+        };
+        if (itemType === 'stageTransition') {
+            return bundle.suggestedPhaseTransition ? { phase: bundle.suggestedPhaseTransition } : null;
+        }
+        const list = lists[itemType];
+        if (!list) return null;
+        if (itemType === 'traceLink') {
+            return list.find(l => (l.id || `${l.source}→${l.target}`) === itemId) || null;
+        }
+        return list.find(i => i.id === itemId) || null;
+    }
+
+    _filterBundleWithout(bundle, itemType, itemId) {
+        const copy = { ...bundle };
+        if (itemType === 'patch') {
+            copy.patches = (bundle.patches || []).filter(p => p.id !== itemId);
+        } else if (itemType === 'decision') {
+            copy.decisions = (bundle.decisions || []).filter(d => d.id !== itemId);
+        } else if (itemType === 'artifact') {
+            copy.artifacts = (bundle.artifacts || []).filter(a => a.id !== itemId);
+        } else if (itemType === 'task') {
+            copy.tasks = (bundle.tasks || []).filter(t => t.id !== itemId);
+        } else if (itemType === 'traceLink') {
+            copy.traceLinks = (bundle.traceLinks || []).filter(l => (l.id || `${l.source}→${l.target}`) !== itemId);
+        } else if (itemType === 'action') {
+            copy.actions = (bundle.actions || []).filter(a => a.id !== itemId);
+        } else if (itemType === 'stageTransition') {
+            copy.suggestedPhaseTransition = null;
+        }
+        return copy;
+    }
+
     rejectProposals(state, pendingProposals) {
         return {
             success: true,
