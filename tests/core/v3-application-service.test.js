@@ -184,12 +184,13 @@ test('approveSuggestedModules moves IDs from suggested to active', () => {
         techStack: [{ id: 'nodejs', name: 'Node.js' }],
         projectModes: [], activatedModules: [], uncertainties: []
     });
+    // Only registered module IDs are activated (nodejs is a technology, not a module)
     const result = svc.approveSuggestedModules(state, ['software.web', 'nodejs']);
     assert.strictEqual(result.success, true);
     assert.ok(result.state.configuration.activeModuleIds.includes('software.web'));
-    assert.ok(result.state.configuration.activeModuleIds.includes('nodejs'));
+    assert.strictEqual(result.state.configuration.activeModuleIds.includes('nodejs'), false);
     assert.strictEqual(result.state.configuration.suggestedModuleIds.includes('software.web'), false);
-    assert.strictEqual(result.state.configuration.suggestedModuleIds.includes('nodejs'), false);
+    assert.ok(result.state.configuration.suggestedModuleIds.includes('nodejs'));
 });
 
 test('approveSuggestedModules with empty list returns error', () => {
@@ -248,7 +249,7 @@ test('processTurn with native V3 format', () => {
         proposedPatches: [{ id: 'P-1', operation: 'replace', path: '/identity/name', value: 'V3 Updated' }],
         proposedDecisions: [{ id: 'DEC-1', title: 'Use JWT', decision: 'Use JWT for auth', reason: 'Security' }],
         proposedArtifacts: [{ id: 'ART-1', title: 'API Doc', artifactType: 'document' }],
-        proposedTasks: [{ id: 'TASK-1', title: 'Implement auth', acceptanceCriteria: ['works'] }],
+        proposedTasks: [{ id: 'TASK-1', title: 'Implement auth', description: 'Implement authentication module', acceptanceCriteria: ['works'] }],
         proposedTraceLinks: [{ source: 'REQ-1', target: 'TASK-1' }],
         suggestedPhaseTransition: 'SCOPE_DEFINED'
     };

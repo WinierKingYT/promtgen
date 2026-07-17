@@ -299,7 +299,8 @@ export class V3ProjectApplicationService {
             };
         }
 
-        log.push({ step: 'normalize', patches: normalized.proposedPatches?.length || 0 });
+        const patches = normalized.proposedPatches || [];
+        log.push({ step: 'normalize', patches: patches.length });
 
         // 3. Discovery: detect gaps without modifying state
         let gaps = [];
@@ -400,37 +401,19 @@ export class V3ProjectApplicationService {
         if (!state) return { success: false, error: 'State gerekli' };
         if (!pendingProposals) return { success: false, error: 'pendingProposals gerekli' };
 
-        // Handle stage transition via dedicated command
-        if (pendingProposals.suggestedPhaseTransition) {
-            const phaseResult = this.acceptPhaseTransition(state, pendingProposals.suggestedPhaseTransition, expectedRevision);
-            if (!phaseResult.success) {
-                return { success: false, error: `Aşama geçişi başarısız: ${phaseResult.error}`, state };
-            }
-            return {
-                success: true,
-                state: phaseResult.state,
-                appliedPatches: [],
-                invalidatedApprovals: [],
-                phaseTransition: {
-                    from: phaseResult.fromPhase,
-                    to: phaseResult.toPhase
-                }
-            };
-        }
-
         // 1. Base revision check
         const baseRev = pendingProposals.baseRevision;
         if (expectedRevision !== undefined && expectedRevision !== baseRev) {
             return { success: false, error: `Revision uyuşmazlığı: beklenen ${expectedRevision}, mevcut ${state.revision}` };
         }
 
-        // 2. Validate all proposal items
+        // 2. Validate all proposal items (including stage transition)
         const validation = this._validateProposalBundle(pendingProposals, state);
         if (!validation.valid) {
             return { success: false, error: `Proposal doğrulama hatası: ${validation.errors.join('; ')}`, state };
         }
 
-        // 3. Build patches with deterministic IDs
+        // 3. Build patches with deterministic IDs from non-phase items
         const allPatches = [...(pendingProposals.patches || [])];
         let patchSeq = Date.now();
 
@@ -454,46 +437,66 @@ export class V3ProjectApplicationService {
             }
         }
 
-        // 4. Apply all patches in single transaction
-        const txResult = applyPatchTransaction({
-            state: JSON.parse(JSON.stringify(state)),
-            patches: allPatches,
-            stage: state.phase,
-            expectedRevision: baseRev
-        });
+        // 4. Apply all patches (normal items first) in single transaction
+        let currentState = JSON.parse(JSON.stringify(state));
 
-        if (!txResult.success) {
-            return { success: false, error: txResult.error, state };
-        }
+        if (allPatches.length > 0) {
+            const txResult = applyPatchTransaction({
+                state: currentState,
+                patches: allPatches,
+                stage: currentState.phase,
+                expectedRevision: baseRev
+            });
 
-        const newState = txResult.state;
-
-        // 5. Event logging
-        for (const key of (txResult.invalidatedApprovals || [])) {
-            this.eventLog.log(EVENT_TYPES.APPROVAL_INVALIDATED, {
-                approvalKey: key, data: { reason: 'proposal_accepted' }
-            }, { revision: newState.revision });
-        }
-
-        this.eventLog.log('PROPOSAL_ACCEPTED', {
-            data: {
-                patches: allPatches.length,
-                decisions: (pendingProposals.decisions || []).length,
-                tasks: (pendingProposals.tasks || []).length,
-                traceLinks: (pendingProposals.traceLinks || []).length
+            if (!txResult.success) {
+                return { success: false, error: txResult.error, state };
             }
-        }, { revision: newState.revision, custom: true });
+            currentState = txResult.state;
 
-        // 6. Rebuild traceability and reviewer
-        this.traceability = this.buildTraceability(newState);
+            // 5. Event logging for normal items
+            for (const key of (txResult.invalidatedApprovals || [])) {
+                this.eventLog.log(EVENT_TYPES.APPROVAL_INVALIDATED, {
+                    approvalKey: key, data: { reason: 'proposal_accepted' }
+                }, { revision: currentState.revision });
+            }
+
+            this.eventLog.log('PROPOSAL_ACCEPTED', {
+                data: {
+                    patches: allPatches.length,
+                    decisions: (pendingProposals.decisions || []).length,
+                    tasks: (pendingProposals.tasks || []).length,
+                    traceLinks: (pendingProposals.traceLinks || []).length
+                }
+            }, { revision: currentState.revision, custom: true });
+        }
+
+        const result = {
+            success: true,
+            state: currentState,
+            appliedPatches: [],
+            invalidatedApprovals: []
+        };
+
+        // 6. Handle stage transition after normal items
+        if (pendingProposals.suggestedPhaseTransition) {
+            const phaseResult = this.acceptPhaseTransition(
+                currentState,
+                pendingProposals.suggestedPhaseTransition,
+                currentState.revision
+            );
+            if (!phaseResult.success) {
+                return { success: false, error: `Aşama geçişi başarısız: ${phaseResult.error}`, state: currentState };
+            }
+            currentState = phaseResult.state;
+            result.state = currentState;
+            result.phaseTransition = { from: phaseResult.fromPhase, to: phaseResult.toPhase };
+        }
+
+        // 7. Rebuild traceability and reviewer
+        this.traceability = this.buildTraceability(currentState);
         this.reviewer = this.createReviewer(this.traceability);
 
-        return {
-            success: true,
-            state: newState,
-            appliedPatches: txResult.appliedPatches || [],
-            invalidatedApprovals: txResult.invalidatedApprovals || []
-        };
+        return result;
     }
 
     _validateProposalBundle(pendingProposals, state) {
@@ -540,6 +543,7 @@ export class V3ProjectApplicationService {
             if (seenIds.has(task.id)) errors.push(`Görev ID çakışıyor: ${task.id}`);
             if (task.id) seenIds.add(task.id);
             if (typeof task.title !== 'string' || !task.title) errors.push(`Görev başlığı eksik: ${task.id || '?'}`);
+            if (typeof task.description !== 'string' || !task.description) errors.push(`Görev açıklaması eksik: ${task.id || '?'}`);
             const criteria = task.acceptanceCriteria;
             const hasCriteria = Array.isArray(criteria) ? criteria.length > 0 : (typeof criteria === 'string' && !!criteria);
             if (!hasCriteria) errors.push(`Görev kabul kriterleri eksik: ${task.id || '?'}`);
@@ -731,24 +735,38 @@ export class V3ProjectApplicationService {
         const current = state.configuration?.activeModuleIds || [];
         const suggested = state.configuration?.suggestedModuleIds || [];
 
+        // Only activate IDs that are registered modules (filter out technology IDs like nodejs, react)
         const toActivate = approvedIds.filter(id =>
-            !current.includes(id) && (
-                suggested.includes(id) ||
-                this.moduleRegistry.getModule(id)
-            )
+            !current.includes(id) &&
+            this.moduleRegistry.hasModule(id)
         );
 
         if (toActivate.length === 0) {
             return { success: true, state, activated: [] };
         }
 
-        const remaining = suggested.filter(id => !toActivate.includes(id));
+        // Resolve required dependencies for the selected modules
+        const depPlan = this.moduleRegistry.resolveRequiredDependencies(toActivate);
+        const allToActivate = [...new Set([...toActivate, ...depPlan.resolved.filter(id => !current.includes(id))])];
+
+        // Detect conflicts
+        const conflicts = this.moduleRegistry.detectConflicts(allToActivate);
+        if (conflicts.length > 0) {
+            return {
+                success: false,
+                error: `Modül çakışması: ${conflicts.map(c => `${c.moduleA} ⚡ ${c.moduleB}`).join(', ')}`,
+                conflicts,
+                state
+            };
+        }
+
+        const remaining = suggested.filter(id => !allToActivate.includes(id));
 
         // Use patch transaction for activation and suggestion cleanup
         const txResult = applyPatchTransaction({
             state: JSON.parse(JSON.stringify(state)),
             patches: [
-                { operation: 'replace', path: '/configuration/activeModuleIds', value: [...current, ...toActivate], id: 'module-activation' },
+                { operation: 'replace', path: '/configuration/activeModuleIds', value: [...current, ...allToActivate], id: 'module-activation' },
                 { operation: 'replace', path: '/configuration/suggestedModuleIds', value: remaining, id: 'module-suggested-cleanup' }
             ],
             stage: state.phase,
@@ -763,10 +781,10 @@ export class V3ProjectApplicationService {
 
         // Run contributions for the new modules (proposal-only)
         let contribPatches = [];
-        if (toActivate.length > 0) {
+        if (allToActivate.length > 0) {
             try {
                 const contribResult = this.contributionExecutor.executeContributions(
-                    [...toActivate, 'universal'], newState
+                    [...allToActivate, 'universal'], newState
                 );
                 contribPatches = contribResult.patches || [];
             } catch (e) {
@@ -775,7 +793,7 @@ export class V3ProjectApplicationService {
         }
 
         this.eventLog.log('MODULES_ACTIVATED', {
-            data: { activated: toActivate, remaining, contributions: contribPatches.length }
+            data: { activated: allToActivate, remaining, contributions: contribPatches.length }
         }, { revision: newState.revision, custom: true });
 
         // Rebuild traceability
@@ -826,6 +844,7 @@ export class V3ProjectApplicationService {
         } else {
             for (const t of normalized.proposedTasks) {
                 if (!t.title) errors.push(`Görev başlığı eksik: ${t.id || '?'}`);
+                if (!t.description) errors.push(`Görev açıklaması eksik: ${t.id || '?'}`);
                 const criteria = t.acceptanceCriteria;
                 const hasCriteria = Array.isArray(criteria) ? criteria.length > 0 : (typeof criteria === 'string' && !!criteria);
                 if (!hasCriteria) errors.push(`Görev kabul kriterleri eksik: ${t.id || '?'}`);
@@ -860,25 +879,23 @@ export class V3ProjectApplicationService {
     checkAndApplyPhaseTransition(state) {
         this.initialize();
 
-        const currentPhase = state.phase;
-        const check = checkPhaseTransition(state, currentPhase);
-        if (!check.allowed || check.nextPhase === currentPhase) {
-            return { success: false, transitioned: false, currentPhase, nextPhase: check.nextStage, reason: check.reason || 'Geçiş koşulları sağlanmadı.' };
+        const nextPhase = getPhaseNext(state.phase);
+        if (!nextPhase) {
+            return { success: false, transitioned: false, currentPhase: state.phase, nextPhase: null, reason: 'Sıradaki faz bulunamadı.' };
         }
 
-        const newState = applyV3StatePatch(state, {
-            operation: 'replace',
-            path: '/phase',
-            value: check.nextStage
-        }, true);
+        const phaseResult = this.acceptPhaseTransition(state, nextPhase, state.revision);
+        if (!phaseResult.success) {
+            return { success: false, transitioned: false, currentPhase: state.phase, nextPhase, reason: phaseResult.error };
+        }
 
-        this.eventLog.log(EVENT_TYPES.PHASE_TRANSITION, {
-            fromPhase: currentPhase,
-            toPhase: check.nextPhase,
-            data: { reason: check.reason || '' }
-        }, { revision: newState.revision });
-
-        return { success: true, transitioned: true, currentPhase, nextPhase: check.nextPhase, state: newState };
+        return {
+            success: true,
+            transitioned: true,
+            currentPhase: phaseResult.fromPhase,
+            nextPhase: phaseResult.toPhase,
+            state: phaseResult.state
+        };
     }
 
     advancePhase(state) {
@@ -929,6 +946,7 @@ export class V3ProjectApplicationService {
 
         return {
             success: true,
+            transitioned: true,
             state: newState,
             fromPhase: currentPhase,
             toPhase: proposedPhase

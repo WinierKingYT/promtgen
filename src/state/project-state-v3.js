@@ -165,7 +165,7 @@ export function applyV3StatePatch(state, patch, isSystem = false) {
     let current = cloned;
     for (let i = 0; i < pathParts.length - 1; i++) {
         const part = pathParts[i];
-        if (current[part] === undefined) {
+        if (current[part] == null) {
             current[part] = {};
         }
         current = current[part];

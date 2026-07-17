@@ -6,10 +6,26 @@ export class FindingStore {
         this._counter = 0;
     }
 
+    _evidenceHash(evidence) {
+        if (!Array.isArray(evidence) || evidence.length === 0) return '';
+        return evidence.map(e => {
+            if (typeof e === 'string') return e.slice(0, 80);
+            if (e && typeof e === 'object') return JSON.stringify(e).slice(0, 80);
+            return '';
+        }).sort().join('|');
+    }
+
+    _findingKey(finding) {
+        const entityKey = (finding.affectedEntities || []).sort().join(',');
+        const evHash = this._evidenceHash(finding.evidence);
+        return `${finding.ruleId || ''}|${entityKey}|${evHash}`;
+    }
+
     addFinding(finding) {
-        // Preserve existing finding by ruleId if present
-        if (finding.ruleId) {
-            const existing = [...this._findings.values()].find(f => f.ruleId === finding.ruleId);
+        // Preserve existing finding by ruleId + affectedEntities + evidence hash
+        const key = this._findingKey(finding);
+        if (key) {
+            const existing = [...this._findings.values()].find(f => this._findingKey(f) === key);
             if (existing) {
                 existing.updatedAt = new Date().toISOString();
                 existing.projectRevision = finding.projectRevision || existing.projectRevision;

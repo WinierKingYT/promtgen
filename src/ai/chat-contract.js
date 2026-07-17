@@ -95,7 +95,7 @@ YANIT FORMATI (sadece JSON):
     { "id": "ART-001", "title": "Çıktı adı", "type": "documentation" }
   ],
   "proposedTasks": [
-    { "id": "TASK-001", "title": "Görev adı", "acceptanceCriteria": ["Kriter 1", "Kriter 2"] }
+    { "id": "TASK-001", "title": "Görev adı", "description": "Görev açıklaması", "acceptanceCriteria": ["Kriter 1", "Kriter 2"] }
   ],
   "suggestedActions": [
     { "id": "ACT-001", "action": "review", "title": "Gözden geçirme", "description": "Önerilen eylem" }
@@ -115,8 +115,8 @@ PROPOSAL ITEM FORMATLARI:
 - proposedDecisions[]: Her karar { id, title, decision, reason, options[]?, status? } içermeli.
   id ve title zorunlu. decision karar metni, reason gerekçe - ikisi de zorunlu.
 - proposedArtifacts[]: Her çıktı { id, title, type?, content? } içermeli. id ve title zorunlu.
-- proposedTasks[]: Her görev { id, title, acceptanceCriteria[]|string, status?, priority? } içermeli.
-  id, title ve acceptanceCriteria zorunlu. acceptanceCriteria dizi veya metin olabilir.
+- proposedTasks[]: Her görev { id, title, description, acceptanceCriteria[]|string, status?, priority? } içermeli.
+  id, title, description ve acceptanceCriteria zorunlu. acceptanceCriteria dizi veya metin olabilir.
 - proposedTraceLinks[]: Her link { source, target, type? } içermeli. source ve target zorunlu.
   type yoksa varsayılan "implements" kullanılır.
 - suggestedActions[]: Her eylem { id, action|title, description? } içermeli. id ve action/title zorunlu.

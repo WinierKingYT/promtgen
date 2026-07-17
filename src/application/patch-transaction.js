@@ -42,7 +42,7 @@ export function applyPatchTransaction({ state, patches, stage, expectedRevision 
 
     for (let i = 0; i < patches.length; i++) {
         const patch = patches[i];
-        const check = validatePatchProposal(stage, patch);
+        const check = validatePatchProposal(stage, patch, state.schemaVersion);
         if (!check.valid) {
             return {
                 success: false,

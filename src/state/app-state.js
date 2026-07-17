@@ -17,7 +17,6 @@ export const INITIAL_APP_STATE = {
     },
     messages: [],
     historyStack: [],
-    suggestedNextStage: "",
     currentProjectState: null
 };
 

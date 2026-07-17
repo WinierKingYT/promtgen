@@ -1,5 +1,5 @@
-import { isPatchPathAllowed, validateValueByPath, validateValueBySchema, REQUIRED_ROOT_PATHS, STAGE_CONTRACTS } from '../workflow/stage-contracts.js';
-import { isPhasePatchAllowed, PHASE_REQUIRED_ROOT_PATHS, PHASE_CONTRACTS } from '../workflow/phase-contracts.js';
+import { isPatchPathAllowed, validateValueByPath, validateValueBySchema, REQUIRED_ROOT_PATHS } from '../workflow/stage-contracts.js';
+import { isPhasePatchAllowed, PHASE_REQUIRED_ROOT_PATHS } from '../workflow/phase-contracts.js';
 
 export const GLOBAL_FORBIDDEN_PATHS = [
     '/phase',
@@ -12,10 +12,6 @@ export const GLOBAL_FORBIDDEN_PATHS = [
     '/pendingChangeSet/*'
 ];
 
-function isV3Stage(stage) {
-    return !!PHASE_CONTRACTS[stage] && !STAGE_CONTRACTS[stage];
-}
-
 function pathMatchesPattern(path, pattern) {
     if (pattern.endsWith('/*')) {
         const prefix = pattern.slice(0, -2);
@@ -24,7 +20,7 @@ function pathMatchesPattern(path, pattern) {
     return path === pattern;
 }
 
-export function validatePatchProposal(stage, patch) {
+export function validatePatchProposal(stage, patch, schemaVersion) {
     if (!patch || typeof patch !== 'object') {
         return { valid: false, reason: 'Geçersiz patch nesnesi.' };
     }
@@ -49,7 +45,7 @@ export function validatePatchProposal(stage, patch) {
         return { valid: false, reason: `Güvenlik İhlali: Kritik sistem alanları patch ile değiştirilemez (${path})` };
     }
 
-    if (isV3Stage(stage)) {
+    if (schemaVersion === 3) {
         if (PHASE_REQUIRED_ROOT_PATHS.includes(path) && operation === 'remove') {
             return { valid: false, reason: `Güvenlik İhlali: Kritik kök alan silinemez (${path})` };
         }
