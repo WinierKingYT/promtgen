@@ -82,7 +82,8 @@ export const EDGE_TYPES = {
     TRIGGERS: 'triggers',
     REVIEWS: 'reviews',
     APPROVES: 'approves',
-    RELATES_TO: 'relates_to'
+    RELATES_TO: 'relates_to',
+    DRIVES: 'drives'
 };
 
 export const EDGE_STRENGTH = {
@@ -139,14 +140,15 @@ export function getAllEdgeStrengths() {
 
 export function getDefaultImpactRules() {
     return [
-        { sourceType: NODE_TYPES.DECISION, edgeType: EDGE_TYPES.CONSTRAINED_BY, targetType: NODE_TYPES.ARCHITECTURE_COMPONENT, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.HIGH, propagate: true },
-        { sourceType: NODE_TYPES.DECISION, edgeType: EDGE_TYPES.IMPLEMENTS, targetType: NODE_TYPES.FILE_BLUEPRINT, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.HIGH, propagate: true },
+        { sourceType: NODE_TYPES.DECISION, edgeType: EDGE_TYPES.DRIVES, targetType: NODE_TYPES.ARCHITECTURE_COMPONENT, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.HIGH, propagate: true },
         { sourceType: NODE_TYPES.REQUIREMENT, edgeType: EDGE_TYPES.IMPLEMENTS, targetType: NODE_TYPES.TASK, effect: IMPACT_EFFECTS.REVIEW, severity: IMPACT_SEVERITY.HIGH, propagate: false },
+        { sourceType: NODE_TYPES.REQUIREMENT, edgeType: EDGE_TYPES.DRIVES, targetType: NODE_TYPES.DECISION, effect: IMPACT_EFFECTS.REVIEW, severity: IMPACT_SEVERITY.HIGH, propagate: true },
         { sourceType: NODE_TYPES.REQUIREMENT, edgeType: EDGE_TYPES.VALIDATED_BY, targetType: NODE_TYPES.TEST, effect: IMPACT_EFFECTS.REVIEW, severity: IMPACT_SEVERITY.MEDIUM, propagate: false },
         { sourceType: NODE_TYPES.DECISION, edgeType: EDGE_TYPES.SUPERSEDES, targetType: NODE_TYPES.DECISION, effect: IMPACT_EFFECTS.INVALIDATE, severity: IMPACT_SEVERITY.CRITICAL, propagate: true },
         { sourceType: NODE_TYPES.OBJECTIVE, edgeType: EDGE_TYPES.REFINES, targetType: NODE_TYPES.REQUIREMENT, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.HIGH, propagate: true },
         { sourceType: NODE_TYPES.TASK, edgeType: EDGE_TYPES.DEPENDS_ON, targetType: NODE_TYPES.TASK, effect: IMPACT_EFFECTS.INVALIDATE, severity: IMPACT_SEVERITY.HIGH, propagate: false },
-        { sourceType: NODE_TYPES.ARTIFACT, edgeType: EDGE_TYPES.DOCUMENTS, targetType: NODE_TYPES.DECISION, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.MEDIUM, propagate: false },
+        { sourceType: NODE_TYPES.TASK, edgeType: EDGE_TYPES.PRODUCES, targetType: NODE_TYPES.ARTIFACT, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.MEDIUM, propagate: false },
+        { sourceType: NODE_TYPES.ARCHITECTURE_COMPONENT, edgeType: EDGE_TYPES.IMPLEMENTS, targetType: NODE_TYPES.FILE_BLUEPRINT, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.HIGH, propagate: true },
     ];
 }
 

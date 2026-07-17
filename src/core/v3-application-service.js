@@ -300,6 +300,14 @@ export class V3ProjectApplicationService {
         }
 
         if (state.entityStores) {
+            const esReqs = state.entityStores.requirement;
+            if (Array.isArray(esReqs)) {
+                for (const r of esReqs) {
+                    if (!g.getNode(r.id)) {
+                        try { g.addNode(NODE_TYPES.REQUIREMENT, r.id, r.title || r.text || r.name || r.id, { ...r }); } catch {}
+                    }
+                }
+            }
             const storeArtifacts = state.entityStores.artifact;
             if (Array.isArray(storeArtifacts)) {
                 for (const a of storeArtifacts) {
@@ -318,6 +326,16 @@ export class V3ProjectApplicationService {
             }
         }
 
+        const architectureComps = state.moduleData?.software?.architecture?.components;
+        if (Array.isArray(architectureComps)) {
+            for (const c of architectureComps) {
+                const id = c.id || `ARC-${String(architectureComps.indexOf(c) + 1).padStart(3, '0')}`;
+                if (!g.getNode(id)) {
+                    try { g.addNode(NODE_TYPES.ARCHITECTURE_COMPONENT, id, c.name || c.title || id, { ...c }); } catch {}
+                }
+            }
+        }
+
         this._buildEdgesFromReferences(g, state);
 
         return engine;
@@ -330,6 +348,9 @@ export class V3ProjectApplicationService {
         const decisions = g.getNodesByType(NODE_TYPES.DECISION);
         const objectives = g.getNodesByType(NODE_TYPES.OBJECTIVE);
         const artifacts = g.getNodesByType(NODE_TYPES.ARTIFACT);
+        const requirements = g.getNodesByType(NODE_TYPES.REQUIREMENT);
+        const tests = g.getNodesByType(NODE_TYPES.TEST);
+        const archComps = g.getNodesByType(NODE_TYPES.ARCHITECTURE_COMPONENT);
 
         for (const task of tasks) {
             const meta = task.metadata || {};
@@ -349,7 +370,14 @@ export class V3ProjectApplicationService {
 
             if (meta.sourceEntityIds && Array.isArray(meta.sourceEntityIds)) {
                 for (const srcId of meta.sourceEntityIds) {
-                    if (g.getNode(srcId)) edges.push({ s: task.id, t: srcId, type: EDGE_TYPES.IMPLEMENTS });
+                    const srcNode = g.getNode(srcId);
+                    if (srcNode) {
+                        if (srcNode.type === NODE_TYPES.REQUIREMENT) {
+                            edges.push({ s: srcId, t: task.id, type: EDGE_TYPES.IMPLEMENTS });
+                        } else {
+                            edges.push({ s: task.id, t: srcId, type: EDGE_TYPES.RELATES_TO });
+                        }
+                    }
                 }
             }
         }
@@ -358,12 +386,35 @@ export class V3ProjectApplicationService {
             const meta = dec.metadata || {};
             if (meta.sourceRequirementIds && Array.isArray(meta.sourceRequirementIds)) {
                 for (const reqId of meta.sourceRequirementIds) {
-                    if (g.getNode(reqId)) edges.push({ s: dec.id, t: reqId, type: EDGE_TYPES.SUPPORTS });
+                    if (g.getNode(reqId)) edges.push({ s: reqId, t: dec.id, type: EDGE_TYPES.DRIVES });
                 }
             }
             if (meta.affectedEntityIds && Array.isArray(meta.affectedEntityIds)) {
                 for (const affId of meta.affectedEntityIds) {
                     if (g.getNode(affId)) edges.push({ s: dec.id, t: affId, type: EDGE_TYPES.RELATES_TO });
+                }
+            }
+        }
+
+        for (const req of requirements) {
+            const meta = req.metadata || {};
+            if (meta.decisionIds && Array.isArray(meta.decisionIds)) {
+                for (const decId of meta.decisionIds) {
+                    if (g.getNode(decId)) edges.push({ s: req.id, t: decId, type: EDGE_TYPES.DRIVES });
+                }
+            }
+            if (meta.testIds && Array.isArray(meta.testIds)) {
+                for (const testId of meta.testIds) {
+                    if (g.getNode(testId)) edges.push({ s: req.id, t: testId, type: EDGE_TYPES.VALIDATED_BY });
+                }
+            }
+        }
+
+        for (const comp of archComps) {
+            const meta = comp.metadata || {};
+            if (meta.sourceDecisionIds && Array.isArray(meta.sourceDecisionIds)) {
+                for (const decId of meta.sourceDecisionIds) {
+                    if (g.getNode(decId)) edges.push({ s: decId, t: comp.id, type: EDGE_TYPES.DRIVES });
                 }
             }
         }

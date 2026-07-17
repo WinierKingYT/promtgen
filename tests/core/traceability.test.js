@@ -339,7 +339,7 @@ test('analyzeChange returns effects for changed entity', () => {
     const g = new GraphStore();
     g.addNode(NODE_TYPES.DECISION, 'D1', 'D1');
     g.addNode(NODE_TYPES.ARCHITECTURE_COMPONENT, 'C1', 'C1');
-    g.addEdge('D1', 'C1', EDGE_TYPES.CONSTRAINED_BY);
+    g.addEdge('D1', 'C1', EDGE_TYPES.DRIVES);
 
     const ie = new ImpactEngine(g);
     const result = ie.analyzeChange(['D1']);
