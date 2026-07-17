@@ -918,6 +918,23 @@ textarea:focus {
     gap: 0.5rem;
 }
 
+.proposal-type-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-sm);
+    margin-right: 0.4rem;
+    vertical-align: middle;
+}
+.proposal-type-badge.patch { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+.proposal-type-badge.decision { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.proposal-type-badge.artifact { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.proposal-type-badge.task { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.proposal-type-badge.traceLink { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+
 .approval-info i {
     width: 18px;
     height: 18px;

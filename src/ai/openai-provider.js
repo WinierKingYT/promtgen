@@ -14,6 +14,10 @@ export class OpenAICompatibleProvider extends LLMProvider {
     get baseURL() { return this._baseURL; }
     get model() { return this._model; }
 
+    _createClient(apiKey) {
+        return new OpenAI({ apiKey, baseURL: this._baseURL, dangerouslyAllowBrowser: true });
+    }
+
     _buildParams(messages, opts = {}) {
         const params = {
             model: this._model,
@@ -35,7 +39,7 @@ export class OpenAICompatibleProvider extends LLMProvider {
 
     async generateText(promptText, apiKey) {
         if (!apiKey) throw new Error('API Key is required.');
-        const openai = new OpenAI({ apiKey, baseURL: this._baseURL });
+        const openai = this._createClient(apiKey);
         const params = this._buildParams(
             [{ role: 'user', content: promptText }],
             { temperature: 1, stream: false }
@@ -46,7 +50,7 @@ export class OpenAICompatibleProvider extends LLMProvider {
 
     async generateStructured(promptText, apiKey) {
         if (!apiKey) throw new Error('API Key is required.');
-        const openai = new OpenAI({ apiKey, baseURL: this._baseURL });
+        const openai = this._createClient(apiKey);
         const params = this._buildParams(
             [{ role: 'user', content: promptText }],
             { temperature: 0.3, jsonMode: true, stream: false }
@@ -57,7 +61,7 @@ export class OpenAICompatibleProvider extends LLMProvider {
 
     async *generateTextStream(promptText, apiKey) {
         if (!apiKey) throw new Error('API Key is required.');
-        const openai = new OpenAI({ apiKey, baseURL: this._baseURL });
+        const openai = this._createClient(apiKey);
         const params = this._buildParams(
             [{ role: 'user', content: promptText }],
             { temperature: 1, stream: true }

@@ -29,7 +29,7 @@ const DEFAULTS = {
 
 // --- GLOBAL INSTANCES & STATE ---
 const appStateManager = new AppStateManager();
-appStateManager.loadApiKey();
+appStateManager.loadCredentials();
 const appState = appStateManager.state;
 
 const storageRepo = new BrowserStorageRepository();
@@ -39,7 +39,8 @@ const v3App = new V3ProjectApplicationService();
 function getActiveProviderId() {
     const selected = appState.selectedProvider || PROVIDER_IDS.GEMINI;
     if (selected === PROVIDER_IDS.OFFLINE) return PROVIDER_IDS.OFFLINE;
-    if (!appState.apiKey || appState.apiKey.length <= 10) {
+    const key = appStateManager.getCredential(selected);
+    if (!key || key.length <= 10) {
         return PROVIDER_IDS.OFFLINE;
     }
     return selected;
@@ -213,11 +214,13 @@ function initApp() {
         window.lucide.createIcons();
     }
     appStateManager.loadProvider();
+    const initialProvider = appState.selectedProvider || PROVIDER_IDS.GEMINI;
+    appState.apiKey = appStateManager.getCredential(initialProvider);
     if (appState.apiKey) {
         elements.apiKeyInput.value = appState.apiKey;
     }
     if (elements.providerSelect) {
-        elements.providerSelect.value = appState.selectedProvider || PROVIDER_IDS.GEMINI;
+        elements.providerSelect.value = initialProvider;
         updateProviderUI();
     }
     // Sync priority state from DOM (Fix #4: DOM is the source of truth at startup)
@@ -264,6 +267,11 @@ function updateProviderUI() {
     if (elements.apiKeyGroup) {
         elements.apiKeyGroup.style.display = pid === PROVIDER_IDS.OFFLINE ? 'none' : '';
     }
+    const savedKey = appStateManager.getCredential(pid);
+    if (elements.apiKeyInput) {
+        elements.apiKeyInput.value = savedKey;
+    }
+    appState.apiKey = savedKey;
     appStateManager.saveProvider(pid);
     updateApiStatusBadge();
 }
@@ -291,7 +299,7 @@ function toggleViews() {
         `;
         updateApprovalGateBanner();
         updateModuleApprovalBanner();
-        renderProposedPatches();
+        renderProposalBundle();
     } else {
         elements.setupHeader.classList.remove('hidden');
         elements.setupView.classList.remove('hidden');
@@ -316,7 +324,8 @@ function setupEventListeners() {
     elements.btnSaveSettings.addEventListener('click', () => {
         const key = elements.apiKeyInput.value.trim();
         const pid = elements.providerSelect?.value || PROVIDER_IDS.GEMINI;
-        appStateManager.saveApiKey(key);
+        appStateManager.saveCredential(pid, key);
+        appState.apiKey = key;
         appStateManager.saveProvider(pid);
         updateApiStatusBadge();
         elements.modalSettings.classList.add('hidden');
@@ -573,8 +582,9 @@ function loadProjectSession(id) {
         }
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         
-        // Restore pending patches and suggested stage
-        appState.proposedPatches = Array.isArray(proj.proposedPatches) ? proj.proposedPatches : [];
+        // Restore pending proposals and suggested stage
+        appState.pendingProposals = proj.pendingProposals || null;
+        appState.proposedPatches = Array.isArray(proj.proposedPatches) ? proj.proposedPatches : (appState.pendingProposals?.patches || []);
         appState.suggestedNextStage = typeof proj.suggestedNextStage === 'string' ? proj.suggestedNextStage : '';
         
         appState.chatStarted = true;
@@ -635,16 +645,6 @@ function saveCurrentProjectState() {
     const title = appState.draftDescription.substring(0, 35) + (appState.draftDescription.length > 35 ? '...' : '');
     const dateStr = new Date().toLocaleDateString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
-
-    const pendingData = {
-        baseRevision: appState.currentProjectState?.revision || 0,
-        sourceStage: getStageOrPhase(appState.currentProjectState),
-        suggestedNextStage: appState.suggestedNextStage || null,
-        patches: appState.proposedPatches || [],
-        createdAt: new Date().toISOString(),
-        approvalStatus: appState.proposedPatches?.length > 0 ? 'pending' : 'none'
-    };
-
     const projectObj = {
         id: appState.projectId,
         title: title,
@@ -656,10 +656,10 @@ function saveCurrentProjectState() {
         draftDescription: appState.draftDescription,
         messages: appState.messages,
         currentProjectState: appState.currentProjectState,
+        pendingProposals: appState.pendingProposals,
         proposedPatches: appState.proposedPatches,
         suggestedNextStage: appState.suggestedNextStage,
-        date: dateStr,
-        pendingChangeSet: pendingData
+        date: dateStr
     };
 
     storageRepo.saveProject(projectObj);
@@ -780,13 +780,13 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
             }
 
             appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-            appState.proposedPatches = turnResult.pendingProposals.patches || [];
+            appState.pendingProposals = turnResult.pendingProposals || null;
+            appState.proposedPatches = appState.pendingProposals?.patches || [];
             appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
             appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
-            appState.pendingProposals = turnResult.pendingProposals || null;
 
             renderChatMessages();
-            renderProposedPatches();
+            renderProposalBundle();
             updateApprovalGateBanner();
 
             if (appState.currentData) {
@@ -886,9 +886,10 @@ async function handleStartChat() {
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
+        appState.proposedPatches = appState.pendingProposals?.patches || [];
 
         renderChatMessages();
-        renderProposedPatches();
+        renderProposalBundle();
         updateApprovalGateBanner();
         updateModuleApprovalBanner();
 
@@ -920,9 +921,10 @@ async function handleStartChat() {
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
+        appState.proposedPatches = appState.pendingProposals?.patches || [];
         
         renderChatMessages();
-        renderProposedPatches();
+        renderProposalBundle();
         updateApprovalGateBanner();
         updateModuleApprovalBanner();
 
@@ -977,9 +979,10 @@ async function handleSendChatMessage() {
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
+        appState.proposedPatches = appState.pendingProposals?.patches || [];
 
         renderChatMessages();
-        renderProposedPatches();
+        renderProposalBundle();
         updateApprovalGateBanner();
         updateModuleApprovalBanner();
 
@@ -1022,6 +1025,11 @@ async function sendChatMessageToAI() {
         );
     }
 
+    const apiKey = appStateManager.getCredential(providerId);
+    if (!apiKey) {
+        throw new Error(`${providerId} için API anahtarı bulunamadı. Lütfen ayarlardan girin.`);
+    }
+
     const promptText = buildV3ProposalPrompt({
         stage: getStageOrPhase(appState.currentProjectState),
         techStack: appState.techStack,
@@ -1033,7 +1041,7 @@ async function sendChatMessageToAI() {
     });
 
     try {
-        const textResponse = await providerRegistry.generateStructured(providerId, promptText, appState.apiKey);
+        const textResponse = await providerRegistry.generateStructured(providerId, promptText, apiKey);
         const parsed = JSON.parse(textResponse);
         return normalizeAIResponse(parsed);
     } catch (err) {
@@ -2162,15 +2170,31 @@ function loadTemplate(type) {
     }
 }
 
-// --- V2 BETA APPROVAL & PATCH PROPOSALS SYSTEM ---
-// STAGE_APPROVAL_KEYS now imported from ./workflow/stage-contracts.js
+// --- V3 PROPOSAL SYSTEM ---
 
-function renderProposedPatches() {
+function _getProposalCount(pending) {
+    if (!pending) return 0;
+    return (pending.patches?.length || 0) +
+        (pending.decisions?.length || 0) +
+        (pending.artifacts?.length || 0) +
+        (pending.tasks?.length || 0) +
+        (pending.traceLinks?.length || 0);
+}
+
+function _clearProposalBundle() {
+    appState.pendingProposals = null;
+    appState.proposedPatches = [];
+    appState.suggestedNextStage = '';
+}
+
+function renderProposalBundle() {
     const container = elements.patchProposalsContainer;
     const listEl = elements.patchProposalsList;
     if (!container || !listEl) return;
 
-    if (!appState.proposedPatches || appState.proposedPatches.length === 0) {
+    const pending = appState.pendingProposals;
+
+    if (!pending || _getProposalCount(pending) === 0) {
         container.classList.add('hidden');
         return;
     }
@@ -2178,32 +2202,27 @@ function renderProposedPatches() {
     container.classList.remove('hidden');
     listEl.innerHTML = '';
 
-    appState.proposedPatches.forEach((patch) => {
+    // State patches
+    for (const patch of (pending.patches || [])) {
         const card = document.createElement('div');
         card.className = 'patch-proposal-card';
         card.dataset.id = patch.id;
-
+        card.dataset.type = 'patch';
         const valString = typeof patch.value === 'object' ? JSON.stringify(patch.value, null, 2) : String(patch.value);
-
         card.innerHTML = `
             <div class="patch-proposal-info">
                 <div>
+                    <span class="proposal-type-badge patch">Değişiklik</span>
                     <span class="patch-op ${escapeHTML(patch.operation)}">${escapeHTML(patch.operation)}</span>
                     <span class="patch-path">${escapeHTML(patch.path)}</span>
                 </div>
                 <div class="patch-item-actions">
-                    <button class="btn btn-secondary btn-small btn-edit-patch" title="Düzenle">
-                        <i data-lucide="edit-3" style="width:12px;height:12px;"></i>
-                    </button>
-                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet">
-                        <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
-                    </button>
-                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla">
-                        <i data-lucide="check" style="width:12px;height:12px;"></i>
-                    </button>
+                    <button class="btn btn-secondary btn-small btn-edit-patch" title="Düzenle"><i data-lucide="edit-3" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla"><i data-lucide="check" style="width:12px;height:12px;"></i></button>
                 </div>
             </div>
-            <div class="patch-reason"><strong>Neden:</strong> ${escapeHTML(patch.reason)}</div>
+            <div class="patch-reason"><strong>Neden:</strong> ${escapeHTML(patch.reason || '')}</div>
             <div class="patch-value-preview">${escapeHTML(valString)}</div>
             <div class="patch-edit-area hidden">
                 <textarea class="patch-edit-textarea" style="width:100%;height:100px;font-family:monospace;font-size:11px;margin-top:6px;background:rgba(0,0,0,0.3);color:#fff;border:1px solid #444;padding:4px;"></textarea>
@@ -2211,10 +2230,98 @@ function renderProposedPatches() {
                     <button class="btn btn-secondary btn-small btn-cancel-edit-patch">İptal</button>
                     <button class="btn btn-primary btn-small btn-save-edit-patch">Kaydet</button>
                 </div>
-            </div>
-        `;
+            </div>`;
         listEl.appendChild(card);
-    });
+    }
+
+    // Decisions
+    for (const dec of (pending.decisions || [])) {
+        const card = document.createElement('div');
+        card.className = 'patch-proposal-card';
+        card.dataset.id = dec.id;
+        card.dataset.type = 'decision';
+        card.innerHTML = `
+            <div class="patch-proposal-info">
+                <div>
+                    <span class="proposal-type-badge decision">Karar</span>
+                    <strong>${escapeHTML(dec.title || '')}</strong>
+                </div>
+                <div class="patch-item-actions">
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla"><i data-lucide="check" style="width:12px;height:12px;"></i></button>
+                </div>
+            </div>
+            <div class="patch-reason"><strong>Karar:</strong> ${escapeHTML(dec.decision || '')}</div>
+            <div class="patch-value-preview">${escapeHTML(dec.rationale || dec.reason || '')}</div>`;
+        listEl.appendChild(card);
+    }
+
+    // Artifacts
+    for (const art of (pending.artifacts || [])) {
+        const card = document.createElement('div');
+        card.className = 'patch-proposal-card';
+        card.dataset.id = art.id;
+        card.dataset.type = 'artifact';
+        card.innerHTML = `
+            <div class="patch-proposal-info">
+                <div>
+                    <span class="proposal-type-badge artifact">Çıktı</span>
+                    <strong>${escapeHTML(art.title || '')}</strong>
+                    <span class="patch-op">${escapeHTML(art.artifactType || '')}</span>
+                </div>
+                <div class="patch-item-actions">
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla"><i data-lucide="check" style="width:12px;height:12px;"></i></button>
+                </div>
+            </div>
+            <div class="patch-value-preview">${escapeHTML(art.description || '')}</div>`;
+        listEl.appendChild(card);
+    }
+
+    // Tasks
+    for (const task of (pending.tasks || [])) {
+        const card = document.createElement('div');
+        card.className = 'patch-proposal-card';
+        card.dataset.id = task.id;
+        card.dataset.type = 'task';
+        card.innerHTML = `
+            <div class="patch-proposal-info">
+                <div>
+                    <span class="proposal-type-badge task">Görev</span>
+                    <strong>${escapeHTML(task.title || '')}</strong>
+                </div>
+                <div class="patch-item-actions">
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla"><i data-lucide="check" style="width:12px;height:12px;"></i></button>
+                </div>
+            </div>
+            <div class="patch-reason"><strong>Kabul Kriterleri:</strong> ${escapeHTML(Array.isArray(task.acceptanceCriteria) ? task.acceptanceCriteria.join(', ') : (task.acceptanceCriteria || ''))}</div>
+            <div class="patch-value-preview">${escapeHTML(task.description || '')}</div>`;
+        listEl.appendChild(card);
+    }
+
+    // Trace links
+    for (const link of (pending.traceLinks || [])) {
+        const card = document.createElement('div');
+        card.className = 'patch-proposal-card';
+        card.dataset.id = link.id || `${link.source}→${link.target}`;
+        card.dataset.type = 'traceLink';
+        card.innerHTML = `
+            <div class="patch-proposal-info">
+                <div>
+                    <span class="proposal-type-badge traceLink">Bağlantı</span>
+                    <code>${escapeHTML(link.source)}</code>
+                    <span class="patch-op">→</span>
+                    <code>${escapeHTML(link.target)}</code>
+                </div>
+                <div class="patch-item-actions">
+                    <button class="btn btn-secondary btn-small btn-reject-patch text-error" title="Reddet"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+                    <button class="btn btn-primary btn-small btn-accept-patch" title="Onayla"><i data-lucide="check" style="width:12px;height:12px;"></i></button>
+                </div>
+            </div>
+            <div class="patch-reason"><strong>Tür:</strong> ${escapeHTML(link.type || 'implements')}</div>`;
+        listEl.appendChild(card);
+    }
 
     if (window.lucide) window.lucide.createIcons();
 }
@@ -2232,44 +2339,54 @@ function initPatchProposalListeners() {
         const card = e.target.closest('.patch-proposal-card');
         if (!card) return;
 
-        const patchId = card.dataset.id;
-        const patchIndex = appState.proposedPatches.findIndex(p => p.id === patchId);
-        if (patchIndex === -1) return;
-
-        const patch = appState.proposedPatches[patchIndex];
+        const itemId = card.dataset.id;
+        const itemType = card.dataset.type;
+        const pending = appState.pendingProposals;
+        if (!pending) return;
 
         if (btnAccept) {
-            const txResult = v3App.acceptPatches(
+            const txResult = v3App.acceptProposalBundle(
                 appState.currentProjectState,
-                [patch],
+                pending,
                 appState.currentProjectState.revision
             );
 
             if (txResult.success) {
                 appState.currentProjectState = txResult.state;
-                appState.proposedPatches.splice(patchIndex, 1);
+                _clearProposalBundle();
                 appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
-                
-                showToast(`Değişiklik uygulandı: ${patch.path}`);
+                showToast('Öneri kabul edildi.');
                 saveCurrentProjectState();
-                renderProposedPatches();
+                renderProposalBundle();
                 triggerWorkflowTransitionCheck();
-                
-                if (appState.currentData) {
-                    displayResults(appState.currentData);
-                }
+                if (appState.currentData) displayResults(appState.currentData);
             } else {
-                showToast(`Değişiklik Uygulanamadı: ${txResult.error}`, true);
+                showToast(`Öneri uygulanamadı: ${txResult.error}`, true);
             }
         } else if (btnReject) {
-            appState.proposedPatches.splice(patchIndex, 1);
-            showToast('Değişiklik reddedildi.');
-            renderProposedPatches();
-        } else if (btnEdit) {
+            if (itemType === 'patch') {
+                pending.patches = (pending.patches || []).filter(p => p.id !== itemId);
+            } else if (itemType === 'decision') {
+                pending.decisions = (pending.decisions || []).filter(d => d.id !== itemId);
+            } else if (itemType === 'artifact') {
+                pending.artifacts = (pending.artifacts || []).filter(a => a.id !== itemId);
+            } else if (itemType === 'task') {
+                pending.tasks = (pending.tasks || []).filter(t => t.id !== itemId);
+            } else if (itemType === 'traceLink') {
+                pending.traceLinks = (pending.traceLinks || []).filter(l => (l.id || `${l.source}→${l.target}`) !== itemId);
+            }
+            if (_getProposalCount(pending) === 0) {
+                _clearProposalBundle();
+            }
+            appState.proposedPatches = pending.patches || [];
+            showToast('Öneri reddedildi.');
+            renderProposalBundle();
+        } else if (btnEdit && itemType === 'patch') {
             const editArea = card.querySelector('.patch-edit-area');
             const preview = card.querySelector('.patch-value-preview');
             const textarea = card.querySelector('.patch-edit-textarea');
-            if (editArea && textarea) {
+            const patch = (pending.patches || []).find(p => p.id === itemId);
+            if (editArea && textarea && patch) {
                 editArea.classList.toggle('hidden');
                 if (preview) preview.classList.toggle('hidden');
                 textarea.value = typeof patch.value === 'object' ? JSON.stringify(patch.value, null, 2) : String(patch.value);
@@ -2283,7 +2400,8 @@ function initPatchProposalListeners() {
             }
         } else if (btnSave) {
             const textarea = card.querySelector('.patch-edit-textarea');
-            if (textarea) {
+            const patch = (pending.patches || []).find(p => p.id === itemId);
+            if (textarea && patch) {
                 try {
                     let newVal;
                     const rawVal = textarea.value.trim();
@@ -2294,7 +2412,7 @@ function initPatchProposalListeners() {
                     }
                     patch.value = newVal;
                     showToast('Değişiklik güncellendi.');
-                    renderProposedPatches();
+                    renderProposalBundle();
                 } catch (err) {
                     showToast('Hatalı JSON formatı!', true);
                 }
@@ -2305,9 +2423,9 @@ function initPatchProposalListeners() {
     const btnAcceptAll = elements.btnAcceptAllPatches;
     if (btnAcceptAll) {
         btnAcceptAll.addEventListener('click', () => {
-            if (!appState.proposedPatches || appState.proposedPatches.length === 0) return;
-            
-            const pending = appState.pendingProposals || { patches: appState.proposedPatches, decisions: [], artifacts: [], tasks: [], traceLinks: [], actions: [] };
+            const pending = appState.pendingProposals;
+            if (!pending || _getProposalCount(pending) === 0) return;
+
             const txResult = v3App.acceptProposalBundle(
                 appState.currentProjectState,
                 pending,
@@ -2316,8 +2434,7 @@ function initPatchProposalListeners() {
 
             if (txResult.success) {
                 appState.currentProjectState = txResult.state;
-                
-                // Set workflow suggestion system-wide if provided
+
                 if (appState.suggestedNextStage) {
                     if (isV3State(appState.currentProjectState)) {
                         appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
@@ -2337,18 +2454,15 @@ function initPatchProposalListeners() {
                     }
                 }
 
-                appState.proposedPatches = [];
-                appState.suggestedNextStage = '';
+                _clearProposalBundle();
                 appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
-                
+
                 showToast('Tüm öneriler uygulandı!');
                 saveCurrentProjectState();
-                renderProposedPatches();
+                renderProposalBundle();
                 triggerWorkflowTransitionCheck();
-                
-                if (appState.currentData) {
-                    displayResults(appState.currentData);
-                }
+
+                if (appState.currentData) displayResults(appState.currentData);
             } else {
                 showToast(`Öneriler Uygulanamadı: ${txResult.error}`, true);
             }
@@ -2358,10 +2472,9 @@ function initPatchProposalListeners() {
     const btnRejectAll = elements.btnRejectAllPatches;
     if (btnRejectAll) {
         btnRejectAll.addEventListener('click', () => {
-            appState.proposedPatches = [];
-            appState.suggestedNextStage = '';
+            _clearProposalBundle();
             showToast('Tüm öneriler reddedildi.');
-            renderProposedPatches();
+            renderProposalBundle();
         });
     }
 }
