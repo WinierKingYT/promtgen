@@ -301,20 +301,7 @@ export class V3ProjectApplicationService {
 
         log.push({ step: 'normalize', patches: normalized.proposedPatches?.length || 0 });
 
-        // 3. Validate patches against policy (pre-check, don't apply)
-        const patches = normalized.proposedPatches || [];
-        const policyErrors = this._preValidatePatches(state, patches);
-        if (policyErrors.length > 0) {
-            return {
-                success: false,
-                error: `Patch politikası hatası: ${policyErrors.join('; ')}`,
-                normalized,
-                policyErrors,
-                state
-            };
-        }
-
-        // 4. Discovery: detect gaps without modifying state
+        // 3. Discovery: detect gaps without modifying state
         let gaps = [];
         let readiness = null;
         let discoveryPatches = [];
@@ -515,7 +502,7 @@ export class V3ProjectApplicationService {
 
         // Validate patches
         for (const patch of (pendingProposals.patches || [])) {
-            if (!patch.operation || !['add', 'replace', 'remove'].includes(patch.operation)) {
+            if (!patch.operation || !['add', 'replace', 'remove', 'set'].includes(patch.operation)) {
                 errors.push(`Patch geçersiz operasyon: ${patch.id || patch.path}`);
             }
             if (!patch.path || typeof patch.path !== 'string') {
@@ -588,18 +575,6 @@ export class V3ProjectApplicationService {
         }
 
         return { valid: errors.length === 0, errors };
-    }
-
-    _preValidatePatches(state, patches) {
-        const errors = [];
-        for (const patch of patches) {
-            if (!patch.operation) errors.push(`Patch'te operation eksik: ${patch.id || patch.path}`);
-            if (!patch.path) errors.push(`Patch'te path eksik: ${patch.id || patch.operation}`);
-            if (!['add', 'replace', 'remove'].includes(patch.operation)) {
-                errors.push(`Geçersiz operation: ${patch.operation}`);
-            }
-        }
-        return errors;
     }
 
     _buildPreviewGraph(state, pendingProposals) {
@@ -826,7 +801,7 @@ export class V3ProjectApplicationService {
             for (const p of normalized.proposedPatches) {
                 if (!p.operation) errors.push(`Patch'te operation eksik: ${p.id || p.path}`);
                 if (!p.path) errors.push(`Patch'te path eksik: ${p.id || p.operation}`);
-                if (!['add', 'replace', 'remove'].includes(p.operation)) {
+                if (!['add', 'replace', 'remove', 'set'].includes(p.operation)) {
                     errors.push(`Geçersiz patch operation: ${p.operation}`);
                 }
             }
