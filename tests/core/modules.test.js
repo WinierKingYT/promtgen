@@ -300,8 +300,9 @@ ceTest('executeContributions returns patches for stateSchema', () => {
     const mod = reg.register({ id: 'test', name: 'Test', contributions: { stateSchema: { namespace: 'moduleData.test', required: ['name', 'version'] } } });
     const exec = new ContributionExecutor(reg);
     const result = exec.executeContributions(['test'], {});
-    assert.ok(result.log);
     assert.ok(result.log.some(l => l.type === 'stateSchema'));
+    const schemaPatches = result.patches.filter(p => p.path && p.path.startsWith('/moduleData/test'));
+    assert.ok(schemaPatches.length >= 1);
 });
 
 ceTest('executeContributions creates artifact patches', () => {
@@ -309,9 +310,18 @@ ceTest('executeContributions creates artifact patches', () => {
     reg.register({ id: 'a', name: 'A', contributions: { artifacts: { required: ['TEST.md', 'README.md'] } } });
     const exec = new ContributionExecutor(reg);
     const result = exec.executeContributions(['a'], {});
-    const artPatches = result.patches.filter(p => p.path.startsWith('/artifacts'));
+    const artPatches = result.patches.filter(p => p.path === '/artifacts/-');
     assert.strictEqual(artPatches.length, 2);
     assert.strictEqual(artPatches[0].value.title, 'TEST.md');
+});
+
+ceTest('executeContributions deduplicates artifacts', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', contributions: { artifacts: { required: ['SCOPE.md', 'SCOPE.md'] } } });
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['a'], {});
+    const artPatches = result.patches.filter(p => p.path === '/artifacts/-');
+    assert.strictEqual(artPatches.length, 1);
 });
 
 ceTest('executeContributions discovery returns log', () => {

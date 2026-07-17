@@ -6,10 +6,12 @@ export class ContributionExecutor {
     }
 
     executeContributions(moduleIds, state, options = {}) {
-        const summary = this.registry.getContributionSummary(moduleIds);
+        const orderedIds = this._orderByDependencies(moduleIds);
+        const summary = this.registry.getContributionSummary(orderedIds);
         const log = [];
         const patches = [];
         let resultState = state;
+        const seenArtifactNames = new Set();
 
         for (const type of CONTRIBUTION_TYPES) {
             const items = summary[type];
@@ -17,7 +19,7 @@ export class ContributionExecutor {
 
             const handler = this._handlers[type];
             if (handler) {
-                const output = handler(items, resultState, options);
+                const output = handler(items, resultState, { ...options, seenArtifactNames });
                 if (output.patches) patches.push(...output.patches);
                 if (output.state) resultState = output.state;
                 log.push(...(output.log || []));
@@ -25,6 +27,25 @@ export class ContributionExecutor {
         }
 
         return { state: resultState, patches, log };
+    }
+
+    _orderByDependencies(moduleIds) {
+        const result = this.registry.resolveDependencies(moduleIds);
+        const ordered = [];
+        const added = new Set();
+        for (const id of result.resolved) {
+            if (moduleIds.includes(id) && !added.has(id)) {
+                ordered.push(id);
+                added.add(id);
+            }
+        }
+        for (const id of moduleIds) {
+            if (!added.has(id)) {
+                ordered.push(id);
+                added.add(id);
+            }
+        }
+        return ordered;
     }
 
     get pendingHandlers() {
@@ -36,7 +57,7 @@ export class ContributionExecutor {
             stateSchema: (items, state) => this._applyStateSchema(items, state),
             discovery: (items) => this._applyDiscovery(items),
             decisions: (items) => this._applyDecisions(items),
-            artifacts: (items) => this._applyArtifacts(items),
+            artifacts: (items, state, opts) => this._applyArtifacts(items, opts),
             reviewer: (items) => this._applyReviewerRules(items)
         };
     }
@@ -47,26 +68,26 @@ export class ContributionExecutor {
         const resultState = JSON.parse(JSON.stringify(state));
 
         for (const { moduleId, value } of items) {
-            const ns = value.namespace || '';
-            const parts = ns.split('.');
-            let current = resultState;
-            for (const part of parts) {
-                if (!part) continue;
-                if (current[part] === undefined) current[part] = {};
-                current = current[part];
+            const nsParts = (value.namespace || '').split('.').filter(Boolean);
+            let nsObj = resultState;
+            for (const part of nsParts) {
+                if (nsObj[part] === undefined) nsObj[part] = {};
+                nsObj = nsObj[part];
             }
 
             for (const field of (value.required || [])) {
                 const fieldParts = field.split('.');
+                const allParts = [...nsParts, ...fieldParts];
                 let obj = resultState;
                 let existing = true;
-                for (const fp of fieldParts) {
+                for (const fp of allParts) {
                     if (obj[fp] === undefined) { existing = false; break; }
                     obj = obj[fp];
                 }
                 if (!existing) {
-                    patches.push({ op: 'add', path: `/${ns}/${field}`.replace(/\/+/g, '/'), value: '' });
-                    log.push({ type: 'stateSchema', moduleId, action: 'field_created', field });
+                    const path = '/' + allParts.join('/');
+                    patches.push({ operation: 'add', path, value: '' });
+                    log.push({ type: 'stateSchema', moduleId, action: 'field_created', field: allParts.join('.') });
                 }
             }
         }
@@ -94,13 +115,17 @@ export class ContributionExecutor {
         return { patches: [], log: [{ type: 'decisions', decisionTypes }] };
     }
 
-    _applyArtifacts(items) {
+    _applyArtifacts(items, opts = {}) {
         const patches = [];
         const log = [];
+        const seen = opts.seenArtifactNames || new Set();
         for (const { moduleId, value } of items) {
             for (const name of (value.required || [])) {
+                const key = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
                 patches.push({
-                    op: 'add',
+                    operation: 'add',
                     path: '/artifacts/-',
                     value: {
                         id: `ART-${name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`,
