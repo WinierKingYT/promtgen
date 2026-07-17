@@ -527,5 +527,61 @@ test('V3 patch value validation uses V3-specific schemas', () => {
     assert.ok(res.error.message.includes('Şema İhlali'));
 });
 
+test('buildTraceability loads manual traceLink from state.entityStores.traceLink', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    
+    // Add nodes first so traceLink can resolve them
+    state.objectives = [{ id: 'OBJ-1', title: 'Target 1' }];
+    state.tasks = [{ id: 'TASK-1', title: 'Work 1' }];
+    state.entityStores = {
+        traceLink: [
+            { source: 'OBJ-1', target: 'TASK-1', type: 'implements' }
+        ]
+    };
+
+    const traceability = svc.buildTraceability(state);
+    const graph = traceability.graph;
+    
+    assert.ok(graph.hasNode('OBJ-1'));
+    assert.ok(graph.hasNode('TASK-1'));
+    const edges = graph.getEdgesForNode('OBJ-1');
+    assert.ok(edges.length > 0);
+    assert.strictEqual(edges[0].sourceId, 'OBJ-1');
+    assert.strictEqual(edges[0].targetId, 'TASK-1');
+});
+
+test('runReview runs new reviewer rules: CONS-002, RISK-002, TASK-005, and MOD-001', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    
+    // 1. Trigger CONS-002: Add an objective that has no edges
+    state.objectives = [{ id: 'OBJ-UNLINKED', title: 'No link' }];
+    
+    // 2. Trigger RISK-002: Add a high risk with empty mitigation
+    state.risks = [{ id: 'RISK-1', description: 'Server failure', impact: 'high', likelihood: 'high', mitigation: '' }];
+    
+    // 3. Trigger TASK-005: Add a task with no edges
+    state.tasks = [{ id: 'TASK-UNLINKED', title: 'No link task', description: 'Work', priority: 'medium' }];
+
+    // 4. Trigger MOD-001: Activate test module without its dependencies
+    svc.moduleRegistry.register({
+        id: 'test.orphan',
+        name: 'Orphan Module',
+        version: '1.0.0',
+        dependencies: ['non.existent.dep']
+    });
+    state.configuration = state.configuration || {};
+    state.configuration.activeModuleIds = ['test.orphan'];
+
+    const report = svc.runReview(state);
+    const findingIds = report.findings.items.map(f => f.ruleId);
+    
+    assert.ok(findingIds.includes('CONS-002'));
+    assert.ok(findingIds.includes('RISK-002'));
+    assert.ok(findingIds.includes('TASK-005'));
+    assert.ok(findingIds.includes('MOD-001'));
+});
+
 console.log(`\n  V3 Application Service: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

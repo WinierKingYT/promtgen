@@ -2170,3 +2170,61 @@ textarea:focus {
     background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, rgba(239, 68, 68, 0.05) 100%);
     border-left: 3px solid var(--warning);
 }
+
+/* --- TERMINAL SIMULATOR MODAL --- */
+.terminal-modal {
+    max-width: 640px !important;
+    background: #0d0f18 !important;
+    border: 1px solid #1f2438 !important;
+}
+
+.terminal-header {
+    border-bottom: 1px solid #1f2438 !important;
+}
+
+.terminal-body {
+    background: #05060b !important;
+    padding: 1.5rem !important;
+    min-height: 300px;
+    max-height: 380px;
+    overflow-y: auto;
+    border-bottom: 1px solid #1f2438;
+}
+
+.terminal-screen {
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #4af626; /* Matrix Green */
+    text-shadow: 0 0 4px rgba(74, 246, 38, 0.35);
+}
+
+.terminal-line {
+    margin-bottom: 6px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.terminal-line.system-line {
+    color: #00d2ff;
+    text-shadow: 0 0 4px rgba(0, 210, 255, 0.35);
+}
+
+.terminal-line.command-line {
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: none;
+}
+
+.terminal-line.error-line {
+    color: #ff3860;
+    text-shadow: 0 0 4px rgba(255, 56, 96, 0.35);
+}
+
+.terminal-footer {
+    border-top: none !important;
+    background: #0d0f18;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

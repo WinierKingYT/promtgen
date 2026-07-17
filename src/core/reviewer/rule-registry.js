@@ -252,11 +252,85 @@ export class RuleRegistry {
               message: 'Görev bağımlılıklarında döngü tespit edildi',
               check: ctx => !ctx.cycles || ctx.cycles.length === 0 },
 
+            { id: 'CONS-002', category: REVIEW_CATEGORIES.CONSISTENCY, severity: SEVERITY.HIGH,
+              title: 'Tüm hedefler en az bir gereksinim veya göreve bağlanmalı', moduleId: 'universal',
+              message: 'Herhangi bir gereksinim veya göreve bağlanmamış hedefler var',
+              check: ctx => {
+                  const graph = ctx.traceability?.graph;
+                  if (!graph) return true;
+                  const objs = graph.getNodesByType(NODE_TYPES.OBJECTIVE);
+                  return objs.every(obj => {
+                      const edges = graph.getEdgesForNode(obj.id);
+                      return edges && edges.length > 0;
+                  });
+              },
+              affectedEntities: ctx => {
+                  const graph = ctx.traceability?.graph;
+                  if (!graph) return [];
+                  const objs = graph.getNodesByType(NODE_TYPES.OBJECTIVE);
+                  return objs.filter(obj => {
+                      const edges = graph.getEdgesForNode(obj.id);
+                      return !edges || edges.length === 0;
+                  }).map(obj => obj.id);
+              } },
+
+            // Risk rules
+            { id: 'RISK-002', category: REVIEW_CATEGORIES.RISK, severity: SEVERITY.HIGH,
+              title: 'Kritik risklerin önlemleri tanımlanmalı', moduleId: 'universal',
+              message: 'Yüksek veya kritik öneme sahip bazı risklerin azaltma planı girilmemiş',
+              check: ctx => {
+                  const criticalRisks = (ctx.state?.risks || []).filter(r => r.impact === 'critical' || r.impact === 'high' || r.likelihood === 'critical' || r.likelihood === 'high');
+                  return criticalRisks.every(r => r.mitigation && r.mitigation.trim().length > 0);
+              },
+              affectedEntities: ctx => {
+                  const criticalRisks = (ctx.state?.risks || []).filter(r => r.impact === 'critical' || r.impact === 'high' || r.likelihood === 'critical' || r.likelihood === 'high');
+                  return criticalRisks.filter(r => !r.mitigation || r.mitigation.trim().length === 0).map(r => r.id);
+              } },
+
+            // Task rules
+            { id: 'TASK-005', category: REVIEW_CATEGORIES.TASK, severity: SEVERITY.HIGH,
+              title: 'Tüm görevler bir gereksinime veya çıktıya bağlı olmalı', moduleId: 'universal',
+              message: 'Herhangi bir gereksinim veya çıktı ile ilişkisi kurulmamış görevler var',
+              check: ctx => {
+                  const graph = ctx.traceability?.graph;
+                  if (!graph) return true;
+                  const tasks = graph.getNodesByType(NODE_TYPES.TASK);
+                  return tasks.every(t => {
+                      const edges = graph.getEdgesForNode(t.id);
+                      return edges && edges.length > 0;
+                  });
+              },
+              affectedEntities: ctx => {
+                  const graph = ctx.traceability?.graph;
+                  if (!graph) return [];
+                  const tasks = graph.getNodesByType(NODE_TYPES.TASK);
+                  return tasks.filter(t => {
+                      const edges = graph.getEdgesForNode(t.id);
+                      return !edges || edges.length === 0;
+                  }).map(t => t.id);
+              } },
+
             // Module specific
             { id: 'MOD-SW-001', category: REVIEW_CATEGORIES.MODULE_SPECIFIC, severity: SEVERITY.MEDIUM,
               title: 'Web modülü: kullanıcı rolleri tanımlanmalı', moduleId: 'software.web',
               message: 'Kullanıcı rolleri ve izinleri belirtilmemiş',
-              check: ctx => !ctx.activeModules?.some(m => m === 'software.web' || m === 'software') || !!(ctx.state?.moduleData?.software?.web?.userRoles?.length > 0) }
+              check: ctx => !ctx.activeModules?.some(m => m === 'software.web' || m === 'software') || !!(ctx.state?.moduleData?.software?.web?.userRoles?.length > 0) },
+
+            { id: 'MOD-001', category: REVIEW_CATEGORIES.MODULE_SPECIFIC, severity: SEVERITY.CRITICAL,
+              title: 'Modül bağımlılık bütünlüğü sağlanmalı', moduleId: 'universal',
+              message: 'Aktif modüllerin gerektirdiği bazı bağımlılık modülleri eksik',
+              check: ctx => {
+                  if (!ctx.moduleRegistry) return true;
+                  const active = ctx.state?.configuration?.activeModuleIds || [];
+                  const depPlan = ctx.moduleRegistry.resolveRequiredDependencies(active);
+                  return depPlan.missing.length === 0 && depPlan.resolved.every(id => active.includes(id));
+              },
+              affectedEntities: ctx => {
+                  if (!ctx.moduleRegistry) return [];
+                  const active = ctx.state?.configuration?.activeModuleIds || [];
+                  const depPlan = ctx.moduleRegistry.resolveRequiredDependencies(active);
+                  return [...depPlan.missing, ...depPlan.resolved.filter(id => !active.includes(id))];
+              } }
         );
     }
 }

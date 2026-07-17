@@ -1165,6 +1165,16 @@ export class V3ProjectApplicationService {
         for (const e of edges) {
             try { g.addEdge(e.s, e.t, e.type || EDGE_TYPES.SUPPORTS, { source: 'reference' }); } catch {}
         }
+
+        if (state.entityStores && Array.isArray(state.entityStores.traceLink)) {
+            for (const link of state.entityStores.traceLink) {
+                if (link.source && link.target) {
+                    if (g.getNode(link.source) && g.getNode(link.target)) {
+                        try { g.addEdge(link.source, link.target, link.type || EDGE_TYPES.IMPLEMENTS, { source: 'reference', ...link }); } catch {}
+                    }
+                }
+            }
+        }
     }
 
     createReviewer(traceabilityEngine = null) {
@@ -1211,6 +1221,7 @@ export class V3ProjectApplicationService {
     _buildReviewContext(state) {
         return {
             state,
+            moduleRegistry: this.moduleRegistry,
             modules: state.configuration?.activeModuleIds || [],
             suggestedModules: state.configuration?.suggestedModuleIds || [],
             activeModules: [...(state.configuration?.activeModuleIds || []), 'universal'],

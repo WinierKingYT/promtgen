@@ -75,7 +75,9 @@ test('PROJECT_PROFILED requires uncertainties', () => {
 test('PROJECT_PROFILED passes with approval and uncertainties', () => {
     const state = {
         approvals: { profile: { status: 'approved', approvedAt: '2024-01-01', notes: '' } },
-        profile: { uncertainties: ['What tech stack?'] }
+        profile: { uncertainties: ['What tech stack?'] },
+        objectives: [{ id: 'OBJ-1' }, { id: 'OBJ-2' }, { id: 'OBJ-3' }],
+        openQuestions: [{ id: 'Q-1' }, { id: 'Q-2' }]
     };
     const result = checkPhaseCompletion(state, UNIVERSAL_PHASES.PROJECT_PROFILED);
     assert.strictEqual(result.allowed, true);
@@ -87,7 +89,14 @@ test('DISCOVERY_IN_PROGRESS requires objectives', () => {
 });
 
 test('DISCOVERY_IN_PROGRESS passes with objectives', () => {
-    const result = checkPhaseCompletion({ objectives: [{ id: 'OBJ-1', text: 'Build' }] }, UNIVERSAL_PHASES.DISCOVERY_IN_PROGRESS);
+    const state = {
+        objectives: [{ id: 'OBJ-1', text: 'Build' }],
+        stakeholders: [{ id: 'STK-1', name: 'User' }],
+        entityStores: {
+            requirement: [{ id: 'REQ-1' }, { id: 'REQ-2' }, { id: 'REQ-3' }]
+        }
+    };
+    const result = checkPhaseCompletion(state, UNIVERSAL_PHASES.DISCOVERY_IN_PROGRESS);
     assert.strictEqual(result.allowed, true);
 });
 

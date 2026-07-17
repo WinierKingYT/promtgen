@@ -144,6 +144,15 @@ export class TraceabilityEngine {
                     g.addNode(NODE_TYPES.TEST, t.id, t.title || t.name || t.id, { ...t });
                 });
             }
+            if (Array.isArray(state.entityStores.traceLink)) {
+                state.entityStores.traceLink.forEach(link => {
+                    if (link.source && link.target) {
+                        try {
+                            g.addEdge(link.source, link.target, link.type || EDGE_TYPES.IMPLEMENTS, { source: 'manual', ...link });
+                        } catch (e) {}
+                    }
+                });
+            }
         }
 
         if (state.moduleData?.software?.architecture?.components) {

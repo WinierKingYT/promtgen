@@ -811,6 +811,27 @@
                 <button class="btn btn-secondary" id="btn-cancel-settings">Vazgeç</button>
                 <button class="btn btn-primary" id="btn-save-settings">Kaydet ve Uygula</button>
             </div>
+    <!-- Terminal Modal -->
+    <div class="modal-backdrop hidden" id="modal-terminal">
+        <div class="modal terminal-modal">
+            <div class="modal-header terminal-header">
+                <div class="modal-title">
+                    <i data-lucide="terminal"></i>
+                    <h3>Eylem Simülatörü</h3>
+                </div>
+                <button class="btn-close" id="btn-close-terminal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body terminal-body">
+                <div class="terminal-screen" id="terminal-screen-output">
+                    <div class="terminal-line system-line">> Eylem simülasyonu başlatılıyor...</div>
+                </div>
+            </div>
+            <div class="modal-footer terminal-footer">
+                <button class="btn btn-secondary btn-small" id="btn-speed-terminal" style="font-size: 11px;">Hızlandır</button>
+                <button class="btn btn-primary" id="btn-close-terminal-ok" disabled>Tamam</button>
+            </div>
         </div>
     </div>
 

@@ -69,6 +69,12 @@ export const PHASE_CONTRACTS = {
             if (!state.profile?.uncertainties || state.profile.uncertainties.length === 0) {
                 return { allowed: false, reason: 'En az bir belirsizlik sorusu listelenmelidir.' };
             }
+            if (!state.objectives || state.objectives.length < 3) {
+                return { allowed: false, reason: 'Profil aşamasını geçmek için en az 3 hedef tanımlanmalıdır.' };
+            }
+            if (!state.openQuestions || state.openQuestions.length < 2) {
+                return { allowed: false, reason: 'Profil aşamasını geçmek için en az 2 keşif sorusu bulunmalıdır.' };
+            }
             return { allowed: true };
         },
         allowedPatchPaths: [
@@ -91,6 +97,13 @@ export const PHASE_CONTRACTS = {
         completionCheck: (state) => {
             if (!state.objectives || state.objectives.length === 0) {
                 return { allowed: false, reason: 'En az bir hedef tanımlanmalıdır.' };
+            }
+            if (!state.stakeholders || state.stakeholders.length === 0) {
+                return { allowed: false, reason: 'Keşif aşamasını tamamlamak için en az bir paydaş tanımlanmalıdır.' };
+            }
+            const reqs = state.entityStores?.requirement || [];
+            if (reqs.length < 3) {
+                return { allowed: false, reason: 'Keşif aşamasını tamamlamak için en az 3 gereksinim (requirement) tanımlanmalıdır.' };
             }
             return { allowed: true };
         },
@@ -162,6 +175,16 @@ export const PHASE_CONTRACTS = {
             }
             if (!state.deliverables || state.deliverables.length === 0) {
                 return { allowed: false, reason: 'En az bir çıktı tanımlanmalıdır.' };
+            }
+            const activeModules = state.configuration?.activeModuleIds || [];
+            if (activeModules.includes('software') || activeModules.includes('software.web') || activeModules.includes('software.offline')) {
+                const comps = state.moduleData?.software?.architecture?.components || [];
+                if (comps.length === 0) {
+                    return { allowed: false, reason: 'Yazılım modülü aktifken en az bir mimari bileşen tanımlanmalıdır.' };
+                }
+            }
+            if (!state.decisions || state.decisions.length === 0) {
+                return { allowed: false, reason: 'En az bir teknik karar belgelenmelidir.' };
             }
             return { allowed: true };
         },

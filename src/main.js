@@ -2339,6 +2339,95 @@ function renderProposalBundle() {
     if (window.lucide) window.lucide.createIcons();
 }
 
+let terminalSpeedMultiplier = 1;
+
+function runTerminalSimulation(actions, onComplete) {
+    const backdrop = document.getElementById('modal-terminal');
+    const screen = document.getElementById('terminal-screen-output');
+    const btnSpeed = document.getElementById('btn-speed-terminal');
+    const btnOk = document.getElementById('btn-close-terminal-ok');
+    
+    if (!backdrop || !screen || !btnSpeed || !btnOk) {
+        onComplete();
+        return;
+    }
+
+    backdrop.classList.remove('hidden');
+    screen.innerHTML = '';
+    btnOk.disabled = true;
+    terminalSpeedMultiplier = 1;
+    btnSpeed.textContent = 'Hızlandır';
+    btnSpeed.disabled = false;
+
+    const lines = [];
+    actions.forEach(action => {
+        const cmd = action.action || action.title || 'command';
+        lines.push({ text: `\n$ ${cmd}`, type: 'command-line' });
+        lines.push({ text: `> Eylem başlatılıyor: ${action.description || 'İşlem yapılıyor...'}`, type: 'system-line' });
+        
+        if (cmd.includes('npm') || cmd.includes('install')) {
+            lines.push({ text: 'npm fetch metadata ...' });
+            lines.push({ text: 'resolve dependency tree ...' });
+            lines.push({ text: 'added 24 packages in 1.45s' });
+        } else if (cmd.includes('git')) {
+            lines.push({ text: 'git init' });
+            lines.push({ text: 'Initialized empty Git repository.' });
+        } else if (cmd.includes('docker')) {
+            lines.push({ text: 'Pulling from library/node...' });
+            lines.push({ text: 'Digest: sha256:4f3b2...' });
+            lines.push({ text: 'Status: Downloaded newer image for node.' });
+        } else {
+            lines.push({ text: 'Initializing environment...' });
+            lines.push({ text: 'Checking workspace integrity...' });
+            lines.push({ text: 'Applying local configurations...' });
+            lines.push({ text: '[DONE] Operation completed.' });
+        }
+        lines.push({ text: `> [OK] ${cmd} başarıyla tamamlandı.`, type: 'success-line' });
+    });
+
+    let currentLineIndex = 0;
+    
+    function printNextLine() {
+        if (currentLineIndex >= lines.length) {
+            btnOk.disabled = false;
+            btnSpeed.disabled = true;
+            btnSpeed.textContent = 'Tamamlandı';
+            return;
+        }
+
+        const line = lines[currentLineIndex];
+        const lineEl = document.createElement('div');
+        lineEl.className = 'terminal-line' + (line.type ? ` ${line.type}` : '');
+        lineEl.textContent = line.text;
+        screen.appendChild(lineEl);
+        
+        const body = screen.closest('.terminal-body');
+        if (body) body.scrollTop = body.scrollHeight;
+
+        currentLineIndex++;
+        const delay = (line.type === 'command-line' ? 500 : 200) / terminalSpeedMultiplier;
+        setTimeout(printNextLine, delay);
+    }
+
+    printNextLine();
+
+    btnSpeed.onclick = () => {
+        terminalSpeedMultiplier = 6;
+        btnSpeed.textContent = 'Hızlandırıldı';
+        btnSpeed.disabled = true;
+    };
+
+    const closeHandler = () => {
+        backdrop.classList.add('hidden');
+        btnOk.removeEventListener('click', closeHandler);
+        document.getElementById('btn-close-terminal').removeEventListener('click', closeHandler);
+        onComplete();
+    };
+
+    btnOk.onclick = closeHandler;
+    document.getElementById('btn-close-terminal').onclick = closeHandler;
+}
+
 function initPatchProposalListeners() {
     const listEl = elements.patchProposalsList;
     if (!listEl) return;
@@ -2358,6 +2447,12 @@ function initPatchProposalListeners() {
         if (!pending) return;
 
         if (btnAccept) {
+            const actionsToSimulate = [];
+            if (itemType === 'action') {
+                const actionObj = (pending.actions || []).find(a => a.id === itemId);
+                if (actionObj) actionsToSimulate.push(actionObj);
+            }
+
             const txResult = v3App.acceptProposalItem(
                 appState.currentProjectState,
                 pending,
@@ -2367,18 +2462,26 @@ function initPatchProposalListeners() {
             );
 
             if (txResult.success) {
-                appState.currentProjectState = txResult.state;
-                if (txResult.remainingProposals && _getProposalCount(txResult.remainingProposals) > 0) {
-                    appState.pendingProposals = txResult.remainingProposals;
+                const proceed = () => {
+                    appState.currentProjectState = txResult.state;
+                    if (txResult.remainingProposals && _getProposalCount(txResult.remainingProposals) > 0) {
+                        appState.pendingProposals = txResult.remainingProposals;
+                    } else {
+                        _clearProposalBundle();
+                    }
+                    appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+                    showToast(`${itemType} önerisi kabul edildi.`);
+                    saveCurrentProjectState();
+                    renderProposalBundle();
+                    triggerWorkflowTransitionCheck();
+                    if (appState.currentData) displayResults(appState.currentData);
+                };
+
+                if (actionsToSimulate.length > 0) {
+                    runTerminalSimulation(actionsToSimulate, proceed);
                 } else {
-                    _clearProposalBundle();
+                    proceed();
                 }
-                appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
-                showToast(`${itemType} önerisi kabul edildi.`);
-                saveCurrentProjectState();
-                renderProposalBundle();
-                triggerWorkflowTransitionCheck();
-                if (appState.currentData) displayResults(appState.currentData);
             } else {
                 showToast(`Öneri uygulanamadı: ${txResult.error}`, true);
             }
@@ -2450,6 +2553,8 @@ function initPatchProposalListeners() {
             const pending = appState.pendingProposals;
             if (!pending || _getProposalCount(pending) === 0) return;
 
+            const actionsToSimulate = [...(pending.actions || [])];
+
             const txResult = v3App.acceptProposalBundle(
                 appState.currentProjectState,
                 pending,
@@ -2457,16 +2562,24 @@ function initPatchProposalListeners() {
             );
 
             if (txResult.success) {
-                appState.currentProjectState = txResult.state;
-                _clearProposalBundle();
-                appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+                const proceed = () => {
+                    appState.currentProjectState = txResult.state;
+                    _clearProposalBundle();
+                    appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
-                showToast('Tüm öneriler uygulandı!');
-                saveCurrentProjectState();
-                renderProposalBundle();
-                triggerWorkflowTransitionCheck();
+                    showToast('Tüm öneriler uygulandı!');
+                    saveCurrentProjectState();
+                    renderProposalBundle();
+                    triggerWorkflowTransitionCheck();
 
-                if (appState.currentData) displayResults(appState.currentData);
+                    if (appState.currentData) displayResults(appState.currentData);
+                };
+
+                if (actionsToSimulate.length > 0) {
+                    runTerminalSimulation(actionsToSimulate, proceed);
+                } else {
+                    proceed();
+                }
             } else {
                 showToast(`Öneriler Uygulanamadı: ${txResult.error}`, true);
             }
