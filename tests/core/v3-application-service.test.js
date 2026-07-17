@@ -431,5 +431,101 @@ test('_filterBundleWithout removes correct item by type and id', () => {
     assert.strictEqual(noStage.suggestedPhaseTransition, null);
 });
 
+test('acceptProposalBundle is fully atomic and rolls back if phase transition fails', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const originalRev = state.revision;
+
+    // Build a bundle that attempts a phase transition to an invalid phase (or condition unmet)
+    const bundle = {
+        baseRevision: originalRev,
+        patches: [
+            { id: 'P-1', operation: 'replace', path: '/identity/name', value: 'Yeni Proje Adı' }
+        ],
+        suggestedPhaseTransition: 'DISCOVERY_IN_PROGRESS' // Will fail because current phase is IDEA_CAPTURED and next phase contract is PROJECT_PROFILED
+    };
+
+    const result = svc.acceptProposalBundle(state, bundle, originalRev);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.state.revision, originalRev);
+    assert.strictEqual(result.state.identity.name, state.identity.name); // Should not have applied patch
+
+    // Event log should also not contain PROPOSAL_ACCEPTED
+    const timeline = svc.getEventLog();
+    const acceptedEvents = timeline.filter(e => e.type === 'PROPOSAL_ACCEPTED');
+    assert.strictEqual(acceptedEvents.length, 0);
+});
+
+test('acceptProposalBundle action proposal logs ACTION_ACKNOWLEDGED event', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const bundle = {
+        baseRevision: state.revision,
+        patches: [],
+        actions: [
+            { id: 'ACT-1', title: 'Test Action', description: 'Run a test command' }
+        ]
+    };
+
+    const result = svc.acceptProposalBundle(state, bundle, state.revision);
+    assert.strictEqual(result.success, true);
+    
+    const timeline = svc.getEventLog();
+    const actionEvents = timeline.filter(e => e.type === 'ACTION_ACKNOWLEDGED');
+    assert.strictEqual(actionEvents.length, 1);
+    assert.strictEqual(actionEvents[0].data.actionId, 'ACT-1');
+});
+
+test('approveSuggestedModules detects conflict with already active modules', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+
+    // First activate cloud-only
+    const res1 = svc.approveSuggestedModules(state, ['cloud-only']);
+    assert.strictEqual(res1.success, true);
+
+    // Now try to activate software.offline (requires software first, let's include it so deps match)
+    // It should fail conflict check since cloud-only is already active
+    const res2 = svc.approveSuggestedModules(res1.state, ['software', 'software.offline']);
+    assert.strictEqual(res2.success, false);
+    assert.ok(res2.error.includes('Modül çakışması'));
+});
+
+test('approveSuggestedModules returns error on missing dependencies', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+
+    // Try to activate a module with non-existent dependency or force a missing dependency
+    // We can simulate this by trying to resolve dependencies for software.offline when 'software' registry id is filtered out,
+    // or register a test module with a missing dependency.
+    svc.moduleRegistry.register({
+        id: 'test.dependent',
+        name: 'Dependent Module',
+        version: '1.0.0',
+        dependencies: ['non.existent.dep']
+    });
+
+    const res = svc.approveSuggestedModules(state, ['test.dependent']);
+    assert.strictEqual(res.success, false);
+    assert.ok(res.error.includes('Eksik bağımlılıklar'));
+});
+
+test('V3 patch value validation uses V3-specific schemas', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+
+    // Try to apply a patch to V3 property identity/problemStatement (required to be string)
+    const bundle = {
+        baseRevision: state.revision,
+        patches: [
+            { id: 'P-1', operation: 'replace', path: '/identity/problemStatement', value: 12345 } // should fail since it's number
+        ]
+    };
+
+    const res = svc.acceptProposalBundle(state, bundle, state.revision);
+    assert.strictEqual(res.success, false);
+    assert.ok(res.error.message.includes('Şema İhlali'));
+});
+
 console.log(`\n  V3 Application Service: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

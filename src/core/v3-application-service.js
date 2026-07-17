@@ -439,9 +439,10 @@ export class V3ProjectApplicationService {
 
         // 4. Apply all patches (normal items first) in single transaction
         let currentState = JSON.parse(JSON.stringify(state));
+        let txResult = null;
 
         if (allPatches.length > 0) {
-            const txResult = applyPatchTransaction({
+            txResult = applyPatchTransaction({
                 state: currentState,
                 patches: allPatches,
                 stage: currentState.phase,
@@ -452,8 +453,29 @@ export class V3ProjectApplicationService {
                 return { success: false, error: txResult.error, state };
             }
             currentState = txResult.state;
+        }
 
-            // 5. Event logging for normal items
+        // 6. Handle stage transition after normal items
+        let phaseEvent = null;
+        let phaseTransitionResult = null;
+        if (pendingProposals.suggestedPhaseTransition) {
+            const phaseResult = this.acceptPhaseTransition(
+                currentState,
+                pendingProposals.suggestedPhaseTransition,
+                currentState.revision,
+                { deferLogging: true }
+            );
+            if (!phaseResult.success) {
+                // Return original state if the transition fails (atomicity rollback!)
+                return { success: false, error: `Aşama geçişi başarısız: ${phaseResult.error}`, state };
+            }
+            currentState = phaseResult.state;
+            phaseTransitionResult = { from: phaseResult.fromPhase, to: phaseResult.toPhase };
+            phaseEvent = phaseResult.event;
+        }
+
+        // 5. Commit all event logging now that BOTH patches and phase transition succeeded
+        if (txResult) {
             for (const key of (txResult.invalidatedApprovals || [])) {
                 this.eventLog.log(EVENT_TYPES.APPROVAL_INVALIDATED, {
                     approvalKey: key, data: { reason: 'proposal_accepted' }
@@ -470,31 +492,37 @@ export class V3ProjectApplicationService {
             }, { revision: currentState.revision, custom: true });
         }
 
-        const result = {
-            success: true,
-            state: currentState,
-            appliedPatches: [],
-            invalidatedApprovals: []
-        };
-
-        // 6. Handle stage transition after normal items
-        if (pendingProposals.suggestedPhaseTransition) {
-            const phaseResult = this.acceptPhaseTransition(
-                currentState,
-                pendingProposals.suggestedPhaseTransition,
-                currentState.revision
-            );
-            if (!phaseResult.success) {
-                return { success: false, error: `Aşama geçişi başarısız: ${phaseResult.error}`, state: currentState };
+        // Actions Logging (Action Proposal Semantics)
+        if (pendingProposals.actions && pendingProposals.actions.length > 0) {
+            for (const action of pendingProposals.actions) {
+                this.eventLog.log('ACTION_ACKNOWLEDGED', {
+                    data: {
+                        actionId: action.id,
+                        title: action.title || action.action || '',
+                        description: action.description || ''
+                    }
+                }, { revision: currentState.revision, custom: true });
             }
-            currentState = phaseResult.state;
-            result.state = currentState;
-            result.phaseTransition = { from: phaseResult.fromPhase, to: phaseResult.toPhase };
+        }
+
+        if (phaseEvent) {
+            this.eventLog.log(phaseEvent.type, phaseEvent.payload, phaseEvent.meta);
         }
 
         // 7. Rebuild traceability and reviewer
         this.traceability = this.buildTraceability(currentState);
         this.reviewer = this.createReviewer(this.traceability);
+
+        const result = {
+            success: true,
+            state: currentState,
+            appliedPatches: txResult ? txResult.appliedPatches : [],
+            invalidatedApprovals: txResult ? txResult.invalidatedApprovals : []
+        };
+
+        if (phaseTransitionResult) {
+            result.phaseTransition = phaseTransitionResult;
+        }
 
         return result;
     }
@@ -747,10 +775,19 @@ export class V3ProjectApplicationService {
 
         // Resolve required dependencies for the selected modules
         const depPlan = this.moduleRegistry.resolveRequiredDependencies(toActivate);
+        if (depPlan.missing && depPlan.missing.length > 0) {
+            return {
+                success: false,
+                error: `Eksik bağımlılıklar: ${depPlan.missing.join(', ')}`,
+                state
+            };
+        }
+
         const allToActivate = [...new Set([...toActivate, ...depPlan.resolved.filter(id => !current.includes(id))])];
 
-        // Detect conflicts
-        const conflicts = this.moduleRegistry.detectConflicts(allToActivate);
+        // Detect conflicts against the final active set (current + new proposed)
+        const finalActiveSet = [...new Set([...current, ...allToActivate])];
+        const conflicts = this.moduleRegistry.detectConflicts(finalActiveSet);
         if (conflicts.length > 0) {
             return {
                 success: false,
@@ -902,7 +939,7 @@ export class V3ProjectApplicationService {
         return this.checkAndApplyPhaseTransition(state);
     }
 
-    acceptPhaseTransition(state, proposedPhase, expectedRevision) {
+    acceptPhaseTransition(state, proposedPhase, expectedRevision, options = {}) {
         this.initialize();
         if (!state) return { success: false, error: 'State gerekli' };
         if (!proposedPhase) return { success: false, error: 'Hedef aşama gerekli' };
@@ -935,11 +972,19 @@ export class V3ProjectApplicationService {
             value: proposedPhase
         }, true);
 
-        this.eventLog.log(EVENT_TYPES.PHASE_TRANSITION, {
-            fromPhase: currentPhase,
-            toPhase: proposedPhase,
-            data: { reason: 'user_accepted_stage_transition_proposal' }
-        }, { revision: newState.revision });
+        const phaseEvent = {
+            type: EVENT_TYPES.PHASE_TRANSITION,
+            payload: {
+                fromPhase: currentPhase,
+                toPhase: proposedPhase,
+                data: { reason: 'user_accepted_stage_transition_proposal' }
+            },
+            meta: { revision: newState.revision }
+        };
+
+        if (!options.deferLogging) {
+            this.eventLog.log(phaseEvent.type, phaseEvent.payload, phaseEvent.meta);
+        }
 
         this.traceability = this.buildTraceability(newState);
         this.reviewer = this.createReviewer(this.traceability);
@@ -949,7 +994,8 @@ export class V3ProjectApplicationService {
             transitioned: true,
             state: newState,
             fromPhase: currentPhase,
-            toPhase: proposedPhase
+            toPhase: proposedPhase,
+            event: phaseEvent
         };
     }
 

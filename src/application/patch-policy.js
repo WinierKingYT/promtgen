@@ -1,5 +1,5 @@
 import { isPatchPathAllowed, validateValueByPath, validateValueBySchema, REQUIRED_ROOT_PATHS } from '../workflow/stage-contracts.js';
-import { isPhasePatchAllowed, PHASE_REQUIRED_ROOT_PATHS } from '../workflow/phase-contracts.js';
+import { isPhasePatchAllowed, PHASE_REQUIRED_ROOT_PATHS, validatePhaseValueByPath, validatePhaseValueBySchema } from '../workflow/phase-contracts.js';
 
 export const GLOBAL_FORBIDDEN_PATHS = [
     '/phase',
@@ -64,14 +64,26 @@ export function validatePatchProposal(stage, patch, schemaVersion) {
     }
 
     if (operation !== 'remove') {
-        const schemaCheck = validateValueByPath(path, value);
-        if (!schemaCheck.valid) {
-            return { valid: false, reason: `Şema İhlali: '${path}' için geçersiz değer tipi. Hata: ${schemaCheck.reason}` };
-        }
+        if (schemaVersion === 3) {
+            const schemaCheck = validatePhaseValueByPath(path, value);
+            if (!schemaCheck.valid) {
+                return { valid: false, reason: `Şema İhlali: '${path}' için geçersiz değer tipi. Hata: ${schemaCheck.reason}` };
+            }
 
-        const valueSchemaCheck = validateValueBySchema(path, value);
-        if (!valueSchemaCheck.valid) {
-            return { valid: false, reason: `Değer Şeması İhlali: '${path}' için geçersiz değer. Hata: ${valueSchemaCheck.reason}` };
+            const valueSchemaCheck = validatePhaseValueBySchema(path, value);
+            if (!valueSchemaCheck.valid) {
+                return { valid: false, reason: `Değer Şeması İhlali: '${path}' için geçersiz değer. Hata: ${valueSchemaCheck.reason}` };
+            }
+        } else {
+            const schemaCheck = validateValueByPath(path, value);
+            if (!schemaCheck.valid) {
+                return { valid: false, reason: `Şema İhlali: '${path}' için geçersiz değer tipi. Hata: ${schemaCheck.reason}` };
+            }
+
+            const valueSchemaCheck = validateValueBySchema(path, value);
+            if (!valueSchemaCheck.valid) {
+                return { valid: false, reason: `Değer Şeması İhlali: '${path}' için geçersiz değer. Hata: ${valueSchemaCheck.reason}` };
+            }
         }
     }
 
@@ -113,12 +125,12 @@ export function validateV3PatchProposal(phase, patch) {
     }
 
     if (operation !== 'remove') {
-        const schemaCheck = validateValueByPath(path, value);
+        const schemaCheck = validatePhaseValueByPath(path, value);
         if (!schemaCheck.valid) {
             return { valid: false, reason: `Şema İhlali: '${path}' için geçersiz değer tipi. Hata: ${schemaCheck.reason}` };
         }
 
-        const valueSchemaCheck = validateValueBySchema(path, value);
+        const valueSchemaCheck = validatePhaseValueBySchema(path, value);
         if (!valueSchemaCheck.valid) {
             return { valid: false, reason: `Değer Şeması İhlali: '${path}' için geçersiz değer. Hata: ${valueSchemaCheck.reason}` };
         }

@@ -16,7 +16,7 @@ export class FindingStore {
     }
 
     _findingKey(finding) {
-        const entityKey = (finding.affectedEntities || []).sort().join(',');
+        const entityKey = [...(finding.affectedEntities || [])].sort().join(',');
         const evHash = this._evidenceHash(finding.evidence);
         return `${finding.ruleId || ''}|${entityKey}|${evHash}`;
     }

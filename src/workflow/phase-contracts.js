@@ -280,3 +280,178 @@ export function checkPhaseCompletion(state, phase) {
     if (!contract) return { allowed: false, reason: `Bilinmeyen faz: ${phase}` };
     return contract.completionCheck(state);
 }
+
+export const PHASE_PATCH_VALUE_SCHEMAS = {
+    '/identity/name': {
+        type: 'string',
+        minLength: 2,
+        maxLength: 120
+    },
+    '/identity/summary': {
+        type: 'string',
+        minLength: 5,
+        maxLength: 2000
+    },
+    '/identity/problemStatement': {
+        type: 'string',
+        maxLength: 2000
+    },
+    '/identity/desiredOutcome': {
+        type: 'string',
+        maxLength: 2000
+    },
+    '/profile/domains': {
+        type: 'object[]',
+        minItems: 0,
+        maxItems: 20
+    },
+    '/scope/mustHave': {
+        type: 'string[]',
+        minItems: 1,
+        maxItems: 50,
+        itemMaxLength: 300
+    },
+    '/scope/shouldHave': {
+        type: 'string[]',
+        minItems: 0,
+        maxItems: 50,
+        itemMaxLength: 300
+    },
+    '/scope/couldHave': {
+        type: 'string[]',
+        maxItems: 50,
+        itemMaxLength: 300
+    },
+    '/scope/notNow': {
+        type: 'string[]',
+        maxItems: 50,
+        itemMaxLength: 300
+    },
+    '/scope/outOfScope': {
+        type: 'string[]',
+        minItems: 1,
+        maxItems: 50,
+        itemMaxLength: 300
+    },
+    '/tasks': {
+        type: 'task[]',
+        minItems: 1
+    },
+    '/reviews': {
+        type: 'object[]',
+        minItems: 1
+    }
+};
+
+function checkType(value, schema) {
+    if (!schema) return { valid: true };
+    const { type, required, itemSchema } = schema;
+
+    if (type === 'string') {
+        if (typeof value !== 'string') return { valid: false, reason: `Beklenen tip string, alınan tip ${typeof value}` };
+    } else if (type === 'number') {
+        if (typeof value !== 'number' || isNaN(value)) return { valid: false, reason: `Beklenen tip number, alınan tip ${typeof value}` };
+    } else if (type === 'boolean') {
+        if (typeof value !== 'boolean') return { valid: false, reason: `Beklenen tip boolean, alınan tip ${typeof value}` };
+    } else if (type === 'array') {
+        if (!Array.isArray(value)) return { valid: false, reason: `Beklenen tip array, alınan tip ${typeof value}` };
+        if (itemSchema) {
+            for (let i = 0; i < value.length; i++) {
+                const itemCheck = checkType(value[i], itemSchema);
+                if (!itemCheck.valid) return { valid: false, reason: `Dizi elemanı [${i}] validation hatası: ${itemCheck.reason}` };
+            }
+        }
+    } else if (type === 'object') {
+        if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+            return { valid: false, reason: `Beklenen tip object, alınan tip ${value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value}` };
+        }
+        if (required) {
+            for (const key of required) {
+                if (value[key] === undefined) {
+                    return { valid: false, reason: `Nesne için gerekli '${key}' alanı eksik.` };
+                }
+            }
+        }
+    }
+    return { valid: true };
+}
+
+export function validatePhaseValueByPath(path, value) {
+    const directSchema = PHASE_SCHEMA_RULES[path];
+    if (directSchema) {
+        return checkType(value, directSchema);
+    }
+
+    const parts = path.split('/').filter(p => p !== '');
+    if (parts.length >= 2) {
+        const lastPart = parts[parts.length - 1];
+        const isArrayIndex = lastPart === '-' || !isNaN(parseInt(lastPart));
+        if (isArrayIndex) {
+            const parentPath = '/' + parts.slice(0, -1).join('/');
+            const parentSchema = PHASE_SCHEMA_RULES[parentPath];
+            if (parentSchema && parentSchema.type === 'array' && parentSchema.itemSchema) {
+                return checkType(value, parentSchema.itemSchema);
+            }
+        }
+    }
+
+    return { valid: true };
+}
+
+export function validatePhaseValueBySchema(path, value) {
+    const schema = PHASE_PATCH_VALUE_SCHEMAS[path];
+    if (!schema) return { valid: true };
+
+    const { type } = schema;
+
+    if (type === 'string') {
+        if (typeof value !== 'string') {
+            return { valid: false, reason: `Beklenen tip string, alınan tip ${typeof value}` };
+        }
+        if (schema.minLength !== undefined && value.length < schema.minLength) {
+            return { valid: false, reason: `Minimum ${schema.minLength} karakter, girilen ${value.length} karakter` };
+        }
+        if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+            return { valid: false, reason: `Maksimum ${schema.maxLength} karakter, girilen ${value.length} karakter` };
+        }
+    } else if (type === 'string[]') {
+        if (!Array.isArray(value)) {
+            return { valid: false, reason: `Beklenen tip dizi, alınan tip ${typeof value}` };
+        }
+        if (schema.minItems !== undefined && value.length < schema.minItems) {
+            return { valid: false, reason: `Minimum ${schema.minItems} öğe, girilen ${value.length}` };
+        }
+        if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+            return { valid: false, reason: `Maksimum ${schema.maxItems} öğe, girilen ${value.length}` };
+        }
+        if (schema.itemMaxLength !== undefined) {
+            for (let i = 0; i < value.length; i++) {
+                if (typeof value[i] === 'string' && value[i].length > schema.itemMaxLength) {
+                    return { valid: false, reason: `Öğe [${i}] maksimum ${schema.itemMaxLength} karakter, girilen ${value[i].length}` };
+                }
+            }
+        }
+    } else if (type === 'object[]') {
+        if (!Array.isArray(value)) {
+            return { valid: false, reason: `Beklenen tip dizi, alınan tip ${typeof value}` };
+        }
+        if (schema.minItems !== undefined && value.length < schema.minItems) {
+            return { valid: false, reason: `Minimum ${schema.minItems} öğe, girilen ${value.length}` };
+        }
+    } else if (type === 'task[]') {
+        if (!Array.isArray(value)) {
+            return { valid: false, reason: `Beklenen tip task dizisi, alınan tip ${typeof value}` };
+        }
+        if (schema.minItems !== undefined && value.length < schema.minItems) {
+            return { valid: false, reason: `Minimum ${schema.minItems} görev, girilen ${value.length}` };
+        }
+        for (let i = 0; i < value.length; i++) {
+            const t = value[i];
+            if (!t.id || !t.title) {
+                return { valid: false, reason: `Görev [${i}] 'id' ve 'title' alanları zorunludur` };
+            }
+        }
+    }
+
+    return { valid: true };
+}

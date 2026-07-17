@@ -582,9 +582,8 @@ function loadProjectSession(id) {
         }
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         
-        // Restore pending proposals and suggested stage
+        // Restore pending proposals
         appState.pendingProposals = proj.pendingProposals || null;
-        appState.suggestedNextStage = typeof proj.suggestedNextStage === 'string' ? proj.suggestedNextStage : '';
         
         appState.chatStarted = true;
         
@@ -629,7 +628,6 @@ function loadProjectSession(id) {
         appState.chatStarted = false;
         appState.currentProjectState = null;
         appState.currentData = null;
-        appState.suggestedNextStage = '';
         
         elements.emptyState.classList.remove('hidden');
         elements.contentState.classList.add('hidden');
@@ -655,7 +653,6 @@ function saveCurrentProjectState() {
         messages: appState.messages,
         currentProjectState: appState.currentProjectState,
         pendingProposals: appState.pendingProposals,
-        suggestedNextStage: appState.suggestedNextStage,
         date: dateStr
     };
 
@@ -779,7 +776,6 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
 
             appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
             appState.pendingProposals = turnResult.pendingProposals || null;
-            appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
             appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
             renderChatMessages();
@@ -866,7 +862,6 @@ async function handleStartChat() {
         }
 
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
 
@@ -899,7 +894,6 @@ async function handleStartChat() {
             expectedRevision: appState.currentProjectState.revision
         });
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
         
@@ -955,7 +949,6 @@ async function handleSendChatMessage() {
         }
 
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         appState.pendingProposals = turnResult.pendingProposals || null;
 
@@ -2163,7 +2156,6 @@ function _getProposalCount(pending) {
 
 function _clearProposalBundle() {
     appState.pendingProposals = null;
-    appState.suggestedNextStage = '';
 }
 
 function renderProposalBundle() {
@@ -2466,26 +2458,6 @@ function initPatchProposalListeners() {
 
             if (txResult.success) {
                 appState.currentProjectState = txResult.state;
-
-                if (appState.suggestedNextStage) {
-                    if (isV3State(appState.currentProjectState)) {
-                        appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
-                            operation: 'replace',
-                            path: '/pendingChangeSet/suggestedNextPhase',
-                            value: appState.suggestedNextStage
-                        }, true);
-                    } else {
-                        appState.currentProjectState = applyStatePatchVersionAware(appState.currentProjectState, {
-                            operation: 'replace',
-                            path: '/workflowSuggestion',
-                            value: {
-                                stage: appState.suggestedNextStage,
-                                reason: "AI suggested stage transition"
-                            }
-                        }, true);
-                    }
-                }
-
                 _clearProposalBundle();
                 appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
