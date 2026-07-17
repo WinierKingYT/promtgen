@@ -216,11 +216,11 @@ export class RuleRegistry {
                   if (!finalReview || finalReview.status !== 'approved') return true;
                   const finalTime = new Date(finalReview.approvedAt).getTime();
                   const subKeys = ['profile', 'scope', 'objectives', 'deliverables', 'executionPlan'];
-                  for (const key of subKeys) {
+                  const allSubApproved = subKeys.every(key => {
                       const app = approvals[key];
-                      if (app && app.status === 'approved' && new Date(app.approvedAt).getTime() <= finalTime) return true;
-                  }
-                  return false;
+                      return app && app.status === 'approved' && new Date(app.approvedAt).getTime() <= finalTime;
+                  });
+                  return allSubApproved;
               } },
 
             // Export rules
@@ -245,6 +245,7 @@ export class RuleRegistry {
               title: 'Proje sağlık skoru export eşiğini geçmeli', moduleId: 'universal',
               message: 'Proje sağlık skoru export için yetersiz',
               check: ctx => {
+                  if (ctx.healthScore !== undefined) return ctx.healthScore >= 60;
                   const approvals = ctx.state?.approvals || {};
                   const allRequired = ['profile', 'scope', 'objectives', 'deliverables', 'executionPlan', 'finalReview'];
                   const subApproved = allRequired.filter(k => approvals[k]?.status === 'approved').length;

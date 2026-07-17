@@ -5,6 +5,7 @@ import { applyPatchTransaction } from './application/patch-transaction.js';
 import { APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid, approveArtifact } from './application/approval-service.js';
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
+import { normalizeAIResponse } from './ai/chat-contract.js';
 import { WORKFLOW_STAGES, WORKFLOW_STAGE_METADATA } from './workflow/stages.js';
 import { STAGE_APPROVAL_KEYS } from './workflow/stage-contracts.js';
 import { checkWorkflowTransition, checkPhaseTransition } from './workflow/transitions.js';
@@ -717,9 +718,9 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
                 result = generateOfflineConversationalResponse(`[dosya yüklendi] ${file.name}`);
             }
 
-            appState.messages.push({ role: 'model', content: result.chatResponse });
-            appState.proposedPatches = result.projectFiles.proposedPatches || [];
-            appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+            appState.messages.push({ role: 'model', content: result.conversationResponse.text });
+            appState.proposedPatches = result.proposedPatches || [];
+            appState.suggestedNextStage = result.suggestedPhaseTransition || '';
             appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
             renderChatMessages();
@@ -727,8 +728,8 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
             updateApprovalGateBanner();
 
             if (appState.currentData) {
-                displayResults(appState.currentData);
-            }
+
+        }
             
             // Workflow transition checks
             const currentStage = getStageOrPhase(appState.currentProjectState);
@@ -811,9 +812,9 @@ async function handleStartChat() {
             result = generateOfflineConversationalResponse();
         }
 
-        appState.messages.push({ role: 'model', content: result.chatResponse });
-        appState.proposedPatches = result.projectFiles.proposedPatches || [];
-        appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+        appState.messages.push({ role: 'model', content: result.conversationResponse.text });
+        appState.proposedPatches = result.proposedPatches || [];
+        appState.suggestedNextStage = result.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
         renderChatMessages();
@@ -838,9 +839,9 @@ async function handleStartChat() {
         
         await sleep(1000);
         const result = generateOfflineConversationalResponse();
-        appState.messages.push({ role: 'model', content: result.chatResponse });
-        appState.proposedPatches = result.projectFiles.proposedPatches || [];
-        appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+        appState.messages.push({ role: 'model', content: result.conversationResponse.text });
+        appState.proposedPatches = result.proposedPatches || [];
+        appState.suggestedNextStage = result.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
         
         renderChatMessages();
@@ -887,9 +888,9 @@ async function handleSendChatMessage() {
             result = generateOfflineConversationalResponse(text);
         }
 
-        appState.messages.push({ role: 'model', content: result.chatResponse });
-        appState.proposedPatches = result.projectFiles.proposedPatches || [];
-        appState.suggestedNextStage = result.projectFiles.suggestedNextStage || '';
+        appState.messages.push({ role: 'model', content: result.conversationResponse.text });
+        appState.proposedPatches = result.proposedPatches || [];
+        appState.suggestedNextStage = result.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
 
         renderChatMessages();
@@ -945,7 +946,7 @@ async function sendChatMessageToGemini() {
         if (parsed && parsed.projectFiles) {
             parsed.projectFiles = validateProjectData(parsed.projectFiles, getStageOrPhase(appState.currentProjectState));
         }
-        return parsed;
+        return normalizeAIResponse(parsed);
     } catch (err) {
         console.error("Gemini API parsing/validation error:", err);
         throw err;
@@ -977,10 +978,11 @@ Sağ paneldeki **Prompt Zinciri**, **SKILL.md**, **Editör Kuralları** ve **Alt
 
     const projectFiles = validateProjectData(generateOfflineArtifacts(appState.draftDescription + ' ' + appState.messages.map(m => m.content).join(' '), appState.projectType, appState.priorities), getStageOrPhase(appState.currentProjectState));
 
-    return {
+    const raw = {
         chatResponse,
         projectFiles
     };
+    return normalizeAIResponse(raw);
 }
 
 // --- RENDER CHAT MESSAGES IN UI ---

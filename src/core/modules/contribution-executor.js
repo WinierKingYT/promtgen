@@ -124,17 +124,23 @@ export class ContributionExecutor {
                 const key = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
                 if (seen.has(key)) continue;
                 seen.add(key);
+                const artifactValue = {
+                    id: `ART-${name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`,
+                    title: name,
+                    artifactType: 'document',
+                    status: 'draft',
+                    sourceModule: moduleId,
+                    createdAt: new Date().toISOString()
+                };
                 patches.push({
                     operation: 'add',
                     path: '/artifacts/-',
-                    value: {
-                        id: `ART-${name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`,
-                        title: name,
-                        artifactType: 'document',
-                        status: 'draft',
-                        sourceModule: moduleId,
-                        createdAt: new Date().toISOString()
-                    }
+                    value: artifactValue
+                });
+                patches.push({
+                    operation: 'add',
+                    path: '/entityStores/artifact/-',
+                    value: { ...artifactValue }
                 });
                 log.push({ type: 'artifacts', moduleId, action: 'artifact_template_added', name });
             }
