@@ -163,16 +163,40 @@ test('buildTraceability includes artifacts from root array', () => {
     assert.strictEqual(nodes[0].id, 'ART-001');
 });
 
-test('createProject transfers profile domains to activeModuleIds', () => {
+test('createProject transfers profile domains to suggestedModuleIds', () => {
     const svc = new V3ProjectApplicationService();
     const state = svc.createProject('Build a web app', {
         domains: [{ id: 'software.web', name: 'software.web', confidence: 0.8 }],
         techStack: [{ id: 'nodejs', name: 'Node.js' }],
         projectModes: [], activatedModules: [], uncertainties: []
     });
-    assert.ok(state.configuration.activeModuleIds.includes('software.web'));
+    assert.ok(state.configuration.suggestedModuleIds.includes('software.web'));
+    assert.ok(state.configuration.suggestedModuleIds.includes('nodejs'));
     assert.ok(state.configuration.activeModuleIds.includes('universal'));
-    assert.ok(state.configuration.activeModuleIds.includes('nodejs'));
+    assert.strictEqual(state.configuration.activeModuleIds.includes('software.web'), false);
+    assert.strictEqual(state.configuration.activeModuleIds.includes('nodejs'), false);
+});
+
+test('approveSuggestedModules moves IDs from suggested to active', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', {
+        domains: [{ id: 'software.web', name: 'software.web', confidence: 0.8 }],
+        techStack: [{ id: 'nodejs', name: 'Node.js' }],
+        projectModes: [], activatedModules: [], uncertainties: []
+    });
+    const result = svc.approveSuggestedModules(state, ['software.web', 'nodejs']);
+    assert.strictEqual(result.success, true);
+    assert.ok(result.state.configuration.activeModuleIds.includes('software.web'));
+    assert.ok(result.state.configuration.activeModuleIds.includes('nodejs'));
+    assert.strictEqual(result.state.configuration.suggestedModuleIds.includes('software.web'), false);
+    assert.strictEqual(result.state.configuration.suggestedModuleIds.includes('nodejs'), false);
+});
+
+test('approveSuggestedModules with empty list returns error', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const result = svc.approveSuggestedModules(state, []);
+    assert.strictEqual(result.success, false);
 });
 
 test('processTurn with null aiResponse returns empty proposals', () => {

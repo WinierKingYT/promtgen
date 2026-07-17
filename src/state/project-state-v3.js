@@ -24,6 +24,7 @@ export function getInitialV3State() {
             planningDepth: 'standard',
             exportMode: 'complete',
             activeModuleIds: [],
+            suggestedModuleIds: [],
             privacyMode: 'local_private'
         },
 

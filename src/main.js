@@ -118,6 +118,12 @@ const elements = {
     approvalGateMessage: document.getElementById('approval-gate-message'),
     btnApproveCurrentStage: document.getElementById('btn-approve-current-stage'),
 
+    // Module approval
+    moduleApprovalBanner: document.getElementById('module-approval-banner'),
+    moduleApprovalMessage: document.getElementById('module-approval-message'),
+    btnApproveModules: document.getElementById('btn-approve-modules'),
+    btnRejectModules: document.getElementById('btn-reject-modules'),
+
     // Outputs tabs
     outputPanel: document.getElementById('output-panel'),
     emptyState: document.getElementById('output-empty-state'),
@@ -217,7 +223,9 @@ function initApp() {
     toggleViews();
     initPatchProposalListeners();
     updateApprovalGateBanner();
+    updateModuleApprovalBanner();
 }
+
 
 // --- API STATUS BADGE ---
 function updateApiStatusBadge() {
@@ -252,6 +260,7 @@ function toggleViews() {
             <strong>Tür:</strong> ${escapeHTML(typeText)}
         `;
         updateApprovalGateBanner();
+        updateModuleApprovalBanner();
         renderProposedPatches();
     } else {
         elements.setupHeader.classList.remove('hidden');
@@ -378,6 +387,8 @@ function setupEventListeners() {
     elements.btnUndoChat.addEventListener('click', handleUndoChat);
 
     elements.btnApproveCurrentStage.addEventListener('click', handleApproveCurrentStage);
+    elements.btnApproveModules.addEventListener('click', handleApproveSuggestedModules);
+    elements.btnRejectModules.addEventListener('click', handleRejectSuggestedModules);
 
     // Add elements to File Tree
     elements.btnAddFileTree.addEventListener('click', () => handleAddFileTreeItem('file'));
@@ -807,6 +818,7 @@ async function handleStartChat() {
     
     toggleViews();
     renderChatMessages();
+    updateModuleApprovalBanner();
 
     // Prepare loading panel
     elements.emptyState.classList.add('hidden');
@@ -842,6 +854,7 @@ async function handleStartChat() {
         renderChatMessages();
         renderProposedPatches();
         updateApprovalGateBanner();
+        updateModuleApprovalBanner();
 
         if (appState.currentData) {
             displayResults(appState.currentData);
@@ -877,6 +890,7 @@ async function handleStartChat() {
         renderChatMessages();
         renderProposedPatches();
         updateApprovalGateBanner();
+        updateModuleApprovalBanner();
 
         if (appState.currentData) {
             displayResults(appState.currentData);
@@ -933,6 +947,7 @@ async function handleSendChatMessage() {
         renderChatMessages();
         renderProposedPatches();
         updateApprovalGateBanner();
+        updateModuleApprovalBanner();
 
         if (appState.currentData) {
             displayResults(appState.currentData);
@@ -2343,6 +2358,69 @@ function updateApprovalGateBanner() {
     }
 
     banner.classList.add('hidden');
+}
+
+function updateModuleApprovalBanner() {
+    const banner = elements.moduleApprovalBanner;
+    const message = elements.moduleApprovalMessage;
+    if (!banner || !message) return;
+
+    if (!appState.currentProjectState) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const suggested = appState.currentProjectState.configuration?.suggestedModuleIds || [];
+    const active = appState.currentProjectState.configuration?.activeModuleIds || [];
+
+    const pending = suggested.filter(id => !active.includes(id));
+
+    if (pending.length > 0) {
+        banner.classList.remove('hidden');
+        const moduleLabels = pending.map(id => id.split('.').pop() || id).join(', ');
+        message.textContent = `Önerilen modüller: ${moduleLabels}. Bunları etkinleştirmek ister misiniz?`;
+    } else {
+        banner.classList.add('hidden');
+    }
+}
+
+function handleApproveSuggestedModules() {
+    const state = appState.currentProjectState;
+    if (!state) return;
+
+    const suggested = state.configuration?.suggestedModuleIds || [];
+    const active = state.configuration?.activeModuleIds || [];
+    const pending = suggested.filter(id => !active.includes(id));
+
+    if (pending.length === 0) {
+        showToast('Onaylanacak modül yok.', true);
+        return;
+    }
+
+    const result = v3App.approveSuggestedModules(state, pending);
+    if (result.success) {
+        appState.currentProjectState = result.state;
+        showToast(`${pending.length} modül etkinleştirildi: ${pending.map(id => id.split('.').pop() || id).join(', ')}`);
+        saveCurrentProjectState();
+        updateModuleApprovalBanner();
+        triggerWorkflowTransitionCheck();
+    } else {
+        showToast(`Modül etkinleştirme hatası: ${result.error}`, true);
+    }
+}
+
+function handleRejectSuggestedModules() {
+    const state = appState.currentProjectState;
+    if (!state) return;
+
+    const newState = JSON.parse(JSON.stringify(state));
+    newState.configuration.suggestedModuleIds = [];
+    newState.revision += 1;
+    appState.currentProjectState = newState;
+
+    showToast('Modül önerileri kaldırıldı.');
+    saveCurrentProjectState();
+    updateModuleApprovalBanner();
 }
 
 function handleApproveCurrentStage() {

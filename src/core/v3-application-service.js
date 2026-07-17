@@ -59,14 +59,15 @@ export class V3ProjectApplicationService {
         const domainIds = (profile.domains || []).map(d => d.id || d.name).filter(Boolean);
         const techIds = (profile.techStack || []).map(t => t.id || t.name).filter(Boolean);
         state.configuration = state.configuration || {};
-        state.configuration.activeModuleIds = [...new Set([...(state.configuration.activeModuleIds || []), ...domainIds, ...techIds, 'universal'])];
+        state.configuration.suggestedModuleIds = [...new Set([...(state.configuration.suggestedModuleIds || []), ...domainIds, ...techIds])];
+        state.configuration.activeModuleIds = ['universal'];
 
         const revision = 1;
         state.revision = revision;
 
         this.eventLog.log(EVENT_TYPES.STATE_CREATED, {
             description: 'Yeni V3 projesi oluşturuldu',
-            data: { phase: state.phase, draftLength: draftText.length, activeModules: state.configuration.activeModuleIds }
+            data: { phase: state.phase, draftLength: draftText.length, suggestedModuleIds: state.configuration.suggestedModuleIds }
         }, { revision });
 
         return state;
@@ -429,6 +430,36 @@ export class V3ProjectApplicationService {
         };
     }
 
+    approveSuggestedModules(state, approvedIds, revision) {
+        this.initialize();
+        if (!state) return { success: false, error: 'State gerekli' };
+        if (!Array.isArray(approvedIds) || approvedIds.length === 0) {
+            return { success: false, error: 'Onaylanan modül ID listesi gerekli' };
+        }
+
+        const current = state.configuration?.activeModuleIds || [];
+        const suggested = state.configuration?.suggestedModuleIds || [];
+
+        const toActivate = approvedIds.filter(id => !current.includes(id));
+
+        if (toActivate.length === 0) {
+            return { success: true, state, activated: [] };
+        }
+
+        const newState = JSON.parse(JSON.stringify(state));
+        newState.configuration.activeModuleIds = [...current, ...toActivate];
+        newState.revision += 1;
+
+        const remaining = suggested.filter(id => !toActivate.includes(id));
+        newState.configuration.suggestedModuleIds = remaining;
+
+        this.eventLog.log('MODULES_ACTIVATED', {
+            data: { activated: toActivate, remaining }
+        }, { revision: newState.revision, custom: true });
+
+        return { success: true, state: newState, activated: toActivate };
+    }
+
     _validateProposal(normalized) {
         const errors = [];
         if (!normalized.conversationResponse || typeof normalized.conversationResponse.text !== 'string') {
@@ -709,6 +740,7 @@ export class V3ProjectApplicationService {
         return {
             state,
             modules: state.configuration?.activeModuleIds || [],
+            suggestedModules: state.configuration?.suggestedModuleIds || [],
             activeModules: [...(state.configuration?.activeModuleIds || []), 'universal'],
             objectives: state.objectives || [],
             decisions: state.decisions || [],

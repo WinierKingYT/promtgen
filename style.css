@@ -893,6 +893,11 @@ textarea:focus {
     color: #f59e0b;
 }
 
+.module-approval-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .approval-info i {
     width: 18px;
     height: 18px;
