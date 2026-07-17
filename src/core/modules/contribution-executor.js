@@ -42,12 +42,20 @@ export class ContributionExecutor {
         const ordered = [];
         const added = new Set();
         const inputSet = new Set(moduleIds);
-        for (const id of result.resolved) {
-            if (!inputSet.has(id) && result.required?.includes(id)) {
-                if (!added.has(id)) {
-                    ordered.push(id);
-                    added.add(id);
+        const requiredSet = new Set();
+        for (const mod of (result.resolvedModules || [])) {
+            if (mod && Array.isArray(mod.dependencies)) {
+                for (const dep of mod.dependencies) {
+                    if (!inputSet.has(dep) && result.resolved.includes(dep)) {
+                        requiredSet.add(dep);
+                    }
                 }
+            }
+        }
+        for (const id of result.resolved) {
+            if (requiredSet.has(id) && !added.has(id)) {
+                ordered.push(id);
+                added.add(id);
             }
         }
         for (const id of result.resolved) {
@@ -88,7 +96,7 @@ export class ContributionExecutor {
             const nsParts = (value.namespace || '').split('.').filter(Boolean);
             let nsObj = resultState;
             for (const part of nsParts) {
-                if (nsObj[part] === undefined) nsObj[part] = {};
+                if (nsObj[part] == null) nsObj[part] = {};
                 nsObj = nsObj[part];
             }
 

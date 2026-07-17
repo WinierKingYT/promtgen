@@ -321,7 +321,7 @@ export class V3ProjectApplicationService {
                 tasks: pendingProposals.tasks.length,
                 gaps: pipelineResult.gaps?.length || 0
             }
-        }, { revision: currentState.revision });
+        }, { revision: currentState.revision, custom: true });
 
         return {
             success: true,

@@ -163,5 +163,121 @@ test('buildTraceability includes artifacts from root array', () => {
     assert.strictEqual(nodes[0].id, 'ART-001');
 });
 
+test('createProject transfers profile domains to activeModuleIds', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', {
+        domains: [{ id: 'software.web', name: 'software.web', confidence: 0.8 }],
+        techStack: [{ id: 'nodejs', name: 'Node.js' }],
+        projectModes: [], activatedModules: [], uncertainties: []
+    });
+    assert.ok(state.configuration.activeModuleIds.includes('software.web'));
+    assert.ok(state.configuration.activeModuleIds.includes('universal'));
+    assert.ok(state.configuration.activeModuleIds.includes('nodejs'));
+});
+
+test('processTurn with null aiResponse returns empty proposals', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const result = svc.processTurn({ state, aiResponse: null, expectedRevision: 1 });
+    assert.strictEqual(result.success, true);
+    assert.ok(result.pendingProposals);
+    assert.strictEqual(result.pendingProposals.patches.length, 0);
+});
+
+test('processTurn with legacy format normalizes correctly', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const legacyResponse = {
+        chatResponse: 'Merhaba! Projeniz hazır.',
+        projectFiles: {
+            proposedPatches: [{ id: 'PATCH-1', operation: 'replace', path: '/identity/name', value: 'Updated' }],
+            suggestedNextStage: 'SCOPE_DEFINED'
+        }
+    };
+    const result = svc.processTurn({ state, aiResponse: legacyResponse, expectedRevision: 1 });
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.normalized.conversationResponse.text, 'Merhaba! Projeniz hazır.');
+    assert.strictEqual(result.pendingProposals.patches.length, 1);
+});
+
+test('processTurn with native V3 format', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const v3Response = {
+        conversationResponse: { text: 'V3 yanıtı', actions: [] },
+        proposedPatches: [{ id: 'P-1', operation: 'replace', path: '/identity/name', value: 'V3 Updated' }],
+        proposedDecisions: [{ id: 'DEC-1', title: 'Use JWT', rationale: 'Security' }],
+        proposedArtifacts: [{ id: 'ART-1', title: 'API Doc', artifactType: 'document' }],
+        proposedTasks: [{ id: 'TASK-1', title: 'Implement auth', acceptanceCriteria: ['works'] }],
+        proposedTraceLinks: [{ source: 'REQ-1', target: 'TASK-1' }],
+        suggestedPhaseTransition: 'SCOPE_DEFINED'
+    };
+    const result = svc.processTurn({ state, aiResponse: v3Response, expectedRevision: 1 });
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.normalized.conversationResponse.text, 'V3 yanıtı');
+    assert.strictEqual(result.pendingProposals.decisions.length, 1);
+    assert.strictEqual(result.pendingProposals.artifacts.length, 1);
+    assert.strictEqual(result.pendingProposals.tasks.length, 1);
+    assert.strictEqual(result.pendingProposals.traceLinks.length, 1);
+});
+
+test('processTurn handles missing response gracefully', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const result = svc.processTurn({ state, aiResponse: null, expectedRevision: 1 });
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.pendingProposals.patches.length, 0);
+});
+
+test('processTurn applies patches and runs pipeline', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [{ id: 'software.web', name: 'software.web', confidence: 0.8 }], projectModes: [], activatedModules: [], uncertainties: [] });
+    const v3Response = {
+        conversationResponse: { text: 'İsim güncellendi', actions: [] },
+        proposedPatches: [{ id: 'P-1', operation: 'replace', path: '/identity/name', value: 'Güncellenmiş Proje' }],
+        proposedDecisions: []
+    };
+    const result = svc.processTurn({ state, aiResponse: v3Response, expectedRevision: 1 });
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.state.identity.name, 'Güncellenmiş Proje');
+    assert.ok(result.state.revision > 1);
+});
+
+test('acceptAllProposals applies patches and decisions', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    state.phase = 'PROJECT_PROFILED';
+    state.decisions = [];
+    state.profile = state.profile || {};
+    const pending = {
+        baseRevision: 1,
+        patches: [{ operation: 'replace', path: '/profile/domains', value: [{ name: 'test', confidence: 0.9 }] }],
+        decisions: [{ id: 'DEC-1', title: 'Test Decision', decision: 'yes', reason: 'test' }],
+        artifacts: [],
+        tasks: [],
+        traceLinks: [],
+        actions: []
+    };
+    const result = svc.acceptAllProposals(state, pending, 1);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.state.profile.domains.length, 1);
+});
+
+test('rejectProposals returns success with counts', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const pending = {
+        patches: [{ operation: 'add', path: '/test', value: 1 }],
+        decisions: [{ id: 'D1' }],
+        artifacts: [],
+        tasks: [{ id: 'T1' }]
+    };
+    const result = svc.rejectProposals(state, pending);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.rejected.patches, 1);
+    assert.strictEqual(result.rejected.decisions, 1);
+    assert.strictEqual(result.rejected.tasks, 1);
+});
+
 console.log(`\n  V3 Application Service: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

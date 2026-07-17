@@ -366,6 +366,57 @@ ceTest('executeContributions stateSchema populates moduleData namespace', () => 
     assert.ok(result.state.moduleData.m1);
 });
 
+ceTest('executeContributions idempotent on repeated call', () => {
+    const reg = new ModuleRegistry();
+    reg.register(getUniversalPack());
+    reg.register(getSoftwareWebPack());
+    const exec = new ContributionExecutor(reg);
+    const initialState = {};
+    const first = exec.executeContributions(['universal', 'software.web'], initialState);
+    const firstCount = first.patches.filter(p => p.path === '/artifacts/-').length;
+    const stateWithArtifacts = {
+        artifacts: first.patches.filter(p => p.path === '/artifacts/-').map(p => p.value),
+        entityStores: { artifact: first.patches.filter(p => p.path === '/entityStores/artifact/-').map(p => p.value) }
+    };
+    const second = exec.executeContributions(['universal', 'software.web'], stateWithArtifacts);
+    const secondPatches = second.patches.filter(p => p.path === '/artifacts/-');
+    assert.strictEqual(secondPatches.length, 0);
+});
+
+ceTest('executeContributions idempotent with entityStores artifacts', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', contributions: { artifacts: { required: ['EXISTING.md'] } } });
+    const exec = new ContributionExecutor(reg);
+    const stateWithArtifact = {
+        artifacts: [{ title: 'Existing.md' }],
+        entityStores: { artifact: [{ title: 'Existing.md' }] }
+    };
+    const result = exec.executeContributions(['a'], stateWithArtifact);
+    const artPatches = result.patches.filter(p => p.path === '/artifacts/-');
+    assert.strictEqual(artPatches.length, 0);
+});
+
+ceTest('_orderByDependencies includes required deps outside input', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'base', name: 'Base', dependencies: [] });
+    reg.register({ id: 'child', name: 'Child', dependencies: ['base'] });
+    const exec = new ContributionExecutor(reg);
+    const ordered = exec._orderByDependencies(['child']);
+    assert.ok(ordered.includes('base'));
+    assert.ok(ordered.indexOf('base') < ordered.indexOf('child'));
+});
+
+ceTest('executeContributions creates entityStores artifact patches too', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', contributions: { artifacts: { required: ['DUAL.md'] } } });
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['a'], {});
+    const rootPatches = result.patches.filter(p => p.path === '/artifacts/-');
+    const esPatches = result.patches.filter(p => p.path === '/entityStores/artifact/-');
+    assert.strictEqual(rootPatches.length, 1);
+    assert.strictEqual(esPatches.length, 1);
+});
+
 console.log(`\n  Contribution Executor: ${cePassed} passed, ${ceFailed} failed`);
 passed += cePassed;
 failed += ceFailed;

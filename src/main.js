@@ -4,14 +4,14 @@ import { AppStateManager, INITIAL_APP_STATE } from './state/app-state.js';
 import { APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid } from './application/approval-service.js';
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
-import { normalizeAIResponse } from './ai/chat-contract.js';
+import { normalizeAIResponse, buildV3ProposalPrompt } from './ai/chat-contract.js';
 import { WORKFLOW_STAGES, WORKFLOW_STAGE_METADATA } from './workflow/stages.js';
 import { STAGE_APPROVAL_KEYS } from './workflow/stage-contracts.js';
 import { checkWorkflowTransition, checkPhaseTransition } from './workflow/transitions.js';
 import { UNIVERSAL_PHASE_METADATA } from './workflow/phases.js';
 import { PHASE_APPROVAL_KEYS as PHASE_APPROVAL_KEYS_MAP } from './workflow/phase-contracts.js';
 import { profileProjectFromText } from './planning/project-profiler.js';
-import { buildPlanningPrompt, buildDebugPrompt } from './prompts/planning-prompt.js';
+import { buildDebugPrompt } from './prompts/planning-prompt.js';
 import { exportProjectToZip } from './exporters/zip-exporter.js';
 import { escapeHTML } from './security/safe-renderer.js';
 import { validateFileMetadata } from './security/file-policy.js';
@@ -978,8 +978,8 @@ async function sendChatMessageToGemini() {
         return `${sender}: "${m.content}"`;
     }).join('\n');
 
-    // Prompt is built in a separate, testable module
-    const promptText = buildPlanningPrompt({
+    // Prompt is built using V3 proposal prompt (native V3 contract)
+    const promptText = buildV3ProposalPrompt({
         stage: getStageOrPhase(appState.currentProjectState),
         techStack: appState.techStack,
         techVersion: appState.techVersion,
@@ -992,9 +992,6 @@ async function sendChatMessageToGemini() {
     try {
         const textResponse = await geminiProvider.generateStructured(promptText, appState.apiKey);
         const parsed = JSON.parse(textResponse);
-        if (parsed && parsed.projectFiles) {
-            parsed.projectFiles = validateProjectData(parsed.projectFiles, getStageOrPhase(appState.currentProjectState));
-        }
         return normalizeAIResponse(parsed);
     } catch (err) {
         console.error("Gemini API parsing/validation error:", err);
