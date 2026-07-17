@@ -246,7 +246,7 @@ test('processTurn with native V3 format', () => {
     const v3Response = {
         conversationResponse: { text: 'V3 yanıtı', actions: [] },
         proposedPatches: [{ id: 'P-1', operation: 'replace', path: '/identity/name', value: 'V3 Updated' }],
-        proposedDecisions: [{ id: 'DEC-1', title: 'Use JWT', rationale: 'Security' }],
+        proposedDecisions: [{ id: 'DEC-1', title: 'Use JWT', decision: 'Use JWT for auth', reason: 'Security' }],
         proposedArtifacts: [{ id: 'ART-1', title: 'API Doc', artifactType: 'document' }],
         proposedTasks: [{ id: 'TASK-1', title: 'Implement auth', acceptanceCriteria: ['works'] }],
         proposedTraceLinks: [{ source: 'REQ-1', target: 'TASK-1' }],

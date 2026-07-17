@@ -32,7 +32,7 @@ export class OpenAICompatibleProvider extends LLMProvider {
             params.response_format = { type: 'json_object' };
         }
         if (this._extraBody) {
-            params.extraBody = this._extraBody;
+            Object.assign(params, this._extraBody);
         }
         return params;
     }

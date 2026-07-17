@@ -492,24 +492,48 @@ export class V3ProjectApplicationService {
 
     _validateProposalBundle(pendingProposals, state) {
         const errors = [];
+        const seenIds = new Set();
+
+        // Validate patches
+        for (const patch of (pendingProposals.patches || [])) {
+            if (!patch.operation || !['add', 'replace', 'remove'].includes(patch.operation)) {
+                errors.push(`Patch geçersiz operasyon: ${patch.id || patch.path}`);
+            }
+            if (!patch.path || typeof patch.path !== 'string') {
+                errors.push(`Patch yolu eksik: ${patch.id || '?'}`);
+            }
+        }
 
         // Validate decisions
         for (const dec of (pendingProposals.decisions || [])) {
+            if (!dec.id) errors.push(`Karar ID eksik`);
+            if (seenIds.has(dec.id)) errors.push(`Karar ID çakışıyor: ${dec.id}`);
+            if (dec.id) seenIds.add(dec.id);
             if (typeof dec.title !== 'string' || !dec.title) errors.push(`Karar başlığı eksik: ${dec.id || '?'}`);
             if (typeof dec.decision !== 'string' || !dec.decision) errors.push(`Karar metni eksik: ${dec.id || '?'}`);
+            if (typeof dec.reason !== 'string' || !dec.reason) errors.push(`Karar gerekçesi eksik: ${dec.id || '?'}`);
+            if (state.decisions?.some(d => d.id === dec.id)) errors.push(`Karar ID state'te zaten mevcut: ${dec.id}`);
         }
 
         // Validate artifacts
         for (const art of (pendingProposals.artifacts || [])) {
+            if (!art.id) errors.push(`Çıktı ID eksik`);
+            if (seenIds.has(art.id)) errors.push(`Çıktı ID çakışıyor: ${art.id}`);
+            if (art.id) seenIds.add(art.id);
             if (typeof art.title !== 'string' || !art.title) errors.push(`Çıktı başlığı eksik: ${art.id || '?'}`);
+            if (state.artifacts?.some(a => a.id === art.id)) errors.push(`Çıktı ID state'te zaten mevcut: ${art.id}`);
         }
 
         // Validate tasks
         for (const task of (pendingProposals.tasks || [])) {
+            if (!task.id) errors.push(`Görev ID eksik`);
+            if (seenIds.has(task.id)) errors.push(`Görev ID çakışıyor: ${task.id}`);
+            if (task.id) seenIds.add(task.id);
             if (typeof task.title !== 'string' || !task.title) errors.push(`Görev başlığı eksik: ${task.id || '?'}`);
-            if (!Array.isArray(task.acceptanceCriteria) && typeof task.acceptanceCriteria !== 'string') {
-                errors.push(`Görev kabul kriterleri eksik: ${task.id || '?'}`);
-            }
+            const criteria = task.acceptanceCriteria;
+            const hasCriteria = Array.isArray(criteria) ? criteria.length > 0 : (typeof criteria === 'string' && !!criteria);
+            if (!hasCriteria) errors.push(`Görev kabul kriterleri eksik: ${task.id || '?'}`);
+            if (state.tasks?.some(t => t.id === task.id)) errors.push(`Görev ID state'te zaten mevcut: ${task.id}`);
         }
 
         // Validate trace links
@@ -527,6 +551,12 @@ export class V3ProjectApplicationService {
                 if (!sourceNode) errors.push(`Kaynak node bulunamadı: ${link.source}`);
                 if (!targetNode) errors.push(`Hedef node bulunamadı: ${link.target}`);
             }
+        }
+
+        // Validate actions
+        for (const action of (pendingProposals.actions || [])) {
+            if (!action.id) errors.push(`Eylem ID eksik`);
+            if (!action.action && !action.title) errors.push(`Eylem adı eksik: ${action.id || '?'}`);
         }
 
         return { valid: errors.length === 0, errors };
@@ -722,18 +752,50 @@ export class V3ProjectApplicationService {
         }
         if (!Array.isArray(normalized.proposedPatches)) {
             errors.push('proposedPatches dizi olmalı');
+        } else {
+            for (const p of normalized.proposedPatches) {
+                if (!p.operation) errors.push(`Patch'te operation eksik: ${p.id || p.path}`);
+                if (!p.path) errors.push(`Patch'te path eksik: ${p.id || p.operation}`);
+                if (!['add', 'replace', 'remove'].includes(p.operation)) {
+                    errors.push(`Geçersiz patch operation: ${p.operation}`);
+                }
+            }
         }
         if (!Array.isArray(normalized.proposedDecisions)) {
             errors.push('proposedDecisions dizi olmalı');
+        } else {
+            for (const d of normalized.proposedDecisions) {
+                if (!d.title) errors.push(`Karar başlığı eksik: ${d.id || '?'}`);
+                if (!d.decision) errors.push(`Karar metni eksik: ${d.id || '?'}`);
+            }
         }
         if (!Array.isArray(normalized.proposedArtifacts)) {
             errors.push('proposedArtifacts dizi olmalı');
+        } else {
+            for (const a of normalized.proposedArtifacts) {
+                if (!a.title) errors.push(`Çıktı başlığı eksik: ${a.id || '?'}`);
+            }
         }
         if (!Array.isArray(normalized.proposedTasks)) {
             errors.push('proposedTasks dizi olmalı');
+        } else {
+            for (const t of normalized.proposedTasks) {
+                if (!t.title) errors.push(`Görev başlığı eksik: ${t.id || '?'}`);
+                const criteria = t.acceptanceCriteria;
+                const hasCriteria = Array.isArray(criteria) ? criteria.length > 0 : (typeof criteria === 'string' && !!criteria);
+                if (!hasCriteria) errors.push(`Görev kabul kriterleri eksik: ${t.id || '?'}`);
+            }
         }
         if (!Array.isArray(normalized.proposedTraceLinks)) {
             errors.push('proposedTraceLinks dizi olmalı');
+        } else {
+            for (const l of normalized.proposedTraceLinks) {
+                if (!l.source) errors.push(`Trace link kaynak eksik`);
+                if (!l.target) errors.push(`Trace link hedef eksik`);
+            }
+        }
+        if (normalized.suggestedActions && !Array.isArray(normalized.suggestedActions)) {
+            errors.push('suggestedActions dizi olmalı');
         }
         return errors;
     }
