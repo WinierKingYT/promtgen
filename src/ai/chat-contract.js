@@ -85,11 +85,21 @@ YANIT FORMATI (sadece JSON):
       "reason": "Neden bu değişiklik öneriliyor"
     }
   ],
-  "proposedDecisions": [],
-  "proposedTraceLinks": [],
-  "proposedArtifacts": [],
-  "proposedTasks": [],
-  "suggestedActions": [],
+  "proposedDecisions": [
+    { "id": "DEC-001", "title": "Karar başlığı", "decision": "Alınan karar", "reason": "Karar gerekçesi" }
+  ],
+  "proposedTraceLinks": [
+    { "source": "OBJ-1", "target": "DEC-001", "type": "implements" }
+  ],
+  "proposedArtifacts": [
+    { "id": "ART-001", "title": "Çıktı adı", "type": "documentation" }
+  ],
+  "proposedTasks": [
+    { "id": "TASK-001", "title": "Görev adı", "acceptanceCriteria": ["Kriter 1", "Kriter 2"] }
+  ],
+  "suggestedActions": [
+    { "id": "ACT-001", "action": "review", "title": "Gözden geçirme", "description": "Önerilen eylem" }
+  ],
   "suggestedPhaseTransition": null
 }
 
@@ -99,5 +109,17 @@ KURALLAR:
 - path: "/" ile başlayan JSON path (örn: /identity/name, /objectives/-, /decisions/-)
 - Her patch'in bir id ve reason alanı olmalı
 - Sadece geçerli aşamada değiştirilmesine izin verilen alanları değiştir
-- conversationResponse.text kullanıcıya ne yapıldığını açıklamalı`;
+- conversationResponse.text kullanıcıya ne yapıldığını açıklamalı
+
+PROPOSAL ITEM FORMATLARI:
+- proposedDecisions[]: Her karar { id, title, decision, reason, options[]?, status? } içermeli.
+  id ve title zorunlu. decision karar metni, reason gerekçe - ikisi de zorunlu.
+- proposedArtifacts[]: Her çıktı { id, title, type?, content? } içermeli. id ve title zorunlu.
+- proposedTasks[]: Her görev { id, title, acceptanceCriteria[]|string, status?, priority? } içermeli.
+  id, title ve acceptanceCriteria zorunlu. acceptanceCriteria dizi veya metin olabilir.
+- proposedTraceLinks[]: Her link { source, target, type? } içermeli. source ve target zorunlu.
+  type yoksa varsayılan "implements" kullanılır.
+- suggestedActions[]: Her eylem { id, action|title, description? } içermeli. id ve action/title zorunlu.
+- suggestedPhaseTransition: null veya geçerli bir sonraki aşama adı (string).`;
+
 }

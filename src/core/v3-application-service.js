@@ -561,7 +561,7 @@ export class V3ProjectApplicationService {
 
         // Validate trace links
         const validEdgeTypes = new Set(Object.values(EDGE_TYPES));
-        const graph = this.traceability?.graph;
+        const previewGraph = this._buildPreviewGraph(state, pendingProposals);
         for (const link of (pendingProposals.traceLinks || [])) {
             if (!link.source) errors.push(`Trace link kaynak node ID eksik`);
             if (!link.target) errors.push(`Trace link hedef node ID eksik`);
@@ -571,9 +571,9 @@ export class V3ProjectApplicationService {
             if (link.type && !validEdgeTypes.has(link.type)) {
                 errors.push(`Geçersiz edge tipi: ${link.type}. Geçerli: ${[...validEdgeTypes].join(', ')}`);
             }
-            if (graph && link.source && link.target) {
-                const sourceNode = graph.getNode(link.source);
-                const targetNode = graph.getNode(link.target);
+            if (previewGraph && link.source && link.target) {
+                const sourceNode = previewGraph.getNode(link.source);
+                const targetNode = previewGraph.getNode(link.target);
                 if (!sourceNode) errors.push(`Kaynak node bulunamadı: ${link.source}`);
                 if (!targetNode) errors.push(`Hedef node bulunamadı: ${link.target}`);
             }
@@ -600,6 +600,49 @@ export class V3ProjectApplicationService {
             }
         }
         return errors;
+    }
+
+    _buildPreviewGraph(state, pendingProposals) {
+        const baseTraceability = this.buildTraceability(state);
+        if (!baseTraceability) return null;
+        const g = baseTraceability.graph;
+
+        for (const dec of (pendingProposals.decisions || [])) {
+            if (dec.id) {
+                try { g.addNode(NODE_TYPES.DECISION, dec.id, dec.title || dec.id, { ...dec }); }
+                catch { /* duplicate - skip */ }
+            }
+        }
+        for (const art of (pendingProposals.artifacts || [])) {
+            if (art.id) {
+                try { g.addNode(NODE_TYPES.ARTIFACT, art.id, art.title || art.id, { ...art }); }
+                catch { /* duplicate - skip */ }
+            }
+        }
+        for (const task of (pendingProposals.tasks || [])) {
+            if (task.id) {
+                try { g.addNode(NODE_TYPES.TASK, task.id, task.title || task.id, { ...task }); }
+                catch { /* duplicate - skip */ }
+            }
+        }
+        for (const patch of (pendingProposals.patches || [])) {
+            if (patch.id && patch.path && patch.operation === 'add' && patch.value?.id) {
+                try {
+                    const inferredType = patch.path.startsWith('/objectives') ? NODE_TYPES.OBJECTIVE
+                        : patch.path.startsWith('/decisions') ? NODE_TYPES.DECISION
+                        : patch.path.startsWith('/tasks') ? NODE_TYPES.TASK
+                        : patch.path.startsWith('/artifacts') ? NODE_TYPES.ARTIFACT
+                        : patch.path.startsWith('/stakeholders') ? NODE_TYPES.STAKEHOLDER
+                        : patch.path.startsWith('/risks') ? NODE_TYPES.RISK
+                        : null;
+                    if (inferredType) {
+                        g.addNode(inferredType, patch.value.id, patch.value.title || patch.value.name || patch.value.id, { ...patch.value });
+                    }
+                } catch { /* duplicate - skip */ }
+            }
+        }
+
+        return g;
     }
 
     acceptPatches(state, patches, expectedRevision) {
