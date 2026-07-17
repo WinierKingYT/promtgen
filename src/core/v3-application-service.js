@@ -6,10 +6,16 @@ import { TraceabilityEngine } from './traceability/traceability-engine.js';
 import { NODE_TYPES, EDGE_TYPES } from './traceability/traceability-types.js';
 import { ReviewEngine } from './reviewer/review-engine.js';
 import { ModuleRegistry } from './modules/module-registry.js';
+import { ContributionExecutor } from './modules/contribution-executor.js';
 import { getUniversalPack, getSoftwareWebPack, getGamePack, getResearchPack, getSoftwareOfflinePack, getSoftwareAuthPack } from './modules/domain-packs.js';
 import { EventLog, EVENT_TYPES } from './state/event-log.js';
 import { StateSnapshot } from './state/state-engine.js';
 import { StatePrivacy, SENSITIVITY_LEVELS } from './state/state-privacy.js';
+import * as DiscoveryEngine from '../discovery/discovery-engine.js';
+import * as DecisionEngine from '../decision/decision-engine.js';
+import * as ArtifactEngine from '../artifact/artifact-engine.js';
+import * as TaskEngine from '../task/task-engine.js';
+import * as PromptEngine from '../prompt/prompt-engine.js';
 
 export class V3ProjectApplicationService {
     constructor() {
@@ -17,9 +23,13 @@ export class V3ProjectApplicationService {
         this.snapshots = new StateSnapshot();
         this.privacy = new StatePrivacy();
         this.moduleRegistry = new ModuleRegistry();
+        this.contributionExecutor = new ContributionExecutor(this.moduleRegistry);
         this.traceability = null;
         this.reviewer = null;
         this._initialized = false;
+        this._decisionIndex = {};
+        this._taskIndex = {};
+        this._promptIndex = {};
     }
 
     initialize() {
@@ -110,6 +120,125 @@ export class V3ProjectApplicationService {
         }, { revision: newState.revision });
 
         return { success: true, state: newState };
+    }
+
+    runPipeline(state, userMessage = '', options = {}) {
+        this.initialize();
+        const log = [];
+        let currentState = JSON.parse(JSON.stringify(state));
+
+        // 1. Module contributions
+        const activeModules = currentState.configuration?.activeModuleIds || [];
+        if (activeModules.length > 0) {
+            const contribResult = this.contributionExecutor.executeContributions(
+                [...activeModules, 'universal'], currentState
+            );
+            if (contribResult.patches.length > 0) {
+                const txResult = applyPatchTransaction({
+                    state: currentState,
+                    patches: contribResult.patches,
+                    stage: currentState.phase,
+                    expectedRevision: currentState.revision
+                });
+                if (txResult.success) {
+                    currentState = txResult.state;
+                    log.push({ step: 'contributions', patches: contribResult.patches.length });
+                }
+            }
+        }
+
+        // 2. Discovery - detect gaps for current phase
+        const gaps = DiscoveryEngine.detectGaps(currentState, currentState.phase);
+        const blockingGaps = gaps.filter(g => g.blocksCurrent);
+        const readiness = DiscoveryEngine.assessReadiness(currentState, currentState.phase);
+        log.push({ step: 'discovery', gaps: gaps.length, blocking: blockingGaps.length, readiness: readiness.ready });
+
+        // 3. Track decisions, tasks, prompts in internal indices
+        this._indexEntities(currentState);
+
+        return {
+            state: currentState,
+            log,
+            gaps,
+            readiness,
+            decisions: currentState.decisions || [],
+            tasks: currentState.tasks || [],
+            prompts: currentState.prompts || []
+        };
+    }
+
+    createDecision(state, decisionData) {
+        const rev = state.revision;
+        const dec = DecisionEngine.createDecision(decisionData, rev);
+        const newState = JSON.parse(JSON.stringify(state));
+        if (!Array.isArray(newState.decisions)) newState.decisions = [];
+        newState.decisions.push(dec);
+        newState.revision = rev + 1;
+        this.eventLog.log(EVENT_TYPES.ENTITY_UPDATED, {
+            entityId: dec.id,
+            data: { type: 'decision', title: dec.title }
+        }, { revision: newState.revision });
+        return { decision: dec, state: newState };
+    }
+
+    runDiscovery(state, answerMap = {}) {
+        let currentState = JSON.parse(JSON.stringify(state));
+        for (const [gapId, answer] of Object.entries(answerMap)) {
+            const patchResult = DiscoveryEngine.processDiscoveryAnswer(currentState, gapId, answer, currentState.revision);
+            if (patchResult.patches) {
+                const txResult = applyPatchTransaction({
+                    state: currentState,
+                    patches: patchResult.patches,
+                    stage: currentState.phase,
+                    expectedRevision: currentState.revision
+                });
+                if (txResult.success) currentState = txResult.state;
+            }
+        }
+        return currentState;
+    }
+
+    generateArtifact(state, type, extraContext = {}) {
+        const ctx = ArtifactEngine.buildArtifactContextFromState(state, extraContext);
+        const result = ArtifactEngine.generateArtifact(type, ctx);
+        if (result.error) return { success: false, error: result.error };
+        this.eventLog.log(EVENT_TYPES.ENTITY_UPDATED, {
+            entityId: result.artifact.id,
+            data: { type: 'artifact_generated', artifactType: type }
+        }, { revision: state.revision });
+        return { success: true, artifact: result.artifact };
+    }
+
+    createTask(state, taskData) {
+        const rev = state.revision;
+        const task = TaskEngine.createTask(taskData, rev);
+        const newState = JSON.parse(JSON.stringify(state));
+        if (!Array.isArray(newState.tasks)) newState.tasks = [];
+        newState.tasks.push(task);
+        newState.revision = rev + 1;
+        this.eventLog.log(EVENT_TYPES.ENTITY_UPDATED, {
+            entityId: task.id,
+            data: { type: 'task', title: task.title }
+        }, { revision: newState.revision });
+        return { task, state: newState };
+    }
+
+    createPrompt(state, promptData) {
+        const rev = state.revision;
+        const prompt = PromptEngine.createPrompt(promptData, rev);
+        return { prompt, state };
+    }
+
+    _indexEntities(state) {
+        if (Array.isArray(state.decisions)) {
+            for (const d of state.decisions) this._decisionIndex[d.id] = d;
+        }
+        if (Array.isArray(state.tasks)) {
+            for (const t of state.tasks) this._taskIndex[t.id] = t;
+        }
+        if (Array.isArray(state.prompts)) {
+            for (const p of state.prompts) this._promptIndex[p.id] = p;
+        }
     }
 
     checkAndApplyPhaseTransition(state) {
