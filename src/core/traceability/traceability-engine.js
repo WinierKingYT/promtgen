@@ -134,6 +134,11 @@ export class TraceabilityEngine {
         }
 
         if (state.entityStores) {
+            if (Array.isArray(state.entityStores.requirement)) {
+                state.entityStores.requirement.forEach(r => {
+                    g.addNode(NODE_TYPES.REQUIREMENT, r.id, r.title || r.text || r.name || r.id, { ...r });
+                });
+            }
             if (Array.isArray(state.entityStores.artifact)) {
                 state.entityStores.artifact.forEach(a => {
                     g.addNode(NODE_TYPES.ARTIFACT, a.id, a.title || a.name || a.id, { ...a });
@@ -144,6 +149,13 @@ export class TraceabilityEngine {
                     g.addNode(NODE_TYPES.TEST, t.id, t.title || t.name || t.id, { ...t });
                 });
             }
+        }
+
+        if (state.moduleData?.software?.architecture?.components) {
+            state.moduleData.software.architecture.components.forEach((c, i) => {
+                const id = c.id || `ARC-${String(i + 1).padStart(3, '0')}`;
+                g.addNode(NODE_TYPES.ARCHITECTURE_COMPONENT, id, c.name || c.title || `Component ${i + 1}`, { index: i, ...c });
+            });
         }
 
         if (Array.isArray(state.artifacts)) {

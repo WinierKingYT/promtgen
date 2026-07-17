@@ -195,12 +195,33 @@ export class RuleRegistry {
             { id: 'APPR-001', category: REVIEW_CATEGORIES.APPROVAL, severity: SEVERITY.HIGH,
               title: 'Onaylar güncel olmalı', moduleId: 'universal',
               message: 'Bazı onaylar eski revision\'da kalmış',
-              check: ctx => true },
+              check: ctx => {
+                  const approvals = ctx.state?.approvals || {};
+                  const currentRev = ctx.state?.revision || 0;
+                  for (const [key, app] of Object.entries(approvals)) {
+                      if (app === null) continue;
+                      if (!app.status || !app.approvedAt) return false;
+                      if (app.status !== 'approved' && app.status !== 'rejected') return false;
+                      if (app.revision !== undefined && app.revision < currentRev) return false;
+                  }
+                  return true;
+              } },
 
             { id: 'APPR-002', category: REVIEW_CATEGORIES.APPROVAL, severity: SEVERITY.CRITICAL,
               title: 'Final onayı alt onaylardan sonra gelmeli', moduleId: 'universal',
               message: 'Final review alt onaylar tamamlanmadan verilmiş',
-              check: ctx => true },
+              check: ctx => {
+                  const approvals = ctx.state?.approvals || {};
+                  const finalReview = approvals.finalReview;
+                  if (!finalReview || finalReview.status !== 'approved') return true;
+                  const finalTime = new Date(finalReview.approvedAt).getTime();
+                  const subKeys = ['profile', 'scope', 'objectives', 'deliverables', 'executionPlan'];
+                  for (const key of subKeys) {
+                      const app = approvals[key];
+                      if (app && app.status === 'approved' && new Date(app.approvedAt).getTime() <= finalTime) return true;
+                  }
+                  return false;
+              } },
 
             // Export rules
             { id: 'EXPORT-001', category: REVIEW_CATEGORIES.EXPORT, severity: SEVERITY.CRITICAL,
@@ -211,12 +232,24 @@ export class RuleRegistry {
             { id: 'EXPORT-002', category: REVIEW_CATEGORIES.EXPORT, severity: SEVERITY.HIGH,
               title: 'Export manifest dosyaları tamam olmalı', moduleId: 'universal',
               message: 'Proje manifest veya artifact index dosyası eksik',
-              check: ctx => true },
+              check: ctx => {
+                  const artifacts = ctx.state?.artifacts || [];
+                  const docs = ctx.state?.documents || [];
+                  const esArtifacts = ctx.state?.entityStores?.artifact || [];
+                  const allArtifacts = [...artifacts, ...esArtifacts];
+                  return allArtifacts.some(a => /manifest|index/i.test(a.title || a.name || a.artifactType || ''))
+                      || docs.some(d => /manifest|index/i.test(d.name || ''));
+              } },
 
             { id: 'EXPORT-003', category: REVIEW_CATEGORIES.EXPORT, severity: SEVERITY.HIGH,
               title: 'Proje sağlık skoru export eşiğini geçmeli', moduleId: 'universal',
               message: 'Proje sağlık skoru export için yetersiz',
-              check: ctx => true },
+              check: ctx => {
+                  const approvals = ctx.state?.approvals || {};
+                  const allRequired = ['profile', 'scope', 'objectives', 'deliverables', 'executionPlan', 'finalReview'];
+                  const subApproved = allRequired.filter(k => approvals[k]?.status === 'approved').length;
+                  return subApproved >= 4;
+              } },
 
             // Risk rules
             { id: 'RISK-001', category: REVIEW_CATEGORIES.RISK, severity: SEVERITY.HIGH,

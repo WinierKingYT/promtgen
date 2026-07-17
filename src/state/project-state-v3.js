@@ -338,15 +338,25 @@ export function legacyMigrateToV3(v2State) {
 
     if (v2State.requirements) {
         const reqs = [];
-        if (Array.isArray(v2State.requirements.functional)) {
-            v2State.requirements.functional.forEach((r, i) => {
-                reqs.push({ id: `OBJ-${i + 1}`, text: r, source: 'functional' });
-            });
-        }
-        if (Array.isArray(v2State.requirements.nonFunctional)) {
-            v2State.requirements.nonFunctional.forEach((r, i) => {
-                reqs.push({ id: `OBJ-${reqs.length + 1}`, text: r, source: 'nonFunctional' });
-            });
+        const reqEntities = [];
+        let reqIndex = 0;
+        for (const category of ['functional', 'nonFunctional', 'domainSpecific']) {
+            if (Array.isArray(v2State.requirements[category])) {
+                v2State.requirements[category].forEach((r) => {
+                    reqIndex++;
+                    reqs.push({ id: `OBJ-${reqIndex}`, text: r, source: category });
+                    reqEntities.push({
+                        id: `REQ-${String(reqIndex).padStart(3, '0')}`,
+                        entityType: 'requirement',
+                        text: r, title: r, category,
+                        description: '', status: 'draft', priority: 'medium',
+                        sourceModule: 'universal',
+                        source: { type: 'migration', sourceId: null, evidenceType: 'direct_fact' },
+                        sensitivity: 'internal', version: 1,
+                        createdAtRevision: v3.revision, updatedAtRevision: v3.revision, tags: []
+                    });
+                });
+            }
         }
         v3.objectives = reqs;
         v3.entityStores.objective = reqs.map((r, i) => ({
@@ -357,6 +367,7 @@ export function legacyMigrateToV3(v2State) {
             sensitivity: 'internal', version: 1,
             createdAtRevision: v3.revision, updatedAtRevision: v3.revision, tags: []
         }));
+        v3.entityStores.requirement = reqEntities;
     }
 
     v3.documents = v2State.documents || [];

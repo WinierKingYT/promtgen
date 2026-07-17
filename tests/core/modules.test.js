@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { ModuleRegistry } from '../../src/core/modules/module-registry.js';
+import { ContributionExecutor } from '../../src/core/modules/contribution-executor.js';
 import {
     createModuleManifest, MODULE_STATUS, MODULE_CATEGORIES,
     CONTRIBUTION_TYPES, getCoreModules
@@ -277,6 +278,87 @@ test('hierarchical module tree', () => {
     const children = reg.getModulesByParent('software');
     assert.strictEqual(children.length, 2);
 });
+
+console.log('\n⚡ contribution-executor tests');
+
+let cePassed = 0;
+let ceFailed = 0;
+function ceTest(name, fn) {
+    try { fn(); console.log(`  ✅ ${name}`); cePassed++; }
+    catch (e) { console.error(`  ❌ ${name}\n     ${e.message}`); ceFailed++; }
+}
+
+ceTest('ContributionExecutor create', () => {
+    const reg = new ModuleRegistry();
+    const exec = new ContributionExecutor(reg);
+    assert.ok(exec);
+    assert.ok(exec.pendingHandlers.length > 0);
+});
+
+ceTest('executeContributions returns patches for stateSchema', () => {
+    const reg = new ModuleRegistry();
+    const mod = reg.register({ id: 'test', name: 'Test', contributions: { stateSchema: { namespace: 'moduleData.test', required: ['name', 'version'] } } });
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['test'], {});
+    assert.ok(result.log);
+    assert.ok(result.log.some(l => l.type === 'stateSchema'));
+});
+
+ceTest('executeContributions creates artifact patches', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', contributions: { artifacts: { required: ['TEST.md', 'README.md'] } } });
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['a'], {});
+    const artPatches = result.patches.filter(p => p.path.startsWith('/artifacts'));
+    assert.strictEqual(artPatches.length, 2);
+    assert.strictEqual(artPatches[0].value.title, 'TEST.md');
+});
+
+ceTest('executeContributions discovery returns log', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', contributions: { discovery: { requiredFields: ['identity.name'] } } });
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['a'], {});
+    assert.ok(result.log.some(l => l.type === 'discovery'));
+});
+
+ceTest('executeContributions decisions returns log', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', contributions: { decisions: { types: ['framework-choice'] } } });
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['a'], {});
+    assert.ok(result.log.some(l => l.type === 'decisions'));
+});
+
+ceTest('executeContributions reviewer returns log', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', contributions: { reviewer: { rules: ['custom-rule'] } } });
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['a'], {});
+    assert.ok(result.log.some(l => l.type === 'reviewer'));
+});
+
+ceTest('executeContributions with domain packs', () => {
+    const reg = new ModuleRegistry();
+    reg.register(getUniversalPack());
+    reg.register(getSoftwareWebPack());
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['universal', 'software.web'], {});
+    const artPatches = result.patches.filter(p => p.path.startsWith('/artifacts'));
+    assert.ok(artPatches.length >= 5);
+});
+
+ceTest('executeContributions stateSchema populates moduleData namespace', () => {
+    const reg = new ModuleRegistry();
+    reg.register(createModuleManifest({ id: 'm1', name: 'M1', contributions: { stateSchema: { namespace: 'moduleData.m1', required: ['field1', 'field2'] } } }));
+    const exec = new ContributionExecutor(reg);
+    const result = exec.executeContributions(['m1'], { moduleData: {} });
+    assert.ok(result.state.moduleData.m1);
+});
+
+console.log(`\n  Contribution Executor: ${cePassed} passed, ${ceFailed} failed`);
+passed += cePassed;
+failed += ceFailed;
 
 console.log(`\n  Section 13: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
