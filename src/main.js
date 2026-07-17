@@ -1,4 +1,4 @@
-import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, validateProjectData, syncAIResponseToCanonicalState } from './state/project-state.js';
+import { getInitialV3State, applyV3StatePatch } from './state/project-state-v3.js';
 import { migrateProjectState } from './state/state-migrations.js';
 import { AppStateManager, INITIAL_APP_STATE } from './state/app-state.js';
 import { applyPatchTransaction } from './application/patch-transaction.js';
@@ -10,7 +10,6 @@ import { STAGE_APPROVAL_KEYS } from './workflow/stage-contracts.js';
 import { checkWorkflowTransition, checkPhaseTransition } from './workflow/transitions.js';
 import { UNIVERSAL_PHASE_METADATA } from './workflow/phases.js';
 import { PHASE_APPROVAL_KEYS as PHASE_APPROVAL_KEYS_MAP } from './workflow/phase-contracts.js';
-import { applyV3StatePatch } from './state/project-state-v3.js';
 import { profileProjectFromText } from './planning/project-profiler.js';
 import { buildPlanningPrompt, buildDebugPrompt } from './prompts/planning-prompt.js';
 import { exportProjectToZip } from './exporters/zip-exporter.js';
@@ -18,6 +17,7 @@ import { escapeHTML } from './security/safe-renderer.js';
 import { validateFileMetadata } from './security/file-policy.js';
 import { scanForSecrets } from './security/secret-detector.js';
 import { TraceabilityGraph } from './domain/traceability-graph.js';
+import { V3ProjectApplicationService } from './core/v3-application-service.js';
 
 // --- DEFAULTS ---
 const DEFAULTS = {
@@ -33,6 +33,7 @@ const appState = appStateManager.state;
 
 const storageRepo = new BrowserStorageRepository();
 const geminiProvider = new GeminiProvider();
+const v3App = new V3ProjectApplicationService();
 
 // Helper sleep function
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -777,10 +778,7 @@ async function handleStartChat() {
     // Category independent profiling (HIGH-001)
     const profile = profileProjectFromText(draft);
     appState.projectType = profile.domains[0]?.name || "universal";
-    appState.currentProjectState = getInitialCanonicalState();
-    appState.currentProjectState.identity.name = "Proje Taslağı";
-    appState.currentProjectState.identity.summary = draft;
-    appState.currentProjectState.profile = profile;
+    appState.currentProjectState = v3App.createProject(draft, profile);
 
     appState.techStack = elements.techStackInput.value.trim() || DEFAULTS.techStack;
     appState.techVersion = elements.techVersionSelect.value || DEFAULTS.techVersion;

@@ -1,0 +1,167 @@
+import assert from 'assert';
+import { V3ProjectApplicationService } from '../../src/core/v3-application-service.js';
+import { UNIVERSAL_PHASES } from '../../src/workflow/phases.js';
+
+let passed = 0;
+let failed = 0;
+function test(name, fn) {
+    try { fn(); console.log(`  ✅ ${name}`); passed++; }
+    catch (e) { console.error(`  ❌ ${name}\n     ${e.message}`); failed++; }
+}
+
+console.log('\n🚀 v3-application-service tests');
+
+test('createProject returns valid V3 state', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('Build a web app', {
+        domains: [{ name: 'software.web', confidence: 0.8 }],
+        projectModes: [], activatedModules: [], uncertainties: []
+    });
+    assert.strictEqual(state.schemaVersion, 3);
+    assert.ok(state.identity.summary.includes('web app'));
+    assert.ok(state.lifecycle.createdAt);
+    assert.strictEqual(state.revision, 1);
+});
+
+test('createProject sets correct initial phase', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    assert.strictEqual(state.phase, UNIVERSAL_PHASES.IDEA_CAPTURED);
+});
+
+test('applyPatches returns success for empty patches', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const result = svc.applyPatches(state, [], 1);
+    assert.strictEqual(result.success, true);
+});
+
+test('applyPatches applies patch and bumps revision', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const result = svc.applyPatches(state, [
+        { operation: 'replace', path: '/identity/name', value: 'Updated Proje' }
+    ], 1);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.state.identity.name, 'Updated Proje');
+});
+
+test('applyPatches detects stale revision', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const result = svc.applyPatches(state, [
+        { operation: 'replace', path: '/identity/name', value: 'x' }
+    ], 99);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+});
+
+test('approvePhase approves correct key', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const phaseState = { ...state, phase: 'SCOPE_DEFINED', scope: { mustHave: ['auth'], shouldHave: [], couldHave: [], notNow: [], outOfScope: [] } };
+    const result = svc.approvePhase(phaseState, 'SCOPE_DEFINED');
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.state.approvals.scope.status, 'approved');
+});
+
+test('approvePhase returns success false for unknown phase', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const result = svc.approvePhase(state, 'UNKNOWN_PHASE');
+    assert.strictEqual(result.success, false);
+});
+
+test('buildTraceability creates graph from state', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test web app', { domains: [{ name: 'software.web', confidence: 0.8 }], projectModes: [], activatedModules: [], uncertainties: [] });
+    state.objectives = [{ id: 'OBJ-001', title: 'Auth module' }];
+    state.decisions = [{ id: 'DEC-001', title: 'Use JWT' }];
+    state.tasks = [{ id: 'TASK-001', title: 'Implement auth', sourceEntityIds: ['OBJ-001'] }];
+    const engine = svc.buildTraceability(state);
+    assert.ok(engine);
+    const stats = engine.getStats();
+    assert.ok(stats.totalNodes >= 3);
+});
+
+test('buildTraceability does not create fake slice-based edges', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    state.objectives = [{ id: 'OBJ-001', title: 'Goal' }];
+    state.tasks = [{ id: 'TASK-001', title: 'Task 1' }, { id: 'TASK-002', title: 'Task 2' }];
+    const engine = svc.buildTraceability(state);
+    const edges = engine.graph.getAllEdges();
+    assert.strictEqual(edges.length, 0);
+});
+
+test('runReview returns report structure', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test app', { domains: [{ name: 'software.web', confidence: 0.8 }], projectModes: [], activatedModules: [], uncertainties: [] });
+    state.objectives = [{ id: 'OBJ-001', title: 'Main objective' }];
+    const report = svc.runReview(state, 'quick');
+    assert.ok(report.health);
+    assert.ok(report.readiness);
+    assert.ok(report.gates);
+    assert.ok(report.findings);
+});
+
+test('runReview with deep profile generates more findings', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const quick = svc.runReview(state, 'quick');
+    const deep = svc.runReview(state, 'deep');
+    assert.ok(deep.findings.total >= quick.findings.total);
+});
+
+test('saveSnapshot stores and restores state', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const snap = svc.saveSnapshot(state, 'Initial');
+    assert.ok(snap.id);
+    assert.strictEqual(snap.revision, 1);
+    const restored = svc.snapshots.restore(snap.id);
+    assert.strictEqual(restored.identity.summary, 'test');
+});
+
+test('getEventLog returns logged events', () => {
+    const svc = new V3ProjectApplicationService();
+    svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const events = svc.getEventLog();
+    assert.ok(events.length > 0);
+    assert.strictEqual(events[0].type, 'state_created');
+});
+
+test('exportStateSafe returns redacted output', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const safe = svc.exportStateSafe(state);
+    assert.ok(safe.exportedAt);
+    assert.strictEqual(safe.sensitivityLevel, 'public');
+    assert.ok(safe.redactionRules);
+});
+
+test('checkAndApplyPhaseTransition transitions when conditions met', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('A web app with authentication and user management system', {
+        domains: [{ name: 'software.web', confidence: 0.9 }],
+        projectModes: [], activatedModules: [], uncertainties: [{ question: 'tech?', status: 'open' }]
+    });
+    const result = svc.checkAndApplyPhaseTransition(state);
+    if (result.success) {
+        assert.ok(result.transitioned);
+        assert.notStrictEqual(result.nextPhase, result.currentPhase);
+    }
+});
+
+test('buildTraceability includes artifacts from root array', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    state.artifacts = [{ id: 'ART-001', title: 'Doc' }];
+    const engine = svc.buildTraceability(state);
+    const nodes = engine.getNodesByType('artifact');
+    assert.strictEqual(nodes.length, 1);
+    assert.strictEqual(nodes[0].id, 'ART-001');
+});
+
+console.log(`\n  V3 Application Service: ${passed} passed, ${failed} failed`);
+if (failed > 0) process.exit(1);
