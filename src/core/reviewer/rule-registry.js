@@ -184,12 +184,20 @@ export class RuleRegistry {
             { id: 'TRACE-001', category: REVIEW_CATEGORIES.TRACEABILITY, severity: SEVERITY.HIGH,
               title: 'Kritik gereksinimler görevlere bağlı olmalı', moduleId: 'universal',
               message: 'Kritik gereksinimlerin uygulama görevi bulunmuyor',
-              check: ctx => true }, // Delegate to coverage calculator
+              check: ctx => {
+                  const cov = ctx.traceCoverage;
+                  if (!cov) return true;
+                  return cov.requirements.taskCoverage >= 80;
+              } },
 
             { id: 'TRACE-002', category: REVIEW_CATEGORIES.TRACEABILITY, severity: SEVERITY.MEDIUM,
               title: 'Kritik gereksinimler testlere bağlı olmalı', moduleId: 'universal',
               message: 'Kritik gereksinimlerin doğrulama bağlantısı eksik',
-              check: ctx => true },
+              check: ctx => {
+                  const cov = ctx.traceCoverage;
+                  if (!cov) return true;
+                  return cov.requirements.testCoverage >= 60;
+              } },
 
             // Approval rules
             { id: 'APPR-001', category: REVIEW_CATEGORIES.APPROVAL, severity: SEVERITY.HIGH,
@@ -245,7 +253,6 @@ export class RuleRegistry {
               title: 'Proje sağlık skoru export eşiğini geçmeli', moduleId: 'universal',
               message: 'Proje sağlık skoru export için yetersiz',
               check: ctx => {
-                  if (ctx.healthScore !== undefined) return ctx.healthScore >= 60;
                   const approvals = ctx.state?.approvals || {};
                   const allRequired = ['profile', 'scope', 'objectives', 'deliverables', 'executionPlan', 'finalReview'];
                   const subApproved = allRequired.filter(k => approvals[k]?.status === 'approved').length;

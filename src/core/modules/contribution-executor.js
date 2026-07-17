@@ -12,6 +12,14 @@ export class ContributionExecutor {
         const patches = [];
         let resultState = state;
         const seenArtifactNames = new Set();
+        for (const art of (state.artifacts || [])) {
+            const key = (art.title || art.name || '').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+            if (key) seenArtifactNames.add(key);
+        }
+        for (const esArt of (state.entityStores?.artifact || [])) {
+            const key = (esArt.title || esArt.name || '').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+            if (key) seenArtifactNames.add(key);
+        }
 
         for (const type of CONTRIBUTION_TYPES) {
             const items = summary[type];
@@ -33,8 +41,17 @@ export class ContributionExecutor {
         const result = this.registry.resolveDependencies(moduleIds);
         const ordered = [];
         const added = new Set();
+        const inputSet = new Set(moduleIds);
         for (const id of result.resolved) {
-            if (moduleIds.includes(id) && !added.has(id)) {
+            if (!inputSet.has(id) && result.required?.includes(id)) {
+                if (!added.has(id)) {
+                    ordered.push(id);
+                    added.add(id);
+                }
+            }
+        }
+        for (const id of result.resolved) {
+            if (inputSet.has(id) && !added.has(id)) {
                 ordered.push(id);
                 added.add(id);
             }

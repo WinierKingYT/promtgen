@@ -11,6 +11,7 @@ import { getUniversalPack, getSoftwareWebPack, getGamePack, getResearchPack, get
 import { EventLog, EVENT_TYPES } from './state/event-log.js';
 import { StateSnapshot } from './state/state-engine.js';
 import { StatePrivacy, SENSITIVITY_LEVELS } from './state/state-privacy.js';
+import { normalizeAIResponse, createEmptyResponse } from '../ai/chat-contract.js';
 import * as DiscoveryEngine from '../discovery/discovery-engine.js';
 import * as DecisionEngine from '../decision/decision-engine.js';
 import * as ArtifactEngine from '../artifact/artifact-engine.js';
@@ -55,12 +56,17 @@ export class V3ProjectApplicationService {
         state.lifecycle.createdAt = new Date().toISOString();
         state.lifecycle.updatedAt = state.lifecycle.createdAt;
 
+        const domainIds = (profile.domains || []).map(d => d.id || d.name).filter(Boolean);
+        const techIds = (profile.techStack || []).map(t => t.id || t.name).filter(Boolean);
+        state.configuration = state.configuration || {};
+        state.configuration.activeModuleIds = [...new Set([...(state.configuration.activeModuleIds || []), ...domainIds, ...techIds, 'universal'])];
+
         const revision = 1;
         state.revision = revision;
 
         this.eventLog.log(EVENT_TYPES.STATE_CREATED, {
             description: 'Yeni V3 projesi oluşturuldu',
-            data: { phase: state.phase, draftLength: draftText.length }
+            data: { phase: state.phase, draftLength: draftText.length, activeModules: state.configuration.activeModuleIds }
         }, { revision });
 
         return state;
@@ -170,15 +176,21 @@ export class V3ProjectApplicationService {
     createDecision(state, decisionData) {
         const rev = state.revision;
         const dec = DecisionEngine.createDecision(decisionData, rev);
-        const newState = JSON.parse(JSON.stringify(state));
-        if (!Array.isArray(newState.decisions)) newState.decisions = [];
-        newState.decisions.push(dec);
-        newState.revision = rev + 1;
+        const patch = { operation: 'add', path: '/decisions/-', value: dec, id: `create-decision-${dec.id}` };
+        const txResult = applyPatchTransaction({
+            state: JSON.parse(JSON.stringify(state)),
+            patches: [patch],
+            stage: state.phase,
+            expectedRevision: rev
+        });
+        if (!txResult.success) {
+            return { decision: dec, state, error: txResult.error };
+        }
         this.eventLog.log(EVENT_TYPES.ENTITY_UPDATED, {
             entityId: dec.id,
             data: { type: 'decision', title: dec.title }
-        }, { revision: newState.revision });
-        return { decision: dec, state: newState };
+        }, { revision: txResult.state.revision });
+        return { decision: dec, state: txResult.state };
     }
 
     runDiscovery(state, answerMap = {}) {
@@ -212,21 +224,172 @@ export class V3ProjectApplicationService {
     createTask(state, taskData) {
         const rev = state.revision;
         const task = TaskEngine.createTask(taskData, rev);
-        const newState = JSON.parse(JSON.stringify(state));
-        if (!Array.isArray(newState.tasks)) newState.tasks = [];
-        newState.tasks.push(task);
-        newState.revision = rev + 1;
+        const patch = { operation: 'add', path: '/tasks/-', value: task, id: `create-task-${task.id}` };
+        const txResult = applyPatchTransaction({
+            state: JSON.parse(JSON.stringify(state)),
+            patches: [patch],
+            stage: state.phase,
+            expectedRevision: rev
+        });
+        if (!txResult.success) {
+            return { task, state, error: txResult.error };
+        }
         this.eventLog.log(EVENT_TYPES.ENTITY_UPDATED, {
             entityId: task.id,
             data: { type: 'task', title: task.title }
-        }, { revision: newState.revision });
-        return { task, state: newState };
+        }, { revision: txResult.state.revision });
+        return { task, state: txResult.state };
     }
 
     createPrompt(state, promptData) {
         const rev = state.revision;
         const prompt = PromptEngine.createPrompt(promptData, rev);
         return { prompt, state };
+    }
+
+    processTurn({ state, userMessage = '', aiResponse = null, expectedRevision } = {}) {
+        this.initialize();
+        if (!state) return { success: false, error: 'State gerekli' };
+
+        const log = [];
+        let currentState = JSON.parse(JSON.stringify(state));
+        const currentRevision = expectedRevision !== undefined ? expectedRevision : state.revision;
+
+        // 1. Normalize AI response (handles both legacy and V3 formats)
+        const normalized = aiResponse ? normalizeAIResponse(aiResponse) : createEmptyResponse();
+
+        // 2. Validate response schema
+        const validationErrors = this._validateProposal(normalized);
+        if (validationErrors.length > 0) {
+            return {
+                success: false,
+                error: `AI yanıtı geçersiz: ${validationErrors.join('; ')}`,
+                normalized,
+                validationErrors,
+                state: currentState
+            };
+        }
+
+        // 3. Apply proposed patches via transaction
+        const patches = normalized.proposedPatches || [];
+        if (patches.length > 0) {
+            const txResult = applyPatchTransaction({
+                state: currentState,
+                patches,
+                stage: currentState.phase,
+                expectedRevision: currentRevision
+            });
+            if (txResult.success) {
+                currentState = txResult.state;
+                for (const key of txResult.invalidatedApprovals) {
+                    this.eventLog.log(EVENT_TYPES.APPROVAL_INVALIDATED, {
+                        approvalKey: key,
+                        data: { reason: 'patch_triggered' }
+                    }, { revision: currentState.revision });
+                }
+                log.push({ step: 'patches', count: patches.length, invalidated: txResult.invalidatedApprovals?.length || 0 });
+            } else {
+                return { success: false, error: `Patch uygulanamadı: ${txResult.error}`, normalized, state: currentState };
+            }
+        }
+
+        // 4. Run pipeline (module contributions, discovery, indexing)
+        const pipelineResult = this.runPipeline(currentState, userMessage);
+        currentState = pipelineResult.state;
+        log.push(...pipelineResult.log);
+
+        // 5. Build pending proposals for decisions/artifacts/tasks from normalized response
+        const pendingProposals = {
+            baseRevision: currentState.revision,
+            patches,
+            decisions: normalized.proposedDecisions || [],
+            artifacts: normalized.proposedArtifacts || [],
+            tasks: normalized.proposedTasks || [],
+            traceLinks: normalized.proposedTraceLinks || [],
+            actions: normalized.suggestedActions || []
+        };
+
+        // 6. Rebuild traceability and reviewer
+        this.traceability = this.buildTraceability(currentState);
+        this.reviewer = this.createReviewer(this.traceability);
+
+        this.eventLog.log('PROCESS_TURN', {
+            data: {
+                userMessageLength: userMessage.length,
+                patches: patches.length,
+                decisions: pendingProposals.decisions.length,
+                tasks: pendingProposals.tasks.length,
+                gaps: pipelineResult.gaps?.length || 0
+            }
+        }, { revision: currentState.revision });
+
+        return {
+            success: true,
+            state: currentState,
+            normalized,
+            pendingProposals,
+            gaps: pipelineResult.gaps || [],
+            readiness: pipelineResult.readiness || null,
+            log
+        };
+    }
+
+    acceptPatches(state, patches, expectedRevision) {
+        return this.applyPatches(state, patches, expectedRevision);
+    }
+
+    acceptAllProposals(state, pendingProposals, expectedRevision) {
+        const allPatches = [...(pendingProposals.patches || [])];
+        for (const dec of (pendingProposals.decisions || [])) {
+            const path = '/decisions/-';
+            allPatches.push({ operation: 'add', path, value: dec, id: `dec-${dec.id || Date.now()}` });
+        }
+        for (const art of (pendingProposals.artifacts || [])) {
+            const path = '/artifacts/-';
+            allPatches.push({ operation: 'add', path, value: art, id: `art-${art.id || Date.now()}` });
+            allPatches.push({ operation: 'add', path: '/entityStores/artifact/-', value: { ...art }, id: `es-art-${art.id || Date.now()}` });
+        }
+        for (const task of (pendingProposals.tasks || [])) {
+            const path = '/tasks/-';
+            allPatches.push({ operation: 'add', path, value: task, id: `task-${task.id || Date.now()}` });
+        }
+        return this.applyPatches(state, allPatches, expectedRevision);
+    }
+
+    rejectProposals(state, pendingProposals) {
+        return {
+            success: true,
+            state,
+            rejected: {
+                patches: pendingProposals.patches?.length || 0,
+                decisions: pendingProposals.decisions?.length || 0,
+                artifacts: pendingProposals.artifacts?.length || 0,
+                tasks: pendingProposals.tasks?.length || 0
+            }
+        };
+    }
+
+    _validateProposal(normalized) {
+        const errors = [];
+        if (!normalized.conversationResponse || typeof normalized.conversationResponse.text !== 'string') {
+            errors.push('conversationResponse.text eksik veya string değil');
+        }
+        if (!Array.isArray(normalized.proposedPatches)) {
+            errors.push('proposedPatches dizi olmalı');
+        }
+        if (!Array.isArray(normalized.proposedDecisions)) {
+            errors.push('proposedDecisions dizi olmalı');
+        }
+        if (!Array.isArray(normalized.proposedArtifacts)) {
+            errors.push('proposedArtifacts dizi olmalı');
+        }
+        if (!Array.isArray(normalized.proposedTasks)) {
+            errors.push('proposedTasks dizi olmalı');
+        }
+        if (!Array.isArray(normalized.proposedTraceLinks)) {
+            errors.push('proposedTraceLinks dizi olmalı');
+        }
+        return errors;
     }
 
     _indexEntities(state) {

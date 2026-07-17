@@ -21,6 +21,12 @@ export class ReviewEngine {
 
     runReview(context, profile = 'standard') {
         const ctx = this._buildContext(context);
+        const previousFindings = this.findings.getFindings();
+
+        const existingResolved = previousFindings.filter(f =>
+            f.status === 'resolved' || f.status === 'dismissed' || f.status === 'false_positive' || f.status === 'superseded'
+        );
+
         this.findings.clear();
 
         let rulesToRun;
@@ -39,12 +45,17 @@ export class ReviewEngine {
             }
             const result = this.rules.evaluateRule(rule, ctx);
             if (!result.passed && result.finding) {
+                result.finding.reviewRunId = Date.now().toString();
                 this.findings.addFinding(result.finding);
             }
         }
 
         if (this.traceability && (profile !== 'quick')) {
             this._runTraceabilityChecks(ctx);
+        }
+
+        for (const resolved of existingResolved) {
+            this.findings.addFinding({ ...resolved });
         }
 
         const allFindings = this.findings.getFindings();
@@ -167,6 +178,11 @@ export class ReviewEngine {
             for (const [type, entities] of Object.entries(ctx.state.entityStores)) {
                 if (Array.isArray(entities)) ctx.entities.push(...entities);
             }
+        }
+
+        if (this.traceability) {
+            const report = this.traceability.getFullReport();
+            ctx.traceCoverage = report.coverage;
         }
 
         return ctx;

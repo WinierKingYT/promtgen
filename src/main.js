@@ -1,8 +1,7 @@
 import { getInitialV3State, applyV3StatePatch } from './state/project-state-v3.js';
 import { migrateProjectState } from './state/state-migrations.js';
 import { AppStateManager, INITIAL_APP_STATE } from './state/app-state.js';
-import { applyPatchTransaction } from './application/patch-transaction.js';
-import { APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid, approveArtifact } from './application/approval-service.js';
+import { APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid } from './application/approval-service.js';
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
 import { normalizeAIResponse } from './ai/chat-contract.js';
@@ -718,18 +717,32 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
                 result = generateOfflineConversationalResponse(`[dosya yüklendi] ${file.name}`);
             }
 
-            appState.messages.push({ role: 'model', content: result.conversationResponse.text });
-            appState.proposedPatches = result.proposedPatches || [];
-            appState.suggestedNextStage = result.suggestedPhaseTransition || '';
+            const turnResult = v3App.processTurn({
+                state: appState.currentProjectState,
+                userMessage: `[dosya yüklendi] ${file.name}`,
+                aiResponse: result,
+                expectedRevision: appState.currentProjectState.revision
+            });
+
+            if (!turnResult.success) {
+                showToast(`İşlem hatası: ${turnResult.error}`, true);
+                return;
+            }
+
+            appState.currentProjectState = turnResult.state;
+            appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
+            appState.proposedPatches = turnResult.pendingProposals.patches || [];
+            appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
             appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+            appState.pendingProposals = turnResult.pendingProposals || null;
 
             renderChatMessages();
             renderProposedPatches();
             updateApprovalGateBanner();
 
             if (appState.currentData) {
-
-        }
+                displayResults(appState.currentData);
+            }
             
             // Workflow transition checks
             const currentStage = getStageOrPhase(appState.currentProjectState);
@@ -812,10 +825,24 @@ async function handleStartChat() {
             result = generateOfflineConversationalResponse();
         }
 
-        appState.messages.push({ role: 'model', content: result.conversationResponse.text });
-        appState.proposedPatches = result.proposedPatches || [];
-        appState.suggestedNextStage = result.suggestedPhaseTransition || '';
+        const turnResult = v3App.processTurn({
+            state: appState.currentProjectState,
+            userMessage: draft,
+            aiResponse: result,
+            expectedRevision: appState.currentProjectState.revision
+        });
+
+        if (!turnResult.success) {
+            showToast(`İşlem hatası: ${turnResult.error}`, true);
+            return;
+        }
+
+        appState.currentProjectState = turnResult.state;
+        appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
+        appState.proposedPatches = turnResult.pendingProposals.patches || [];
+        appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+        appState.pendingProposals = turnResult.pendingProposals || null;
 
         renderChatMessages();
         renderProposedPatches();
@@ -839,10 +866,18 @@ async function handleStartChat() {
         
         await sleep(1000);
         const result = generateOfflineConversationalResponse();
-        appState.messages.push({ role: 'model', content: result.conversationResponse.text });
-        appState.proposedPatches = result.proposedPatches || [];
-        appState.suggestedNextStage = result.suggestedPhaseTransition || '';
+        const turnResult = v3App.processTurn({
+            state: appState.currentProjectState,
+            userMessage: draft,
+            aiResponse: result,
+            expectedRevision: appState.currentProjectState.revision
+        });
+        appState.currentProjectState = turnResult.state;
+        appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
+        appState.proposedPatches = turnResult.pendingProposals.patches || [];
+        appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+        appState.pendingProposals = turnResult.pendingProposals || null;
         
         renderChatMessages();
         renderProposedPatches();
@@ -888,10 +923,24 @@ async function handleSendChatMessage() {
             result = generateOfflineConversationalResponse(text);
         }
 
-        appState.messages.push({ role: 'model', content: result.conversationResponse.text });
-        appState.proposedPatches = result.proposedPatches || [];
-        appState.suggestedNextStage = result.suggestedPhaseTransition || '';
+        const turnResult = v3App.processTurn({
+            state: appState.currentProjectState,
+            userMessage: text,
+            aiResponse: result,
+            expectedRevision: appState.currentProjectState.revision
+        });
+
+        if (!turnResult.success) {
+            showToast(`İşlem hatası: ${turnResult.error}`, true);
+            return;
+        }
+
+        appState.currentProjectState = turnResult.state;
+        appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
+        appState.proposedPatches = turnResult.pendingProposals.patches || [];
+        appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
         appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+        appState.pendingProposals = turnResult.pendingProposals || null;
 
         renderChatMessages();
         renderProposedPatches();
@@ -2150,13 +2199,11 @@ function initPatchProposalListeners() {
         const patch = appState.proposedPatches[patchIndex];
 
         if (btnAccept) {
-            // Apply single patch to canonical state transactionally
-            const txResult = applyPatchTransaction({
-                state: appState.currentProjectState,
-                patches: [patch],
-                stage: getStageOrPhase(appState.currentProjectState),
-                expectedRevision: appState.currentProjectState.revision
-            });
+            const txResult = v3App.acceptPatches(
+                appState.currentProjectState,
+                [patch],
+                appState.currentProjectState.revision
+            );
 
             if (txResult.success) {
                 appState.currentProjectState = txResult.state;
@@ -2220,13 +2267,12 @@ function initPatchProposalListeners() {
         btnAcceptAll.addEventListener('click', () => {
             if (!appState.proposedPatches || appState.proposedPatches.length === 0) return;
             
-            // Apply all proposed patches atomically
-            const txResult = applyPatchTransaction({
-                state: appState.currentProjectState,
-                patches: appState.proposedPatches,
-                stage: getStageOrPhase(appState.currentProjectState),
-                expectedRevision: appState.currentProjectState.revision
-            });
+            const pending = appState.pendingProposals || { patches: appState.proposedPatches };
+            const txResult = v3App.acceptAllProposals(
+                appState.currentProjectState,
+                pending,
+                appState.currentProjectState.revision
+            );
 
             if (txResult.success) {
                 appState.currentProjectState = txResult.state;
@@ -2313,12 +2359,16 @@ function handleApproveCurrentStage() {
     const approvalKey = getApprovalKeyForStage(stage);
     if (!approvalKey) return;
 
-    appState.currentProjectState = approveArtifact(appState.currentProjectState, approvalKey, 'Kullanıcı onayı');
-
-    showToast(`${getStageLabel(stage)} aşaması onaylandı!`);
-    saveCurrentProjectState();
-    updateApprovalGateBanner();
-    triggerWorkflowTransitionCheck();
+    const result = v3App.approvePhase(appState.currentProjectState, stage);
+    if (result.success) {
+        appState.currentProjectState = result.state;
+        showToast(`${getStageLabel(stage)} aşaması onaylandı!`);
+        saveCurrentProjectState();
+        updateApprovalGateBanner();
+        triggerWorkflowTransitionCheck();
+    } else {
+        showToast(`Onay hatası: ${result.error}`, true);
+    }
 }
 
 function triggerWorkflowTransitionCheck() {
