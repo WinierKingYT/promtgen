@@ -35,6 +35,10 @@ export class ModuleRegistry {
     }
 
     resolveDependencies(moduleIds) {
+        return this.resolveRequiredDependencies(moduleIds);
+    }
+
+    resolveRequiredDependencies(moduleIds) {
         const resolved = new Set();
         const queue = [...moduleIds];
         const missing = [];
@@ -51,11 +55,6 @@ export class ModuleRegistry {
             for (const depId of mod.dependencies) {
                 if (!resolved.has(depId) && !queue.includes(depId)) queue.push(depId);
             }
-            for (const depId of mod.optionalDependencies) {
-                if (this._modules.has(depId) && !resolved.has(depId) && !queue.includes(depId)) {
-                    queue.push(depId);
-                }
-            }
         }
 
         return {
@@ -63,6 +62,31 @@ export class ModuleRegistry {
             missing,
             resolvedModules: [...resolved].map(id => this._modules.get(id)).filter(Boolean)
         };
+    }
+
+    suggestOptionalDependencies(moduleIds) {
+        const suggestions = [];
+        const processed = new Set();
+
+        for (const id of moduleIds) {
+            const mod = this._modules.get(id);
+            if (!mod) continue;
+            if (processed.has(id)) continue;
+            processed.add(id);
+
+            for (const depId of mod.optionalDependencies) {
+                if (!moduleIds.includes(depId) && this._modules.has(depId)) {
+                    suggestions.push({
+                        moduleId: depId,
+                        name: this._modules.get(depId).name,
+                        requiredBy: id,
+                        reason: mod.optionalDependencies?.find(d => d === depId)?.reason || `${mod.name} için opsiyonel modül`
+                    });
+                }
+            }
+        }
+
+        return suggestions;
     }
 
     detectConflicts(moduleIds) {
@@ -89,14 +113,23 @@ export class ModuleRegistry {
     }
 
     validateCompatibility(moduleIds) {
-        const deps = this.resolveDependencies(moduleIds);
+        const deps = this.resolveRequiredDependencies(moduleIds);
         const conflicts = this.detectConflicts(moduleIds);
+        const warnings = [
+            ...this._generateWarnings(moduleIds),
+            ...this.suggestOptionalDependencies(moduleIds).map(s => ({
+                type: 'optional_suggestion',
+                moduleId: s.requiredBy,
+                suggestedModule: s.moduleId,
+                message: `${s.name} opsiyonel olarak öneriliyor (${s.requiredBy})`
+            }))
+        ];
 
         return {
             valid: deps.missing.length === 0 && conflicts.length === 0,
             missing: deps.missing,
             conflicts,
-            warnings: this._generateWarnings(moduleIds)
+            warnings
         };
     }
 

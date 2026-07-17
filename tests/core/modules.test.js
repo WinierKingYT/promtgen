@@ -93,12 +93,47 @@ test('resolveDependencies reports missing', () => {
     assert.ok(result.missing.includes('missing'));
 });
 
-test('resolveDependencies adds optional deps', () => {
+test('resolveDependencies adds optional deps (legacy alias)', () => {
     const reg = new ModuleRegistry();
     reg.register({ id: 'a', name: 'A', dependencies: [], optionalDependencies: ['b'] });
     reg.register({ id: 'b', name: 'B', dependencies: [] });
     const result = reg.resolveDependencies(['a']);
-    assert.ok(result.resolved.includes('b'));
+    // Legacy resolveDependencies delegates to resolveRequiredDependencies, should NOT include optional
+    assert.ok(!result.resolved.includes('b'));
+});
+
+test('resolveRequiredDependencies does NOT resolve optional deps', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', dependencies: [], optionalDependencies: ['b'] });
+    reg.register({ id: 'b', name: 'B', dependencies: [] });
+    const result = reg.resolveRequiredDependencies(['a']);
+    assert.ok(result.resolved.includes('a'));
+    assert.ok(!result.resolved.includes('b'));
+});
+
+test('suggestOptionalDependencies returns suggestions', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', dependencies: [], optionalDependencies: ['b'] });
+    reg.register({ id: 'b', name: 'B', dependencies: [] });
+    const suggestions = reg.suggestOptionalDependencies(['a']);
+    assert.strictEqual(suggestions.length, 1);
+    assert.strictEqual(suggestions[0].moduleId, 'b');
+    assert.strictEqual(suggestions[0].requiredBy, 'a');
+});
+
+test('suggestOptionalDependencies returns empty for no optional deps', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', dependencies: [] });
+    const suggestions = reg.suggestOptionalDependencies(['a']);
+    assert.strictEqual(suggestions.length, 0);
+});
+
+test('suggestOptionalDependencies skips already active modules', () => {
+    const reg = new ModuleRegistry();
+    reg.register({ id: 'a', name: 'A', dependencies: [], optionalDependencies: ['b'] });
+    reg.register({ id: 'b', name: 'B', dependencies: [] });
+    const suggestions = reg.suggestOptionalDependencies(['a', 'b']);
+    assert.strictEqual(suggestions.length, 0);
 });
 
 test('detectConflicts finds conflicts', () => {

@@ -374,7 +374,7 @@ test('acceptProposalItem accepts only the selected decision, keeps patch', () =>
 
 test('acceptProposalItem with stageTransition filters it from remaining', () => {
     const svc = new V3ProjectApplicationService();
-    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const state = svc.createProject('test project idea', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
     const pending = {
         baseRevision: 1,
         patches: [],
@@ -383,15 +383,14 @@ test('acceptProposalItem with stageTransition filters it from remaining', () => 
         tasks: [],
         traceLinks: [],
         actions: [],
-        suggestedPhaseTransition: 'DISCOVERY_IN_PROGRESS',
+        suggestedPhaseTransition: 'PROJECT_PROFILED',
         createdAt: new Date().toISOString()
     };
-    // For stageTransition, acceptProposalItem builds a bundle with suggestedPhaseTransition
-    // but acceptProposalBundle only patches patches/decisions/artifacts/tasks/traceLinks
-    // So the result should be success (empty bundle = no-op success) and remaining has no transition
     const result = svc.acceptProposalItem(state, pending, 'stageTransition', 'stage-transition', 1);
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.remainingProposals.suggestedPhaseTransition, null);
+    // Phase should have transitioned
+    assert.strictEqual(result.state.phase, 'PROJECT_PROFILED');
 });
 
 test('_findBundleItem finds items by type and id', () => {

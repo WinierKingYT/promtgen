@@ -7,6 +7,22 @@ export class FindingStore {
     }
 
     addFinding(finding) {
+        // Preserve existing finding by ruleId if present
+        if (finding.ruleId) {
+            const existing = [...this._findings.values()].find(f => f.ruleId === finding.ruleId);
+            if (existing) {
+                existing.updatedAt = new Date().toISOString();
+                existing.projectRevision = finding.projectRevision || existing.projectRevision;
+                existing.message = finding.message || existing.message;
+                existing.description = finding.description || existing.description;
+                existing.affectedEntities = finding.affectedEntities || existing.affectedEntities;
+                existing.evidence = finding.evidence || existing.evidence;
+                existing.impact = finding.impact || existing.impact;
+                existing.recommendedActions = finding.recommendedActions || existing.recommendedActions;
+                existing.metadata = { ...existing.metadata, ...(finding.metadata || {}) };
+                return existing;
+            }
+        }
         this._counter++;
         const id = finding.id || `FIND-${String(this._counter).padStart(4, '0')}`;
         const entry = {
@@ -21,7 +37,7 @@ export class FindingStore {
             evidence: finding.evidence || [],
             impact: finding.impact || [],
             recommendedActions: finding.recommendedActions || [],
-            status: FINDING_STATUS.OPEN,
+            status: finding.status || FINDING_STATUS.OPEN,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             projectRevision: finding.projectRevision || 0,

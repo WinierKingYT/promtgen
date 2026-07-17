@@ -2,6 +2,7 @@ import { getInitialV3State, applyV3StatePatch } from '../state/project-state-v3.
 import { applyPatchTransaction } from '../application/patch-transaction.js';
 import { approveArtifact } from '../application/approval-service.js';
 import { checkPhaseTransition } from '../workflow/transitions.js';
+import { getPhaseNext } from '../workflow/phase-contracts.js';
 import { TraceabilityEngine } from './traceability/traceability-engine.js';
 import { NODE_TYPES, EDGE_TYPES } from './traceability/traceability-types.js';
 import { ReviewEngine } from './reviewer/review-engine.js';
@@ -412,6 +413,24 @@ export class V3ProjectApplicationService {
         if (!state) return { success: false, error: 'State gerekli' };
         if (!pendingProposals) return { success: false, error: 'pendingProposals gerekli' };
 
+        // Handle stage transition via dedicated command
+        if (pendingProposals.suggestedPhaseTransition) {
+            const phaseResult = this.acceptPhaseTransition(state, pendingProposals.suggestedPhaseTransition, expectedRevision);
+            if (!phaseResult.success) {
+                return { success: false, error: `Aşama geçişi başarısız: ${phaseResult.error}`, state };
+            }
+            return {
+                success: true,
+                state: phaseResult.state,
+                appliedPatches: [],
+                invalidatedApprovals: [],
+                phaseTransition: {
+                    from: phaseResult.fromPhase,
+                    to: phaseResult.toPhase
+                }
+            };
+        }
+
         // 1. Base revision check
         const baseRev = pendingProposals.baseRevision;
         if (expectedRevision !== undefined && expectedRevision !== baseRev) {
@@ -502,6 +521,10 @@ export class V3ProjectApplicationService {
             if (!patch.path || typeof patch.path !== 'string') {
                 errors.push(`Patch yolu eksik: ${patch.id || '?'}`);
             }
+            if (patch.id) {
+                if (seenIds.has(patch.id)) errors.push(`Patch ID çakışıyor: ${patch.id}`);
+                seenIds.add(patch.id);
+            }
         }
 
         // Validate decisions
@@ -542,6 +565,9 @@ export class V3ProjectApplicationService {
         for (const link of (pendingProposals.traceLinks || [])) {
             if (!link.source) errors.push(`Trace link kaynak node ID eksik`);
             if (!link.target) errors.push(`Trace link hedef node ID eksik`);
+            const linkId = link.id || `${link.source}→${link.target}`;
+            if (seenIds.has(linkId)) errors.push(`Trace link ID çakışıyor: ${linkId}`);
+            seenIds.add(linkId);
             if (link.type && !validEdgeTypes.has(link.type)) {
                 errors.push(`Geçersiz edge tipi: ${link.type}. Geçerli: ${[...validEdgeTypes].join(', ')}`);
             }
@@ -556,6 +582,8 @@ export class V3ProjectApplicationService {
         // Validate actions
         for (const action of (pendingProposals.actions || [])) {
             if (!action.id) errors.push(`Eylem ID eksik`);
+            if (action.id && seenIds.has(action.id)) errors.push(`Eylem ID çakışıyor: ${action.id}`);
+            if (action.id) seenIds.add(action.id);
             if (!action.action && !action.title) errors.push(`Eylem adı eksik: ${action.id || '?'}`);
         }
 
@@ -632,7 +660,7 @@ export class V3ProjectApplicationService {
             action: bundle.actions
         };
         if (itemType === 'stageTransition') {
-            return bundle.suggestedPhaseTransition ? { phase: bundle.suggestedPhaseTransition } : null;
+            return bundle.suggestedPhaseTransition || null;
         }
         const list = lists[itemType];
         if (!list) return null;
@@ -696,11 +724,14 @@ export class V3ProjectApplicationService {
             return { success: true, state, activated: [] };
         }
 
-        // Use patch transaction for activation
+        const remaining = suggested.filter(id => !toActivate.includes(id));
+
+        // Use patch transaction for activation and suggestion cleanup
         const txResult = applyPatchTransaction({
             state: JSON.parse(JSON.stringify(state)),
             patches: [
-                { operation: 'replace', path: '/configuration/activeModuleIds', value: [...current, ...toActivate], id: 'module-activation' }
+                { operation: 'replace', path: '/configuration/activeModuleIds', value: [...current, ...toActivate], id: 'module-activation' },
+                { operation: 'replace', path: '/configuration/suggestedModuleIds', value: remaining, id: 'module-suggested-cleanup' }
             ],
             stage: state.phase,
             expectedRevision: revision !== undefined ? revision : state.revision
@@ -711,10 +742,6 @@ export class V3ProjectApplicationService {
         }
 
         const newState = txResult.state;
-
-        // Remove activated IDs from suggested
-        const remaining = suggested.filter(id => !toActivate.includes(id));
-        newState.configuration.suggestedModuleIds = remaining;
 
         // Run contributions for the new modules (proposal-only)
         let contribPatches = [];
@@ -817,7 +844,7 @@ export class V3ProjectApplicationService {
 
         const currentPhase = state.phase;
         const check = checkPhaseTransition(state, currentPhase);
-        if (!check.allowed || check.nextStage === currentPhase) {
+        if (!check.allowed || check.nextPhase === currentPhase) {
             return { success: false, transitioned: false, currentPhase, nextPhase: check.nextStage, reason: check.reason || 'Geçiş koşulları sağlanmadı.' };
         }
 
@@ -829,15 +856,65 @@ export class V3ProjectApplicationService {
 
         this.eventLog.log(EVENT_TYPES.PHASE_TRANSITION, {
             fromPhase: currentPhase,
-            toPhase: check.nextStage,
+            toPhase: check.nextPhase,
             data: { reason: check.reason || '' }
         }, { revision: newState.revision });
 
-        return { success: true, transitioned: true, currentPhase, nextPhase: check.nextStage, state: newState };
+        return { success: true, transitioned: true, currentPhase, nextPhase: check.nextPhase, state: newState };
     }
 
     advancePhase(state) {
         return this.checkAndApplyPhaseTransition(state);
+    }
+
+    acceptPhaseTransition(state, proposedPhase, expectedRevision) {
+        this.initialize();
+        if (!state) return { success: false, error: 'State gerekli' };
+        if (!proposedPhase) return { success: false, error: 'Hedef aşama gerekli' };
+
+        if (expectedRevision !== undefined && expectedRevision !== state.revision) {
+            return { success: false, error: `Revision uyuşmazlığı: beklenen ${expectedRevision}, mevcut ${state.revision}` };
+        }
+
+        const currentPhase = state.phase;
+        const contractNext = getPhaseNext(currentPhase);
+        if (contractNext !== proposedPhase) {
+            return {
+                success: false,
+                error: `'${currentPhase}' fazından '${proposedPhase}' fazına geçilemez. Sıradaki: ${contractNext || 'yok'}`
+            };
+        }
+
+        const check = checkPhaseTransition(state, currentPhase);
+        if (!check.allowed || check.nextPhase !== proposedPhase) {
+            return {
+                success: false,
+                error: check.reason || `'${currentPhase}' → '${proposedPhase}' geçiş koşulları sağlanmadı.`,
+                transitioned: false
+            };
+        }
+
+        const newState = applyV3StatePatch(state, {
+            operation: 'replace',
+            path: '/phase',
+            value: proposedPhase
+        }, true);
+
+        this.eventLog.log(EVENT_TYPES.PHASE_TRANSITION, {
+            fromPhase: currentPhase,
+            toPhase: proposedPhase,
+            data: { reason: 'user_accepted_stage_transition_proposal' }
+        }, { revision: newState.revision });
+
+        this.traceability = this.buildTraceability(newState);
+        this.reviewer = this.createReviewer(this.traceability);
+
+        return {
+            success: true,
+            state: newState,
+            fromPhase: currentPhase,
+            toPhase: proposedPhase
+        };
     }
 
     buildTraceability(state) {

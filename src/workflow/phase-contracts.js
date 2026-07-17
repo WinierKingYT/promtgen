@@ -51,7 +51,8 @@ export const PHASE_CONTRACTS = {
         allowedPatchPaths: [
             '/identity', '/identity/*',
             '/profile', '/profile/*',
-            '/configuration', '/configuration/*'
+            '/configuration', '/configuration/*',
+            '/moduleData', '/moduleData/*'
         ]
     },
 
@@ -76,7 +77,8 @@ export const PHASE_CONTRACTS = {
             '/assumptions', '/assumptions/*',
             '/openQuestions', '/openQuestions/*',
             '/decisions', '/decisions/*',
-            '/configuration', '/configuration/*'
+            '/configuration', '/configuration/*',
+            '/moduleData', '/moduleData/*'
         ]
     },
 
@@ -99,7 +101,8 @@ export const PHASE_CONTRACTS = {
             '/assumptions', '/assumptions/*',
             '/openQuestions', '/openQuestions/*',
             '/decisions', '/decisions/*',
-            '/risks', '/risks/*'
+            '/risks', '/risks/*',
+            '/moduleData', '/moduleData/*'
         ]
     },
 
@@ -118,7 +121,8 @@ export const PHASE_CONTRACTS = {
         allowedPatchPaths: [
             '/scope', '/scope/*',
             '/assumptions', '/assumptions/*',
-            '/decisions', '/decisions/*'
+            '/decisions', '/decisions/*',
+            '/moduleData', '/moduleData/*'
         ]
     },
 
@@ -141,7 +145,8 @@ export const PHASE_CONTRACTS = {
             '/deliverables', '/deliverables/*',
             '/workstreams', '/workstreams/*',
             '/decisions', '/decisions/*',
-            '/risks', '/risks/*'
+            '/risks', '/risks/*',
+            '/moduleData', '/moduleData/*'
         ]
     },
 
