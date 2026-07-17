@@ -252,8 +252,7 @@ export class V3ProjectApplicationService {
         if (!state) return { success: false, error: 'State gerekli' };
 
         const log = [];
-        let currentState = JSON.parse(JSON.stringify(state));
-        const currentRevision = expectedRevision !== undefined ? expectedRevision : state.revision;
+        const originalRevision = expectedRevision !== undefined ? expectedRevision : state.revision;
 
         // 1. Normalize AI response (handles both legacy and V3 formats)
         const normalized = aiResponse ? normalizeAIResponse(aiResponse) : createEmptyResponse();
@@ -266,94 +265,155 @@ export class V3ProjectApplicationService {
                 error: `AI yanıtı geçersiz: ${validationErrors.join('; ')}`,
                 normalized,
                 validationErrors,
-                state: currentState
+                state
             };
         }
 
-        // 3. Apply proposed patches via transaction
+        log.push({ step: 'normalize', patches: normalized.proposedPatches?.length || 0 });
+
+        // 3. Validate patches against policy (pre-check, don't apply)
         const patches = normalized.proposedPatches || [];
-        if (patches.length > 0) {
-            const txResult = applyPatchTransaction({
-                state: currentState,
-                patches,
-                stage: currentState.phase,
-                expectedRevision: currentRevision
-            });
-            if (txResult.success) {
-                currentState = txResult.state;
-                for (const key of txResult.invalidatedApprovals) {
-                    this.eventLog.log(EVENT_TYPES.APPROVAL_INVALIDATED, {
-                        approvalKey: key,
-                        data: { reason: 'patch_triggered' }
-                    }, { revision: currentState.revision });
-                }
-                log.push({ step: 'patches', count: patches.length, invalidated: txResult.invalidatedApprovals?.length || 0 });
-            } else {
-                return { success: false, error: `Patch uygulanamadı: ${txResult.error}`, normalized, state: currentState };
-            }
+        const policyErrors = this._preValidatePatches(state, patches);
+        if (policyErrors.length > 0) {
+            return {
+                success: false,
+                error: `Patch politikası hatası: ${policyErrors.join('; ')}`,
+                normalized,
+                policyErrors,
+                state
+            };
         }
 
-        // 4. Run pipeline (module contributions, discovery, indexing)
-        const pipelineResult = this.runPipeline(currentState, userMessage);
-        currentState = pipelineResult.state;
-        log.push(...pipelineResult.log);
-
-        // 5. Build pending proposals for decisions/artifacts/tasks from normalized response
+        // 4. Build pending proposals (DO NOT modify state)
         const pendingProposals = {
-            baseRevision: currentState.revision,
+            baseRevision: originalRevision,
             patches,
             decisions: normalized.proposedDecisions || [],
             artifacts: normalized.proposedArtifacts || [],
             tasks: normalized.proposedTasks || [],
             traceLinks: normalized.proposedTraceLinks || [],
-            actions: normalized.suggestedActions || []
+            actions: normalized.suggestedActions || [],
+            suggestedPhaseTransition: normalized.suggestedPhaseTransition || null,
+            createdAt: new Date().toISOString()
         };
 
-        // 6. Rebuild traceability and reviewer
-        this.traceability = this.buildTraceability(currentState);
-        this.reviewer = this.createReviewer(this.traceability);
-
-        this.eventLog.log('PROCESS_TURN', {
+        this.eventLog.log('PROPOSAL_CREATED', {
             data: {
                 userMessageLength: userMessage.length,
                 patches: patches.length,
                 decisions: pendingProposals.decisions.length,
                 tasks: pendingProposals.tasks.length,
-                gaps: pipelineResult.gaps?.length || 0
+                traceLinks: pendingProposals.traceLinks.length
             }
-        }, { revision: currentState.revision, custom: true });
+        }, { revision: originalRevision, custom: true });
 
         return {
             success: true,
-            state: currentState,
+            state,
             normalized,
             pendingProposals,
-            gaps: pipelineResult.gaps || [],
-            readiness: pipelineResult.readiness || null,
+            gaps: [],
+            readiness: null,
             log
         };
     }
 
-    acceptPatches(state, patches, expectedRevision) {
-        return this.applyPatches(state, patches, expectedRevision);
-    }
+    acceptProposalBundle(state, pendingProposals, expectedRevision) {
+        this.initialize();
+        if (!state) return { success: false, error: 'State gerekli' };
+        if (!pendingProposals) return { success: false, error: 'pendingProposals gerekli' };
 
-    acceptAllProposals(state, pendingProposals, expectedRevision) {
+        // 1. Base revision check
+        const baseRev = pendingProposals.baseRevision;
+        if (expectedRevision !== undefined && expectedRevision !== baseRev) {
+            return { success: false, error: `Revision uyuşmazlığı: beklenen ${expectedRevision}, mevcut ${state.revision}` };
+        }
+
+        // 2. Build patches: proposed patches + decisions + artifacts + tasks + traceLinks
         const allPatches = [...(pendingProposals.patches || [])];
+
         for (const dec of (pendingProposals.decisions || [])) {
-            const path = '/decisions/-';
-            allPatches.push({ operation: 'add', path, value: dec, id: `dec-${dec.id || Date.now()}` });
+            allPatches.push({ operation: 'add', path: '/decisions/-', value: dec, id: `dec-${dec.id || Date.now()}` });
         }
         for (const art of (pendingProposals.artifacts || [])) {
-            const path = '/artifacts/-';
-            allPatches.push({ operation: 'add', path, value: art, id: `art-${art.id || Date.now()}` });
+            allPatches.push({ operation: 'add', path: '/artifacts/-', value: art, id: `art-${art.id || Date.now()}` });
             allPatches.push({ operation: 'add', path: '/entityStores/artifact/-', value: { ...art }, id: `es-art-${art.id || Date.now()}` });
         }
         for (const task of (pendingProposals.tasks || [])) {
-            const path = '/tasks/-';
-            allPatches.push({ operation: 'add', path, value: task, id: `task-${task.id || Date.now()}` });
+            allPatches.push({ operation: 'add', path: '/tasks/-', value: task, id: `task-${task.id || Date.now()}` });
         }
-        return this.applyPatches(state, allPatches, expectedRevision);
+        for (const link of (pendingProposals.traceLinks || [])) {
+            if (link.source && link.target) {
+                allPatches.push({
+                    operation: 'add',
+                    path: '/entityStores/traceLink/-',
+                    value: { source: link.source, target: link.target, type: link.type || 'implements', id: `TL-${Date.now()}` },
+                    id: `tl-${Date.now()}`
+                });
+            }
+        }
+
+        // 3. Apply all patches in single transaction
+        const txResult = applyPatchTransaction({
+            state: JSON.parse(JSON.stringify(state)),
+            patches: allPatches,
+            stage: state.phase,
+            expectedRevision: baseRev
+        });
+
+        if (!txResult.success) {
+            return { success: false, error: txResult.error, state };
+        }
+
+        const newState = txResult.state;
+
+        // 4. Event logging
+        for (const key of (txResult.invalidatedApprovals || [])) {
+            this.eventLog.log(EVENT_TYPES.APPROVAL_INVALIDATED, {
+                approvalKey: key, data: { reason: 'proposal_accepted' }
+            }, { revision: newState.revision });
+        }
+
+        this.eventLog.log('PROPOSAL_ACCEPTED', {
+            data: {
+                patches: allPatches.length,
+                decisions: (pendingProposals.decisions || []).length,
+                tasks: (pendingProposals.tasks || []).length,
+                traceLinks: (pendingProposals.traceLinks || []).length
+            }
+        }, { revision: newState.revision, custom: true });
+
+        // 5. Rebuild traceability and reviewer
+        this.traceability = this.buildTraceability(newState);
+        this.reviewer = this.createReviewer(this.traceability);
+
+        return {
+            success: true,
+            state: newState,
+            appliedPatches: txResult.appliedPatches || [],
+            invalidatedApprovals: txResult.invalidatedApprovals || []
+        };
+    }
+
+    _preValidatePatches(state, patches) {
+        const errors = [];
+        for (const patch of patches) {
+            if (!patch.operation) errors.push(`Patch'te operation eksik: ${patch.id || patch.path}`);
+            if (!patch.path) errors.push(`Patch'te path eksik: ${patch.id || patch.operation}`);
+            if (!['add', 'replace', 'remove'].includes(patch.operation)) {
+                errors.push(`Geçersiz operation: ${patch.operation}`);
+            }
+        }
+        return errors;
+    }
+
+    acceptPatches(state, patches, expectedRevision) {
+        const bundle = { baseRevision: expectedRevision, patches, decisions: [], artifacts: [], tasks: [], traceLinks: [], actions: [] };
+        return this.acceptProposalBundle(state, bundle, expectedRevision);
+    }
+
+    acceptAllProposals(state, pendingProposals, expectedRevision) {
+        return this.acceptProposalBundle(state, pendingProposals, expectedRevision);
     }
 
     rejectProposals(state, pendingProposals) {

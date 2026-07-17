@@ -180,8 +180,23 @@ test('processTurn with null aiResponse returns empty proposals', () => {
     const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
     const result = svc.processTurn({ state, aiResponse: null, expectedRevision: 1 });
     assert.strictEqual(result.success, true);
-    assert.ok(result.pendingProposals);
     assert.strictEqual(result.pendingProposals.patches.length, 0);
+    assert.strictEqual(result.state.revision, 1);
+});
+
+test('processTurn does NOT modify state (proposal-only)', () => {
+    const svc = new V3ProjectApplicationService();
+    const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
+    const originalName = state.identity.name;
+    const v3Response = {
+        conversationResponse: { text: 'test', actions: [] },
+        proposedPatches: [{ id: 'P-1', operation: 'replace', path: '/identity/name', value: 'DEĞİŞTİ' }],
+        proposedDecisions: []
+    };
+    const result = svc.processTurn({ state, aiResponse: v3Response, expectedRevision: 1 });
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.state.identity.name, originalName);
+    assert.strictEqual(result.pendingProposals.patches.length, 1);
 });
 
 test('processTurn with legacy format normalizes correctly', () => {
@@ -198,6 +213,7 @@ test('processTurn with legacy format normalizes correctly', () => {
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.normalized.conversationResponse.text, 'Merhaba! Projeniz hazır.');
     assert.strictEqual(result.pendingProposals.patches.length, 1);
+    assert.strictEqual(result.state.revision, 1);
 });
 
 test('processTurn with native V3 format', () => {
@@ -219,6 +235,7 @@ test('processTurn with native V3 format', () => {
     assert.strictEqual(result.pendingProposals.artifacts.length, 1);
     assert.strictEqual(result.pendingProposals.tasks.length, 1);
     assert.strictEqual(result.pendingProposals.traceLinks.length, 1);
+    assert.strictEqual(result.state.revision, 1);
 });
 
 test('processTurn handles missing response gracefully', () => {
@@ -229,21 +246,7 @@ test('processTurn handles missing response gracefully', () => {
     assert.strictEqual(result.pendingProposals.patches.length, 0);
 });
 
-test('processTurn applies patches and runs pipeline', () => {
-    const svc = new V3ProjectApplicationService();
-    const state = svc.createProject('test', { domains: [{ id: 'software.web', name: 'software.web', confidence: 0.8 }], projectModes: [], activatedModules: [], uncertainties: [] });
-    const v3Response = {
-        conversationResponse: { text: 'İsim güncellendi', actions: [] },
-        proposedPatches: [{ id: 'P-1', operation: 'replace', path: '/identity/name', value: 'Güncellenmiş Proje' }],
-        proposedDecisions: []
-    };
-    const result = svc.processTurn({ state, aiResponse: v3Response, expectedRevision: 1 });
-    assert.strictEqual(result.success, true);
-    assert.strictEqual(result.state.identity.name, 'Güncellenmiş Proje');
-    assert.ok(result.state.revision > 1);
-});
-
-test('acceptAllProposals applies patches and decisions', () => {
+test('acceptProposalBundle applies patches and traceLinks in one transaction', () => {
     const svc = new V3ProjectApplicationService();
     const state = svc.createProject('test', { domains: [], projectModes: [], activatedModules: [], uncertainties: [] });
     state.phase = 'PROJECT_PROFILED';
@@ -258,9 +261,10 @@ test('acceptAllProposals applies patches and decisions', () => {
         traceLinks: [],
         actions: []
     };
-    const result = svc.acceptAllProposals(state, pending, 1);
+    const result = svc.acceptProposalBundle(state, pending, 1);
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.state.profile.domains.length, 1);
+    assert.ok(result.state.revision > 1);
 });
 
 test('rejectProposals returns success with counts', () => {

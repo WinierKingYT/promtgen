@@ -5,6 +5,7 @@ import { APPROVAL_KEY_TO_ARTIFACT_PATH, isApprovalValid } from './application/ap
 import { BrowserStorageRepository } from './storage/browser-storage-repository.js';
 import { GeminiProvider } from './ai/gemini-provider.js';
 import { normalizeAIResponse, buildV3ProposalPrompt } from './ai/chat-contract.js';
+import { ProviderRegistry, PROVIDER_IDS } from './ai/provider-registry.js';
 import { WORKFLOW_STAGES, WORKFLOW_STAGE_METADATA } from './workflow/stages.js';
 import { STAGE_APPROVAL_KEYS } from './workflow/stage-contracts.js';
 import { checkWorkflowTransition, checkPhaseTransition } from './workflow/transitions.js';
@@ -32,8 +33,16 @@ appStateManager.loadApiKey();
 const appState = appStateManager.state;
 
 const storageRepo = new BrowserStorageRepository();
-const geminiProvider = new GeminiProvider();
+const providerRegistry = new ProviderRegistry();
 const v3App = new V3ProjectApplicationService();
+
+function getActiveProviderId() {
+    const selected = appState.selectedProvider || PROVIDER_IDS.GEMINI;
+    if (selected === PROVIDER_IDS.OFFLINE || !appState.apiKey || appState.apiKey.length <= 10) {
+        return PROVIDER_IDS.OFFLINE;
+    }
+    return selected;
+}
 
 // Helper sleep function
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -709,13 +718,7 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
         });
 
         try {
-            let result;
-            if (appState.apiKey && appState.apiKey.length > 10) {
-                result = await sendChatMessageToGemini();
-            } else {
-                await sleep(1500);
-                result = generateOfflineConversationalResponse(`[dosya yüklendi] ${file.name}`);
-            }
+            const result = await sendChatMessageToAI();
 
             const turnResult = v3App.processTurn({
                 state: appState.currentProjectState,
@@ -729,7 +732,6 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
                 return;
             }
 
-            appState.currentProjectState = turnResult.state;
             appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
             appState.proposedPatches = turnResult.pendingProposals.patches || [];
             appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
@@ -817,13 +819,7 @@ async function handleStartChat() {
     scrollChatToBottom();
 
     try {
-        let result;
-        if (appState.apiKey && appState.apiKey.length > 10) {
-            result = await sendChatMessageToGemini();
-        } else {
-            await sleep(1500);
-            result = generateOfflineConversationalResponse();
-        }
+        const result = await sendChatMessageToAI();
 
         const turnResult = v3App.processTurn({
             state: appState.currentProjectState,
@@ -837,7 +833,6 @@ async function handleStartChat() {
             return;
         }
 
-        appState.currentProjectState = turnResult.state;
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
         appState.proposedPatches = turnResult.pendingProposals.patches || [];
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
@@ -863,16 +858,16 @@ async function handleStartChat() {
     } catch (error) {
         console.error(error);
         showToast('API bağlantı hatası oluştu! Çevrimdışı moda geçiliyor.', true);
-        
-        await sleep(1000);
-        const result = generateOfflineConversationalResponse();
+
+        appState.selectedProvider = PROVIDER_IDS.OFFLINE;
+        await sleep(500);
+        const result = generateOfflineConversationalResponse(draft);
         const turnResult = v3App.processTurn({
             state: appState.currentProjectState,
             userMessage: draft,
             aiResponse: result,
             expectedRevision: appState.currentProjectState.revision
         });
-        appState.currentProjectState = turnResult.state;
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
         appState.proposedPatches = turnResult.pendingProposals.patches || [];
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
@@ -915,13 +910,7 @@ async function handleSendChatMessage() {
     scrollChatToBottom();
 
     try {
-        let result;
-        if (appState.apiKey && appState.apiKey.length > 10) {
-            result = await sendChatMessageToGemini();
-        } else {
-            await sleep(1500);
-            result = generateOfflineConversationalResponse(text);
-        }
+        const result = await sendChatMessageToAI();
 
         const turnResult = v3App.processTurn({
             state: appState.currentProjectState,
@@ -935,7 +924,6 @@ async function handleSendChatMessage() {
             return;
         }
 
-        appState.currentProjectState = turnResult.state;
         appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
         appState.proposedPatches = turnResult.pendingProposals.patches || [];
         appState.suggestedNextStage = turnResult.normalized.suggestedPhaseTransition || '';
@@ -969,8 +957,8 @@ async function handleSendChatMessage() {
 
 // validateProjectData is imported from project-state.js
 
-// --- CONVERSATIONAL GEMINI API INTEGRATION ---
-async function sendChatMessageToGemini() {
+// --- AI PROVIDER CALL ---
+async function sendChatMessageToAI() {
     const activeFocuses = Object.keys(appState.priorities).filter(k => appState.priorities[k]);
 
     const historyText = appState.messages.map(m => {
@@ -978,7 +966,13 @@ async function sendChatMessageToGemini() {
         return `${sender}: "${m.content}"`;
     }).join('\n');
 
-    // Prompt is built using V3 proposal prompt (native V3 contract)
+    const providerId = getActiveProviderId();
+    if (providerId === PROVIDER_IDS.OFFLINE) {
+        return generateOfflineConversationalResponse(
+            appState.messages[appState.messages.length - 1]?.content || ''
+        );
+    }
+
     const promptText = buildV3ProposalPrompt({
         stage: getStageOrPhase(appState.currentProjectState),
         techStack: appState.techStack,
@@ -990,11 +984,11 @@ async function sendChatMessageToGemini() {
     });
 
     try {
-        const textResponse = await geminiProvider.generateStructured(promptText, appState.apiKey);
+        const textResponse = await providerRegistry.generateStructured(providerId, promptText, appState.apiKey);
         const parsed = JSON.parse(textResponse);
         return normalizeAIResponse(parsed);
     } catch (err) {
-        console.error("Gemini API parsing/validation error:", err);
+        console.error(`${providerId} API parsing/validation error:`, err);
         throw err;
     }
 }
@@ -2264,8 +2258,8 @@ function initPatchProposalListeners() {
         btnAcceptAll.addEventListener('click', () => {
             if (!appState.proposedPatches || appState.proposedPatches.length === 0) return;
             
-            const pending = appState.pendingProposals || { patches: appState.proposedPatches };
-            const txResult = v3App.acceptAllProposals(
+            const pending = appState.pendingProposals || { patches: appState.proposedPatches, decisions: [], artifacts: [], tasks: [], traceLinks: [], actions: [] };
+            const txResult = v3App.acceptProposalBundle(
                 appState.currentProjectState,
                 pending,
                 appState.currentProjectState.revision
