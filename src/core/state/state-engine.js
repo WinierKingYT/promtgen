@@ -14,20 +14,22 @@ const VALIDATION_RULES = {
             configuration: 'object',
             identity: 'object',
             entityStores: 'object'
+        },
+        children: {
+            lifecycle: {
+                required: ['status'],
+                types: { status: 'string' }
+            },
+            configuration: {
+                required: ['language', 'planningDepth'],
+                types: { language: 'string', planningDepth: 'string' },
+                enum: { language: ['tr', 'en'], planningDepth: ['quick', 'standard', 'deep', 'enterprise'] }
+            },
+            identity: {
+                required: [],
+                types: { name: 'string', problemStatement: 'string' }
+            }
         }
-    },
-    lifecycle: {
-        required: ['status', 'createdAt'],
-        types: { status: 'string', createdAt: 'string' }
-    },
-    configuration: {
-        required: ['language', 'planningDepth'],
-        types: { language: 'string', planningDepth: 'string' },
-        enum: { language: ['tr', 'en'], planningDepth: ['quick', 'standard', 'deep', 'enterprise'] }
-    },
-    identity: {
-        required: ['name', 'problemStatement'],
-        types: { name: 'string', problemStatement: 'string' }
     }
 };
 
@@ -327,6 +329,10 @@ export function migrateState(state, targetVersion = SCHEMA_VERSION) {
 
     if (targetVersion >= 3) {
         const result = migrateProjectState(state);
+        if (!result.success) {
+            console.error("Migration failed:", result.errors);
+            return result.recoveryState || getDefaultState();
+        }
         return result.state;
     }
 

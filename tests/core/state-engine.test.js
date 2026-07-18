@@ -345,5 +345,53 @@ test('StatePrivacy addSensitivePattern adds new pattern', () => {
     assert.ok(sp.sensitivePatterns.some(p => p.test('mySecret')));
 });
 
+test('StatePrivacy multi-tiered redaction levels', () => {
+    const sp = new StatePrivacy();
+    const state = {
+        password: 'superpassword',
+        apiKey: 'sk-abcdef123456',
+        email: 'user@example.com',
+        name: 'John Doe'
+    };
+
+    // CRITICAL: only redacts passwords/private keys
+    const crit = sp.redact(state, SENSITIVITY_LEVELS.CRITICAL);
+    assert.ok(crit.password.includes('****'));
+    assert.strictEqual(crit.apiKey, 'sk-abcdef123456');
+    assert.strictEqual(crit.email, 'user@example.com');
+    assert.strictEqual(crit.name, 'John Doe');
+
+    // RESTRICTED: redacts passwords, credentials, apiKeys
+    const rest = sp.redact(state, SENSITIVITY_LEVELS.RESTRICTED);
+    assert.ok(rest.password.includes('****'));
+    assert.ok(rest.apiKey.includes('****'));
+    assert.strictEqual(rest.email, 'user@example.com');
+    assert.strictEqual(rest.name, 'John Doe');
+
+    // CONFIDENTIAL: redacts passwords, credentials, apiKeys, email, ssn
+    const conf = sp.redact(state, SENSITIVITY_LEVELS.CONFIDENTIAL);
+    assert.ok(conf.password.includes('****'));
+    assert.ok(conf.apiKey.includes('****'));
+    assert.ok(conf.email.includes('****')); // redacted as key
+    assert.strictEqual(conf.name, 'John Doe');
+});
+
+test('StatePrivacy inline content scanning and masking', () => {
+    const sp = new StatePrivacy();
+    const state = {
+        notes: 'Geri bildirim için support@example.com adresine yazın veya key_abcdef123456 anahtarını kullanın.'
+    };
+
+    // PUBLIC level should mask both email and key
+    const pub = sp.redact(state, SENSITIVITY_LEVELS.PUBLIC);
+    assert.ok(pub.notes.includes('***@***.***'));
+    assert.ok(pub.notes.includes('[MASKED_KEY]'));
+
+    // CONFIDENTIAL level should mask only key
+    const conf = sp.redact(state, SENSITIVITY_LEVELS.CONFIDENTIAL);
+    assert.ok(conf.notes.includes('support@example.com'));
+    assert.ok(conf.notes.includes('[MASKED_KEY]'));
+});
+
 console.log(`\n  Section 14: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

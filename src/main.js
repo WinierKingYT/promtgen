@@ -591,7 +591,8 @@ function loadProjectSession(id) {
         appState.historyStack = [{
             messages: JSON.parse(JSON.stringify(appState.messages)),
             currentData: JSON.parse(JSON.stringify(appState.currentData)),
-            currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState))
+            currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState)),
+            pendingProposals: JSON.parse(JSON.stringify(appState.pendingProposals || null))
         }];
 
     // Restore UI Inputs
@@ -670,8 +671,11 @@ function handleUndoChat() {
     appState.messages = JSON.parse(JSON.stringify(prevState.messages));
     appState.currentData = JSON.parse(JSON.stringify(prevState.currentData));
     appState.currentProjectState = JSON.parse(JSON.stringify(prevState.currentProjectState));
+    appState.pendingProposals = JSON.parse(JSON.stringify(prevState.pendingProposals || null));
 
     renderChatMessages();
+    renderProposalBundle();
+    updateModuleApprovalBanner();
     if (appState.currentData) {
         displayResults(appState.currentData);
     } else {
@@ -1141,7 +1145,8 @@ async function handleSendChatMessage() {
         appState.historyStack.push({
             messages: JSON.parse(JSON.stringify(appState.messages)),
             currentData: JSON.parse(JSON.stringify(appState.currentData)),
-            currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState))
+            currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState)),
+            pendingProposals: JSON.parse(JSON.stringify(appState.pendingProposals || null))
         });
         updateUndoButtonVisibility();
         saveCurrentProjectState();
@@ -1208,17 +1213,17 @@ function generateOfflineConversationalResponse(userMessage = '') {
         
 Projenize başka hangi özellikleri eklemek istersiniz? Örneğin ödeme entegrasyonu, veritabanı seçimi, üyelik sistemi veya performans optimizasyonlarından hangisini tartışalım?`;
     } else if (msg.includes('auth') || msg.includes('üyelik') || msg.includes('giriş') || msg.includes('login')) {
-        chatResponse = `Uygulamanın üyelik ve oturum yönetimi (Auth) katmanını kurguladım! 
+        chatResponse = `Uygulamanın üyelik ve oturum yönetimi (Auth) katmanı için yeni öneriler hazırladım! 
         
-Sağ paneldeki belgelere JWT tabanlı oturum doğrulama şemalarını ve şifreleme kurallarını ekledim. Güvenlik odaklarında veri validasyonu artık en üst seviyeye çıkartıldı. İsterseniz bu özellikleri entegre eden ilk prompt adımını genişletebilirim. Başka ne ekleyelim?`;
+JWT tabanlı oturum doğrulama şemalarını ve şifreleme kurallarını belgelerimize eklemeyi öneriyorum. Güvenlik odaklarında veri validasyonunu üst seviyeye çıkartacak kurallar kurguladım. Sağdaki öneri panelinden onaylayıp devam edebilirsiniz.`;
     } else if (msg.includes('db') || msg.includes('veritabanı') || msg.includes('database') || msg.includes('sql')) {
-        chatResponse = `Proje veritabanı katmanını local-first (yerel veri depolama) prensiplerine uygun olacak şekilde güncelledim! 
+        chatResponse = `Proje veritabanı katmanını local-first (yerel veri depolama) prensiplerine uygun olacak şekilde güncellemeyi öneriyorum! 
         
-` + appState.techStack + ` yığını için veritabanı bağlantı konfigürasyonlarını, index yapılarını ve tablo şemalarını proje belgelerine entegre ettim. prompt zincirlerinde veritabanı kurulum adımları detaylandırıldı.`;
+` + appState.techStack + ` yığını için veritabanı bağlantı konfigürasyonlarını, index yapılarını ve tablo şemalarını proje belgelerine entegre etmek üzere yeni bir öneri paketi hazırladım.`;
     } else {
-        chatResponse = `Fikrinizi güncelledim ve dosyaları bu yönde genişlettim! 
+        chatResponse = `Fikrinizi gerçekleştirmek için yeni bir öneri paketi hazırladım! 
         
-Sağ paneldeki **Prompt Zinciri**, **SKILL.md**, **Editör Kuralları** ve **Alt Ajan Promptları** güncel konuşmamız doğrultusunda revize edildi. Projede dikkat etmemiz gereken güvenlik veya performans odakları hakkında konuşmaya devam etmek ister misiniz yoksa dosyaları indirmeye hazır mısınız?`;
+Öneri panelindeki **Yamalar**, **Kararlar**, **Çıktılar** ve **Görevler** güncel konuşmamız doğrultusunda kurgulandı. Bu değişiklikleri onaylayarak projenize dahil edebilirsiniz. Başka eklemek istediğiniz bir detay var mı?`;
     }
 
     const projectFiles = validateProjectData(generateOfflineArtifacts(appState.draftDescription + ' ' + appState.messages.map(m => m.content).join(' '), appState.projectType, appState.priorities), getStageOrPhase(appState.currentProjectState));
@@ -1374,8 +1379,9 @@ async function slicePromptStep(index, step) {
 
     try {
         let response;
-        if (appState.apiKey && appState.apiKey.length > 10) {
-            response = await sliceStepWithGemini(step);
+        const providerId = getActiveProviderId();
+        if (providerId !== PROVIDER_IDS.OFFLINE) {
+            response = await sliceStepWithProvider(step);
         } else {
             await sleep(1000);
             response = sliceStepOffline(step, index + 1);
@@ -1388,8 +1394,8 @@ async function slicePromptStep(index, step) {
     }
 }
 
-// Slice Step with Gemini API
-async function sliceStepWithGemini(step) {
+// Slice Step with active AI Provider
+async function sliceStepWithProvider(step) {
     const promptText = `
 Sen uzman bir Yapay Zeka Sistem Mimarısın. Sana verilecek olan büyük bir yazılım geliştirme promptunu, sırayla kopyalanıp yapay zeka kodlama ajanına (Cursor/Windsurf) verilebilecek **3 adet mantıksal alt-prompta (bölüme)** ayırmalısın.
 
@@ -1423,11 +1429,15 @@ Yanıtını AŞAĞIDAKİ JSON formatında dön:
 Tüm çıktıları Türkçe ver.
 `;
 
+    const providerId = getActiveProviderId();
+    const apiKey = appStateManager.getCredential(providerId);
+    if (!apiKey) throw new Error(`${providerId} için API anahtarı bulunamadı.`);
+
     try {
-        const textResponse = await geminiProvider.generateStructured(promptText, appState.apiKey);
+        const textResponse = await providerRegistry.generateStructured(providerId, promptText, apiKey);
         return JSON.parse(textResponse);
     } catch (err) {
-        console.error("Gemini API parsing/validation error in sliceStepWithGemini:", err);
+        console.error(`${providerId} API parsing/validation error in sliceStepWithProvider:`, err);
         throw err;
     }
 }
@@ -1682,6 +1692,28 @@ async function drawMermaidDiagram(code) {
 }
 
 // --- INTERACTIVE FILE TREE RENDERER ---
+function updateFileTreeInCanonicalState(newFileTree) {
+    const docIdx = appState.currentProjectState.documents.findIndex(d => d.name === 'fileTree');
+    const newDoc = { name: 'fileTree', content: JSON.stringify(newFileTree) };
+    
+    const patches = [];
+    if (docIdx >= 0) {
+        patches.push({ operation: 'replace', path: `/documents/${docIdx}`, value: newDoc });
+    } else {
+        patches.push({ operation: 'add', path: '/documents/-', value: newDoc });
+    }
+    
+    const applyResult = v3App.applyPatches(appState.currentProjectState, patches, appState.currentProjectState.revision);
+    if (applyResult.success) {
+        appState.currentProjectState = applyResult.state;
+        appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+        renderFileTree();
+        saveCurrentProjectState();
+    } else {
+        showToast('Dosya ağacı güncellenemedi: ' + applyResult.error, true);
+    }
+}
+
 function renderFileTree() {
     elements.fileTreeContainer.innerHTML = '';
     if (!appState.currentData || !appState.currentData.fileTree) return;
@@ -1734,17 +1766,19 @@ function renderFileTree() {
                     pathParts[pathParts.length - 1] = newName;
                     const newPath = pathParts.join('/');
 
-                    item.path = newPath;
-
+                    const fileTreeCopy = JSON.parse(JSON.stringify(appState.currentData.fileTree || []));
+                    const targetItem = fileTreeCopy.find(f => f.path === oldPath);
+                    if (targetItem) {
+                        targetItem.path = newPath;
+                    }
                     if (item.type === 'folder') {
-                        appState.currentData.fileTree.forEach(c => {
+                        fileTreeCopy.forEach(c => {
                             if (c.path.startsWith(oldPath + '/')) {
                                 c.path = c.path.replace(oldPath + '/', newPath + '/');
                             }
                         });
                     }
-                    renderFileTree();
-                    saveCurrentProjectState();
+                    updateFileTreeInCanonicalState(fileTreeCopy);
                 } else {
                     renderFileTree();
                 }
@@ -1760,13 +1794,12 @@ function renderFileTree() {
         itemEl.querySelector('.btn-delete-file').addEventListener('click', () => {
             if (confirm(`"${item.path}" nesnesini silmek istiyor musunuz?`)) {
                 const pathToDelete = item.path;
-                appState.currentData.fileTree = appState.currentData.fileTree.filter(c => {
+                const fileTreeCopy = (appState.currentData.fileTree || []).filter(c => {
                     if (c.path === pathToDelete) return false;
                     if (item.type === 'folder' && c.path.startsWith(pathToDelete + '/')) return false;
                     return true;
                 });
-                renderFileTree();
-                saveCurrentProjectState();
+                updateFileTreeInCanonicalState(fileTreeCopy);
             }
         });
 
@@ -1783,20 +1816,20 @@ function handleAddFileTreeItem(type) {
     if (!path) return;
 
     // Check duplicate
-    const exists = appState.currentData.fileTree.some(f => f.path === path);
+    const exists = (appState.currentData.fileTree || []).some(f => f.path === path);
     if (exists) {
         showToast('Bu dosya veya klasör zaten mevcut!', true);
         return;
     }
 
-    appState.currentData.fileTree.push({
+    const fileTreeCopy = JSON.parse(JSON.stringify(appState.currentData.fileTree || []));
+    fileTreeCopy.push({
         path,
         type,
         description: type === 'folder' ? 'Oluşturulan modül klasörü' : 'Geliştirilen kaynak dosyası'
     });
 
-    renderFileTree();
-    saveCurrentProjectState();
+    updateFileTreeInCanonicalState(fileTreeCopy);
     showToast('Yeni öge eklendi!');
 }
 
@@ -1984,8 +2017,9 @@ async function handleSolveDebug() {
 
     try {
         let solution;
-        if (appState.apiKey && appState.apiKey.length > 10) {
-            solution = await solveDebugWithGemini(errorLog, errorCode);
+        const providerId = getActiveProviderId();
+        if (providerId !== PROVIDER_IDS.OFFLINE) {
+            solution = await solveDebugWithProvider(errorLog, errorCode);
         } else {
             await sleep(1000);
             solution = solveDebugOffline(errorLog);
@@ -2005,7 +2039,7 @@ async function handleSolveDebug() {
     }
 }
 
-async function solveDebugWithGemini(errorLog, errorCode) {
+async function solveDebugWithProvider(errorLog, errorCode) {
     // Prompt is built in a separate, testable module
     const promptText = buildDebugPrompt({
         projectContext: appState.draftDescription,
@@ -2013,11 +2047,15 @@ async function solveDebugWithGemini(errorLog, errorCode) {
         errorCode
     });
 
+    const providerId = getActiveProviderId();
+    const apiKey = appStateManager.getCredential(providerId);
+    if (!apiKey) throw new Error(`${providerId} için API anahtarı bulunamadı.`);
+
     try {
-        const textResponse = await geminiProvider.generateStructured(promptText, appState.apiKey);
+        const textResponse = await providerRegistry.generateStructured(providerId, promptText, apiKey);
         return JSON.parse(textResponse);
     } catch (err) {
-        console.error("Gemini API parsing/validation error in solveDebugWithGemini:", err);
+        console.error(`${providerId} API parsing/validation error in solveDebugWithProvider:`, err);
         throw err;
     }
 }
@@ -2640,6 +2678,14 @@ function initPatchProposalListeners() {
 
             if (txResult.success) {
                 const proceed = () => {
+                    appState.historyStack.push({
+                        messages: JSON.parse(JSON.stringify(appState.messages)),
+                        currentData: JSON.parse(JSON.stringify(appState.currentData)),
+                        currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState)),
+                        pendingProposals: JSON.parse(JSON.stringify(appState.pendingProposals || null))
+                    });
+                    updateUndoButtonVisibility();
+
                     appState.currentProjectState = txResult.state;
                     if (txResult.remainingProposals && _getProposalCount(txResult.remainingProposals) > 0) {
                         appState.pendingProposals = txResult.remainingProposals;
@@ -2740,6 +2786,14 @@ function initPatchProposalListeners() {
 
             if (txResult.success) {
                 const proceed = () => {
+                    appState.historyStack.push({
+                        messages: JSON.parse(JSON.stringify(appState.messages)),
+                        currentData: JSON.parse(JSON.stringify(appState.currentData)),
+                        currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState)),
+                        pendingProposals: JSON.parse(JSON.stringify(appState.pendingProposals || null))
+                    });
+                    updateUndoButtonVisibility();
+
                     appState.currentProjectState = txResult.state;
                     _clearProposalBundle();
                     appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
@@ -2970,6 +3024,17 @@ function getDerivedDataFromCanonicalState(state) {
 
     const architecture = isV3 ? (state.moduleData?.software?.architecture || null) : state.architecture;
 
+    const docFileTree = state.documents.find(d => d.name === 'fileTree');
+    let fileTree = [];
+    if (docFileTree) {
+        try { fileTree = JSON.parse(docFileTree.content); } catch (e) { fileTree = []; }
+    } else {
+        fileTree = [
+            { path: "src", type: "folder" },
+            { path: "src/main.js", type: "file", description: "Ana kod dosyası" }
+        ];
+    }
+
     return {
         identity: state.identity,
         scope: state.scope,
@@ -2982,6 +3047,7 @@ function getDerivedDataFromCanonicalState(state) {
         mermaidCode: architecture?.mermaidCode || '',
         prompts,
         docs,
+        fileTree,
         subagents,
         skillMarkdown,
         cursorRules,
