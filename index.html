@@ -810,7 +810,48 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="btn-cancel-settings">Vazgeç</button>
                 <button class="btn btn-primary" id="btn-save-settings">Kaydet ve Uygula</button>
+    <!-- Discovery Wizard Modal -->
+    <div class="modal-backdrop hidden" id="modal-discovery">
+        <div class="modal discovery-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i data-lucide="sparkles"></i>
+                    <h3>Proje Keşif Sihirbazı</h3>
+                </div>
+                <button class="btn-close" id="btn-close-discovery">
+                    <i data-lucide="x"></i>
+                </button>
             </div>
+            <div class="modal-body" style="max-height: 480px; overflow-y: auto;">
+                <div class="discovery-wizard-project-info" style="margin-bottom:1.2rem; border-bottom:1px solid var(--border-color); padding-bottom:1rem;">
+                    <h4 id="discovery-wizard-project-name" style="font-size:1.1rem; font-weight:700; color:white; margin-bottom:0.4rem;">Proje Adı</h4>
+                    <p id="discovery-wizard-project-summary" style="font-size:0.8rem; color:var(--text-muted); line-height:1.4;">Proje özeti...</p>
+                    <div style="display:flex; gap:0.4rem; margin-top:0.6rem;" id="discovery-wizard-badges">
+                        <!-- Badges will be inserted here -->
+                    </div>
+                </div>
+
+                <div class="discovery-section">
+                    <h4 style="font-size:0.9rem; font-weight:700; color:white; margin-bottom:0.6rem;">1. Ana Hedefler (Objectives)</h4>
+                    <div id="discovery-wizard-objectives" class="discovery-checkbox-list">
+                        <!-- Objectives checkboxes will be inserted here -->
+                    </div>
+                </div>
+
+                <div class="discovery-section" style="margin-top:1.2rem;">
+                    <h4 style="font-size:0.9rem; font-weight:700; color:white; margin-bottom:0.6rem;">2. Mimari Kararlar (Technical Decisions)</h4>
+                    <div id="discovery-wizard-decisions" class="discovery-decisions-container">
+                        <!-- Technical options will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-discovery">Vazgeç</button>
+                <button class="btn btn-primary" id="btn-confirm-discovery">Yapılandır ve Planı Başlat</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Terminal Modal -->
     <div class="modal-backdrop hidden" id="modal-terminal">
         <div class="modal terminal-modal">

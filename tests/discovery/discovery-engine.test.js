@@ -2,7 +2,8 @@ import assert from 'assert';
 import { getInitialV3State } from '../../src/state/project-state-v3.js';
 import {
     getGapDefinitions, detectGaps, scoreGap, rankGaps,
-    selectQuestions, processDiscoveryAnswer, assessReadiness
+    selectQuestions, processDiscoveryAnswer, assessReadiness,
+    buildDiscoveryOptionsPrompt, generateOfflineDiscoveryOptions
 } from '../../src/discovery/discovery-engine.js';
 import { UNIVERSAL_PHASES } from '../../src/workflow/phases.js';
 
@@ -174,6 +175,48 @@ test('processDiscoveryAnswer ignores empty answer', () => {
     const state = getInitialV3State();
     const result = processDiscoveryAnswer(state, 'GAP-PROBLEM', '', 5);
     assert.strictEqual(result.patches.length, 0);
+});
+
+test('buildDiscoveryOptionsPrompt contains context fields', () => {
+    const prompt = buildDiscoveryOptionsPrompt('Build an AI chat app', 'React', '18.x');
+    assert.ok(prompt.includes('Build an AI chat app'));
+    assert.ok(prompt.includes('React'));
+    assert.ok(prompt.includes('18.x'));
+});
+
+test('generateOfflineDiscoveryOptions with game keywords', () => {
+    const result = generateOfflineDiscoveryOptions('A simple platformer game', 'Unity');
+    assert.strictEqual(result.projectName, 'Oyun Projesi');
+    assert.ok(result.domains.some(d => d.name === 'game'));
+    assert.ok(result.platforms.includes('cross-platform'));
+    assert.ok(result.objectives.length >= 3);
+    
+    // Check decisions
+    const engineDecision = result.decisions.find(d => d.title === 'Oyun Motoru Tercihi');
+    assert.ok(engineDecision);
+    assert.ok(engineDecision.options.some(o => o.label === 'Unity'));
+    assert.ok(engineDecision.options.some(o => o.label === 'Godot'));
+});
+
+test('generateOfflineDiscoveryOptions with mobile keywords', () => {
+    const result = generateOfflineDiscoveryOptions('Mobile chat app for android and ios', 'Flutter');
+    assert.strictEqual(result.projectName, 'Mobil Uygulama');
+    assert.ok(result.domains.some(d => d.name === 'mobile'));
+    assert.ok(result.platforms.includes('android'));
+    
+    const platformDecision = result.decisions.find(d => d.title === 'Mobil Geliştirme Platformu');
+    assert.ok(platformDecision);
+    assert.ok(platformDecision.options.some(o => o.label === 'Flutter (Dart)'));
+});
+
+test('generateOfflineDiscoveryOptions defaults to web', () => {
+    const result = generateOfflineDiscoveryOptions('Create a dashboard portal', 'React');
+    assert.strictEqual(result.projectName, 'Web Uygulaması');
+    assert.ok(result.domains.some(d => d.name === 'web'));
+    
+    const feDecision = result.decisions.find(d => d.title === 'Frontend Kütüphanesi');
+    assert.ok(feDecision);
+    assert.ok(feDecision.options.some(o => o.label === 'React (Client-Side)'));
 });
 
 console.log(`\n  Discovery Engine: ${passed} passed, ${failed} failed`);

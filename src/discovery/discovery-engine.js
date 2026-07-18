@@ -401,3 +401,155 @@ export function assessReadiness(state, currentPhase) {
         completionRatio: total > 0 ? answered / total : 1
     };
 }
+
+export function buildDiscoveryOptionsPrompt(projectDescription, techStack, techVersion) {
+    return `Sen kıdemli bir Yapay Zeka Destekli Sistem Mimarısın. Kullanıcının şu proje fikri için en kritik 3 mimari karar konusunu ve bunlara alternatif seçenekleri belirle:
+    
+PROJE FİKRİ:
+"${projectDescription}"
+
+TEKNOLOJİ YIĞINI TERCİHİ:
+${techStack} (${techVersion})
+
+GÖREV:
+Projeye özel detaylı analiz yaparak, aşağıdaki JSON formatında çıktı üret. Başka hiçbir açıklama metni yazma, sadece saf JSON döndür.
+
+DÖNECEK JSON YAPISI:
+{
+  "projectName": "Proje için kısa, havalı bir isim",
+  "summary": "AI tarafından genişletilmiş 1-2 cümlelik teknik proje özeti",
+  "domains": ["web", "mobile", "backend", "game", "ai", "script" arasından tespit edilenler],
+  "platforms": ["browser", "ios", "android", "windows", "macos", "linux", "cross-platform" arasından tespit edilenler],
+  "objectives": [
+    { "id": "OBJ-1", "title": "Ana hedef başlığı 1", "description": "Detaylı açıklama" },
+    { "id": "OBJ-2", "title": "Ana hedef başlığı 2", "description": "Detaylı açıklama" },
+    { "id": "OBJ-3", "title": "Ana hedef başlığı 3", "description": "Detaylı açıklama" }
+  ],
+  "decisions": [
+    {
+      "id": "DEC-001",
+      "title": "Karar Konusu Başlığı",
+      "category": "technical",
+      "problemStatement": "Verilerin nasıl depolanacağı veya hangi mimarinin seçileceği kararı",
+      "options": [
+        {
+          "id": "opt-1",
+          "label": "Seçenek 1",
+          "description": "Seçeneğin teknik açıklaması.",
+          "pros": ["Artı yönü 1", "Artı yönü 2"],
+          "cons": ["Eksi yönü 1"],
+          "effort": "low",
+          "confidence": 0.9
+        },
+        {
+          "id": "opt-2",
+          "label": "Seçenek 2",
+          "description": "Seçeneğin teknik açıklaması.",
+          "pros": ["Artı yönü 1"],
+          "cons": ["Eksi yönü 1", "Eksi yönü 2"],
+          "effort": "medium",
+          "confidence": 0.8
+        }
+      ],
+      "selectedOptionId": "opt-1"
+    }
+  ]
+}
+
+UYARILAR:
+- decisions dizisinde en az 3 adet kritik teknik veya mimari karar bulunmalı.
+- Her karar için en az 2 alternatif seçenek olmalı.
+- Seçecekleri her opsiyon için id, label, description, pros[], cons[], effort ('low'|'medium'|'high') ve confidence (0.0 - 1.0) alanları doldurulmalıdır.`;
+}
+
+export function generateOfflineDiscoveryOptions(text, techStack) {
+    const textLower = text.toLowerCase();
+    const isGame = textLower.includes('game') || textLower.includes('oyun');
+    const isMobile = textLower.includes('mobil') || textLower.includes('mobile');
+    const isWeb = textLower.includes('web') || textLower.includes('website') || !isGame && !isMobile;
+
+    const summary = `Çevrimdışı şablon motoruyla analiz edilen "${text.substring(0, Math.min(text.length, 45))}..." projesi.`;
+    const domains = isGame ? [{ name: 'game', confidence: 0.95 }] : (isMobile ? [{ name: 'mobile', confidence: 0.9 }] : [{ name: 'web', confidence: 0.85 }]);
+    const platforms = isGame ? ['cross-platform'] : (isMobile ? ['android', 'ios'] : ['browser']);
+
+    const objectives = [
+        { id: 'OBJ-1', title: 'Temel Fonksiyonların Kurulumu', description: 'Fikir kapsamındaki ana MVP özelliklerinin ve kullanıcı akışlarının hayata geçirilmesi.' },
+        { id: 'OBJ-2', title: 'Modüler Kod Mimarisi', description: 'Genişletilebilir, temiz kod prensiplerine uygun mimari standartların kurgulanması.' },
+        { id: 'OBJ-3', title: 'Hız ve Optimizasyon Standartları', description: 'Uygulamanın yükleme sürelerinin azaltılması ve performans odaklı yapının kurulması.' }
+    ];
+
+    const decisions = [];
+
+    if (isGame) {
+        decisions.push({
+            id: 'DEC-001',
+            title: 'Oyun Motoru Tercihi',
+            category: 'technical',
+            problemStatement: 'Projenin hangi oyun motoru kullanılarak geliştirileceği kararı.',
+            options: [
+                { id: 'opt-1', label: 'Unity', description: 'C# tabanlı zengin eklenti kütüphanesine sahip popüler oyun motoru.', pros: ['Çok büyük topluluk', 'Hazır asset kütüphaneleri'], cons: ['Lisanslama limitleri'], effort: 'medium', confidence: 0.9 },
+                { id: 'opt-2', label: 'Godot', description: 'Hafif, tamamen ücretsiz ve açık kaynak kodlu oyun motoru.', pros: ['Ücretsiz', 'Hafif ve hızlı editör'], cons: ['3D kütüphaneleri daha zayıf'], effort: 'low', confidence: 0.8 }
+            ],
+            selectedOptionId: 'opt-1'
+        });
+    } else if (isMobile) {
+        decisions.push({
+            id: 'DEC-001',
+            title: 'Mobil Geliştirme Platformu',
+            category: 'technical',
+            problemStatement: 'Uygulamanın tek bir kod tabanıyla mı yoksa yerel mi yazılacağı kararı.',
+            options: [
+                { id: 'opt-1', label: 'Flutter (Dart)', description: 'Google tarafından geliştirilen hızlı UI çizim motoru.', pros: ['Hızlı arayüz tasarımı', 'Tek kod tabanından çift derleme'], cons: ['Yerel platform eklentilerinde gecikmeler'], effort: 'medium', confidence: 0.95 },
+                { id: 'opt-2', label: 'React Native', description: 'JavaScript ve React tabanlı, yerel bileşen derlemeli framework.', pros: ['React bilgi birikimi kullanımı', 'Büyük paket ekosistemi'], cons: ['Köprü (bridge) yavaşlıkları'], effort: 'medium', confidence: 0.85 }
+            ],
+            selectedOptionId: 'opt-1'
+        });
+    } else {
+        decisions.push({
+            id: 'DEC-001',
+            title: 'Frontend Kütüphanesi',
+            category: 'technical',
+            problemStatement: 'Kullanıcı arayüzünün hangi Javascript frameworkü ile kurgulanacağı.',
+            options: [
+                { id: 'opt-1', label: 'React (Client-Side)', description: 'Bileşen tabanlı popüler kütüphane.', pros: ['Zengin bileşen paketi', 'Esnek state yönetimi'], cons: ['SEO optimizasyonu ek ayar gerektirir'], effort: 'medium', confidence: 0.9 },
+                { id: 'opt-2', label: 'Next.js (SSR)', description: 'React tabanlı Sunucu Taraflı Render (SSR) frameworkü.', pros: ['Kusursuz SEO', 'Dosya tabanlı router'], cons: ['Sunucu yapılandırma karmaşıklığı'], effort: 'high', confidence: 0.8 }
+            ],
+            selectedOptionId: 'opt-1'
+        });
+    }
+
+    // Database
+    decisions.push({
+        id: 'DEC-002',
+        title: 'Veritabanı Mimarisi',
+        category: 'technical',
+        problemStatement: 'Proje verilerinin depolanacağı ve yönetileceği veritabanı sistemi.',
+        options: [
+            { id: 'opt-db-1', label: 'SQLite (Lokal)', description: 'Sunucusuz çalışan dosya tabanlı SQL veritabanı.', pros: ['Sıfır kurulum gereksinimi', 'Hızlı yerel okuma/yazma'], cons: ['Yüksek eşzamanlı yazma limitleri'], effort: 'low', confidence: 0.95 },
+            { id: 'opt-db-2', label: 'PostgreSQL (İlişkisel)', description: 'Güçlü, kararlı ve endüstri standardı ilişkisel veritabanı.', pros: ['Yüksek veri bütünlüğü', 'Limitsiz ölçeklenebilirlik'], cons: ['Sunucu barındırma maliyeti'], effort: 'medium', confidence: 0.85 }
+        ],
+        selectedOptionId: 'opt-db-1'
+    });
+
+    // Auth
+    decisions.push({
+        id: 'DEC-003',
+        title: 'Kullanıcı Yetkilendirme Stratejisi',
+        category: 'security',
+        problemStatement: 'Kullanıcı giriş işlemlerinin ve oturum güvenliğinin nasıl sağlanacağı.',
+        options: [
+            { id: 'opt-auth-1', label: 'JWT (JSON Web Token)', description: 'Stateless ve sunucu yükü getirmeyen şifreli token yapısı.', pros: ['Veritabanı sorgusu gerektirmez', 'Mikroservis uyumlu'], cons: ['Token iptali (revocation) yönetimi zordur'], effort: 'medium', confidence: 0.9 },
+            { id: 'opt-auth-2', label: 'Firebase Auth', description: 'Kolay entegre edilen, Google tarafından yönetilen hazır üyelik servisi.', pros: ['Hızlı sosyal giriş desteği', 'Hazır kullanıcı yönetim konsolu'], cons: ['Dış servise bağımlılık'], effort: 'low', confidence: 0.85 }
+        ],
+        selectedOptionId: 'opt-auth-1'
+    });
+
+    return {
+        projectName: isGame ? 'Oyun Projesi' : (isMobile ? 'Mobil Uygulama' : 'Web Uygulaması'),
+        summary,
+        domains,
+        platforms,
+        objectives,
+        decisions
+    };
+}

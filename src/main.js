@@ -12,6 +12,7 @@ import { checkWorkflowTransition, checkPhaseTransition } from './workflow/transi
 import { UNIVERSAL_PHASE_METADATA } from './workflow/phases.js';
 import { PHASE_APPROVAL_KEYS as PHASE_APPROVAL_KEYS_MAP } from './workflow/phase-contracts.js';
 import { profileProjectFromText } from './planning/project-profiler.js';
+import { buildDiscoveryOptionsPrompt, generateOfflineDiscoveryOptions } from './discovery/discovery-engine.js';
 import { buildDebugPrompt } from './prompts/planning-prompt.js';
 import { exportProjectToZip } from './exporters/zip-exporter.js';
 import { escapeHTML } from './security/safe-renderer.js';
@@ -808,6 +809,226 @@ Lütfen bu dosya içeriğini analiz et. Oluşturduğun promptları ve editör ku
     reader.readAsText(file);
 }
 
+let discoveryWizardData = null;
+
+function showDiscoveryWizard(data) {
+    discoveryWizardData = data;
+    const modal = document.getElementById('modal-discovery');
+    const nameEl = document.getElementById('discovery-wizard-project-name');
+    const summaryEl = document.getElementById('discovery-wizard-project-summary');
+    const badgesEl = document.getElementById('discovery-wizard-badges');
+    const objectivesEl = document.getElementById('discovery-wizard-objectives');
+    const decisionsEl = document.getElementById('discovery-wizard-decisions');
+    const btnCancel = document.getElementById('btn-cancel-discovery');
+    const btnConfirm = document.getElementById('btn-confirm-discovery');
+    const btnClose = document.getElementById('btn-close-discovery');
+
+    if (!modal || !nameEl || !summaryEl || !badgesEl || !objectivesEl || !decisionsEl) return;
+
+    nameEl.textContent = data.projectName || "Proje Planı";
+    summaryEl.textContent = data.summary || "";
+
+    badgesEl.innerHTML = '';
+    const domains = Array.isArray(data.domains) ? data.domains : [];
+    domains.forEach(d => {
+        const span = document.createElement('span');
+        span.className = 'badge badge-domain';
+        span.textContent = typeof d === 'object' ? d.name.toUpperCase() : d.toUpperCase();
+        badgesEl.appendChild(span);
+    });
+    const platforms = Array.isArray(data.platforms) ? data.platforms : [];
+    platforms.forEach(p => {
+        const span = document.createElement('span');
+        span.className = 'badge badge-platform';
+        span.textContent = p.toUpperCase();
+        badgesEl.appendChild(span);
+    });
+
+    objectivesEl.innerHTML = '';
+    (data.objectives || []).forEach((obj, idx) => {
+        const label = document.createElement('label');
+        label.className = 'discovery-checkbox-item';
+        label.innerHTML = `
+            <input type="checkbox" value="${obj.id}" checked>
+            <div>
+                <strong>${escapeHTML(obj.title)}</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.15rem;">${escapeHTML(obj.description)}</div>
+            </div>
+        `;
+        objectivesEl.appendChild(label);
+    });
+
+    decisionsEl.innerHTML = '';
+    (data.decisions || []).forEach((dec, decIdx) => {
+        const card = document.createElement('div');
+        card.className = 'discovery-decision-card';
+        
+        let optionsHtml = '';
+        (dec.options || []).forEach((opt, optIdx) => {
+            const isChecked = opt.id === dec.selectedOptionId ? 'checked' : '';
+            const isActive = opt.id === dec.selectedOptionId ? 'active' : '';
+            
+            let prosConsHtml = '';
+            if (opt.pros?.length || opt.cons?.length) {
+                prosConsHtml += '<div class="discovery-pros-cons">';
+                (opt.pros || []).forEach(p => { prosConsHtml += `<div class="discovery-pro">+ ${escapeHTML(p)}</div>`; });
+                (opt.cons || []).forEach(c => { prosConsHtml += `<div class="discovery-con">- ${escapeHTML(c)}</div>`; });
+                prosConsHtml += '</div>';
+            }
+
+            optionsHtml += `
+                <div class="discovery-option-box ${isActive}" data-dec-id="${dec.id}" data-opt-id="${opt.id}">
+                    <input type="radio" name="dec-opt-${dec.id}" value="${opt.id}" ${isChecked}>
+                    <div>
+                        <div class="discovery-option-label">${escapeHTML(opt.label)}</div>
+                        <div class="discovery-option-desc">${escapeHTML(opt.description)}</div>
+                        <div style="font-size:0.65rem; color:var(--text-muted); margin-top:0.25rem;">Efor: ${opt.effort.toUpperCase()}</div>
+                        ${prosConsHtml}
+                    </div>
+                </div>
+            `;
+        });
+
+        card.innerHTML = `
+            <h5>${escapeHTML(dec.title)}</h5>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.6rem;">${escapeHTML(dec.problemStatement)}</div>
+            <div class="discovery-options-grid">
+                ${optionsHtml}
+            </div>
+        `;
+        decisionsEl.appendChild(card);
+    });
+
+    decisionsEl.querySelectorAll('.discovery-option-box').forEach(box => {
+        box.addEventListener('click', () => {
+            const radio = box.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.checked = true;
+                const decId = box.dataset.decId;
+                decisionsEl.querySelectorAll(`.discovery-option-box[data-dec-id="${decId}"]`).forEach(b => b.classList.remove('active'));
+                box.classList.add('active');
+
+                const dec = (discoveryWizardData.decisions || []).find(d => d.id === decId);
+                if (dec) {
+                    dec.selectedOptionId = box.dataset.optId;
+                }
+            }
+        });
+    });
+
+    modal.classList.remove('hidden');
+
+    const closeWizard = () => {
+        modal.classList.add('hidden');
+    };
+
+    btnCancel.onclick = closeWizard;
+    btnClose.onclick = closeWizard;
+
+    btnConfirm.onclick = async () => {
+        closeWizard();
+        
+        const selectedObjIds = Array.from(objectivesEl.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+        const selectedObjectives = (discoveryWizardData.objectives || []).filter(o => selectedObjIds.includes(o.id));
+        
+        const selectedDecisions = [];
+        (discoveryWizardData.decisions || []).forEach(d => {
+            const opt = d.options.find(o => o.id === d.selectedOptionId);
+            selectedDecisions.push({
+                id: d.id,
+                title: d.title,
+                category: d.category,
+                problemStatement: d.problemStatement,
+                decision: opt ? opt.label : "",
+                reason: opt ? opt.description : "",
+                options: d.options,
+                selectedOptionId: d.selectedOptionId,
+                status: 'approved'
+            });
+        });
+
+        const patches = [];
+        
+        if (discoveryWizardData.projectName) {
+            patches.push({ operation: 'replace', path: '/identity/name', value: discoveryWizardData.projectName });
+        }
+        if (discoveryWizardData.summary) {
+            patches.push({ operation: 'replace', path: '/identity/summary', value: discoveryWizardData.summary });
+        }
+
+        if (discoveryWizardData.domains) {
+            patches.push({ operation: 'replace', path: '/profile/domains', value: discoveryWizardData.domains });
+        }
+
+        const objectivesMapped = selectedObjectives.map((o, i) => ({
+            id: `OBJ-${String(i + 1).padStart(3, '0')}`,
+            title: o.title,
+            description: o.description,
+            entityType: 'objective',
+            status: 'draft',
+            priority: 'medium',
+            sourceModule: 'universal'
+        }));
+        patches.push({ operation: 'replace', path: '/objectives', value: objectivesMapped });
+        patches.push({ operation: 'replace', path: '/decisions', value: selectedDecisions });
+
+        const applyResult = v3App.applyPatches(appState.currentProjectState, patches, appState.currentProjectState.revision);
+        if (applyResult.success) {
+            appState.currentProjectState = applyResult.state;
+            saveCurrentProjectState();
+        }
+
+        elements.emptyState.classList.add('hidden');
+        elements.contentState.classList.add('hidden');
+        elements.loadingTitle.textContent = "Mimar Projeyi Kuruyor...";
+        elements.loadingStepText.textContent = "Seçilen tasarım hedefleri ve mimari kararlar doğrultusunda prompt adımları kurgulanıyor...";
+        elements.loadingState.classList.remove('hidden');
+
+        try {
+            const result = await sendChatMessageToAI();
+            const turnResult = v3App.processTurn({
+                state: appState.currentProjectState,
+                userMessage: appState.draftDescription,
+                aiResponse: result,
+                expectedRevision: appState.currentProjectState.revision
+            });
+
+            if (!turnResult.success) {
+                showToast(`İşlem hatası: ${turnResult.error}`, true);
+                elements.loadingState.classList.add('hidden');
+                elements.emptyState.classList.remove('hidden');
+                return;
+            }
+
+            appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
+            appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
+            appState.pendingProposals = turnResult.pendingProposals || null;
+
+            renderChatMessages();
+            renderProposalBundle();
+            updateApprovalGateBanner();
+            updateModuleApprovalBanner();
+
+            if (appState.currentData) {
+                displayResults(appState.currentData);
+            }
+            
+            appState.historyStack.push({
+                messages: JSON.parse(JSON.stringify(appState.messages)),
+                currentData: JSON.parse(JSON.stringify(appState.currentData)),
+                currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState)),
+                pendingProposals: JSON.parse(JSON.stringify(appState.pendingProposals))
+            });
+            updateUndoButtonVisibility();
+            saveCurrentProjectState();
+        } catch (e) {
+            showToast(`API hatası: ${e.message}`, true);
+            elements.loadingState.classList.add('hidden');
+            elements.emptyState.classList.remove('hidden');
+        }
+    };
+}
+
 // --- START CHAT TRIGGER ---
 async function handleStartChat() {
     const draft = elements.projectDescription.value.trim();
@@ -836,86 +1057,42 @@ async function handleStartChat() {
     renderChatMessages();
     updateModuleApprovalBanner();
 
-    // Prepare loading panel
+    // Prepare loading panel for discovery wizard
     elements.emptyState.classList.add('hidden');
     elements.contentState.classList.add('hidden');
-    elements.loadingTitle.textContent = "Mimar Projeyi Kuruyor...";
-    elements.loadingStepText.textContent = "Tasarım hedefleri alınıyor ve teknoloji yığınına uygun editör kuralları kurgulanıyor...";
+    elements.loadingTitle.textContent = "Proje Seçenekleri Çıkarılıyor...";
+    elements.loadingStepText.textContent = "Yapay zeka proje fikrinize uygun kritik tasarım kararlarını ve hedefleri çıkarıyor...";
     elements.loadingState.classList.remove('hidden');
     
     elements.chatTypingIndicator.classList.remove('hidden');
     scrollChatToBottom();
 
-    try {
-        const result = await sendChatMessageToAI();
-
-        const turnResult = v3App.processTurn({
-            state: appState.currentProjectState,
-            userMessage: draft,
-            aiResponse: result,
-            expectedRevision: appState.currentProjectState.revision
-        });
-
-        if (!turnResult.success) {
-            showToast(`İşlem hatası: ${turnResult.error}`, true);
+    const providerId = getActiveProviderId();
+    if (providerId === PROVIDER_IDS.OFFLINE) {
+        const wizardData = generateOfflineDiscoveryOptions(draft, appState.techStack);
+        elements.loadingState.classList.add('hidden');
+        showDiscoveryWizard(wizardData);
+    } else {
+        const apiKey = appStateManager.getCredential(providerId);
+        if (!apiKey) {
+            showToast(`${providerId} API anahtarı ayarlanmamış!`, true);
+            elements.loadingState.classList.add('hidden');
+            elements.emptyState.classList.remove('hidden');
             return;
         }
 
-        appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
-        appState.pendingProposals = turnResult.pendingProposals || null;
-
-        renderChatMessages();
-        renderProposalBundle();
-        updateApprovalGateBanner();
-        updateModuleApprovalBanner();
-
-        if (appState.currentData) {
-            displayResults(appState.currentData);
+        try {
+            const prompt = buildDiscoveryOptionsPrompt(draft, appState.techStack, appState.techVersion);
+            const textResponse = await providerRegistry.generateStructured(providerId, prompt, apiKey);
+            const wizardData = JSON.parse(textResponse);
+            elements.loadingState.classList.add('hidden');
+            showDiscoveryWizard(wizardData);
+        } catch (err) {
+            console.error("Discovery options error, using offline options:", err);
+            const wizardData = generateOfflineDiscoveryOptions(draft, appState.techStack);
+            elements.loadingState.classList.add('hidden');
+            showDiscoveryWizard(wizardData);
         }
-        
-        appState.historyStack.push({
-            messages: JSON.parse(JSON.stringify(appState.messages)),
-            currentData: JSON.parse(JSON.stringify(appState.currentData)),
-            currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState))
-        });
-        updateUndoButtonVisibility();
-        saveCurrentProjectState();
-        
-    } catch (error) {
-        console.error(error);
-        showToast('API bağlantı hatası oluştu! Çevrimdışı yanıt kullanılıyor.', true);
-
-        const result = generateOfflineConversationalResponse(draft);
-        const turnResult = v3App.processTurn({
-            state: appState.currentProjectState,
-            userMessage: draft,
-            aiResponse: result,
-            expectedRevision: appState.currentProjectState.revision
-        });
-        appState.messages.push({ role: 'model', content: turnResult.normalized.conversationResponse.text });
-        appState.currentData = getDerivedDataFromCanonicalState(appState.currentProjectState);
-        appState.pendingProposals = turnResult.pendingProposals || null;
-        
-        renderChatMessages();
-        renderProposalBundle();
-        updateApprovalGateBanner();
-        updateModuleApprovalBanner();
-
-        if (appState.currentData) {
-            displayResults(appState.currentData);
-        }
-        
-        appState.historyStack.push({
-            messages: JSON.parse(JSON.stringify(appState.messages)),
-            currentData: JSON.parse(JSON.stringify(appState.currentData)),
-            currentProjectState: JSON.parse(JSON.stringify(appState.currentProjectState))
-        });
-        updateUndoButtonVisibility();
-        saveCurrentProjectState();
-    } finally {
-        elements.chatTypingIndicator.classList.add('hidden');
-        scrollChatToBottom();
     }
 }
 
