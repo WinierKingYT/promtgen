@@ -1,7 +1,7 @@
 {
   "name": "promtgen-monorepo",
   "private": true,
-  "version": "2.0.0",
+  "version": "4.0.0",
   "type": "module",
   "description": "PromtGen V2 Modular Proje Planlama Motoru",
   "workspaces": [
@@ -11,13 +11,37 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/v4 tests/v4",
+    "desktop:check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "desktop:test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "verify": "npm test && npm run typecheck && npm run lint && npm run build && npm run desktop:test",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
     "preview": "vite preview",
-    "test": "node test.js && node tests/unit/stage-contracts.test.js && node tests/unit/patch-policy.test.js && node tests/unit/approval-service.test.js && node tests/integration/patch-transaction.test.js && node tests/integration/persistence.test.js && node tests/workflow/complete-workflow.test.js && node tests/domain/traceability-graph.test.js && node tests/domain/modules.test.js && node tests/domain/phases.test.js && node tests/state/v3-state.test.js && node tests/core/entity-store.test.js && node tests/discovery/discovery-engine.test.js && node tests/decision/decision-engine.test.js && node tests/artifact/artifact-engine.test.js && node tests/task/task-prompt.test.js && node tests/core/traceability.test.js && node tests/core/reviewer.test.js && node tests/core/modules.test.js && node tests/core/state-engine.test.js && node tests/core/v3-application-service.test.js"
+    "test": "node test.js && node tests/unit/stage-contracts.test.js && node tests/unit/patch-policy.test.js && node tests/unit/approval-service.test.js && node tests/integration/patch-transaction.test.js && node tests/integration/persistence.test.js && node tests/workflow/complete-workflow.test.js && node tests/domain/traceability-graph.test.js && node tests/domain/modules.test.js && node tests/domain/phases.test.js && node tests/state/v3-state.test.js && node tests/core/entity-store.test.js && node tests/discovery/discovery-engine.test.js && node tests/decision/decision-engine.test.js && node tests/artifact/artifact-engine.test.js && node tests/task/task-prompt.test.js && node tests/core/traceability.test.js && node tests/core/reviewer.test.js && node tests/core/modules.test.js && node tests/core/state-engine.test.js && node tests/core/v3-application-service.test.js && node tests/v4/planning-engine.test.js && node tests/v4/migration-export.test.js && node tests/v4/canonical-graph.test.js && node tests/v4/task-compiler.test.js && node tests/v4/project-analyzer.test.js && node tests/v4/research-engine.test.js && node tests/v4/review-engine.test.js && node tests/v4/module-registry.test.js && node tests/v4/execution-orchestrator.test.js && node tests/v4/ai-discovery.test.js && node tests/v4/provider-integration.test.js && node tests/v4/security-boundaries.test.js && node tests/v4/desktop-storage.test.js && node tests/v4/planning-memory.test.js && node tests/v4/portfolio-engine.test.js && node tests/v4/acceptance-flow.test.js && node tests/v4/rc1-ui-contract.test.js && node tests/v4/runtime-boundary.test.js"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^5.0.0",
+    "vite-plugin-pwa": "^0.21.1"
   },
   "dependencies": {
-    "openai": "^6.48.0"
+    "@tauri-apps/api": "^2.11.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^1.25.0",
+    "openai": "^6.48.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zod": "^4.4.3"
   }
 }

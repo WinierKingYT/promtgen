@@ -1,122 +1,84 @@
-# PromtGen V2 — Evrensel AI Proje Planlama Motoru
+# PromtGen V4 — Yaşayan AI Proje Mimarı
 
-PromtGen, yazılım fikirlerini (Web, Mobil, Oyun, Backend, CLI veya AI) geliştirmeye başlamadan önce analiz eden, eksik noktaları gideren ve yapay zeka geliştirme ajanlarına (Cursor, Windsurf, Copilot, Antigravity vb.) adım adım kodlatabileceğiniz optimize **prompt dizilimleri** hazırlayan modüler, güvenli ve local-first bir proje planlama motorudur.
+PromtGen, kısa bir fikri kullanıcı onaylı kararlarla uygulanabilir ve sürümlenebilir bir canonical proje planına dönüştüren local-first planlama uygulamasıdır. Küçük projelerde gereksiz ayrıntıyı azaltır; kapsam büyüdükçe mimari, güvenlik, test, dağıtım ve operasyon belgelerini etkinleştirir.
 
----
+## Bugünkü ürün yüzeyi
 
-## 🚀 Özellikler
+- React + TypeScript çalışma alanı ve kurulabilir PWA
+- Aynı arayüzü kullanan Tauri masaüstü kabuğu
+- `quick`, `standard`, `advanced`, `enterprise` planlama derinlikleri
+- Her değişiklik için kabul, düzenleme, erteleme veya reddetme akışı
+- Yaşayan plan, hazırlık skoru, revision geçmişi, karşılaştırma ve geri yükleme
+- Offline motor, Ollama, OpenAI, Gemini ve NVIDIA sağlayıcıları
+- Varsayılan kapalı, kullanıcı kontrollü yerel tercih hafızası; proje adlarını/fikirlerini değil toplulaştırılmış derinlik, karar türü, bölüm ve modül eğilimlerini kullanır
+- Yazılım yanında araştırma/kanıt, içerik/yayın, iş/operasyon ve etkinlik projeleri için deklaratif alan paketleri, alan kalite kuralları ve özel export belgeleri
+- Başlangıç ekranında tamamen yerel proje portföyü; arama, durum/derinlik filtreleri, hazırlık ortalaması ve dikkat göstergeleri
+- Web’de IndexedDB; masaüstünde SQLite ve işletim sistemi anahtar kasası
+- Masaüstünde WAL modlu SQLite bütünlük kontrolü, proje başına son 20 otomatik yedek, bozuk kayıt karantinası ve yeni revision olarak güvenli geri yükleme
+- Revision’a bağlı Markdown, PRD, görev, teknik belge ve ajan prompt exportları
+- Codex, Cursor, Claude Code, Windsurf, Copilot ve generic hedefler için IDE’nin otomatik keşfettiği talimat dosyalarını içeren revision/hash bağlı çalışma ZIP’i
+- Masaüstünde token tabanlı repository seçimi, izole Git worktree ve Planner → Implementer → Reviewer → Verifier Codex execution zinciri
+- SHA-256 özetli, ZIP tabanlı `.promtgen` taşıma paketi
 
-- **Kategori Bağımsız Profiling**: Oyun, mobil, web, backend, CLI veya AI projelerini otomatik olarak tanır ve karışık projeleri de destekler
-- **Canonical Project State**: RFC 6902 benzeri JSON Patch sistemiyle revizyon takipli tek bir güvenilir proje veri kaynağı
-- **Deterministik Workflow Motoru**: `IDEA_CAPTURED → PROFILE_DRAFTED → DISCOVERY → MVP → REQUIREMENTS → TECH → ARCHITECTURE → TASKS → AGENT_PACKAGE → REVIEW → READY → EXPORTED` — her geçiş koşul kontrolüyle onaylanır
-- **Güvenlik Katmanı**: XSS sanitizer, dosya boyutu/tür politikası, secret tarayıcı, prototype pollution koruması ve prompt injection izolasyonu
-- **Gemini API & Çevrimdışı Mod**: API anahtarınız olmasa bile yerleşik akıllı şablon motoruyla çalışmaya devam eder
-- **ZIP Export**: Tüm proje belgelerini, promptları, editör kurallarını ve ajan paketlerini zip olarak indirir
+AI önerileri hiçbir zaman doğrudan canonical plana yazılmaz. Kullanıcının kabul ettiği değişiklikler plan motoru tarafından uygulanır ve yeni revision oluşturur.
 
----
+## Çalıştırma
 
-## 📁 Proje Yapısı
+Gereksinimler: Node.js 20+, masaüstü geliştirme için Rust ve Tauri sistem bağımlılıkları.
 
-```
-.
-├── apps/
-│   └── web-prototype/          ← V1 Legacy (dondurulmuş, çalışır durumdadır)
-├── src/
-│   ├── ai/                     ← LLM provider katmanı (Gemini)
-│   ├── exporters/              ← ZIP export motoru
-│   ├── planning/               ← Kategori bağımsız profiler
-│   ├── presentation/           ← DOM render modülleri
-│   ├── security/               ← XSS, dosya politikası, secret tarayıcı
-│   ├── state/                  ← Canonical Project State + App State
-│   ├── storage/                ← localStorage repository
-│   ├── workflow/               ← Workflow stages + transition rules
-│   └── main.js                 ← Ana orkestratör
-├── index.html                  ← V2 Ana arayüz
-├── style.css                   ← V2 Stil dosyası
-├── test.js                     ← 42 birim testi
-└── package.json
-```
-
----
-
-## ⚙️ Kurulum ve Çalıştırma
-
-### Gereksinimler
-- Node.js 18+
-
-### Geliştirme Sunucusu
 ```bash
 npm install
 npm run dev
 ```
-Tarayıcınızda `http://localhost:5173` adresine gidin.
 
-### Testleri Çalıştırma
+Masaüstü geliştirme:
+
 ```bash
-npm test
+npm run desktop:dev
 ```
 
-### Production Build
+Windows installer üretimi:
+
 ```bash
-npm run build
+npm run desktop:build
 ```
 
----
+Başarılı build, `src-tauri/target/release/bundle/msi` altında MSI ve `src-tauri/target/release/bundle/nsis` altında kurulum EXE’si üretir. Yerel geliştirme artefaktları varsayılan olarak kod imzasızdır; başka cihazlara dağıtım öncesinde bir Windows kod imzalama sertifikasıyla imzalanmalıdır.
 
-## 🔑 API Anahtarı
+## Kalite kapısı
 
-1. Sağ üstteki **API Ayarları** simgesine tıklayın
-2. [Google AI Studio](https://aistudio.google.com/app/apikey) üzerinden aldığınız Gemini API anahtarınızı yapıştırın
-3. Anahtar tarayıcınızda yerel olarak saklanır, hiçbir sunucuya gönderilmez
+```bash
+npm run verify
+```
 
-> **Not:** API anahtarı olmadan da çevrimdışı şablon modu ile çalışabilirsiniz.
+Bu komut sırasıyla legacy + V4 testlerini, TypeScript kontrolünü, V4 ESLint kontrolünü, PWA production build’ini ve Rust masaüstü testlerini çalıştırır. Tekil komutlar: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run desktop:check`, `npm run desktop:test`.
 
----
+## V4 mimarisi
 
-## 🧪 Test Kapsamı
+```text
+src/react/       React çalışma alanı ve sunum katmanı
+src/v4/          canonical state, planlama, AI, export ve repository adaptörleri
+src-tauri/       Windows-first masaüstü kabuğu, SQLite ve keyring komutları
+tests/v4/        V4 birim ve entegrasyon testleri
+src/ + tests/    geçiş boyunca korunan V2/V3 domain motoru ve regresyon paketi
+```
 
-`npm test` komutuyla çalışan 42 birim testi:
+Canonical model; hedef, gereksinim, karar, varsayım, risk, görev, test, kilometre taşı ve izlenebilirlik bağlantılarını ayrı tipli varlıklar olarak saklar. `sections` kullanıcıya sunulan yaşayan belge görünümüdür; exportlar belirli bir canonical revision’dan türetilir.
 
-- **XSS Sanitizer**: `escapeHTML` fonksiyonu, attribute injection dahil tüm vektörler
-- **File Policy**: Uzantı ve boyut denetimleri
-- **Secret Detector**: API key, private key ve AIzaSy prefix tespiti
-- **Canonical State & JSON Patch**: `add`, `replace`, `remove` patch operasyonları ve revision sayacı
-- **Prototype Pollution**: `__proto__`, `constructor`, `prototype` yollarına karşı koruma
-- **Strict Schema Validation**: Tip, aralık, benzersizlik denetimleri
-- **Workflow Transitions**: Fail-closed geçişler, tam pipeline zinciri
-- **Project Profiler**: Kategori tespiti, `unknown` fallback, `buildProfilePromptBlock`
+## Yerel veri ve güvenlik
 
----
+- Hesap, bulut senkronizasyonu ve çok kullanıcılı çalışma ilk kapsamda yoktur.
+- Offline veya Ollama kullanıldığında planlama bağlamı cihazda kalabilir.
+- Bulut sağlayıcılarına tam proje yerine filtrelenmiş canonical bağlam gönderilir.
+- Yerel tercih hafızası opt-in’dir; güncel proje hariç geçmiş kayıtlardan yalnız anonim/toplulaştırılmış sinyaller türetilir ve ham proje metni hafıza bağlamına girmez.
+- Web API anahtarları oturum belleğinde, masaüstü anahtarları işletim sistemi kasasında tutulur.
+- `.promtgen` içe aktarma; paket, girdi ve toplam açılmış boyut, girdi sayısı, yol geçişi, zararlı JSON anahtarları, şema ve canonical özet denetimleri uygular.
+- Bulut sağlayıcı uç noktaları sabit allowlist’tedir; Ollama yalnız loopback adresine bağlanabilir. Web ve Tauri CSP’si yalnız gerekli yerel ve sağlayıcı bağlantılarını açar.
+- Mevcut proje analizi gizli dosyaları, bağımlılık/build klasörlerini, symlink’leri, binary içerikleri ve prompt-injection sinyallerini dışarıda bırakır; yalnız güvenli envanter özeti planlama bağlamına girer.
+- Native ajan yürütme keyfî path veya komut kabul etmez. Her worktree ve ajan adımı işletim sistemi onayı ister; yalnız Implementer `workspace-write`, diğer roller `read-only` sandbox kullanır.
+- Native ajan yürütme için erişilebilir bir `codex` CLI kurulumu gerekir; uygulama çalıştırılabilirliği `codex --version` ile kontrol eder ve kullanılamıyorsa worktree başlatmayı kapatır.
+- Masaüstü yedek geri yükleme native onay ister; güncel plan önce otomatik yedeklenir ve seçilen belge eski revision’ı ezmeden yeni revision olur. Karantina içeriği frontend’e açılmaz.
 
-## 📋 Nasıl Kullanılır?
+## Geçiş durumu
 
-1. **Fikrinizi Yazın**: Yapmak istediğiniz proje ya da ürünü doğal dilde tanımlayın
-2. **Odakları Seçin**: UI, Güvenlik, Performans veya Ölçeklenebilirlik önceliklerini işaretleyin
-3. **Planlama Derinliğini Seçin**: Quick, Standard, Advanced veya Enterprise
-4. **Sohbet Edin**: Proje Mimarı ile projenizi şekillendirin ve her adımda canonical state güncellensin
-5. **Promptları Kopyalayın**: Adım adım prompt zincirini sırayla kodlama ajanınıza verin
-6. **ZIP Olarak İndirin**: Tüm belgeleri, editör kurallarını ve ajan paketlerini tek dosyada alın
-
----
-
-## 🛡️ Güvenlik Politikaları
-
-| Kural | Detay |
-|---|---|
-| Dosya boyutu | Maks 1 MB |
-| İzin verilen uzantılar | `.js .ts .jsx .tsx .py .md .json .yaml .toml .txt .html .css .vue .go .rs` |
-| Secret tespit | API key, private key ve AIzaSy pattern'leri → **yükleme engellendi** |
-| XSS | Tüm dinamik içerik `escapeHTML` ile sanitize edilir |
-| Attribute breakout | `dataset` API ile programatik atama |
-| Prompt injection | Dosya içeriği `<UNTRUSTED_FILE_CONTENT>` bloğuna sarılır |
-| Prototype pollution | `applyStatePatch` içinde `__proto__`, `constructor`, `prototype` yolları engellenir |
-
----
-
-## 🗺️ Yol Haritası
-
-- [ ] Tauri masaüstü uygulaması (SQLite local-first)
-- [ ] ESLint + CI quality gate entegrasyonu
-- [ ] DOM testleri (jsdom)
-- [ ] LLM streaming desteği
-- [ ] Çoklu LLM provider (OpenAI, Anthropic)
+Production giriş noktası yalnız React/V4 çalışma alanını yükler. Eski `main.js`, state, presentation, AI ve exporter yolları production import graph’ından çıkarılmıştır; bu sınır otomatik testle korunur. V1–V3 domain/migration kodu veri uyumluluğu ve regresyon kanıtı için tutulur, kayıtlar yedekli migration ile V4’e taşınır ve eski exportlar geçmiş kaydı olarak korunur. Ayrıntılı kabul eşlemesi [docs/acceptance-audit.md](docs/acceptance-audit.md) dosyasındadır.

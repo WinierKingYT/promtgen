@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import { createProjectStateV4 } from '../../src/v4/project-state-v4.js';
+import { normalizeAgentPrompt, normalizeTask } from '../../src/v4/canonical-entities.js';
+import { beginExecutionSession, buildExecutionPrompt, EXECUTION_ROLES, getNextExecutionRole, proposeExecution, recordExecutionResult } from '../../src/v4/execution-orchestrator.js';
+
+const project = createProjectStateV4({ idea: 'Execution zinciri olan proje' });
+project.tasks = [normalizeTask({ id: 'task-1', title: 'Özelliği uygula', acceptanceCriteria: ['Test geçer'], status: 'ready' })];
+project.agentPrompts = EXECUTION_ROLES.map(role => normalizeAgentPrompt({ id: `prompt-${role}`, role, title: role, instructions: `${role} talimatı`, expectedOutputs: ['Rapor'], status: 'ready' }));
+project.readiness.blockers = [];
+const proposal = proposeExecution(project, 'codex');
+assert.equal(proposal.blockers.length, 0);
+assert.deepEqual(proposal.roles.map(item => item.sandbox), ['read-only', 'workspace-write', 'read-only', 'read-only']);
+assert.equal(beginExecutionSession(project, proposal).success, false);
+const started = beginExecutionSession(project, proposal, { approved: true, worktreeLabel: 'isolated-worktree' });
+assert.equal(started.success, true);
+assert.equal(getNextExecutionRole(started.session).role, 'planner');
+assert.match(buildExecutionPrompt(started.project, started.session.id, 'planner'), /salt okunur/i);
+assert.throws(() => buildExecutionPrompt(started.project, started.session.id, 'implementer'), /Sıradaki rol planner/);
+const plannerResult = recordExecutionResult(started.project, started.session.id, { role: 'planner', success: true, exitCode: 0, stdout: 'Plan hazır' });
+assert.equal(plannerResult.success, true);
+assert.equal(getNextExecutionRole(plannerResult.session).role, 'implementer');
+const failed = recordExecutionResult(plannerResult.project, started.session.id, { role: 'implementer', success: false, exitCode: 1, stderr: 'Test failed' });
+assert.equal(failed.session.status, 'failed');
+assert.equal(getNextExecutionRole(failed.session).role, 'implementer');
+assert.equal(getNextExecutionRole(failed.session).blocked, false);
+console.log('✓ V4 sequential execution orchestrator and approval gate');
