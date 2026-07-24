@@ -71,3 +71,27 @@ export function recordExecutionResult(project, sessionId, result) {
     captureRevision(next, `${result.role} execution adımı ${result.success ? 'tamamlandı' : 'başarısız oldu'}`);
     return { success: true, project: next, session, reason: '' };
 }
+
+export function simulateExecutionRun(project, sessionId) {
+    let currentProject = structuredClone(project);
+    const session = currentProject.executionSessions?.find(s => s.id === sessionId);
+    if (!session) return { success: false, project: currentProject, reason: 'Execution oturumu bulunamadı.' };
+
+    const logs = [];
+    for (const role of EXECUTION_ROLES) {
+        const nextRole = getNextExecutionRole(session);
+        if (!nextRole.role) break;
+        const res = recordExecutionResult(currentProject, sessionId, {
+            role: nextRole.role,
+            success: true,
+            exitCode: 0,
+            outputSummary: `${nextRole.role.toUpperCase()} simülasyon adımı hatasız tamamlandı. Kontrol noktaları doğrulandı.`,
+            completedAt: new Date().toISOString()
+        });
+        if (res.success) {
+            currentProject = res.project;
+            logs.push(`✅ [${nextRole.role.toUpperCase()}] Adımı başarıyla simüle edildi.`);
+        }
+    }
+    return { success: true, project: currentProject, logs };
+}

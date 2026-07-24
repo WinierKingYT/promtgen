@@ -59,8 +59,41 @@ export function analyzeIdea(idea, options = {}) {
         planningDepth,
         profile: options.profile || inferProfile(idea, options.importedContext || [])
     });
-    project.suggestionBundles.push(proposeNextOptions(project));
+    // Very short/vague idea (< 50 chars) -> route to Idea Amplifier before Discovery
+    const isShortIdea = String(idea || '').trim().length < 50;
+    if (isShortIdea) {
+        project.lifecycle.activePhase = PLANNING_PHASES.IDEA_EXPANSION;
+    } else {
+        project.suggestionBundles.push(proposeNextOptions(project));
+    }
     return recalculateReadiness(project);
+}
+
+export function applyIdeaExpansion(project, { answers = {}, dimensions = [] } = {}) {
+    // Build enriched idea text from dimension answers
+    const parts = [];
+    for (const dim of dimensions) {
+        const answer = String(answers[dim.id] || '').trim();
+        if (answer) parts.push(answer);
+    }
+    const originalIdea = String(project.identity.originalIdea || '').trim();
+    const expandedIdea = parts.length
+        ? `${originalIdea} — ${parts.join(', ')}`
+        : originalIdea;
+
+    const next = structuredClone(project);
+    next.identity.originalIdea = expandedIdea;
+    next.identity.name = inferProjectName(expandedIdea);
+    next.ideaExpansionSession = {
+        originalIdea,
+        answers,
+        expandedIdea,
+        dimensions
+    };
+    next.lifecycle.activePhase = PLANNING_PHASES.DISCOVERY;
+    next.lifecycle.updatedAt = new Date().toISOString();
+    next.suggestionBundles.push(proposeNextOptions(next));
+    return recalculateReadiness(next);
 }
 
 function inferProjectName(idea) {
@@ -98,33 +131,126 @@ function suggestion({ kind, title, description, pros, cons, effort, impact, affe
 
 export function proposeNextOptions(project, options = {}) {
     const dismissed = new Set(project.dismissedSuggestionFingerprints || []);
-    const seen = new Set(project.suggestionBundles.flatMap(bundle => bundle.items).filter(item => item.status !== 'deferred').map(item => item.fingerprint));
-    const text = project.identity.originalIdea.toLowerCase();
+    const seen = new Set(project.suggestionBundles.flatMap(bundle => bundle.items).map(item => item.fingerprint));
+    const ideaText = project.identity.originalIdea || 'Yeni Proje';
+    const text = ideaText.toLowerCase();
     const direction = String(options.direction || '').trim();
+    const directionText = direction ? `"${direction.slice(0, 50)}"` : `"${ideaText.slice(0, 40)}"`;
+
+    const emptySectionIds = Object.entries(project.sections || {})
+        .filter(([, s]) => s.required && !s.content && (!s.items || s.items.length === 0))
+        .map(([id]) => id);
+
+    const isGame = /oyun|s&box|unity|godot|unreal|engine|at|mount|fizik|arcade|yaratık|entity/.test(text);
+    const isWebSaaS = /web|saas|e-ticaret|site|dashboard|portal|react|next|api|backend|veritabanı/.test(text);
+    const isMobile = /mobil|mobile|ios|android|flutter|react native|app/.test(text);
+
     const candidates = [
-        suggestion({ kind: 'feature', title: 'Çekirdek kullanıcı akışını tanımla', description: 'Kullanıcının başlangıçtan hedef sonuca kadar izleyeceği ana akışı kapsamın merkezi yap.', pros: ['MVP sınırını netleştirir', 'Görev üretimini kolaylaştırır'], cons: ['İstisna akışları sonraya bırakır'], effort: 'low', impact: 'high', affectedSections: ['vision', 'scope', 'requirements'], recommended: true }),
-        suggestion({ kind: 'decision', title: 'Yerel veri ve senkronizasyon stratejisi', description: 'Verinin cihazda mı, bulutta mı veya hibrit mi tutulacağını kararlaştır.', pros: ['Mimari belirsizliği azaltır', 'Gizlilik sınırını belirler'], cons: ['Erken teknoloji kararı gerektirir'], effort: 'medium', impact: 'high', affectedSections: ['decisions', 'architecture', 'security'], recommended: /local|yerel|offline/.test(text) }),
-        suggestion({ kind: 'feature', title: 'Proje sürümleri ve geri alma', description: 'Kabul edilen her büyük değişikliği sürümleyip önceki plana dönüş imkânı ekle.', pros: ['Denemeyi güvenli kılar', 'Plan evrimini görünür yapar'], cons: ['Durum yönetimini büyütür'], effort: 'medium', impact: 'high', affectedSections: ['scope', 'requirements', 'tasks'], recommended: true }),
-        suggestion({ kind: 'risk', title: 'Başarı ve kapsam kayması ölçütleri', description: 'Planın gereksiz büyümesini yakalayan ölçülebilir başarı ve kapsam sınırları ekle.', pros: ['Aşırı planlamayı önler', 'Final kararını kolaylaştırır'], cons: ['Başlangıçta düşünme süresi ister'], effort: 'low', impact: 'medium', affectedSections: ['objectives', 'scope', 'risks'], recommended: true }),
-        suggestion({ kind: 'architecture', title: 'Modüler genişleme noktaları', description: 'Yeni alan paketleri ve ajan adaptörleri için sabit eklenti sözleşmeleri tanımla.', pros: ['Büyük projelere büyür', 'Çekirdeği sade tutar'], cons: ['İlk mimariyi biraz genişletir'], effort: 'medium', impact: 'medium', affectedSections: ['architecture', 'requirements', 'tasks'] }),
-        suggestion({ kind: 'decision', title: 'Kimlik ve yetkilendirme ihtiyacı', description: 'Tek kullanıcı, çok kullanıcı ve rol tabanlı erişim seçeneklerinden kapsamına uygun olanı seç.', pros: ['Güvenlik ve veri modelini netleştirir'], cons: ['Küçük projelerde gereksiz olabilir'], effort: 'high', impact: 'medium', affectedSections: ['decisions', 'security', 'architecture'], recommended: /kullanıcı|üyelik|login|auth/.test(text) }),
-        suggestion({ kind: 'feature', title: 'İlk sürüm başarı senaryosu', description: 'İlk sürümün başarılı sayılması için tek bir ölçülebilir kullanıcı sonucunu belirle.', pros: ['Önceliklendirmeyi sadeleştirir', 'Kabul testine dönüşür'], cons: ['İkincil hedefleri sonraya bırakır'], effort: 'low', impact: 'high', affectedSections: ['objectives', 'testing'], recommended: true }),
-        suggestion({ kind: 'decision', title: 'Çevrimdışı hata davranışı', description: 'Ağ veya AI sağlayıcısı erişilemediğinde kullanıcı akışının nasıl devam edeceğini kararlaştır.', pros: ['Dayanıklılığı artırır', 'Local-first vaadini netleştirir'], cons: ['Ek fallback akışları gerektirir'], effort: 'medium', impact: 'high', affectedSections: ['requirements', 'architecture', 'risks', 'testing'], recommended: /local|yerel|offline/.test(text) }),
-        suggestion({ kind: 'risk', title: 'Hassas veri sınırlarını belirle', description: 'Modele hiçbir zaman gönderilmeyecek veri sınıflarını ve redaksiyon politikasını tanımla.', pros: ['Gizlilik riskini azaltır', 'Provider değişimini güvenli kılar'], cons: ['Dosya ve alan sınıflandırması ister'], effort: 'medium', impact: 'high', affectedSections: ['security', 'requirements', 'testing'] }),
-        suggestion({ kind: 'architecture', title: 'Sağlayıcıdan bağımsız AI sözleşmesi', description: 'Model çağrılarını ortak yapılandırılmış yanıt ve hata sözleşmesinin arkasında tut.', pros: ['Provider değişimini kolaylaştırır', 'Test edilebilirlik sağlar'], cons: ['Adaptör katmanı gerektirir'], effort: 'medium', impact: 'high', affectedSections: ['architecture', 'decisions', 'testing'] }),
-        suggestion({ kind: 'feature', title: 'Karar karşılaştırma görünümü', description: 'Benzer seçenekleri etki, efor, risk ve bağımlılık açısından yan yana karşılaştır.', pros: ['Seçim kalitesini artırır'], cons: ['Arayüz yoğunluğunu artırabilir'], effort: 'medium', impact: 'medium', affectedSections: ['scope', 'requirements', 'tasks'] }),
-        suggestion({ kind: 'decision', title: 'Çıktı sözleşmesi ve dil politikası', description: 'Plan dili ile kodlama ajanı promptlarının dili ve teknik terim yaklaşımını kesinleştir.', pros: ['Belgeler arası tutarlılık sağlar'], cons: ['Çok dilli bakım yükü doğurabilir'], effort: 'low', impact: 'medium', affectedSections: ['decisions', 'requirements'] }),
-        suggestion({ kind: 'risk', title: 'Prompt injection izolasyonu', description: 'İçe aktarılan proje metnini talimat değil güvenilmeyen veri olarak sınırlandır.', pros: ['Model manipülasyonunu azaltır'], cons: ['Bazı bağlam talimatlarını filtreleyebilir'], effort: 'medium', impact: 'high', affectedSections: ['security', 'architecture', 'testing'] }),
-        suggestion({ kind: 'feature', title: 'Revision fark görünümü', description: 'İki plan sürümü arasında eklenen, değişen ve geçersizleşen bölümleri göster.', pros: ['Plan evrimini anlaşılır yapar'], cons: ['Diff sunumu gerektirir'], effort: 'medium', impact: 'medium', affectedSections: ['scope', 'requirements', 'tasks'] }),
-        suggestion({ kind: 'architecture', title: 'Gözlemlenebilir AI çağrıları', description: 'Gizli veriyi kaydetmeden süre, token tahmini, provider ve fallback nedenini yerel olay günlüğünde izle.', pros: ['Hata ayıklamayı kolaylaştırır', 'Maliyet görünürlüğü sağlar'], cons: ['Yerel log politikası ister'], effort: 'medium', impact: 'medium', affectedSections: ['architecture', 'operations', 'security'] }),
-        suggestion({ kind: 'question', title: 'En kritik bilinmeyeni seç', description: direction ? `Kullanıcının “${direction.slice(0, 120)}” yönlendirmesindeki en kritik belirsizliği bir sonraki turda doğrula.` : 'Uygulamaya başlamadan önce yanlış seçilmesi en pahalı olacak varsayımı doğrula.', pros: ['Keşfi odaklar', 'Gereksiz ayrıntıyı azaltır'], cons: ['Kısa bir kullanıcı yanıtı gerektirir'], effort: 'low', impact: 'high', affectedSections: ['vision', 'scope', 'decisions'], recommended: Boolean(direction) })
+        // Direction-driven candidate
+        ...(direction ? [
+            suggestion({
+                kind: 'decision',
+                title: `${directionText} odağında ana kararı netleştir`,
+                description: `Kullanıcı yönlendirmesi doğrultusunda ${directionText} kapsamını canonical plana dahil et.`,
+                pros: ['İstenilen hedefi odağa alır', 'Geliştirici yönlendirmesini uygular'],
+                cons: ['İkincil hedefleri erteleyebilir'],
+                effort: 'medium', impact: 'high',
+                affectedSections: ['scope', 'requirements', 'decisions'],
+                recommended: true
+            })
+        ] : []),
+
+        // Context-driven domain candidates (feature first, decision second)
+        suggestion({
+            kind: 'feature',
+            title: `Çekirdek kullanıcı akışını tanımla ("${ideaText.slice(0, 25)}")`,
+            description: `Kullanıcının başlangıçtan hedef sonuca kadar izleyeceği ana akışı kapsamın merkezi yap.`,
+            pros: ['MVP sınırını netleştirir', 'Görev üretimini kolaylaştırır'],
+            cons: ['İstisna akışları sonraya bırakır'],
+            effort: 'low', impact: 'high',
+            affectedSections: ['vision', 'scope', 'requirements'],
+            recommended: true
+        }),
+
+        suggestion({
+            kind: 'decision',
+            title: isMobile ? `Local-first veri & çevrimdışı senkronizasyon` : `Veri depolama & yerel durum stratejisi`,
+            description: `Verinin cihazda mı, bulutta mı veya hibrit mi tutulacağını kararlaştır.`,
+            pros: ['Mimari belirsizliği azaltır', 'Gizlilik sınırını belirler'],
+            cons: ['Erken teknoloji kararı gerektirir'],
+            effort: 'medium', impact: 'high',
+            affectedSections: ['decisions', 'architecture', 'security'],
+            recommended: true
+        }),
+
+        // Missing section specific candidates
+        ...(emptySectionIds.includes('scope') ? [
+            suggestion({
+                kind: 'feature',
+                title: `"${ideaText.slice(0, 30)}" için MVP sınırını çiz`,
+                description: `İlk sürümde yer alacak temel işlevleri ve kapsam dışı bırakılacak özellikleri netleştir.`,
+                pros: ['Aşırı planlamayı önler', 'MVP teslim süresini kısaltır'],
+                cons: ['İkincil istekleri sonraya bırakır'],
+                effort: 'low', impact: 'high',
+                affectedSections: ['scope', 'objectives'],
+                recommended: true
+            })
+        ] : []),
+
+        ...(emptySectionIds.includes('architecture') ? [
+            suggestion({
+                kind: 'architecture',
+                title: isGame ? `Server-Authority & Ağ Senkronizasyon Mimarisi` : (isWebSaaS ? `Modüler API & Veritabanı Mimarisi` : `Katmanlı Sistem & Bileşen Mimarisi`),
+                description: isGame ? `Oyuncu ve nesne durumlarının sunucu yetkisinde senkronize edildiği mimari modeli seç.` : `Sistem bileşenlerini ve veri akışını modüler katmanlara böl.`,
+                pros: ['Mimari belirsizlikleri giderir', 'Sürdürülebilirlik sağlar'],
+                cons: ['Erken tasarım düşüncesi ister'],
+                effort: 'medium', impact: 'high',
+                affectedSections: ['architecture', 'decisions', 'security'],
+                recommended: true
+            })
+        ] : []),
+
+        ...(emptySectionIds.includes('security') ? [
+            suggestion({
+                kind: 'risk',
+                title: `Hassas veri & yetkilendirme sınırlarını belirle`,
+                description: `Yetki modeli, gizli verilerin korunması ve erişim kısıtlarını canonical plana ekle.`,
+                pros: ['Güvenlik açıklarını önceden kapatır'],
+                cons: ['Ek yetki doğrulama kodu gerektirir'],
+                effort: 'medium', impact: 'high',
+                affectedSections: ['security', 'architecture', 'requirements']
+            })
+        ] : []),
+
+        suggestion({
+            kind: 'risk',
+            title: `Proje sürümleri ve geri alma politikası`,
+            description: `Kabul edilen her büyük değişikliği sürümleyip önceki plana dönüş imkânı ekle.`,
+            pros: ['Denemeyi güvenli kılar', 'Plan evrimini görünür yapar'],
+            cons: ['Durum yönetimini büyütür'],
+            effort: 'medium', impact: 'high',
+            affectedSections: ['scope', 'requirements', 'tasks']
+        }),
+
+        suggestion({
+            kind: 'feature',
+            title: `İlk sürüm kabul ve başarı kriteri`,
+            description: `İlk sürümün başarılı sayılması için tek bir ölçülebilir kullanıcı sonucunu belirle.`,
+            pros: ['Önceliklendirmeyi sadeleştirir', 'Kabul testine dönüşür'],
+            cons: ['İkincil hedefleri sonraya bırakır'],
+            effort: 'low', impact: 'high',
+            affectedSections: ['objectives', 'testing'],
+            recommended: true
+        })
     ];
+
     let items = candidates.filter(item => !dismissed.has(item.fingerprint) && !seen.has(item.fingerprint)).slice(0, 5);
+
     if (items.length < 3) {
         const round = project.suggestionBundles.length + 1;
         const dynamic = [
-            suggestion({ kind: 'question', title: `Tur ${round}: Kullanıcı değerini doğrula`, description: 'Bu turda en önemli kullanıcı sonucunu ve onu kanıtlayacak gözlemi kesinleştir.', pros: ['Ürün odağını korur'], cons: ['Kullanıcı araştırması gerektirebilir'], effort: 'low', impact: 'high', affectedSections: ['vision', 'objectives'] }),
-            suggestion({ kind: 'risk', title: `Tur ${round}: En pahalı varsayımı test et`, description: 'Yanlış çıkarsa mimariyi veya kapsamı en çok değiştirecek varsayım için erken doğrulama görevi ekle.', pros: ['Geç yeniden çalışmayı azaltır'], cons: ['Kısa prototip gerekebilir'], effort: 'medium', impact: 'high', affectedSections: ['risks', 'tasks', 'testing'] }),
+            suggestion({ kind: 'question', title: `Tur ${round}: ${ideaText.slice(0, 30)} kullanıcı değerini doğrula`, description: direction ? `"${direction.slice(0, 50)}" odağında en önemli sonucu kesinleştir.` : 'Bu turda en önemli kullanıcı sonucunu ve onu kanıtlayacak gözlemi kesinleştir.', pros: ['Ürün odağını korur'], cons: ['Kullanıcı araştırması gerektirebilir'], effort: 'low', impact: 'high', affectedSections: ['vision', 'objectives'] }),
+            suggestion({ kind: 'risk', title: `Tur ${round}: ${ideaText.slice(0, 30)} en pahalı varsayımını test et`, description: 'Yanlış çıkarsa mimariyi veya kapsamı en çok değiştirecek varsayım için erken doğrulama görevi ekle.', pros: ['Geç yeniden çalışmayı azaltır'], cons: ['Kısa prototip gerekebilir'], effort: 'medium', impact: 'high', affectedSections: ['risks', 'tasks', 'testing'] }),
             suggestion({ kind: 'decision', title: `Tur ${round}: Sonraki kilometre taşını seç`, description: 'Bir sonraki uygulanabilir kilometre taşının çıktısını ve kabul kriterini belirle.', pros: ['Planı eyleme dönüştürür'], cons: ['Daha sonraki işleri erteler'], effort: 'low', impact: 'high', affectedSections: ['tasks', 'scope'], recommended: true })
         ];
         items = [...items, ...dynamic].slice(0, 5);
@@ -416,3 +542,156 @@ function createRevision(project, summary, acceptedSuggestionIds, affectedSection
     snapshotSource.revisions = [];
     project.revisions.push({ id: id('revision'), number: project.revision, createdAt: now(), summary, acceptedSuggestionIds, affectedSections, snapshot: snapshotSource });
 }
+
+export function confirmConceptSummary(project) {
+    const next = structuredClone(project);
+    if (!next.ideaLabSession || !next.ideaLabSession.conceptSummary) {
+        throw new Error('Onaylanacak bir konsept özeti bulunamadı.');
+    }
+
+    const summary = next.ideaLabSession.conceptSummary;
+    summary.userConfirmed = true;
+    summary.confirmedAt = now();
+    next.ideaLabSession.status = 'confirmed';
+
+    // Populate Canonical Entities from Concept Summary
+    if (summary.summary && next.sections.vision) {
+        next.sections.vision.content = summary.summary;
+        next.sections.vision.status = 'draft';
+    }
+    if (summary.confirmedFeatures && next.sections.scope) {
+        next.sections.scope.items = [...new Set([...next.sections.scope.items, ...summary.confirmedFeatures])];
+        next.sections.scope.status = 'draft';
+    }
+    if (summary.technicalApproaches && next.sections.architecture) {
+        next.sections.architecture.items = [...new Set([...next.sections.architecture.items, ...summary.technicalApproaches])];
+        next.sections.architecture.status = 'draft';
+    }
+    if (summary.knownRisks && next.sections.risks) {
+        next.sections.risks.items = [...new Set([...next.sections.risks.items, ...summary.knownRisks])];
+        next.sections.risks.status = 'draft';
+        for (const riskTitle of summary.knownRisks) {
+            if (!next.risks.some(r => r.title === riskTitle)) {
+                next.risks.push(normalizeRisk({ id: id('risk'), title: riskTitle, description: 'Konsept aşamasında tespit edilen risk', status: 'open', sourceSuggestionId: '' }));
+            }
+        }
+    }
+
+    next.lifecycle.activePhase = PLANNING_PHASES.SHAPING;
+    next.lifecycle.updatedAt = now();
+    next.revision += 1;
+
+    const recalculated = recalculateReadiness(next);
+    createRevision(recalculated, 'Konsept özeti onaylandı ve canonical plan başlatıldı', [], ['vision', 'scope', 'architecture', 'risks']);
+    return recalculated;
+}
+
+export function applyImpactAnalysis(project, impactId) {
+    const next = structuredClone(project);
+    if (!next.impactAnalyses) return project;
+    const impact = next.impactAnalyses.find(i => i.id === impactId);
+    if (!impact || impact.status === 'accepted') return project;
+
+    impact.status = 'accepted';
+
+    // Add new tasks to canonical entity list
+    for (const taskTitle of impact.newTasks || []) {
+        if (!next.tasks.some(t => t.title === taskTitle)) {
+            next.tasks.push(normalizeTask({ id: id('task'), title: taskTitle, description: `Etki analizi ile eklendi: ${impact.userRequest}`, status: 'backlog', sourceSuggestionIds: [] }));
+        }
+    }
+
+    // Add new risks if any
+    for (const riskTitle of impact.newRisks || []) {
+        if (!next.risks.some(r => r.title === riskTitle)) {
+            next.risks.push(normalizeRisk({ id: id('risk'), title: riskTitle, description: `Etki analizi ile eklendi: ${impact.userRequest}`, status: 'open', sourceSuggestionId: '' }));
+        }
+    }
+
+    // Update section statuses
+    for (const sectionId of impact.affectedSections || []) {
+        if (next.sections[sectionId]) {
+            next.sections[sectionId].status = 'draft';
+            next.sections[sectionId].updatedAtRevision = next.revision + 1;
+        }
+    }
+
+    next.revision += 1;
+    next.lifecycle.updatedAt = now();
+
+    const recalculated = recalculateReadiness(next);
+    createRevision(recalculated, `Etki analizi onaylandı: ${impact.userRequest}`, [], impact.affectedSections || []);
+    return recalculated;
+}
+
+export function applyExtensionModules(project, extensionPackageNames = []) {
+    const next = structuredClone(project);
+    if (!Array.isArray(extensionPackageNames) || !extensionPackageNames.length) return project;
+
+    const added = [];
+    for (const pkgName of extensionPackageNames) {
+        const taskTitle = `[Modül] ${pkgName} Geliştirmesi`;
+        if (!next.tasks.some(t => t.title === taskTitle)) {
+            next.tasks.push(normalizeTask({
+                id: id('task'),
+                title: taskTitle,
+                description: `İsteğe bağlı ${pkgName} geliştirme paketi entegrasyonu`,
+                status: 'backlog',
+                sourceSuggestionIds: []
+            }));
+            added.push(pkgName);
+        }
+    }
+
+    if (!added.length) return project;
+
+    if (next.sections.scope) {
+        next.sections.scope.items.push(...added.map(name => `İsteğe Bağlı Modül: ${name}`));
+        next.sections.scope.status = 'draft';
+    }
+
+    next.revision += 1;
+    next.lifecycle.updatedAt = now();
+
+    const recalculated = recalculateReadiness(next);
+    createRevision(recalculated, `İsteğe bağlı modüller eklendi: ${added.join(', ')}`, [], ['scope', 'tasks']);
+    return recalculated;
+}
+
+export function resolveImpactContradiction(project, impactId, decisionId, action = 'supersede') {
+    const next = structuredClone(project);
+    const impact = (next.impactAnalyses || []).find(i => i.id === impactId);
+    if (!impact) return project;
+
+    const targetDecision = next.decisions.find(d => d.id === decisionId);
+    if (targetDecision && action === 'supersede') {
+        targetDecision.status = 'superseded';
+        
+        // Add replacement decision
+        next.decisions.push(normalizeDecision({
+            id: id('decision'),
+            title: `Revize Karar: ${impact.userRequest}`,
+            decision: `Evvelki "${targetDecision.title}" kararı geçersiz kılındı (superseded). Yeni istek plana kabul edildi: ${impact.userRequest}`,
+            status: 'accepted',
+            sourceSuggestionId: '',
+            affectedSectionIds: ['decisions', 'scope']
+        }));
+    }
+
+    // Apply the rest of the impact
+    return applyImpactAnalysis(next, impactId);
+}
+
+export function runConceptSimulation(project, approachId) {
+    const session = project.ideaLabSession;
+    if (!session) return { riskCount: 1, taskEstimate: 5, completenessScore: 70 };
+
+    const approach = (session.approaches || []).find(a => a.id === approachId) || session.approaches?.[0];
+    const riskCount = approach?.risks?.length || 2;
+    const effortScore = approach?.metrics?.effortScore || (approach?.effort === 'high' ? 5 : approach?.effort === 'medium' ? 3 : 1);
+    const taskEstimate = effortScore * 4 + 3;
+    const completenessScore = Math.min(95, 60 + (approach?.pros?.length || 0) * 10);
+
+    return { riskCount, taskEstimate, completenessScore };
+}
+

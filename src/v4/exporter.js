@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { validateProjectStateV4 } from './project-state-v4.js';
 import { normalizeProjectStateV4 } from './canonical-entities.js';
 import { createModuleRegistry } from './module-registry.js';
+import { generateArchitectureDiagram, generateDataFlowDiagram } from './diagram-generator.js';
 
 const MAX_PACKAGE_BYTES = 25 * 1024 * 1024;
 const MAX_ENTRY_BYTES = 5 * 1024 * 1024;
@@ -64,13 +65,18 @@ export function resolveCanonicalRevision(project, reference = 'current') {
 export function exportCanonicalMarkdown(project, revision = 'current') {
     const source = resolveCanonicalRevision(project, revision);
     const visible = Object.values(source.sections).filter(section => section.required || section.content || section.items.length);
+    const archDiagram = generateArchitectureDiagram(source);
     return [
         `# ${source.identity.name}`,
         `> Plan sürümü ${source.revision} · ${source.planningDepth.selected.toUpperCase()} · Hazırlık ${source.readiness.score}/100`,
         `**Başlangıç fikri:** ${source.identity.originalIdea}`,
         ...visible.map(sectionMarkdown),
+        '## Mimari Şema',
+        '```mermaid\n' + archDiagram + '\n```',
         '## Kabul Edilmiş Kararlar',
         source.decisions.length ? source.decisions.filter(item => item.status === 'accepted').map(item => `- **${item.title}:** ${item.decision}${item.rationale ? ` — ${item.rationale}` : ''}`).join('\n') : '_Henüz karar yok._',
+        '## Plan Geçmişi',
+        `Toplama ${source.revisions.length} revizyon kaydedildi. Son revizyon: r${source.revision}.`,
         '## Açık Uyarılar',
         bulletList([...source.readiness.blockers, ...source.readiness.warnings], '_Açık uyarı yok._')
     ].join('\n\n');
@@ -136,6 +142,26 @@ function reviewDocument(project) {
     return `# Plan Kalite İncelemesi\n\n${lastReview ? `Skor: **${lastReview.score}/100** · İncelenen revision: r${lastReview.revision}` : 'Henüz inceleme çalıştırılmadı.'}\n\n## Bulgular\n\n${findings}\n\n## Simülasyonlar\n\n${simulations}`;
 }
 
+function architectureDocument(project) {
+    const archDiagram = generateArchitectureDiagram(project);
+    const flowDiagram = generateDataFlowDiagram(project);
+    return `# System Architecture & Diagrams — ${project.identity.name}
+
+## System Components
+\`\`\`mermaid
+${archDiagram}
+\`\`\`
+
+## Data Flow & Execution Sequence
+\`\`\`mermaid
+${flowDiagram}
+\`\`\`
+
+## Architectural Decisions
+${project.decisions.length ? project.decisions.map(item => `- **${item.title}:** ${item.decision}`).join('\n') : '_Henüz karar kaydedilmedi._'}
+`;
+}
+
 function modulesDocument(project) {
     const active = project.modules.active.length ? project.modules.active.map(item => `- **${item.id}** v${item.version} · r${item.enabledAtRevision}`).join('\n') : '_Aktif modül yok._';
     return `# Aktif Planlama Modülleri\n\n${active}\n\nModüller yalnız deklaratif bölüm, reviewer ve export katkıları sağlar; çalıştırılabilir kod içermez.`;
@@ -189,7 +215,7 @@ export function createDocumentSet(project, { revision = 'current', adapters = DE
     };
     if (depth !== 'quick') Object.assign(documents, {
         'documents/requirements.md': sectionMarkdown(source.sections.requirements),
-        'documents/architecture.md': sectionMarkdown(source.sections.architecture),
+        'documents/architecture.md': architectureDocument(source),
         'documents/risks.md': sectionMarkdown(source.sections.risks),
         'documents/test-strategy.md': sectionMarkdown(source.sections.testing)
     });

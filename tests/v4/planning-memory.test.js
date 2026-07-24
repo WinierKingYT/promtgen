@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
-import { analyzeIdea } from '../../src/v4/planning-engine.js';
+import { analyzeIdea, applyIdeaExpansion } from '../../src/v4/planning-engine.js';
 import { buildLocalPlanningMemory, hasUsefulPlanningMemory } from '../../src/v4/planning-memory.js';
 
 function rememberedProject(idea, id, depth) {
-    const project = analyzeIdea(idea);
+    let project = analyzeIdea(idea);
+    // If short idea landed in IDEA_EXPANSION, promote it so suggestionBundles exist
+    if (project.lifecycle.activePhase === 'IDEA_EXPANSION') {
+        project = applyIdeaExpansion(project, { answers: {}, dimensions: [] });
+    }
     project.id = id;
     project.planningDepth.selected = depth;
     project.modules.active = [{ id: 'software.core', version: '1.0.0', enabledAtRevision: project.revision }];
@@ -16,6 +20,7 @@ function rememberedProject(idea, id, depth) {
 const first = rememberedProject('Gizli müşteri alfa projesi', 'memory-1', 'advanced');
 const second = rememberedProject('Çok özel beta projesi', 'memory-2', 'advanced');
 const current = rememberedProject('Yeni proje', 'current', 'quick');
+
 const memory = buildLocalPlanningMemory([first, second, current], current.id);
 
 assert.equal(memory.sourceProjectCount, 2);

@@ -324,7 +324,7 @@ fn delete_provider_credential(provider: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(execution::ExecutionState::default())
-        .invoke_handler(tauri::generate_handler![save_project, load_project, list_projects, storage_health, list_project_backups, list_quarantined_projects, read_project_backup_with_confirmation, set_provider_credential, get_provider_credential, delete_provider_credential, select_and_inventory_project_folder, execution::execution_capabilities, execution::select_execution_repository, execution::prepare_execution_worktree, execution::run_codex_agent_step, execution::execution_patch, execution::cleanup_execution_worktree])
+        .invoke_handler(tauri::generate_handler![save_project, load_project, list_projects, storage_health, list_project_backups, list_quarantined_projects, read_project_backup_with_confirmation, set_provider_credential, get_provider_credential, delete_provider_credential, select_and_inventory_project_folder, execution::execution_capabilities, execution::select_codex_cli, execution::clear_codex_cli, execution::select_execution_repository, execution::prepare_execution_worktree, execution::run_codex_agent_step, execution::execution_patch, execution::cleanup_execution_worktree])
         .run(tauri::generate_context!()).expect("PromtGen başlatılamadı");
 }
 

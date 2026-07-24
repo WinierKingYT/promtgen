@@ -1,5 +1,8 @@
 export const PLANNING_PHASES = Object.freeze({
+    IDEA_EXPANSION: 'IDEA_EXPANSION',
     DISCOVERY: 'DISCOVERY',
+    IDEA_LAB: 'IDEA_LAB',
+    CONCEPT_CONFIRMATION: 'CONCEPT_CONFIRMATION',
     SHAPING: 'SHAPING',
     DESIGN: 'DESIGN',
     PLANNING: 'PLANNING',
@@ -8,7 +11,10 @@ export const PLANNING_PHASES = Object.freeze({
 });
 
 export const PHASE_REGISTRY = Object.freeze([
-    { id: PLANNING_PHASES.DISCOVERY, label: 'Fikri Keşfet', description: 'Amaç, kullanıcı ve problem alanını netleştir.' },
+    { id: PLANNING_PHASES.IDEA_EXPANSION, label: 'Fikri Büyüt', description: 'Kısa fikri seçeneklerle genişlet ve netleştir.' },
+    { id: PLANNING_PHASES.DISCOVERY, label: 'Fikri Al', description: 'Ham düşünceyi ve vizyonu tanımla.' },
+    { id: PLANNING_PHASES.IDEA_LAB, label: 'Fikir Laboratuvarı', description: 'Alternatif yaklaşımları, deneyimi ve sınırları tartış.' },
+    { id: PLANNING_PHASES.CONCEPT_CONFIRMATION, label: 'Konsept Özeti', description: 'Özeti ve kararları inceleyip onayla.' },
     { id: PLANNING_PHASES.SHAPING, label: 'Kapsamı Şekillendir', description: 'Özellikleri, sınırları ve öncelikleri seç.' },
     { id: PLANNING_PHASES.DESIGN, label: 'Çözümü Tasarla', description: 'Mimari ve teknik kararları kesinleştir.' },
     { id: PLANNING_PHASES.PLANNING, label: 'Planı Oluştur', description: 'Görevleri, yol haritasını ve promptları üret.' },
@@ -90,7 +96,10 @@ export function createProjectStateV4({ idea, name = 'Yeni Proje', outputLanguage
         objectives: [], requirements: [], decisions: [], assumptions: [], risks: [], tasks: [], testCases: [], milestones: [], traceLinks: [], agentPrompts: [], researchQuestions: [], sources: [], evidence: [], reviewFindings: [], simulationRuns: [], openQuestions: [],
         messages: initialIdea ? [{ id: `msg-${Date.now()}`, role: 'user', content: initialIdea, createdAt }] : [],
         readiness: createInitialReadiness(1),
-        revisions: [], exports: [], executionSessions: [], dismissedSuggestionFingerprints: [], modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
+        revisions: [], exports: [], executionSessions: [], dismissedSuggestionFingerprints: [],
+        ideaLabSession: { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [] },
+        impactAnalyses: [],
+        modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
     };
     if (initialIdea) {
         state.sections.vision.content = initialIdea;

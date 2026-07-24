@@ -16,6 +16,9 @@ Bu belge production React/Tauri yolunun orijinal ürün kabul ölçütlerini han
 | Codex/Cursor/Claude/Generic ajan paketleri | `exporter.js`, IDE export dialogu | migration/export ve acceptance testleri |
 | İzole Planner→Implementer→Reviewer→Verifier yürütme | execution orchestrator + Rust worktree | execution JS/Rust testleri |
 | Erişilebilir ve otomasyona dayanıklı finalizasyon onayı | React uygulama içi dialog | `rc1-ui-contract.test.js`, tarayıcı RC1 smoke akışı |
+| Local-first sistem doktoru ve güvenli runtime görünürlüğü | `runtime-health.js`, Runtime Health dialogu | `runtime-health.test.js`, provider güvenlik testleri |
+| Kullanıcı kontrollü, native-doğrulamalı Codex CLI seçimi | Rust execution settings + Sistem Doktoru | Rust filename testi, `desktop-execution-settings.test.js` |
+| Codex process → izole worktree → patch native zinciri | Rust `execute_codex_program` sınırı | Sahte executable derleyen `native_codex_worktree_and_patch_flow_runs_end_to_end` |
 | Yazılım dışı alanlar | deklaratif module registry | module registry/reviewer testleri |
 | Legacy UI/state/export production graph’ında yok | React entry import sınırı | `runtime-boundary.test.js` |
 

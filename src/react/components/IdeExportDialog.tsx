@@ -37,13 +37,48 @@ export function IdeExportDialog({ open, project, onCommit, onClose }: any) {
     finally { setBusy(false); }
   };
 
+  const fileKeys = useMemo(() => Object.keys(preview.files || {}), [preview.files]);
+  const [selectedFile, setSelectedFile] = useState<string>('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (fileKeys.length && (!selectedFile || !fileKeys.includes(selectedFile))) {
+      setSelectedFile(fileKeys[0]);
+    }
+  }, [fileKeys, selectedFile]);
+
+  const copyPrompt = () => {
+    const files = preview.files as Record<string, string>;
+    const activeKey = selectedFile || fileKeys[0];
+    const fileContent = files[activeKey] || '';
+    if (fileContent) {
+      navigator.clipboard.writeText(fileContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return <dialog ref={dialogRef} className="ide-export-dialog" aria-labelledby="ide-export-title" onCancel={close} onClose={onClose}>
     <div className="dialog-head"><div className="dialog-icon"><Code2 size={20}/></div><div><span className="meta">IDE ÇALIŞMA PAKETİ</span><h2 id="ide-export-title">Planı kodlama ortamına taşı</h2></div><IconButton label="IDE paketini kapat" onClick={close}><X size={18}/></IconButton></div>
-    <p className="dialog-lead">Seçtiğin canonical revision; görev bağımlılıkları, doğrulama sözleşmesi ve IDE’nin otomatik okuyacağı talimat dosyalarıyla tek bir ZIP’e dönüştürülür.</p>
+    <p className="dialog-lead">Seçtiğin canonical revision; görev bağımlılıkları, doğrulama sözleşmesi ve IDE’nin otomatik okuyacağı talimat dosyalarıyla tek bir ZIP’e dönüştürülür veya panoya kopyalanır.</p>
     <div className="ide-export-body">
       <label className="ide-revision">Kaynak plan sürümü<select value={revision} onChange={event => setRevision(event.target.value)}><option value="current">Güncel r{project.revision}</option>{revisionOptions.filter((item: any) => item.number !== project.revision).map((item: any) => <option key={item.id} value={item.id}>r{item.number} — {item.summary}</option>)}</select></label>
-      <fieldset className="ide-adapters"><legend>Hedefler</legend>{IDE_ADAPTERS.map(adapter => <label key={adapter.id} className={adapters.includes(adapter.id) ? 'active' : ''}><input type="checkbox" checked={adapters.includes(adapter.id)} onChange={() => toggleAdapter(adapter.id)}/><span className="ide-check">{adapters.includes(adapter.id) && <Check size={12}/>}</span><span><b>{adapter.label}</b><small>{adapter.path}</small></span></label>)}</fieldset>
-      <section className="ide-file-preview" aria-label="Üretilecek dosyalar"><div><span className="meta">DOSYA ÖNİZLEMESİ</span><b>{Object.keys(preview.files).length + 1} dosya · canonical r{preview.source.revision}</b></div>{Object.keys(preview.files).map(path => <span key={path}><FileCode2 size={14}/>{path}</span>)}<span><ShieldCheck size={14}/>.promtgen/manifest.json <small>SHA-256 kaynak kimliği</small></span></section>
+      <fieldset className="ide-adapters"><legend>Hedef Ajanlar</legend>{IDE_ADAPTERS.map(adapter => <label key={adapter.id} className={adapters.includes(adapter.id) ? 'active' : ''}><input type="checkbox" checked={adapters.includes(adapter.id)} onChange={() => toggleAdapter(adapter.id)}/><span className="ide-check">{adapters.includes(adapter.id) && <Check size={12}/>}</span><span><b>{adapter.label}</b><small>{adapter.path}</small></span></label>)}</fieldset>
+      <section className="ide-file-preview" aria-label="Üretilecek dosyalar">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div><span className="meta">DOSYA ÖNİZLEMESİ VE PANODAN KOPYALAMA</span><b>{fileKeys.length} dosya · canonical r{preview.source.revision}</b></div>
+          <button type="button" onClick={copyPrompt} style={{ background: copied ? '#10b981' : '#8b5cf6', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Check size={14} /> {copied ? 'Kopyalandı!' : 'Seçili Dosyayı Kopyala'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+          {fileKeys.map(path => (
+            <button key={path} type="button" onClick={() => setSelectedFile(path)} style={{ background: (selectedFile || fileKeys[0]) === path ? 'rgba(139, 92, 246, 0.3)' : 'rgba(0,0,0,0.2)', border: (selectedFile || fileKeys[0]) === path ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '11px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <FileCode2 size={12}/>{path}
+            </button>
+          ))}
+        </div>
+      </section>
       {preview.source.lifecycle.status !== 'finalized' && <p className="ide-draft-warning"><ShieldCheck size={16}/> Bu revision henüz final değil. Paket bunu manifestte açıkça işaretler; ajanlardan kapsam değişikliklerinde kullanıcı onayı ister.</p>}
       {error && <p className="ide-export-error" role="alert">{error}</p>}
     </div>

@@ -48,9 +48,50 @@ export function runPlanReview(project, { profile = 'deep' } = {}) {
         if (!project.sections.operations?.content && !project.sections.operations?.items.length) findings.push(finding('OPERATIONS-OWNER', 'operations', 'high', 'Operasyon sahipliği tanımlı değil', 'Günlük süreç, sorumlu ve kapasite sınırları belirtilmedi.', 'Operasyon bölümüne sahiplik ve işleyiş modeli ekle.', ['operations']));
         if (!project.risks.length) findings.push(finding('OPERATIONS-RISK', 'operations', 'medium', 'Operasyon riski kaydı yok', 'Tedarik, kapasite veya süreklilik riski tanımlanmadı.', 'En az bir operasyon riski ve azaltma planı ekle.', ['risks']));
     }
+    const isGameDomain = (project.identity.originalIdea || '').toLowerCase().includes('oyun') || (project.identity.originalIdea || '').toLowerCase().includes('s&box') || (project.identity.originalIdea || '').toLowerCase().includes('game');
+    if (isGameDomain) {
+        const hasNetDecision = project.decisions.some(d => d.title.toLowerCase().includes('net') || d.title.toLowerCase().includes('multiplayer') || d.decision.toLowerCase().includes('network'));
+        if (!hasNetDecision) {
+            findings.push(finding('GAME-NET-001', 'architecture', 'medium', 'Oyun Ağ & Prediction Stratejisi Belirsiz', 'Multiplayer/S&box projelerinde Server Authority vs Client Prediction kararı açıkça belirtilmeli.', 'Network yetkisi ve tick rate senkronizasyon kararı ekle.', ['architecture', 'decisions']));
+        }
+    }
+    const isSaasDomain = /web|saas|e-ticaret|site|dashboard|portal|api|backend/i.test(project.identity.originalIdea || '');
+    if (isSaasDomain) {
+        const hasAuthDecision = project.decisions.some(d => /auth|kimlik|yetki|jwt|session|rol/i.test(`${d.title} ${d.decision}`));
+        if (!hasAuthDecision) {
+            findings.push(finding('SAAS-AUTH-001', 'security', 'medium', 'SaaS/Web Kimlik Doğrulama & Yetki Belirsiz', 'Web ve SaaS projelerinde kimlik doğrulama (JWT/Session) ve rol yetkilendirme modeli belirlenmelidir.', 'Auth sağlayıcısı ve rol yetkilendirme kararı ekle.', ['security', 'decisions']));
+        }
+    }
+    const isMobileDomain = /mobil|mobile|ios|android|flutter|react native|app/i.test(project.identity.originalIdea || '');
+    if (isMobileDomain) {
+        const hasStorageDecision = project.decisions.some(d => /storage|depolama|sqlite|local|çevrimdışı|offline/i.test(`${d.title} ${d.decision}`));
+        if (!hasStorageDecision) {
+            findings.push(finding('MOBILE-OFFLINE-001', 'architecture', 'medium', 'Mobil Çevrimdışı Veri Stratejisi Eksik', 'Mobil uygulamalarda yerel depolama ve çevrimdışı (offline-first) çalışma stratejisi belirtilmelidir.', 'SQLite / MMKV yerel veritabanı kararı ekle.', ['architecture', 'decisions']));
+        }
+    }
+    const isAiDomain = /yapay zeka|ai|agent|llm|prompt|model|gpt|bot/i.test(project.identity.originalIdea || '');
+    if (isAiDomain) {
+        const hasAiFallback = project.decisions.some(d => /fallback|sağlayıcı|model|vektör|rag|gizlilik|maskeleme/i.test(`${d.title} ${d.decision}`));
+        if (!hasAiFallback) {
+            findings.push(finding('AI-FALLBACK-001', 'architecture', 'medium', 'AI Model Fallback & Veri Gizliliği Belirsiz', 'Yapay zeka sistemlerinde model yedekliliği (fallback) ve hassas veri maskeleme stratejisi tanımlanmalıdır.', 'Yedek LLM sağlayıcı ve gizlilik filtresi kararı ekle.', ['architecture', 'security', 'decisions']));
+        }
+    }
     if (activeModules.has('event.delivery')) {
         if (!project.milestones.length) findings.push(finding('EVENT-MILESTONE', 'event', 'high', 'Etkinlik kilometre taşları eksik', 'Hazırlık, prova, etkinlik günü ve kapanış zamanları planlanmadı.', 'Etkinlik teslim kilometre taşlarını tanımla.', ['tasks', 'operations']));
         if (!project.risks.some(risk => risk.mitigation)) findings.push(finding('EVENT-CONTINGENCY', 'event', 'high', 'Etkinlik acil durum planı eksik', 'Aksama halinde uygulanacak azaltma veya alternatif akış yok.', 'Kritik etkinlik risklerine yedek plan ekle.', ['risks', 'operations']));
+    }
+
+    // Evaluate custom user-defined review rules
+    for (const rule of project.customReviewRules || []) {
+        const fullText = `${project.identity?.originalIdea || ''} ${Object.values(project.sections || {}).map(s => `${s.content || ''} ${(s.items || []).join(' ')}`).join(' ')} ${project.decisions.map(d => `${d.title} ${d.decision}`).join(' ')}`.toLowerCase();
+        const keyword = (rule.query || rule.title || '').toLowerCase();
+        const matched = keyword ? fullText.includes(keyword) : false;
+        
+        if (rule.condition === 'must_include' && !matched) {
+            findings.push(finding(rule.id || `CUSTOM-${Date.now()}`, 'custom', rule.severity || 'medium', rule.title || 'Özel Kural İhlali', rule.message || `Plan metninde "${rule.query}" ifadesi bulunamadı.`, rule.recommendation || 'Gerekli mimari kararı plana ekleyin.'));
+        } else if (rule.condition === 'must_not_include' && matched) {
+            findings.push(finding(rule.id || `CUSTOM-${Date.now()}`, 'custom', rule.severity || 'medium', rule.title || 'Yasaklı Terim İhlali', rule.message || `Plan metninde yasaklı "${rule.query}" terimi tespit edildi.`, rule.recommendation || 'Yasaklı terimle ilgili kararları gözden geçirin.'));
+        }
     }
     const counts = Object.fromEntries(['critical', 'high', 'medium', 'low', 'info'].map(severity => [severity, findings.filter(item => item.severity === severity).length]));
     const score = Math.max(0, 100 - findings.reduce((total, item) => total + SEVERITY_WEIGHT[item.severity], 0));

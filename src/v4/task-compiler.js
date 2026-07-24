@@ -25,26 +25,75 @@ function topologicalOrder(tasks) {
     return { ordered, cycles: [...new Set(cycles)] };
 }
 
-function buildPromptChain(tasks) {
+function buildPromptChain(project, tasks) {
     if (!tasks.length) return [];
     const taskIds = tasks.map(task => task.id);
-    const planner = normalizeAgentPrompt({ id: 'prompt-planner', role: 'planner', title: 'Uygulama sırasını doğrula', taskIds, instructions: 'Canonical gereksinimleri ve bağımlılıkları kontrol et; dosya kapsamı, riskler ve doğrulama komutlarıyla uygulanabilir bir çalışma sırası çıkar.', expectedOutputs: ['Onaylanmış görev sırası', 'Dosya etki listesi', 'Doğrulama planı'], status: 'ready' });
-    const implementer = normalizeAgentPrompt({ id: 'prompt-implementer', role: 'implementer', title: 'Planı uygula', taskIds, dependsOnPromptIds: [planner.id], instructions: 'Görevleri bağımlılık sırasıyla küçük değişiklikler halinde uygula. Canonical kararları değiştirme ve her görev kabul kriterini karşıla.', expectedOutputs: ['Kod değişiklikleri', 'Çalıştırılan testler', 'Kalan riskler'], status: 'ready' });
-    const reviewer = normalizeAgentPrompt({ id: 'prompt-reviewer', role: 'reviewer', title: 'Değişiklikleri incele', taskIds, dependsOnPromptIds: [implementer.id], instructions: 'Uygulamayı gereksinimler, güvenlik, geriye uyumluluk ve bakım maliyeti açısından incele. Bulguları önem derecesi ve kanıtla raporla.', expectedOutputs: ['Öncelikli bulgular', 'Düzeltme önerileri'], status: 'ready' });
-    const verifier = normalizeAgentPrompt({ id: 'prompt-verifier', role: 'verifier', title: 'Kabul kriterlerini doğrula', taskIds, dependsOnPromptIds: [reviewer.id], instructions: 'Her gereksinim ve görev kabul kriterini test kanıtıyla doğrula; başarısız veya kanıtsız maddeleri açıkça işaretle.', expectedOutputs: ['Kabul matrisi', 'Test kanıtları', 'Yayın kararı'], status: 'ready' });
+    const projName = project.identity?.name || project.identity?.originalIdea || 'Proje';
+    const decisionsSummary = (project.decisions || []).slice(0, 3).map(d => d.title).join(', ') || 'Temel mimari kararlar';
+
+    const planner = normalizeAgentPrompt({
+        id: 'prompt-planner', role: 'planner', title: `"${projName}" Uygulama Sırasını Doğrula`, taskIds,
+        instructions: `"${projName}" projesi için canonical gereksinimleri, mimari kararları (${decisionsSummary}) ve bağımlılıkları kontrol et; dosya kapsamı, riskler ve doğrulama komutlarıyla uygulanabilir bir çalışma sırası çıkar.`,
+        expectedOutputs: ['Onaylanmış görev sırası', 'Dosya etki listesi', 'Doğrulama planı'], status: 'ready'
+    });
+    const implementer = normalizeAgentPrompt({
+        id: 'prompt-implementer', role: 'implementer', title: `"${projName}" Kodlama & Uygulama`, taskIds, dependsOnPromptIds: [planner.id],
+        instructions: `"${projName}" projesinin görevlerini bağımlılık sırasıyla uygula. Kabul edilen kararları (${decisionsSummary}) bozmadan her görevin kabul kriterlerini tek tek karşıla.`,
+        expectedOutputs: ['Kod değişiklikleri', 'Çalıştırılan testler', 'Kalan riskler'], status: 'ready'
+    });
+    const reviewer = normalizeAgentPrompt({
+        id: 'prompt-reviewer', role: 'reviewer', title: `"${projName}" Mimari & Güvenlik İncelemesi`, taskIds, dependsOnPromptIds: [implementer.id],
+        instructions: `"${projName}" kod değişikliklerini güvenlik, geriye uyumluluk ve mimari kararlar (${decisionsSummary}) açısından incele. Bulguları önem derecesiyle raporla.`,
+        expectedOutputs: ['Öncelikli bulgular', 'Düzeltme önerileri'], status: 'ready'
+    });
+    const verifier = normalizeAgentPrompt({
+        id: 'prompt-verifier', role: 'verifier', title: `"${projName}" Kabul Testi Doğrulama`, taskIds, dependsOnPromptIds: [reviewer.id],
+        instructions: `"${projName}" kabul kriterlerini ve test senaryolarını test kanıtıyla doğrula; tüm kabul kriterleri geçmeden sürümü tamamlama.`,
+        expectedOutputs: ['Kabul matrisi', 'Test kanıtları', 'Yayın kararı'], status: 'ready'
+    });
     return [planner, implementer, reviewer, verifier];
 }
 
 export function compileTaskPlan(project) {
     const used = new Set((project.tasks || []).map(task => task.id));
     const tasks = [];
-    for (const requirement of project.requirements || []) {
+    const sourceRequirements = [...(project.requirements || [])];
+    
+    // Fallback: If formal requirements array is empty, derive task candidates from scope items & accepted decisions
+    if (!sourceRequirements.length) {
+        const scopeItems = project.sections?.scope?.items || [];
+        const decisions = (project.decisions || []).filter(d => d.status === 'accepted');
+        
+        scopeItems.forEach((item, idx) => {
+            sourceRequirements.push({
+                id: `req-scope-${idx + 1}`,
+                title: item,
+                statement: item,
+                priority: 'medium',
+                kind: 'functional',
+                acceptanceCriteria: [`"${item}" özelliği başarıyla entegre ve test edilmelidir.`]
+            });
+        });
+        
+        decisions.forEach((dec, idx) => {
+            sourceRequirements.push({
+                id: `req-dec-${idx + 1}`,
+                title: dec.title,
+                statement: dec.decision,
+                priority: 'high',
+                kind: 'architecture',
+                acceptanceCriteria: [`"${dec.title}" mimari kararı koda yansıtılmalıdır: ${dec.decision}`]
+            });
+        });
+    }
+
+    for (const requirement of sourceRequirements) {
         const id = uniqueId('task', requirement.title, used);
         tasks.push(normalizeTask({
             id, title: requirement.title, description: requirement.statement,
-            priority: requirement.priority, effort: requirement.kind === 'quality' ? 'medium' : 'low',
-            requirementIds: [requirement.id], acceptanceCriteria: requirement.acceptanceCriteria,
-            status: requirement.acceptanceCriteria.length ? 'ready' : 'backlog'
+            priority: requirement.priority || 'medium', effort: requirement.kind === 'quality' ? 'medium' : 'low',
+            requirementIds: [requirement.id], acceptanceCriteria: requirement.acceptanceCriteria || [],
+            status: (requirement.acceptanceCriteria || []).length ? 'ready' : 'backlog'
         }));
     }
     const testCases = tasks.map(task => normalizeTestCase({
@@ -65,7 +114,7 @@ export function compileTaskPlan(project) {
         testCases,
         milestones: milestone ? [milestone] : [],
         traceLinks,
-        agentPrompts: buildPromptChain(orderedResult.ordered),
+        agentPrompts: buildPromptChain(project, orderedResult.ordered),
         warnings: [
             ...orderedResult.cycles.map(id => `Görev bağımlılık döngüsü: ${id}`),
             ...(project.requirements?.length ? [] : ['Görev üretmek için önce canonical gereksinim oluşturulmalı.']),

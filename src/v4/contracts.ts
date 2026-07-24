@@ -1,8 +1,84 @@
 export type PlanningDepthLevel = 'quick' | 'standard' | 'advanced' | 'enterprise'
 export type ProjectLifecycleStatus = 'active' | 'finalized' | 'archived'
-export type PlanningPhase = 'DISCOVERY' | 'SHAPING' | 'DESIGN' | 'PLANNING' | 'REVIEW' | 'READY'
+export type PlanningPhase = 'IDEA_EXPANSION' | 'DISCOVERY' | 'IDEA_LAB' | 'CONCEPT_CONFIRMATION' | 'SHAPING' | 'DESIGN' | 'PLANNING' | 'REVIEW' | 'READY'
 export type SuggestionStatus = 'pending' | 'accepted' | 'edited' | 'deferred' | 'rejected'
 export type PlanSectionStatus = 'empty' | 'draft' | 'ready' | 'stale'
+
+export interface DesignApproach {
+  id: string
+  title: string
+  description: string
+  pros: string[]
+  cons: string[]
+  risks: string[]
+  effort: Magnitude
+  impact: Magnitude
+  recommended: boolean
+  metrics?: {
+    effortScore: number // 1 to 5
+    networkLoad: number // 1 to 5
+    fpsImpact: number // 1 to 5
+    maintainability: number // 1 to 5
+  }
+  presetAnswers?: string[]
+}
+
+export interface ConceptSummary {
+  summary: string
+  confirmedFeatures: string[]
+  outOfScope: string[]
+  technicalApproaches: string[]
+  openQuestions: string[]
+  knownRisks: string[]
+  mvpTarget: string
+  userConfirmed: boolean
+  confirmedAt?: string
+  simulationResult?: {
+    riskCount: number
+    taskEstimate: number
+    completenessScore: number
+  }
+}
+
+export interface IdeaLabSession {
+  status: 'active' | 'concept_ready' | 'confirmed'
+  approaches: DesignApproach[]
+  selectedApproachId?: string
+  ideaNotes: string[]
+  candidateDecisions: string[]
+  candidateRisks: string[]
+  conceptSummary?: ConceptSummary
+}
+
+export interface ExpansionDimension {
+  id: string
+  label: string
+  icon: string
+  question: string
+  options: string[]
+}
+
+export interface IdeaExpansionSession {
+  originalIdea: string
+  answers: Record<string, string>  // dimensionId -> selected or typed answer
+  expandedIdea: string
+  dimensions: ExpansionDimension[]
+}
+
+export interface ImpactAnalysis {
+  id: string
+  userRequest: string
+  summary: string
+  affectedSections: string[]
+  newTasks: string[]
+  architectureImpact: string
+  newRisks: string[]
+  contradictions: string[]
+  contradictionDetails?: Array<{ decisionId: string; decisionTitle: string; decisionText: string }>
+  status: 'proposed' | 'accepted' | 'rejected'
+  createdAt: string
+}
+
 
 export interface PlanningDepth {
   recommended: PlanningDepthLevel
@@ -350,6 +426,9 @@ export interface ProjectStateV4 {
   revisions: PlanRevision[]
   exports: ExportRecord[]
   dismissedSuggestionFingerprints: string[]
+  ideaLabSession?: IdeaLabSession
+  ideaExpansionSession?: IdeaExpansionSession
+  impactAnalyses?: ImpactAnalysis[]
   modules: {
     active: Array<{ id: string; version: string; enabledAtRevision: number; config: Record<string, unknown> }>
     dismissed: string[]

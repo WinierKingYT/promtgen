@@ -13,11 +13,14 @@ PromtGen, kısa bir fikri kullanıcı onaylı kararlarla uygulanabilir ve sürü
 - Varsayılan kapalı, kullanıcı kontrollü yerel tercih hafızası; proje adlarını/fikirlerini değil toplulaştırılmış derinlik, karar türü, bölüm ve modül eğilimlerini kullanır
 - Yazılım yanında araştırma/kanıt, içerik/yayın, iş/operasyon ve etkinlik projeleri için deklaratif alan paketleri, alan kalite kuralları ve özel export belgeleri
 - Başlangıç ekranında tamamen yerel proje portföyü; arama, durum/derinlik filtreleri, hazırlık ortalaması ve dikkat göstergeleri
+- Tek ekranda IndexedDB/SQLite, Git, Codex CLI, Ollama ve seçili AI sağlayıcısını denetleyen local-first Sistem Doktoru; bulut bağlantı testi yalnız açık kullanıcı eylemiyle çalışır
 - Web’de IndexedDB; masaüstünde SQLite ve işletim sistemi anahtar kasası
 - Masaüstünde WAL modlu SQLite bütünlük kontrolü, proje başına son 20 otomatik yedek, bozuk kayıt karantinası ve yeni revision olarak güvenli geri yükleme
 - Revision’a bağlı Markdown, PRD, görev, teknik belge ve ajan prompt exportları
 - Codex, Cursor, Claude Code, Windsurf, Copilot ve generic hedefler için IDE’nin otomatik keşfettiği talimat dosyalarını içeren revision/hash bağlı çalışma ZIP’i
 - Masaüstünde token tabanlı repository seçimi, izole Git worktree ve Planner → Implementer → Reviewer → Verifier Codex execution zinciri
+- Codex CLI PATH üzerinde bulunamazsa Sistem Doktoru üzerinden native dosya seçiciyle doğrulanmış `codex`/`codex.exe` seçimi ve güvenli PATH’e dönüş
+- Derleme sırasında sahte bir Codex executable üreten; prompt, sandbox argümanları, geçici Git worktree ve patch üretimini gerçek process üzerinden doğrulayan native E2E testi
 - SHA-256 özetli, ZIP tabanlı `.promtgen` taşıma paketi
 
 AI önerileri hiçbir zaman doğrudan canonical plana yazılmaz. Kullanıcının kabul ettiği değişiklikler plan motoru tarafından uygulanır ve yeni revision oluşturur.
@@ -76,7 +79,7 @@ Canonical model; hedef, gereksinim, karar, varsayım, risk, görev, test, kilome
 - Bulut sağlayıcı uç noktaları sabit allowlist’tedir; Ollama yalnız loopback adresine bağlanabilir. Web ve Tauri CSP’si yalnız gerekli yerel ve sağlayıcı bağlantılarını açar.
 - Mevcut proje analizi gizli dosyaları, bağımlılık/build klasörlerini, symlink’leri, binary içerikleri ve prompt-injection sinyallerini dışarıda bırakır; yalnız güvenli envanter özeti planlama bağlamına girer.
 - Native ajan yürütme keyfî path veya komut kabul etmez. Her worktree ve ajan adımı işletim sistemi onayı ister; yalnız Implementer `workspace-write`, diğer roller `read-only` sandbox kullanır.
-- Native ajan yürütme için erişilebilir bir `codex` CLI kurulumu gerekir; uygulama çalıştırılabilirliği `codex --version` ile kontrol eder ve kullanılamıyorsa worktree başlatmayı kapatır.
+- Native ajan yürütme için erişilebilir bir `codex` CLI kurulumu gerekir; uygulama PATH’i veya kullanıcının native seçiciden belirlediği dosyayı `codex --version` ile doğrular, doğrulanmış executable’ı execution session’a sabitler ve kullanılamıyorsa worktree başlatmayı kapatır.
 - Masaüstü yedek geri yükleme native onay ister; güncel plan önce otomatik yedeklenir ve seçilen belge eski revision’ı ezmeden yeni revision olur. Karantina içeriği frontend’e açılmaz.
 
 ## Geçiş durumu

@@ -1,7 +1,21 @@
 import assert from 'node:assert/strict';
-import { analyzeIdea, applyApprovedChanges, captureCurrentRevision, comparePlanRevisions, diffTextLines, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
+import { analyzeIdea, applyApprovedChanges, applyIdeaExpansion, captureCurrentRevision, comparePlanRevisions, diffTextLines, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
+import { generateExpansionDimensions } from '../../src/v4/ai-discovery.js';
 
-let project = analyzeIdea('Local çalışan küçük bir görev takip uygulaması yapmak istiyorum.');
+// --- Idea Expansion path (short idea < 50 chars) ---
+const shortProject = analyzeIdea('web sitesi yap');
+assert.equal(shortProject.lifecycle.activePhase, 'IDEA_EXPANSION', 'Kısa fikir IDEA_EXPANSION fazını başlatmalı');
+assert.equal(shortProject.suggestionBundles.length, 0, 'IDEA_EXPANSION fazında henüz öneri üretilmemeli');
+const dims = generateExpansionDimensions('web sitesi yap');
+assert.equal(dims.length, 5, '5 boyut üretilmeli');
+const expanded = applyIdeaExpansion(shortProject, { answers: { problem: 'Müşterilere kolay erişim', user: 'KOBİler' }, dimensions: dims });
+assert.equal(expanded.lifecycle.activePhase, 'DISCOVERY', 'Genişletme sonrası DISCOVERY fazına geçilmeli');
+assert.ok(expanded.identity.originalIdea.includes('Müşterilere kolay erişim'), 'Genişletilmiş fikir cevapları içermeli');
+assert.ok(expanded.suggestionBundles.length > 0, 'DISCOVERY fazında öneri bundleları üretilmeli');
+
+// --- Normal DISCOVERY path (long idea >= 50 chars) ---
+let project = analyzeIdea('Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması yapmak istiyorum.');
+assert.equal(project.lifecycle.activePhase, 'DISCOVERY', 'Uzun fikir doğrudan DISCOVERY fazını başlatmalı');
 assert.equal(project.schemaVersion, 4);
 assert.ok(project.suggestionBundles[0].items.length >= 3 && project.suggestionBundles[0].items.length <= 5);
 assert.ok(project.suggestionBundles[0].items.every(item => item.status === 'pending'));
@@ -40,7 +54,7 @@ assert.equal(finalized.success, true);
 assert.equal(finalized.project.lifecycle.status, 'finalized');
 assert.equal(reopenPlan(finalized.project).lifecycle.status, 'active');
 
-let versioned = captureCurrentRevision(analyzeIdea('Revision geçmişi olan yerel bir planlama aracı.'));
+let versioned = captureCurrentRevision(analyzeIdea('Revision geçmişi olan, SQLite tabanlı, sürüm karşılaştırma destekli yerel bir planlama aracı yapmak istiyorum.'));
 assert.equal(versioned.revisions[0].number, 1, 'Başlangıç snapshotı yakalanmalı');
 versioned.exports.push({ id: 'export-1', format: 'markdown', revision: 1, createdAt: new Date().toISOString() });
 versioned = updatePlanSection(versioned, 'scope', { content: 'İlk satır\nEski satır' });

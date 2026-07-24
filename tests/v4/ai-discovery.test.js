@@ -4,7 +4,7 @@ import { analyzeIdea, updateSuggestionStatus } from '../../src/v4/planning-engin
 import { validateSuggestionResponse } from '../../src/v4/ai-context.js';
 import { getDefaultProviderSettings } from '../../src/v4/provider-settings.js';
 
-let project = analyzeIdea('Yerel çalışan bir proje planlama uygulaması yapmak istiyorum.');
+let project = analyzeIdea('Yerel çalışan, SQLite tabanlı, güvenlik ve rol yönetimi destekli bir proje planlama uygulaması yapmak istiyorum.');
 const initial = project.suggestionBundles[0];
 for (const item of initial.items) project = updateSuggestionStatus(project, initial.id, item.id, item === initial.items[0] ? 'rejected' : 'accepted');
 

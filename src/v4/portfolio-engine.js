@@ -21,3 +21,28 @@ export function filterPortfolioProjects(projects = [], { query = '', status = 'a
     });
     return filtered.sort((a, b) => sort === 'readiness' ? b.readiness.score - a.readiness.score : sort === 'name' ? a.identity.name.localeCompare(b.identity.name, 'tr') : b.lifecycle.updatedAt.localeCompare(a.lifecycle.updatedAt));
 }
+
+export function buildComparativeAnalytics(projects = []) {
+    const normalized = projects.map(normalizeProjectStateV4);
+    const summary = buildPortfolioSummary(projects);
+    
+    const totalRevisions = normalized.reduce((total, p) => total + (p.revision || 1), 0);
+    const totalTasks = normalized.reduce((total, p) => total + (p.tasks?.length || 0), 0);
+    const totalDecisions = normalized.reduce((total, p) => total + (p.decisions?.length || 0), 0);
+    
+    const topActive = [...normalized].sort((a, b) => (b.revision || 1) - (a.revision || 1)).slice(0, 3).map(p => ({
+        id: p.id,
+        name: p.identity.name,
+        revision: p.revision,
+        score: p.readiness?.score || 0
+    }));
+
+    return {
+        ...summary,
+        totalRevisions,
+        totalTasks,
+        totalDecisions,
+        topActive,
+        analyzedAt: new Date().toISOString()
+    };
+}
