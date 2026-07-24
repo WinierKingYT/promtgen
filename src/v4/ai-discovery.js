@@ -119,12 +119,23 @@ function mapAiBundle(project, response, providerId) {
         });
     }
     if (deduped.length < 3) return null;
+    const now = new Date().toISOString();
     return {
         id: id('bundle'), title: response.summary || 'AI ile üretilen sıradaki kararlar', phase: project.lifecycle.activePhase,
-        status: 'open', createdAt: new Date().toISOString(), items: deduped.slice(0, 5),
+        status: 'open', createdAt: now, items: deduped.slice(0, 5),
         replyMessage: response.reply || response.summary || 'Fikrinizi mimari açıdan değerlendirdim. Sıradaki tercihleri aşağıda sundum.',
         analysisNote: response.analysisNote || 'Mimari etki ve belirsizlik skoru güncellendi.',
-        openQuestions: (response.openQuestions || []).slice(0, 3), source: { type: 'ai', providerId }
+        openQuestions: (response.openQuestions || []).slice(0, 3), source: { type: 'ai', providerId },
+        provenance: {
+            mode: providerId === 'ollama' ? 'local-ai' : 'cloud-ai',
+            providerId: providerId || 'unknown',
+            model: null,
+            requestedAt: now,
+            completedAt: now,
+            fallbackReason: null,
+            schemaId: 'discovery-bundle-v1',
+            schemaVersion: 1
+        }
     };
 }
 
@@ -174,12 +185,23 @@ function contextualFallback(project, direction, reason = '') {
     const replyText = direction
         ? `"${direction.slice(0, 80)}" yönlendirmenizi mimari açıdan inceledim.\n\nSistemin veri modeli, ağ yükü ve kullanıcı deneyimi dengesini sağlamak için aşağıdaki 3 kritik soru açığa çıkmaktadır:\n1. ${questions[0]}\n2. ${questions[1]}\n3. ${questions[2]}\n\nAşağıda bu doğrultuda sıradaki karar seçeneklerini sundum. Sizce hangisi öncelikli olmalı?`
         : `"${rawIdea.slice(0, 40)}" mimari vizyonunu değerlendirdim. Mimarimizi sağlamlaştırmak için aşağıdaki mimari ve kapsam kararlarını inceleyebilirsiniz.`;
+    const now = new Date().toISOString();
     return {
         ...fallback,
         replyMessage: replyText,
         analysisNote: direction ? `Yönlendirme "${direction.slice(0, 40)}..." doğrultusunda ağ yükü ve karmaşıklık analizi yapıldı.` : 'Proje başlangıç vizyonu mimari süzgeçten geçirildi.',
         source: { type: 'local', providerId: 'offline', fallbackReason: reason },
-        openQuestions: questions
+        openQuestions: questions,
+        provenance: {
+            mode: reason ? 'fallback' : 'rule-engine',
+            providerId: 'offline',
+            model: null,
+            requestedAt: now,
+            completedAt: now,
+            fallbackReason: reason || null,
+            schemaId: 'discovery-bundle-v1',
+            schemaVersion: 1
+        }
     };
 }
 

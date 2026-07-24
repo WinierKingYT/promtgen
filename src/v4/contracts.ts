@@ -4,6 +4,17 @@ export type PlanningPhase = 'IDEA_EXPANSION' | 'DISCOVERY' | 'IDEA_LAB' | 'CONCE
 export type SuggestionStatus = 'pending' | 'accepted' | 'edited' | 'deferred' | 'rejected'
 export type PlanSectionStatus = 'empty' | 'draft' | 'ready' | 'stale'
 
+export interface GenerationProvenance {
+  mode: 'cloud-ai' | 'local-ai' | 'rule-engine' | 'fallback'
+  providerId: string | null
+  model: string | null
+  requestedAt: string
+  completedAt: string
+  fallbackReason: string | null
+  schemaId: string
+  schemaVersion: number
+}
+
 export interface DesignApproach {
   id: string
   title: string

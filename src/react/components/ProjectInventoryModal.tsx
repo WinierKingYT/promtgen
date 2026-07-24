@@ -23,11 +23,16 @@ export function ProjectInventoryModal({ open, nativeInventory, onClose }: { open
             <HardDrive size={22} />
           </div>
           <div>
-            <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>YEREL DOSYA ENVANTERİ</span>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>📂 Proje Dizin Analizi & Güvenlik Özeti</h2>
+            <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>DOSYA ENVANTERİ</span>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>📂 Proje Dizin Envanteri & Güvenlik Filtresi</h2>
           </div>
         </div>
         <IconButton label="Pencereyi kapat" onClick={onClose}><X size={18}/></IconButton>
+      </div>
+
+      {/* Platform Scan Disclaimer */}
+      <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '14px', fontSize: '11px', color: '#93c5fd' }}>
+        ℹ️ <b>Kapsam Açıklaması:</b> Klasör yapısı, dosya türleri ve hassas bağımlılıklar (.env, node_modules) filtrelenir. Tam antivirüs veya SAST kod analizi yapılmaz.
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>

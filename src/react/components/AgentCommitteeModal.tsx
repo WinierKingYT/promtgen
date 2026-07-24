@@ -58,17 +58,26 @@ export function AgentCommitteeModal({ open, project, onCommit, onClose }: { open
 
   return (
     <dialog ref={dialogRef} open className="committee-dialog" style={{ width: '92%', maxWidth: '850px', background: '#18181b', border: '1px solid rgba(139, 92, 246, 0.4)', borderRadius: '14px', color: '#f3f4f6', padding: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ background: 'rgba(139, 92, 246, 0.2)', padding: '8px', borderRadius: '8px', color: '#a78bfa' }}>
             <Users size={22} />
           </div>
           <div>
-            <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>ÇOKLU AJAN MİMARİ KONSEYİ</span>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>👥 Alan Uzmanı Ajan Konseyi & Konsensüs Oylaması</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>UZMAN PERSPEKTİFLERİ</span>
+              <span style={{ fontSize: '9px', background: 'rgba(234, 179, 8, 0.2)', color: '#fde047', border: '1px solid rgba(234, 179, 8, 0.4)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>Deneysel Yerel Kural</span>
+            </div>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>👥 Alan Bazlı İnceleme Perspektifleri & Karar Kapsamı</h2>
           </div>
         </div>
-        <IconButton label="Konseyi kapat" onClick={onClose}><X size={18}/></IconButton>
+        <IconButton label="Pencereyi kapat" onClick={onClose}><X size={18}/></IconButton>
+      </div>
+
+      {/* Honest Disclaimer Alert */}
+      <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '14px', fontSize: '11px', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span>ℹ️</span>
+        <span><b>Sistem Açıklaması:</b> Bu değerlendirmeler ayrı AI ajanları tarafından üretilmez. Proje alanı, mevcut kararlar ve yerel kural motoru kullanılarak cihaz üzerinde oluşturulur.</span>
       </div>
 
       {/* Consensus Score Banner */}
@@ -79,7 +88,7 @@ export function AgentCommitteeModal({ open, project, onCommit, onClose }: { open
               %{votingResult.score}
             </div>
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff' }}>Konsey Konsensüs Uyum Skoru</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff' }}>Plan Karar Kapsam Skoru</div>
               <div style={{ fontSize: '11px', color: '#d1d5db' }}>{votingResult.summary}</div>
             </div>
           </div>
@@ -89,7 +98,7 @@ export function AgentCommitteeModal({ open, project, onCommit, onClose }: { open
             onClick={() => setShowAddCustom(!showAddCustom)}
             style={{ background: 'rgba(236, 72, 153, 0.2)', border: '1px solid rgba(236, 72, 153, 0.4)', color: '#fbcfe8', fontSize: '11px', fontWeight: 600, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}
           >
-            {showAddCustom ? 'İptal' : '➕ 5. Özel Ajan Ekle'}
+            {showAddCustom ? 'İptal' : '➕ 5. Özel Perspektif Ekle'}
           </button>
         </div>
       )}

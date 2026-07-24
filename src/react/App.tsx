@@ -118,7 +118,7 @@ function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, o
         <label className="file-action"><FolderOpen size={17}/> Proje dosyaları<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)}/></label>
         {isDesktopProjectImportAvailable() ? <button type="button" className="file-action" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17}/> : <FolderOpen size={17}/>} Proje klasörü</button> : <label className="file-action"><FolderOpen size={17}/> Proje klasörü<input type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as any)} onChange={event => appendFiles(event.target.files)}/></label>}
         <button className="file-action" onClick={() => setSettingsOpen(true)}><Settings2 size={17}/> AI: {getProviderMeta(providerSettings.providerId).label}</button>
-        <label>Çıktı dili<select value={language} onChange={event => setLanguage(event.target.value)}><option value="tr">Türkçe</option><option value="en">English</option></select></label>
+        <label>Çıktı dili<select value={language} onChange={event => setLanguage(event.target.value)}><option value="tr">Türkçe</option><option value="en">English (Partial Beta)</option></select></label>
         <button className="primary" disabled={idea.trim().length < 10 || creating} onClick={async () => { setCreating(true); try { await onCreate(idea, language, files, nativeInventory); } finally { setCreating(false); } }}>{creating ? <><LoaderCircle className="spin" size={18}/> Fikir analiz ediliyor</> : <>Fikri analiz et <ArrowRight size={18}/></>}</button>
       </div>
 
@@ -150,7 +150,11 @@ function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, o
       <div className="import-row"><span>Daha önce başladın mı?</span><button className="text-button" onClick={() => packageRef.current?.click()}><Download size={16}/> .promtgen paketi aç</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => event.target.files?.[0] && onImport(event.target.files[0])}/></div>
       <PortfolioOverview projects={projects} onOpen={onOpen}/>
     </section>
-    <footer>Hesap yok · Bulut yok · Projelerin cihazında</footer>
+    <footer>
+      {['offline', 'ollama'].includes(providerSettings.providerId)
+        ? 'Hesap yok · Plan cihazında · Bulut AI bağlantısı yok'
+        : `Hesap yok · Plan cihazında · Seçili AI sağlayıcısına (${getProviderMeta(providerSettings.providerId).label}) filtrelenmiş bağlam gönderilir`}
+    </footer>
     <ProviderSettingsDialog open={settingsOpen} settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)}/>
   </main>;
 }

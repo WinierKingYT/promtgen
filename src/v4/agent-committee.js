@@ -254,6 +254,6 @@ export function runCommitteeVoting(project) {
     return {
         score,
         votes,
-        summary: score >= 80 ? 'Konsey yüksek derecede uyum sağladı (%' + score + ').' : score >= 50 ? 'Konsey şartlı onay verdi (%' + score + '). Ek kararlar bekleniyor.' : 'Konseyde kritik çekinceler var (%' + score + ').'
+        summary: score >= 80 ? 'Perspektifler kararları yüksek derece uyumlu buldu (%' + score + ').' : score >= 50 ? 'Perspektifler şartlı uyum gösterdi (%' + score + '). Ek kararlar bekleniyor.' : 'Perspektiflerde kritik çekinceler var (%' + score + ').'
     };
 }
