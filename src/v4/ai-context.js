@@ -47,11 +47,10 @@ export function buildPlanningContext(project, sectionId = null) {
     };
 }
 
+import { redactSensitiveData } from './security/secret-guard.js';
+
 export function redactSensitiveText(text) {
-    return String(text || '')
-        .replace(/(api[_-]?key|token|secret|password)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
-        .replace(/sk-[a-z0-9_-]{16,}/gi, '[REDACTED_OPENAI_KEY]')
-        .replace(/-----BEGIN [^-]+PRIVATE KEY-----[\s\S]*?-----END [^-]+PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]');
+    return redactSensitiveData(text).redactedText;
 }
 
 export function validateSuggestionResponse(value, schema = null) {
