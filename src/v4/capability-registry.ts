@@ -45,8 +45,7 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     platforms: ['web', 'desktop'],
     implementationMode: 'static-template',
     limitations: [
-      'Maliyet ve efor değerleri proje verilerinden otomatik hesaplanmaz',
-      'Değerler kullanıcı tarafından düzenlenebilir başlangıç varsayımlarıdır'
+      'Otomatik benchmark hesaplanmaz; değerler kullanıcı varsayımıdır'
     ],
     evidence: ['unit-test']
   },

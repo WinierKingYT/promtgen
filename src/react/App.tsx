@@ -533,7 +533,7 @@ function Workspace({ project, projects, onProject, onNew, onPersist, providerSet
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button type="button" onClick={() => setCommitteeOpen(true)} style={{ background: 'rgba(139, 92, 246, 0.2)', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#a78bfa', fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px', cursor: 'pointer' }}>
-                  👥 Ajan Konseyi (4 Uzman)
+                  👥 Uzman Perspektifleri (Deneysel Kural)
                 </button>
                 {nativeInventory && (
                   <button type="button" onClick={() => setInventoryOpen(true)} style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#bfdbfe', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer' }}>
@@ -675,7 +675,7 @@ function Workspace({ project, projects, onProject, onNew, onPersist, providerSet
               onClick={() => setComparatorOpen(true)}
               style={{ background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#ddd6fe', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
             >
-              ⚖️ A/B Mimari Karşılaştır →
+              ⚖️ Mimari Karşılaştırma Şablonu →
             </button>
           </div>
 
@@ -736,7 +736,22 @@ export default function App() {
     const credential = await credentialVault.get(providerSettings.providerId) || '';
     const ideaLabResult = await generateIdeaLabBundle(project, { settings: providerSettings, credential, ideaText: idea } as any);
     const targetProject = ideaLabResult.project;
-    targetProject.messages.push({ id: `msg-${Date.now()}`, role: 'assistant', content: 'Fikir Laboratuvarı: Projeniz için 3 mimari alternatif ve metrik matrisi hazırlandı.', createdAt: new Date().toISOString() });
+    if (ideaLabResult.usedFallback || ideaLabResult.error) {
+      targetProject.messages.push({
+        id: `msg-${Date.now()}`,
+        role: 'assistant',
+        content: `⚠️ Bulut AI çağrısı tamamlanamadı (${ideaLabResult.error || 'Sağlayıcı zaman aşımı'}). Yerel kural motoru devreye girerek 3 başlangıç mimari alternatifi üretti. Dilerseniz Ayarlar'dan API anahtarınızı güncelleyebilir veya bu yerel seçeneklerle devam edebilirsiniz.`,
+        analysisNote: 'Local Fallback Engine (Sağlayıcı Kesintisi)',
+        createdAt: new Date().toISOString()
+      });
+    } else {
+      targetProject.messages.push({
+        id: `msg-${Date.now()}`,
+        role: 'assistant',
+        content: 'Fikir Laboratuvarı: Projeniz için 3 mimari alternatif ve metrik matrisi hazırlandı.',
+        createdAt: new Date().toISOString()
+      });
+    }
     await persist(captureCurrentRevision(targetProject));
   };
   const importPackage = async (file: File) => {

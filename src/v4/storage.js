@@ -53,7 +53,8 @@ export class MemoryProjectRepository {
     async list() { return [...this.projects.values()].map(normalizeProjectStateV4); }
     async get(id) { const value = this.projects.get(id); return value ? normalizeProjectStateV4(value) : null; }
     async save(project) { const normalized = normalizeProjectStateV4(project); this.projects.set(project.id, normalized); return normalized; }
-    async archive(id) { const item = await this.get(id); if (!item) return false; item.lifecycle.status = 'archived'; return true; }
+    async archive(id) { const item = await this.get(id); if (!item) return false; item.lifecycle.status = 'archived'; await this.save(item); return true; }
+    async remove(id) { this.projects.delete(id); }
 }
 
 export function createProjectRepository() {
