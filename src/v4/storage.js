@@ -16,9 +16,12 @@ function openDatabase() {
 function transaction(db, mode, operation) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, mode);
-        const request = operation(tx.objectStore(STORE_NAME));
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
+        let result;
+        const req = operation(tx.objectStore(STORE_NAME));
+        req.onsuccess = () => { result = req.result; };
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted.'));
     });
 }
 
