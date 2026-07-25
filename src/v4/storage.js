@@ -1,5 +1,7 @@
 import { validateProjectStateV4 } from './project-state-v4.js';
 import { normalizeProjectStateV4 } from './canonical-entities.js';
+import { quarantineProject } from './storage/quarantine.js';
+import { createCheckpoint, computeDataChecksum } from './storage/backup-manager.js';
 
 const DB_NAME = 'promtgen-v4';
 const STORE_NAME = 'projects';
@@ -31,11 +33,24 @@ export class IndexedDbProjectRepository {
         const projects = await transaction(db, 'readonly', store => store.getAll());
         return projects.map(normalizeProjectStateV4).sort((a, b) => b.lifecycle.updatedAt.localeCompare(a.lifecycle.updatedAt));
     }
-    async get(id) { const value = await transaction(await openDatabase(), 'readonly', store => store.get(id)); return value ? normalizeProjectStateV4(value) : null; }
+    async get(id) {
+        try {
+            const value = await transaction(await openDatabase(), 'readonly', store => store.get(id));
+            if (!value) return null;
+            return normalizeProjectStateV4(value);
+        } catch (error) {
+            quarantineProject({ id, error: String(error) }, `IndexedDB read corruption: ${error}`);
+            return null;
+        }
+    }
     async save(project) {
         const normalized = normalizeProjectStateV4(project);
         const validation = validateProjectStateV4(normalized);
-        if (!validation.valid) throw new Error(validation.errors.join(' '));
+        if (!validation.valid) {
+            quarantineProject(project, `Schema validation failure: ${validation.errors.join(' ')}`);
+            throw new Error(validation.errors.join(' '));
+        }
+        createCheckpoint(normalized);
         await transaction(await openDatabase(), 'readwrite', store => store.put(structuredClone(normalized)));
         return normalized;
     }

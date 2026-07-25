@@ -57,18 +57,18 @@ function buildPromptChain(project, tasks) {
 export function compileTaskPlan(project) {
     const used = new Set((project.tasks || []).map(task => task.id));
     const tasks = [];
-    const sourceRequirements = [...(project.requirements || [])];
+    const sourceRequirements = (project.requirements || []).filter(r => r.status !== 'rejected' && r.status !== 'deprecated');
     
-    // Task compiler strictly uses formal requirements
+    // Task compiler strictly uses formal accepted requirements
     if (!sourceRequirements.length) {
         return {
-            orderedTasks: [],
-            cycles: [],
+            baseRevision: project.revision || 1,
+            tasks: [],
             testCases: [],
-            milestone: null,
+            milestones: [],
             traceLinks: [],
-            prompts: [],
-            notice: 'Task üretmek için yeterli onaylanmış gereksinim bulunmuyor.'
+            agentPrompts: [],
+            warnings: ['Görev üretmek için en az bir kabul edilmiş (accepted) gereksinim bulunmalıdır.']
         };
     }
 
