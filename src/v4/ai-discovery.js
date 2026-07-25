@@ -1,6 +1,7 @@
 import { buildPlanningContext, createProvider } from './ai-context.js';
 import { addExplorationMessage, proposeNextOptions } from './planning-engine.js';
 import { normalizeProviderSettings, validateProviderSettings } from './provider-url-policy.js';
+import { ideaLabSchema } from './ai-schemas.js';
 
 const VALID_SECTIONS = new Set(['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment', 'operations']);
 const VALID_KINDS = new Set(['feature', 'decision', 'risk', 'question', 'architecture']);
@@ -525,7 +526,7 @@ JSON döndür:
   "candidateDecisions": ["..."],
   "candidateRisks": ["..."]
 }`;
-        const response = await provider.structured({ system: systemPrompt, context: { idea: text }, signal });
+        const response = await provider.structured({ system: systemPrompt, context: { idea: text }, schema: ideaLabSchema, signal });
         const next = structuredClone(project);
         next.ideaLabSession = {
             status: 'active',

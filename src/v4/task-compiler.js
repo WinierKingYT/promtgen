@@ -59,32 +59,17 @@ export function compileTaskPlan(project) {
     const tasks = [];
     const sourceRequirements = [...(project.requirements || [])];
     
-    // Fallback: If formal requirements array is empty, derive task candidates from scope items & accepted decisions
+    // Task compiler strictly uses formal requirements
     if (!sourceRequirements.length) {
-        const scopeItems = project.sections?.scope?.items || [];
-        const decisions = (project.decisions || []).filter(d => d.status === 'accepted');
-        
-        scopeItems.forEach((item, idx) => {
-            sourceRequirements.push({
-                id: `req-scope-${idx + 1}`,
-                title: item,
-                statement: item,
-                priority: 'medium',
-                kind: 'functional',
-                acceptanceCriteria: [`"${item}" özelliği başarıyla entegre ve test edilmelidir.`]
-            });
-        });
-        
-        decisions.forEach((dec, idx) => {
-            sourceRequirements.push({
-                id: `req-dec-${idx + 1}`,
-                title: dec.title,
-                statement: dec.decision,
-                priority: 'high',
-                kind: 'architecture',
-                acceptanceCriteria: [`"${dec.title}" mimari kararı koda yansıtılmalıdır: ${dec.decision}`]
-            });
-        });
+        return {
+            orderedTasks: [],
+            cycles: [],
+            testCases: [],
+            milestone: null,
+            traceLinks: [],
+            prompts: [],
+            notice: 'Task üretmek için yeterli onaylanmış gereksinim bulunmuyor.'
+        };
     }
 
     for (const requirement of sourceRequirements) {

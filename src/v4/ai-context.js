@@ -54,19 +54,24 @@ export function redactSensitiveText(text) {
         .replace(/-----BEGIN [^-]+PRIVATE KEY-----[\s\S]*?-----END [^-]+PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]');
 }
 
-export function validateSuggestionResponse(value) { return suggestionResponseSchema.parse(value); }
+export function validateSuggestionResponse(value, schema = null) {
+    if (schema && typeof schema.parse === 'function') {
+        return schema.parse(value);
+    }
+    return suggestionResponseSchema.parse(value);
+}
 
 export class OllamaProvider {
     constructor({ baseUrl = 'http://127.0.0.1:11434', model = 'llama3.2' } = {}) { this.baseUrl = baseUrl; this.model = model; }
     get capabilities() { return { structuredOutput: true, streaming: true, contextLimit: 8192, local: true }; }
-    async structured({ system, context, signal }) {
+    async structured({ system, context, schema, signal }) {
         const response = await fetch(`${this.baseUrl}/api/chat`, {
             method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: this.model, stream: false, format: 'json', messages: [{ role: 'system', content: system }, { role: 'user', content: redactSensitiveText(JSON.stringify(context)) }] })
         });
         if (!response.ok) throw new Error(`Ollama isteği başarısız (${response.status}).`);
         const data = await readBoundedJsonResponse(response);
-        return validateSuggestionResponse(parseStructuredContent(data.message?.content));
+        return validateSuggestionResponse(parseStructuredContent(data.message?.content), schema);
     }
 }
 
@@ -79,9 +84,9 @@ export class OpenAICompatibleProvider {
         const response = await this.#request({ system, context, signal, structured: false });
         return response.choices?.[0]?.message?.content || '';
     }
-    async structured({ system, context, signal }) {
+    async structured({ system, context, schema, signal }) {
         const response = await this.#request({ system, context, signal, structured: true });
-        return validateSuggestionResponse(parseStructuredContent(response.choices?.[0]?.message?.content));
+        return validateSuggestionResponse(parseStructuredContent(response.choices?.[0]?.message?.content), schema);
     }
     async #request({ system, context, signal, structured }) {
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -96,14 +101,14 @@ export class OpenAICompatibleProvider {
 export class GeminiProvider {
     constructor({ model = 'gemini-2.5-flash', credential = '' } = {}) { this.id = 'gemini'; this.label = 'Gemini'; this.model = model; this.credential = credential; }
     get capabilities() { return { structuredOutput: true, streaming: false, contextLimit: 1000000, local: false }; }
-    async structured({ system, context, signal }) {
+    async structured({ system, context, schema, signal }) {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`, {
             method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.credential },
             body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: redactSensitiveText(JSON.stringify(context)) }] }], generationConfig: { responseMimeType: 'application/json' } })
         });
         if (!response.ok) throw new Error(`Gemini isteği başarısız (${response.status}).`);
         const data = await readBoundedJsonResponse(response);
-        return validateSuggestionResponse(parseStructuredContent(data.candidates?.[0]?.content?.parts?.[0]?.text));
+        return validateSuggestionResponse(parseStructuredContent(data.candidates?.[0]?.content?.parts?.[0]?.text), schema);
     }
 }
 
