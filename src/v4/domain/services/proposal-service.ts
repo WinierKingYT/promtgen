@@ -1,9 +1,8 @@
-import { CanonicalProject, ProposalBundle, ProposalItem, Requirement, Decision, Task, Risk } from '../types.js';
-import { toRequirementId, toDecisionId, toTaskId, toRiskId, toProposalId } from '../ids.js';
+import type { ProjectDocumentV5, SuggestionItem, Requirement, Decision, Risk } from '../../contracts.js';
 import { validateCanonicalProject } from '../validation.js';
 
 export interface AcceptProposalParams {
-  project: CanonicalProject;
+  project: ProjectDocumentV5;
   bundleId: string;
   itemId: string;
   commandId: string;
@@ -12,20 +11,17 @@ export interface AcceptProposalParams {
 
 export interface AcceptProposalResult {
   success: boolean;
-  project: CanonicalProject;
-  appliedItem?: ProposalItem;
+  project: ProjectDocumentV5;
+  appliedItem?: SuggestionItem;
   alreadyApplied?: boolean;
   error?: string;
 }
-
-// In-memory record of processed command IDs to enforce idempotency
-const PROCESSED_COMMAND_IDS = new Set<string>();
 
 export function acceptProposalItemAtomically(params: AcceptProposalParams): AcceptProposalResult {
   const { project, bundleId, itemId, commandId, expectedRevision } = params;
 
   // 1. Idempotency Check
-  if (PROCESSED_COMMAND_IDS.has(commandId)) {
+  if (project.commandLog.some(record => record.commandId === commandId)) {
     return {
       success: true,
       project,
@@ -43,7 +39,7 @@ export function acceptProposalItemAtomically(params: AcceptProposalParams): Acce
   }
 
   // Immutable clone for transaction isolation
-  const nextProject: CanonicalProject = structuredClone(project);
+  const nextProject: ProjectDocumentV5 = structuredClone(project);
   const bundle = (nextProject.proposalStore?.bundles || []).find(b => b.id === bundleId);
 
   if (!bundle) {
@@ -77,69 +73,41 @@ export function acceptProposalItemAtomically(params: AcceptProposalParams): Acce
   // 3. Entity Translation based on item kind
   if (item.kind === 'feature') {
     const req: Requirement = {
-      id: toRequirementId(`req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+      id: `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: item.title,
-      description: item.description,
-      category: 'functional',
+      statement: item.editedDescription || item.description,
+      kind: 'functional',
       priority: item.impact === 'high' ? 'must' : 'should',
       status: 'accepted',
-      acceptanceCriteria: [
-        {
-          id: `ac-${Date.now()}` as any,
-          statement: `"${item.title}" kabul testi doğrulanmalıdır.`,
-          verificationMethod: 'user-acceptance',
-          measurable: true,
-          linkedTestCaseIds: []
-        }
-      ],
-      relatedDecisionIds: [],
-      relatedRiskIds: [],
-      relatedTaskIds: [],
-      provenance: {
-        origin: 'ai',
-        createdAt: nowIso,
-        acceptedAt: nowIso,
-        proposalId: toProposalId(bundleId)
-      }
+      acceptanceCriteria: [`"${item.title}" kabul testi doğrulanmalıdır.`],
+      sourceObjectiveIds: [],
+      sourceSuggestionIds: [item.id]
     };
     nextProject.requirements.push(req);
   } else if (item.kind === 'decision' || item.kind === 'architecture') {
     const dec: Decision = {
-      id: toDecisionId(`dec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+      id: `dec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: item.title,
-      context: item.description,
       decision: item.title,
       rationale: item.pros.join('; ') || 'AI Keşif grubundan kabul edildi.',
       alternatives: [],
+      consequences: [],
       status: 'accepted',
-      relatedRequirementIds: [],
-      relatedRiskIds: [],
-      provenance: {
-        origin: 'ai',
-        createdAt: nowIso,
-        acceptedAt: nowIso,
-        proposalId: toProposalId(bundleId)
-      },
-      decidedAt: nowIso
+      sourceSuggestionId: item.id,
+      affectedSectionIds: item.affectedSections
     };
     nextProject.decisions.push(dec);
   } else if (item.kind === 'risk') {
     const risk: Risk = {
-      id: toRiskId(`risk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+      id: `risk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: item.title,
       description: item.description,
-      category: 'technical',
-      probability: 3,
-      impact: item.impact === 'high' ? 4 : 2,
-      exposure: 3 * (item.impact === 'high' ? 4 : 2),
-      status: 'identified',
-      relatedRequirementIds: [],
-      relatedDecisionIds: [],
-      provenance: {
-        origin: 'ai',
-        createdAt: nowIso,
-        proposalId: toProposalId(bundleId)
-      }
+      probability: 'medium',
+      impact: item.impact,
+      mitigation: '',
+      owner: '',
+      status: 'open',
+      sourceSuggestionId: item.id
     };
     nextProject.risks.push(risk);
   }
@@ -159,7 +127,13 @@ export function acceptProposalItemAtomically(params: AcceptProposalParams): Acce
   // 5. Commit Transaction
   nextProject.revision += 1;
   nextProject.lifecycle.updatedAt = nowIso;
-  PROCESSED_COMMAND_IDS.add(commandId);
+  nextProject.commandLog.push({
+    commandId,
+    commandType: 'AcceptProposal',
+    expectedRevision,
+    committedRevision: nextProject.revision,
+    createdAt: nowIso
+  });
 
   return {
     success: true,

@@ -4,7 +4,7 @@ import { buildLocalPlanningMemory, hasUsefulPlanningMemory } from '../../src/v4/
 
 function rememberedProject(idea, id, depth) {
     let project = analyzeIdea(idea);
-    // If short idea landed in IDEA_EXPANSION, promote it so suggestionBundles exist
+    // If short idea landed in IDEA_EXPANSION, promote it so proposal bundles exist
     if (project.lifecycle.activePhase === 'IDEA_EXPANSION') {
         project = applyIdeaExpansion(project, { answers: {}, dimensions: [] });
     }
@@ -12,8 +12,8 @@ function rememberedProject(idea, id, depth) {
     project.planningDepth.selected = depth;
     project.modules.active = [{ id: 'software.core', version: '1.0.0', enabledAtRevision: project.revision }];
     project.decisions = [{ id: `decision-${id}`, title: 'Yerel veri stratejisi', decision: 'Cihazda tut', rationale: '', status: 'accepted', sourceSuggestionIds: [], affectedSectionIds: ['architecture'] }];
-    project.suggestionBundles[0].items[0].status = 'accepted';
-    project.suggestionBundles[0].items[1].status = 'rejected';
+    project.proposalStore.bundles[0].items[0].status = 'accepted';
+    project.proposalStore.bundles[0].items[1].status = 'rejected';
     return project;
 }
 

@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run verify
+      - run: npx playwright install chromium
+      - run: npm run test:e2e
+      - run: npm sbom --sbom-format cyclonedx --sbom-type application > sbom.cdx.json
+      - run: npm run desktop:build
+      - run: npm run release:evidence
+        env:
+          REQUIRED_JOBS_GREEN: 'true'
+          WINDOWS_SIGNED: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+      - run: npm run release:readiness
+        env:
+          REQUIRE_PRODUCTION_ARTIFACTS: 'true'
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            src-tauri/target/release/bundle/**/*
+            sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promtgen-${{ github.ref_name }}
+          path: |
+            src-tauri/target/release/bundle/**/*
+            release-evidence.json
+            sbom.cdx.json

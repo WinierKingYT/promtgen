@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { toProjectId, toRequirementId, toTaskId } from '../../src/v4/domain/ids.js';
 import { canTransitionRequirement, canTransitionDecision, canTransitionTask } from '../../src/v4/domain/statuses.js';
 import { validateCanonicalProject } from '../../src/v4/domain/validation.js';
-import { CanonicalProject } from '../../src/v4/domain/types.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
 
 describe('Category 3: Canonical Domain Model Invariants', () => {
   it('Branded ID factories wrap strings safely', () => {
@@ -28,54 +28,19 @@ describe('Category 3: Canonical Domain Model Invariants', () => {
   });
 
   it('validateCanonicalProject catches duplicate IDs and invalid task requirement references', () => {
-    const invalidProject: CanonicalProject = {
-      id: toProjectId('proj-1'),
-      schemaVersion: 5,
-      revision: 1,
-      identity: { name: 'Test Proje', originalIdea: 'Idea', summary: 'Summary' },
-      lifecycle: { activePhase: 'DISCOVERY', status: 'active', createdAt: '', updatedAt: '' },
-      scope: { items: [] },
-      requirements: [
-        {
-          id: toRequirementId('req-1'),
-          title: 'Req 1',
-          description: 'Desc',
-          category: 'functional',
-          priority: 'must',
-          status: 'accepted',
-          acceptanceCriteria: [],
-          relatedDecisionIds: [],
-          relatedRiskIds: [],
-          relatedTaskIds: [],
-          provenance: { origin: 'user', createdAt: '' }
-        }
-      ],
-      decisions: [],
-      risks: [],
-      tasks: [
-        {
-          id: toTaskId('task-1'),
-          title: 'Task 1',
-          description: 'Desc',
-          type: 'implementation',
-          status: 'ready',
-          priority: 'medium',
-          requirementIds: [toRequirementId('non-existent-req')],
-          decisionIds: [],
-          dependencyTaskIds: [],
-          acceptanceCriterionIds: [],
-          testCaseIds: [],
-          provenance: { origin: 'user', createdAt: '' }
-        }
-      ],
-      milestones: [],
-      proposalStore: { bundles: [] },
-      metadata: {}
-    };
+    const invalidProject = createProjectDocument({ idea: 'Idea', name: 'Test Proje' });
+    invalidProject.requirements.push({
+      id: 'req-1', title: 'Req 1', statement: 'Desc', kind: 'functional', priority: 'must',
+      status: 'accepted', acceptanceCriteria: [], sourceObjectiveIds: [], sourceSuggestionIds: []
+    });
+    invalidProject.tasks.push({
+      id: 'task-1', title: 'Task 1', description: 'Desc', status: 'ready', priority: 'must',
+      effort: 'medium', requirementIds: ['non-existent-req'], dependencies: [], acceptanceCriteria: [], verificationIds: []
+    });
 
     const result = validateCanonicalProject(invalidProject);
     assert.ok(!result.valid, 'Project validation failed for invalid requirement reference');
     assert.ok(result.errors.some(e => e.code === 'TASK_INVALID_REQUIREMENT_REF'), 'Catches invalid requirement reference error');
-    assert.ok(result.warnings.some(w => w.code === 'REQUIREMENT_NO_ACCEPTANCE_CRITERIA'), 'Warns about accepted requirement without acceptance criteria');
+    assert.ok(result.errors.some(e => e.code === 'REQUIREMENT_NO_ACCEPTANCE_CRITERIA'), 'Rejects accepted requirement without acceptance criteria');
   });
 });

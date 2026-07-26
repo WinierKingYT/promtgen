@@ -1,7 +1,9 @@
 import {
-  ProjectId, RequirementId, DecisionId, RiskId, TaskId, MilestoneId, ProposalId, ScopeItemId, AcceptanceCriterionId, TestCaseId
+  RequirementId, DecisionId, RiskId, TaskId, MilestoneId, ProposalId, ScopeItemId, AcceptanceCriterionId, TestCaseId
 } from './ids.js';
 import { GenerationProvenance } from '../contracts.js';
+
+export type { ProjectId, RequirementId, DecisionId, RiskId, TaskId, MilestoneId, ProposalId, ScopeItemId, AcceptanceCriterionId, TestCaseId } from './ids.js';
 
 export type KnowledgeStatus = 'user-stated' | 'user-approved' | 'imported' | 'inferred' | 'ai-proposed' | 'deprecated' | 'conflicted';
 
@@ -17,6 +19,8 @@ export type RiskStatus = 'identified' | 'mitigating' | 'accepted' | 'resolved' |
 export type TaskType = 'implementation' | 'design' | 'research' | 'testing' | 'documentation' | 'operations';
 export type TaskStatus = 'proposed' | 'ready' | 'in-progress' | 'blocked' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export type PlanningDepth = 'quick' | 'standard' | 'advanced' | 'enterprise';
 
 export interface EntityProvenance {
   origin: 'user' | 'ai' | 'rule-engine' | 'import' | 'system';
@@ -138,33 +142,4 @@ export interface ProposalBundle {
   createdAt: string;
   items: ProposalItem[];
   provenance: GenerationProvenance;
-}
-
-export interface CanonicalProject {
-  id: ProjectId;
-  schemaVersion: number;
-  revision: number;
-  identity: {
-    name: string;
-    originalIdea: string;
-    summary: string;
-  };
-  lifecycle: {
-    activePhase: string;
-    status: 'active' | 'finalized' | 'archived';
-    createdAt: string;
-    updatedAt: string;
-  };
-  scope: {
-    items: ScopeItem[];
-  };
-  requirements: Requirement[];
-  decisions: Decision[];
-  risks: Risk[];
-  tasks: Task[];
-  milestones: Milestone[];
-  proposalStore: {
-    bundles: ProposalBundle[];
-  };
-  metadata: Record<string, any>;
 }

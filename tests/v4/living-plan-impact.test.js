@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createProjectStateV4 } from '../../src/v4/project-state-v4.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
 import { generateImpactAnalysis } from '../../src/v4/ai-discovery.js';
-import { applyImpactAnalysis, applyExtensionModules, resolveImpactContradiction } from '../../src/v4/planning-engine.js';
+import { applyExtensionModules, resolveImpactContradiction } from '../../src/v4/planning-engine.js';
 import { runPlanReview } from '../../src/v4/review-engine.js';
 
 test('Yaşayan Plan: Etki analizi, çelişki tespiti ve Supersede aksiyonu', async () => {
-    const project = createProjectStateV4({ idea: 'S&box at sistemi' });
+    const project = createProjectDocument({ idea: 'S&box at sistemi' });
     project.decisions.push({
         id: 'dec-1',
         title: 'Yük Taşıma',
@@ -37,7 +37,7 @@ test('Yaşayan Plan: Etki analizi, çelişki tespiti ve Supersede aksiyonu', asy
 });
 
 test('Oyun Motoru / S&box Domain İnceleme Kuralı (GAME-NET-001)', () => {
-    const project = createProjectStateV4({ idea: 'S&box multiplayer at sistemi oyunu' });
+    const project = createProjectDocument({ idea: 'S&box multiplayer at sistemi oyunu' });
     const report = runPlanReview(project);
 
     // GAME-NET-001 finding should trigger when network decision is missing in game domain
@@ -45,7 +45,7 @@ test('Oyun Motoru / S&box Domain İnceleme Kuralı (GAME-NET-001)', () => {
 });
 
 test('İsteğe Bağlı Genişletme Paketleri revizyon olarak eklenmesi', () => {
-    const project = createProjectStateV4({ idea: 'S&box at sistemi' });
+    const project = createProjectDocument({ idea: 'S&box at sistemi' });
     const initialRev = project.revision;
 
     const updated = applyExtensionModules(project, ['Mounted Combat', 'Racing System']);

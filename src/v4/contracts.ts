@@ -4,16 +4,21 @@ export type PlanningPhase = 'IDEA_EXPANSION' | 'DISCOVERY' | 'IDEA_LAB' | 'CONCE
 export type SuggestionStatus = 'pending' | 'accepted' | 'edited' | 'deferred' | 'rejected'
 export type PlanSectionStatus = 'empty' | 'draft' | 'ready' | 'stale'
 
-export interface GenerationProvenance {
-  mode: 'cloud-ai' | 'local-ai' | 'rule-engine' | 'fallback'
-  providerId: string | null
-  model: string | null
-  requestedAt: string
-  completedAt: string
-  fallbackReason: string | null
-  schemaId: string
-  schemaVersion: number
-}
+  export interface GenerationProvenance {
+    runId: string
+    mode: 'cloud-ai' | 'local-ai' | 'rule-engine' | 'fallback'
+    providerId: string | null
+    model: string | null
+    promptVersion: string
+    requestedAt: string
+    completedAt: string
+    latencyMs: number
+    retryCount: number
+    fallbackReason: string | null
+    schemaId: string
+    schemaVersion: number
+    inputHash: string
+  }
 
 export interface DesignApproach {
   id: string
@@ -58,6 +63,7 @@ export interface IdeaLabSession {
   ideaNotes: string[]
   candidateDecisions: string[]
   candidateRisks: string[]
+  provenance?: GenerationProvenance
   conceptSummary?: ConceptSummary
 }
 
@@ -335,6 +341,7 @@ export interface SuggestionBundle {
   items: SuggestionItem[]
   openQuestions?: string[]
   source?: { type: 'ai' | 'local'; providerId: string; fallbackReason?: string }
+  provenance?: GenerationProvenance
 }
 
 export interface PlanChangePreview {
@@ -378,6 +385,14 @@ export interface ReadinessResult {
   calculatedAtRevision: number
 }
 
+export interface CommandLogRecord {
+  commandId: string
+  commandType: string
+  expectedRevision: number
+  committedRevision: number
+  createdAt: string
+}
+
 export interface PlanRevision {
   id: string
   number: number
@@ -385,11 +400,12 @@ export interface PlanRevision {
   summary: string
   acceptedSuggestionIds: string[]
   affectedSections: string[]
-  snapshot: Omit<ProjectStateV4, 'revisions'>
+  snapshot: Omit<ProjectDocumentV5, 'revisions'>
 }
 
-export interface ProjectStateV4 {
-  schemaVersion: 4
+export interface ProjectDocumentV5 {
+  schemaVersion: 5
+  schemaRevision: 1
   id: string
   revision: number
   lifecycle: {
@@ -414,7 +430,9 @@ export interface ProjectStateV4 {
     projectInventory?: Record<string, unknown>
   }
   sections: Record<string, PlanSection>
-  suggestionBundles: SuggestionBundle[]
+  proposalStore: {
+    bundles: SuggestionBundle[]
+  }
   objectives: Objective[]
   requirements: Requirement[]
   decisions: Decision[]
@@ -432,10 +450,11 @@ export interface ProjectStateV4 {
   simulationRuns: SimulationRun[]
   executionSessions: ExecutionSession[]
   openQuestions: string[]
-  messages: Array<{ id: string; role: 'user' | 'assistant'; content: string; createdAt: string }>
+  messages: Array<{ id: string; role: 'user' | 'assistant'; content: string; analysisNote?: string; createdAt: string }>
   readiness: ReadinessResult
   revisions: PlanRevision[]
   exports: ExportRecord[]
+  commandLog: CommandLogRecord[]
   dismissedSuggestionFingerprints: string[]
   ideaLabSession?: IdeaLabSession
   ideaExpansionSession?: IdeaExpansionSession
@@ -461,9 +480,9 @@ export interface ModuleManifest {
 }
 
 export interface ProjectRepository {
-  list(): Promise<ProjectStateV4[]>
-  get(id: string): Promise<ProjectStateV4 | null>
-  save(project: ProjectStateV4): Promise<ProjectStateV4>
+  list(): Promise<ProjectDocumentV5[]>
+  get(id: string): Promise<ProjectDocumentV5 | null>
+  save(project: ProjectDocumentV5): Promise<ProjectDocumentV5>
   archive(id: string): Promise<boolean>
   remove?(id: string): Promise<void>
 }
@@ -479,5 +498,5 @@ export interface AIProvider {
 export interface PlanExporter {
   id: string
   label: string
-  export(project: ProjectStateV4, revision?: number | 'current'): Promise<Record<string, string>>
+  export(project: ProjectDocumentV5, revision?: number | 'current'): Promise<Record<string, string>>
 }

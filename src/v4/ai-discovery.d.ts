@@ -1,0 +1,28 @@
+import type { ExpansionDimension, ProjectDocumentV5 } from './contracts.js';
+import type { ProviderSettings } from './provider-settings.js';
+import type { LocalPlanningMemory } from './planning-memory.js';
+
+export interface GenerationTurnResult {
+  project: ProjectDocumentV5;
+  usedFallback?: boolean;
+  error?: string | null;
+  bundle?: unknown;
+}
+export interface ProviderConnectionResult {
+  ok: boolean;
+  message: string;
+  providerId: string;
+  latencyMs: number;
+  errorCode?: string;
+}
+
+export function getSeenSuggestionFingerprints(project: ProjectDocumentV5): Set<string>;
+export function generateExpansionDimensions(idea: string): ExpansionDimension[];
+export function buildDiscoverySystemPrompt(project: ProjectDocumentV5): string;
+export function generateDiscoveryBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; direction?: string; memory?: LocalPlanningMemory | null; signal?: AbortSignal }): Promise<GenerationTurnResult>;
+export function runConversationalDiscoveryTurn(project: ProjectDocumentV5, options: { message: string; focusedQuestion?: string; settings: ProviderSettings; credential?: string; memory?: LocalPlanningMemory | null; signal?: AbortSignal }): Promise<GenerationTurnResult>;
+export function localFallbackIdeaLab(project: ProjectDocumentV5): GenerationTurnResult;
+export function generateIdeaLabBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; ideaText?: string; signal?: AbortSignal }): Promise<GenerationTurnResult>;
+export function generateConceptSummary(project: ProjectDocumentV5, options?: { selectedApproachId?: string }): Promise<ProjectDocumentV5>;
+export function generateImpactAnalysis(project: ProjectDocumentV5, userRequest: string): Promise<unknown>;
+export function testProviderConnection(settings: Partial<ProviderSettings> & Pick<ProviderSettings, 'providerId' | 'model' | 'baseUrl'>, credential?: string, signal?: AbortSignal): Promise<ProviderConnectionResult>;

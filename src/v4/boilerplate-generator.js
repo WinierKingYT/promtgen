@@ -2,8 +2,6 @@ export function generateRepositoryBoilerplate(project) {
     const projName = String(project.identity?.name || project.identity?.originalIdea || 'promtgen-projesi').trim();
     const idea = String(project.identity?.originalIdea || '').trim();
     const isWeb = /web|saas|react|next|node|api/i.test(idea);
-    const isMobile = /mobil|flutter|react native|ios|android/i.test(idea);
-    const isGame = /oyun|game|s&box|unity|godot/i.test(idea);
 
     const readme = `# ${projName}
 

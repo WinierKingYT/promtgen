@@ -1,5 +1,5 @@
-import { CanonicalProject } from '../domain/types.js';
-import { validateCanonicalProject } from '../domain/validation.js';
+import type { ProjectDocumentV5 } from '../contracts.js';
+import { validateProjectDocument } from '../project-document.js';
 
 export interface ReleaseCheckItem {
   id: string;
@@ -17,18 +17,18 @@ export interface ReleaseReadinessResult {
   blockers: ReleaseCheckItem[];
 }
 
-export function verifyReleaseReadiness(project: CanonicalProject): ReleaseReadinessResult {
+export function verifyProjectReadiness(project: ProjectDocumentV5): ReleaseReadinessResult {
   const checks: ReleaseCheckItem[] = [];
 
   // 1. Schema Version Check
-  const isSchemaV5 = project.schemaVersion === 5;
+  const isSchemaV5 = project.schemaVersion === 5 && project.schemaRevision === 1;
   checks.push({
     id: 'check-schema-v5',
     category: 'domain',
     title: 'Schema Version 5 Doğrulaması',
     passed: isSchemaV5,
     blocker: true,
-    message: isSchemaV5 ? 'Schema versiyonu 5 (Canonical)' : `Beklenen schemaVersion: 5, Mevcut: ${project.schemaVersion}`
+    message: isSchemaV5 ? 'Schema 5.1 (Canonical)' : `Beklenen schema: 5.1, Mevcut: ${project.schemaVersion}.${project.schemaRevision}`
   });
 
   // 2. Identity Verification
@@ -43,14 +43,14 @@ export function verifyReleaseReadiness(project: CanonicalProject): ReleaseReadin
   });
 
   // 3. Invariant Domain Validation
-  const valResult = validateCanonicalProject(project);
+  const valResult = validateProjectDocument(project);
   checks.push({
     id: 'check-domain-invariants',
     category: 'domain',
     title: 'Domain Invariant ve Cross-Entity Kontrolü',
     passed: valResult.valid,
     blocker: true,
-    message: valResult.valid ? 'Domain invariant kuralları hatasız' : `Hatalar: ${valResult.errors.map(e => e.message).join('; ')}`
+    message: valResult.valid ? 'Domain invariant kuralları hatasız' : `Hatalar: ${valResult.errors.join('; ')}`
   });
 
   // 4. Acceptance Criteria Completeness
@@ -77,3 +77,6 @@ export function verifyReleaseReadiness(project: CanonicalProject): ReleaseReadin
     blockers
   };
 }
+
+/** @deprecated Use verifyProjectReadiness. This validates a plan document, not an application release. */
+export const verifyReleaseReadiness = verifyProjectReadiness;

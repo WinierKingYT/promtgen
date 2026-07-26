@@ -2,14 +2,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../../src/react/App.tsx', import.meta.url), 'utf8');
+const workspace = readFileSync(new URL('../../src/react/Workspace.tsx', import.meta.url), 'utf8');
+const finalizeDialog = readFileSync(new URL('../../src/react/components/FinalizePlanDialog.tsx', import.meta.url), 'utf8');
+const revisionDialog = readFileSync(new URL('../../src/react/components/RevisionHistoryDialog.tsx', import.meta.url), 'utf8');
 
-assert.equal(/\bconfirm\s*\(/.test(app), false, 'RC1 arayüzü tarayıcı confirm penceresine bağlı olmamalı');
-assert.equal(/\balert\s*\(/.test(app), false, 'RC1 arayüzü tarayıcı alert penceresine bağlı olmamalı');
-assert.match(app, /function FinalizePlanDialog/);
-assert.match(app, /aria-labelledby="finalize-dialog-title"/);
-assert.match(app, /aria-describedby="finalize-dialog-description"/);
-assert.match(app, /Uyarılarla finalleştir/);
-assert.match(app, /role="alert"/);
-assert.match(app, /role="status"/);
+const productionUi = `${app}\n${workspace}`;
+assert.equal(/\bconfirm\s*\(/.test(productionUi), false, 'RC1 arayüzü tarayıcı confirm penceresine bağlı olmamalı');
+assert.equal(/\balert\s*\(/.test(productionUi), false, 'RC1 arayüzü tarayıcı alert penceresine bağlı olmamalı');
+assert.match(app, /import \{ Workspace \}/);
+assert.match(workspace, /import \{ FinalizePlanDialog \}/);
+assert.match(workspace, /<FinalizePlanDialog/);
+assert.match(finalizeDialog, /aria-labelledby="finalize-dialog-title"/);
+assert.match(finalizeDialog, /aria-describedby="finalize-dialog-description"/);
+assert.match(finalizeDialog, /Uyarılarla finalleştir/);
+assert.match(revisionDialog, /role="alert"/);
+assert.match(revisionDialog, /role="status"/);
 
 console.log('✓ V4 RC1 accessible UI confirmation contract');

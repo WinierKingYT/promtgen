@@ -5,22 +5,23 @@ import { generateExpansionDimensions } from '../../src/v4/ai-discovery.js';
 // --- Idea Expansion path (short idea < 50 chars) ---
 const shortProject = analyzeIdea('web sitesi yap');
 assert.equal(shortProject.lifecycle.activePhase, 'IDEA_EXPANSION', 'Kısa fikir IDEA_EXPANSION fazını başlatmalı');
-assert.equal(shortProject.suggestionBundles.length, 0, 'IDEA_EXPANSION fazında henüz öneri üretilmemeli');
+assert.equal(shortProject.proposalStore.bundles.length, 0, 'IDEA_EXPANSION fazında henüz öneri üretilmemeli');
 const dims = generateExpansionDimensions('web sitesi yap');
 assert.equal(dims.length, 5, '5 boyut üretilmeli');
 const expanded = applyIdeaExpansion(shortProject, { answers: { problem: 'Müşterilere kolay erişim', user: 'KOBİler' }, dimensions: dims });
 assert.equal(expanded.lifecycle.activePhase, 'DISCOVERY', 'Genişletme sonrası DISCOVERY fazına geçilmeli');
 assert.ok(expanded.identity.originalIdea.includes('Müşterilere kolay erişim'), 'Genişletilmiş fikir cevapları içermeli');
-assert.ok(expanded.suggestionBundles.length > 0, 'DISCOVERY fazında öneri bundleları üretilmeli');
+assert.ok(expanded.proposalStore.bundles.length > 0, 'DISCOVERY fazında öneri bundleları üretilmeli');
 
 // --- Normal DISCOVERY path (long idea >= 50 chars) ---
 let project = analyzeIdea('Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması yapmak istiyorum.');
 assert.equal(project.lifecycle.activePhase, 'DISCOVERY', 'Uzun fikir doğrudan DISCOVERY fazını başlatmalı');
-assert.equal(project.schemaVersion, 4);
-assert.ok(project.suggestionBundles[0].items.length >= 3 && project.suggestionBundles[0].items.length <= 5);
-assert.ok(project.suggestionBundles[0].items.every(item => item.status === 'pending'));
+assert.equal(project.schemaVersion, 5);
+assert.equal(project.schemaRevision, 1);
+assert.ok(project.proposalStore.bundles[0].items.length >= 3 && project.proposalStore.bundles[0].items.length <= 5);
+assert.ok(project.proposalStore.bundles[0].items.every(item => item.status === 'pending'));
 
-const bundle = project.suggestionBundles[0];
+const bundle = project.proposalStore.bundles[0];
 const suggestion = bundle.items[0];
 const before = project.sections.scope.items.length;
 project = updateSuggestionStatus(project, bundle.id, suggestion.id, 'accepted');

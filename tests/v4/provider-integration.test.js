@@ -23,11 +23,11 @@ try {
         return response({ choices: [{ message: { content: JSON.stringify(validPayload) } }] });
     };
     const openai = createProvider('openai', { credential: 'test-key', model: 'gpt-test', baseUrl: 'https://api.example/v1' });
-    assert.equal((await openai.structured({ system: 'system', context: { secret: 'token=hidden' } })).options.length, 3);
+    assert.equal((await openai.structured({ system: 'system', context: { secret: 'api_key=super-secret-value' } })).options.length, 3);
     assert.equal(captured.url, 'https://api.openai.com/v1/chat/completions');
     assert.equal(captured.options.headers.Authorization, 'Bearer test-key');
     assert.equal(JSON.parse(captured.options.body).response_format.type, 'json_object');
-    assert.ok(!captured.options.body.includes('token=hidden'));
+    assert.ok(!captured.options.body.includes('super-secret-value'));
 
     globalThis.fetch = async (url, options) => {
         captured = { url, options };
@@ -71,7 +71,7 @@ try {
     assert.equal(project.messages.length, beforeMessages, 'Girdi proje mutate edilmemeli');
     assert.equal(turn.project.messages.at(-2).role, 'user');
     assert.equal(turn.project.messages.at(-1).role, 'assistant');
-    assert.equal(turn.project.suggestionBundles.at(-1).status, 'open');
+    assert.equal(turn.project.proposalStore.bundles.at(-1).status, 'open');
     assert.ok(turn.project.openQuestions.includes('İlk kullanıcı grubu kim?'));
     assert.ok(captured.options.body.includes('localPlanningMemory'));
     assert.ok(captured.options.body.includes('sourceProjectCount'));

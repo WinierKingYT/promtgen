@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict';
-import { createProjectStateV4, getRequiredSections } from '../../src/v4/project-state-v4.js';
+import { createProjectDocument, getRequiredSections } from '../../src/v4/project-document.js';
 import { normalizeDecision, normalizeRequirement, normalizeRisk, normalizeTask, normalizeTestCase } from '../../src/v4/canonical-entities.js';
 import { applyReviewResult, runPlanReview, simulatePlan } from '../../src/v4/review-engine.js';
 import { recalculateReadiness } from '../../src/v4/planning-engine.js';
 
 const advancedDepth = { recommended: 'advanced', selected: 'advanced', overridden: false, rationale: 'test', signals: { score: 8, features: 3, integrations: 1, sensitiveData: true, multiPlatform: true, scaleIntent: false, uncertainty: 1 } };
-const incomplete = createProjectStateV4({ idea: 'İncelenecek gelişmiş proje', planningDepth: advancedDepth });
+const incomplete = createProjectDocument({ idea: 'İncelenecek gelişmiş proje', planningDepth: advancedDepth });
 const incompleteReview = runPlanReview(incomplete);
 assert.ok(incompleteReview.counts.high > 0);
 assert.equal(incompleteReview.gates.final, false);
 assert.ok(simulatePlan(incomplete).some(run => run.status === 'failed'));
 assert.equal(applyReviewResult({ ...incomplete, revision: 2 }, incompleteReview).success, false);
 
-const ready = createProjectStateV4({ idea: 'Hazır gelişmiş proje', planningDepth: advancedDepth });
+const ready = createProjectDocument({ idea: 'Hazır gelişmiş proje', planningDepth: advancedDepth });
 for (const sectionId of getRequiredSections('advanced')) { ready.sections[sectionId].content = `${sectionId} planı`; ready.sections[sectionId].status = 'draft'; }
 ready.sections.deployment.content = 'Aşamalı dağıtım ve rollback ile geri alma uygulanır.';
 ready.requirements = [normalizeRequirement({ id: 'req-1', title: 'Yerel plan', statement: 'Yerelde çalışır', acceptanceCriteria: ['Çevrimdışı açılır'], status: 'accepted' })];

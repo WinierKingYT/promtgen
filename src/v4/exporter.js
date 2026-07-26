@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
-import { validateProjectStateV4 } from './project-state-v4.js';
-import { normalizeProjectStateV4 } from './canonical-entities.js';
+import { validateProjectDocument } from './project-document.js';
+import { normalizeProjectDocument } from './canonical-entities.js';
+import { tryMigrateOrPassthrough } from './migrations.js';
 import { createModuleRegistry } from './module-registry.js';
 import { generateArchitectureDiagram, generateDataFlowDiagram } from './diagram-generator.js';
 
@@ -53,11 +54,11 @@ function sectionMarkdown(section) {
 }
 
 export function resolveCanonicalRevision(project, reference = 'current') {
-    const normalized = normalizeProjectStateV4(project);
+    const normalized = normalizeProjectDocument(project);
     if (reference === 'current' || reference == null || Number(reference) === normalized.revision) return normalized;
     const revision = normalized.revisions.find(item => item.id === reference || item.number === Number(reference));
     if (!revision?.snapshot) throw new Error(`Plan revision'ı bulunamadı: ${reference}`);
-    const snapshot = normalizeProjectStateV4(revision.snapshot);
+    const snapshot = normalizeProjectDocument(revision.snapshot);
     snapshot.revision = revision.number;
     return snapshot;
 }
@@ -306,12 +307,12 @@ export function createIdeWorkspaceFiles(project, { revision = 'current', adapter
 
 export async function createIdeWorkspacePackage(project, options = {}) {
     const workspace = createIdeWorkspaceFiles(project, options);
-    const validation = validateProjectStateV4(workspace.source);
+    const validation = validateProjectDocument(workspace.source);
     if (!validation.valid) throw new Error(`Geçersiz proje: ${validation.errors.join(' ')}`);
     const canonicalHash = await sha256(stableJson(workspace.source));
     const createdAt = new Date().toISOString();
     const manifest = {
-        format: 'promtgen-ide-workspace', formatVersion: 1, schemaVersion: 4,
+        format: 'promtgen-ide-workspace', formatVersion: 1, schemaVersion: 5,
         projectId: workspace.source.id, sourceRevision: workspace.source.revision,
         lifecycleStatus: workspace.source.lifecycle.status,
         readinessScore: workspace.source.readiness.score,
@@ -334,7 +335,7 @@ export async function createIdeWorkspacePackage(project, options = {}) {
 
 export async function createExportBundle(project, { revision = 'current', adapters = DEFAULT_ADAPTERS, format = 'promtgen' } = {}) {
     const source = resolveCanonicalRevision(project, revision);
-    const validation = validateProjectStateV4(source);
+    const validation = validateProjectDocument(source);
     if (!validation.valid) throw new Error(`Geçersiz proje: ${validation.errors.join(' ')}`);
     const documents = createDocumentSet(source, { adapters });
     const canonicalHash = await sha256(stableJson(source));
@@ -350,13 +351,15 @@ export async function createPromtgenPackage(project, options = {}) {
     const bundle = await createExportBundle(project, options);
     const zip = new JSZip();
     const manifest = {
-        format: 'promtgen', formatVersion: 2, schemaVersion: 4, projectId: project.id,
+        format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 1, projectId: project.id,
         revision: bundle.source.revision, canonicalHash: bundle.canonicalHash,
         createdAt: bundle.record.createdAt, files: options.includeExports === false ? [] : Object.keys(bundle.documents), adapters: bundle.record.adapterIds
     };
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
     zip.file('project.json', JSON.stringify(project, null, 2));
-    zip.file('history/revisions.json', JSON.stringify((project.revisions || []).map(({ snapshot: _snapshot, ...revision }) => revision), null, 2));
+    zip.file('history/revisions.json', JSON.stringify((project.revisions || []).map(revision =>
+        Object.fromEntries(Object.entries(revision).filter(([key]) => key !== 'snapshot'))
+    ), null, 2));
     if (options.includeExports !== false) for (const [path, content] of Object.entries(bundle.documents)) zip.file(path, content);
     return {
         blob: await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }),
@@ -415,18 +418,20 @@ export async function readPromtgenPackage(file) {
         if (totalUncompressedBytes > MAX_TOTAL_UNCOMPRESSED_BYTES) throw new Error('Paket açılmış içerik boyutu 50 MB sınırını aşıyor.');
     }
     const manifest = await readSafeJsonEntry(zip, 'manifest.json');
-    if (manifest?.format !== 'promtgen' || manifest?.schemaVersion !== 4 || ![1, 2].includes(manifest?.formatVersion)) throw new Error('Desteklenmeyen .promtgen paketi.');
+    if (manifest?.format !== 'promtgen' || ![4, 5].includes(manifest?.schemaVersion) || ![1, 2].includes(manifest?.formatVersion)) throw new Error('Desteklenmeyen .promtgen paketi.');
     const manifestFiles = manifest.files ?? (manifest.formatVersion === 1 ? [] : null);
     if (!Array.isArray(manifestFiles) || manifestFiles.length > MAX_PACKAGE_ENTRIES || manifestFiles.some(path => typeof path !== 'string' || !validateEntryPath(path))) throw new Error('Paket manifest dosya listesi geçersiz.');
     if (manifestFiles.some(path => !zip.file(path))) throw new Error('Paket manifestinde belirtilen bir dosya eksik.');
     const projectJson = await readSafeJsonEntry(zip, 'project.json');
-    const project = normalizeProjectStateV4(projectJson);
-    const validation = validateProjectStateV4(project);
-    if (!validation.valid) throw new Error(`Paket proje şeması geçersiz: ${validation.errors.join(' ')}`);
     if (manifest.formatVersion === 2 && manifest.canonicalHash) {
-        const source = resolveCanonicalRevision(project, manifest.revision);
-        if (await sha256(stableJson(source)) !== manifest.canonicalHash) throw new Error('Paket canonical özeti doğrulanamadı; içerik değiştirilmiş olabilir.');
+        const hashSource = resolveCanonicalRevision(projectJson, manifest.revision);
+        if (await sha256(stableJson(hashSource)) !== manifest.canonicalHash) throw new Error('Paket canonical özeti doğrulanamadı; içerik değiştirilmiş olabilir.');
     }
+    const migration = tryMigrateOrPassthrough(projectJson);
+    if (migration.error) throw new Error(`Paket migration başarısız: ${migration.error}`);
+    const project = normalizeProjectDocument(migration.project);
+    const validation = validateProjectDocument(project);
+    if (!validation.valid) throw new Error(`Paket proje şeması geçersiz: ${validation.errors.join(' ')}`);
     return project;
 }
 

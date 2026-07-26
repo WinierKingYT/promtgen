@@ -2,8 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { routeIdea, createCanonicalProjectInstance } from '../../src/v4/domain/services/project-creation.js';
 import { acceptProposalItemAtomically } from '../../src/v4/domain/services/proposal-service.ts';
-import { CanonicalProject, ProposalItem } from '../../src/v4/domain/types.js';
-import { toProjectId } from '../../src/v4/domain/ids.js';
+import type { SuggestionItem } from '../../src/v4/contracts.js';
 
 describe('Category 4: Functional Correctness Pipeline', () => {
   it('routeIdea routes vague/short ideas to IDEA_EXPANSION and rich ideas to IDEA_LAB', () => {
@@ -27,8 +26,9 @@ describe('Category 4: Functional Correctness Pipeline', () => {
     const initialProject = createCanonicalProjectInstance({ ideaText: 'Test Projesi' });
 
     // Add sample proposal bundle
-    const sampleItem: ProposalItem = {
+    const sampleItem: SuggestionItem = {
       id: 'prop-item-1',
+      fingerprint: 'feature:odeme-entegrasyonu',
       kind: 'feature',
       title: 'Ödeme Entegrasyonu',
       description: 'Stripe API ödemesi',
@@ -37,25 +37,20 @@ describe('Category 4: Functional Correctness Pipeline', () => {
       effort: 'medium',
       impact: 'high',
       recommended: true,
+      recommendationReason: 'Temel ödeme akışı için gerekli.',
+      affectedSections: ['requirements'],
+      dependencies: [],
       status: 'pending'
     };
 
     initialProject.proposalStore.bundles.push({
-      id: 'bundle-1' as any,
+      id: 'bundle-1',
       title: 'Keşif Paketi',
       phase: 'DISCOVERY',
       status: 'open',
       createdAt: new Date().toISOString(),
       items: [sampleItem],
-      provenance: {
-        mode: 'cloud',
-        providerId: 'openai',
-        model: 'gpt-4.1-mini',
-        requestedAt: '',
-        completedAt: '',
-        schemaId: 'discovery-v1',
-        schemaVersion: '1.0'
-      }
+      source: { type: 'ai', providerId: 'openai' }
     });
 
     const commandId = `cmd-${Date.now()}`;

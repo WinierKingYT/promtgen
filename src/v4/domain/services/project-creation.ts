@@ -1,6 +1,5 @@
-import { CanonicalProject } from '../types.js';
-import { toProjectId } from '../ids.js';
-import { createPlanSections } from '../../project-state-v4.js';
+import type { ProjectDocumentV5 } from '../../contracts.js';
+import { createProjectDocument } from '../../project-document.js';
 
 export interface IdeaRoutingResult {
   phase: 'IDEA_EXPANSION' | 'DISCOVERY' | 'IDEA_LAB';
@@ -47,49 +46,26 @@ export interface CreateProjectParams {
   name?: string;
   ideaText: string;
   depth?: 'quick' | 'standard' | 'advanced' | 'enterprise';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
-export function createCanonicalProjectInstance(params: CreateProjectParams): CanonicalProject {
+export function createCanonicalProjectInstance(params: CreateProjectParams): ProjectDocumentV5 {
   const idea = String(params.ideaText || '').trim();
   const routing = routeIdea(idea);
-  const nowIso = new Date().toISOString();
-  const pId = toProjectId(`project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const depth = params.depth || 'standard';
-
   const name = params.name?.trim() || (idea.slice(0, 30) ? `"${idea.slice(0, 30)}..."` : 'Yeni Proje');
-
-  return {
-    id: pId,
-    schemaVersion: 5,
-    revision: 1,
-    identity: {
-      name,
-      originalIdea: idea,
-      summary: idea.slice(0, 200)
-    },
-    lifecycle: {
-      activePhase: routing.phase,
-      status: 'active',
-      createdAt: nowIso,
-      updatedAt: nowIso
-    },
-    scope: {
-      items: []
-    },
-    requirements: [],
-    decisions: [],
-    risks: [],
-    tasks: [],
-    milestones: [],
-    proposalStore: {
-      bundles: []
-    },
-    metadata: {
-      depth,
-      routing,
-      sections: createPlanSections(depth, 1),
-      ...(params.metadata || {})
+  const project = createProjectDocument({
+    idea,
+    name,
+    planningDepth: {
+      recommended: depth,
+      selected: depth,
+      overridden: Boolean(params.depth),
+      rationale: params.depth ? 'Kullanıcı tarafından seçildi.' : 'Varsayılan planlama derinliği.',
+      signals: { score: 0, features: 0, integrations: 0, sensitiveData: false, multiPlatform: false, scaleIntent: false, uncertainty: 1 }
     }
-  };
+  });
+  project.lifecycle.activePhase = routing.phase;
+  project.metadata = { ...project.metadata, routing, ...(params.metadata || {}) };
+  return project;
 }

@@ -1,0 +1,197 @@
+export const PLANNING_PHASES = Object.freeze({
+    IDEA_EXPANSION: 'IDEA_EXPANSION',
+    DISCOVERY: 'DISCOVERY',
+    IDEA_LAB: 'IDEA_LAB',
+    CONCEPT_CONFIRMATION: 'CONCEPT_CONFIRMATION',
+    SHAPING: 'SHAPING',
+    DESIGN: 'DESIGN',
+    PLANNING: 'PLANNING',
+    REVIEW: 'REVIEW',
+    READY: 'READY'
+});
+
+export const PHASE_REGISTRY = Object.freeze([
+    { id: PLANNING_PHASES.IDEA_EXPANSION, label: 'Fikri Büyüt', description: 'Kısa fikri seçeneklerle genişlet ve netleştir.' },
+    { id: PLANNING_PHASES.DISCOVERY, label: 'Fikri Al', description: 'Ham düşünceyi ve vizyonu tanımla.' },
+    { id: PLANNING_PHASES.IDEA_LAB, label: 'Fikir Laboratuvarı', description: 'Alternatif yaklaşımları, deneyimi ve sınırları tartış.' },
+    { id: PLANNING_PHASES.CONCEPT_CONFIRMATION, label: 'Konsept Özeti', description: 'Özeti ve kararları inceleyip onayla.' },
+    { id: PLANNING_PHASES.SHAPING, label: 'Kapsamı Şekillendir', description: 'Özellikleri, sınırları ve öncelikleri seç.' },
+    { id: PLANNING_PHASES.DESIGN, label: 'Çözümü Tasarla', description: 'Mimari ve teknik kararları kesinleştir.' },
+    { id: PLANNING_PHASES.PLANNING, label: 'Planı Oluştur', description: 'Görevleri, yol haritasını ve promptları üret.' },
+    { id: PLANNING_PHASES.REVIEW, label: 'Kaliteyi İncele', description: 'Eksik, çelişki ve riskleri değerlendir.' },
+    { id: PLANNING_PHASES.READY, label: 'Hazır', description: 'Planı finalleştir ve dışa aktar.' }
+]);
+
+export const PLAN_SECTION_DEFINITIONS = Object.freeze([
+    { id: 'vision', title: 'Vizyon ve Problem', description: 'Projenin amacı, hedef kullanıcısı ve beklenen sonuç.' },
+    { id: 'objectives', title: 'Hedefler', description: 'Ölçülebilir ürün ve kullanıcı hedefleri.' },
+    { id: 'scope', title: 'Kapsam', description: 'Dahil, ertelenmiş ve kapsam dışı özellikler.' },
+    { id: 'requirements', title: 'Gereksinimler', description: 'Fonksiyonel ve kalite gereksinimleri.' },
+    { id: 'decisions', title: 'Kararlar', description: 'Seçenekler, gerekçeler ve kabul edilmiş kararlar.' },
+    { id: 'architecture', title: 'Mimari', description: 'Bileşenler, veri akışı ve teknik sınırlar.' },
+    { id: 'security', title: 'Güvenlik ve Gizlilik', description: 'Tehditler, veri sınıfları ve güvenlik kontrolleri.' },
+    { id: 'tasks', title: 'Görevler ve Yol Haritası', description: 'Bağımlı, sıralı ve kabul kriterli geliştirme işleri.' },
+    { id: 'risks', title: 'Riskler', description: 'Olasılık, etki ve azaltma planları.' },
+    { id: 'testing', title: 'Test Stratejisi', description: 'Birim, entegrasyon, uçtan uca ve kabul testleri.' },
+    { id: 'deployment', title: 'Dağıtım', description: 'Ortamlar, yayınlama ve geri alma yaklaşımı.' },
+    { id: 'operations', title: 'Operasyon', description: 'Gözlemlenebilirlik, kapasite ve süreklilik.' }
+]);
+
+const REQUIRED_BY_DEPTH = Object.freeze({
+    quick: ['vision', 'scope', 'tasks'],
+    standard: ['vision', 'objectives', 'scope', 'requirements', 'architecture', 'tasks', 'risks', 'testing'],
+    advanced: ['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment'],
+    enterprise: PLAN_SECTION_DEFINITIONS.map(section => section.id)
+});
+
+function now() { return new Date().toISOString(); }
+function projectId() { return `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
+
+export function getRequiredSections(depth) {
+    return [...(REQUIRED_BY_DEPTH[depth] || REQUIRED_BY_DEPTH.standard)];
+}
+
+export function createPlanSections(depth = 'standard', revision = 1) {
+    const required = new Set(getRequiredSections(depth));
+    return Object.fromEntries(PLAN_SECTION_DEFINITIONS.map(definition => [definition.id, {
+        ...definition,
+        content: '',
+        items: [],
+        status: 'empty',
+        required: required.has(definition.id),
+        warnings: [],
+        sourceSuggestionIds: [],
+        updatedAtRevision: revision
+    }]));
+}
+
+export function createInitialReadiness(revision = 1) {
+    return {
+        score: 0,
+        dimensions: { completeness: 0, consistency: 100, traceability: 0, riskCoverage: 0, implementationReadiness: 0 },
+        blockers: ['Proje fikri henüz analiz edilmedi.'],
+        warnings: [],
+        calculatedAtRevision: revision
+    };
+}
+
+export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguage = 'tr', profile = null, planningDepth = null } = {}) {
+    const createdAt = now();
+    const depth = planningDepth || {
+        recommended: 'standard', selected: 'standard', overridden: false,
+        rationale: 'Ölçek değerlendirmesi henüz yapılmadı.',
+        signals: { score: 0, features: 0, integrations: 0, sensitiveData: false, multiPlatform: false, scaleIntent: false, uncertainty: 1 }
+    };
+    const initialIdea = String(idea || '').trim();
+    const state = {
+        schemaVersion: 5,
+        schemaRevision: 1,
+        id: projectId(),
+        revision: 1,
+        lifecycle: { status: 'active', activePhase: PLANNING_PHASES.DISCOVERY, createdAt, updatedAt: createdAt, finalizedAt: null },
+        identity: { name, originalIdea: initialIdea, summary: initialIdea, desiredOutcome: '', outputLanguage },
+        planningDepth: depth,
+        profile: profile || { domains: [], platforms: [], importedContext: [] },
+        sections: createPlanSections(depth.selected, 1),
+        proposalStore: { bundles: [] },
+        objectives: [], requirements: [], decisions: [], assumptions: [], risks: [], tasks: [], testCases: [], milestones: [], traceLinks: [], agentPrompts: [], researchQuestions: [], sources: [], evidence: [], reviewFindings: [], simulationRuns: [], openQuestions: [],
+        messages: initialIdea ? [{ id: `msg-${Date.now()}`, role: 'user', content: initialIdea, createdAt }] : [],
+        readiness: createInitialReadiness(1),
+        revisions: [], exports: [], commandLog: [], executionSessions: [], dismissedSuggestionFingerprints: [],
+        ideaLabSession: { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [] },
+        impactAnalyses: [],
+        modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
+    };
+    if (initialIdea) {
+        state.sections.vision.content = initialIdea;
+        state.sections.vision.status = 'draft';
+    }
+    return state;
+}
+
+export function applyDepthSelection(state, selected, overridden = true) {
+    const next = structuredClone(state);
+    next.planningDepth.selected = selected;
+    next.planningDepth.overridden = overridden;
+    const required = new Set(getRequiredSections(selected));
+    for (const section of Object.values(next.sections)) {
+        section.required = required.has(section.id);
+    }
+    next.revision += 1;
+    next.lifecycle.updatedAt = now();
+    return next;
+}
+
+export function validateProjectDocument(state) {
+    const errors = [];
+    if (!state || typeof state !== 'object') return { valid: false, errors: ['Proje durumu nesne olmalı.'] };
+    if (state.schemaVersion !== 5) errors.push('schemaVersion 5 olmalı.');
+    if (state.schemaRevision !== 1) errors.push('schemaRevision 1 olmalı.');
+    if (!state.id || typeof state.id !== 'string') errors.push('Proje kimliği eksik.');
+    if (!state.identity?.originalIdea) errors.push('Başlangıç fikri eksik.');
+    if (!state.planningDepth?.selected || !REQUIRED_BY_DEPTH[state.planningDepth.selected]) errors.push('Planlama derinliği geçersiz.');
+    if (!state.sections || typeof state.sections !== 'object') errors.push('Plan bölümleri eksik.');
+    for (const id of getRequiredSections(state.planningDepth?.selected)) {
+        if (!state.sections?.[id]) errors.push(`Zorunlu plan bölümü eksik: ${id}`);
+    }
+    if (!Array.isArray(state.proposalStore?.bundles)) errors.push('Öneri deposu geçersiz.');
+    if (!Array.isArray(state.revisions)) errors.push('Sürüm geçmişi dizi olmalı.');
+    if (!Array.isArray(state.commandLog)) errors.push('Command log dizi olmalı.');
+    if (!state.modules || !Array.isArray(state.modules.active) || !Array.isArray(state.modules.localManifests)) errors.push('Modül durumu geçersiz.');
+    if (!Array.isArray(state.executionSessions)) errors.push('Execution session kayıtları dizi olmalı.');
+    for (const key of ['objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones', 'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings', 'simulationRuns', 'exports']) {
+        if (!Array.isArray(state[key])) errors.push(`${key} dizi olmalı.`);
+    }
+    validateEntityInvariants(state, errors);
+    return { valid: errors.length === 0, errors };
+}
+
+function validateEntityInvariants(state, errors) {
+    const collections = ['objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones', 'traceLinks', 'agentPrompts'];
+    const allIds = new Set();
+    const idsByType = new Map();
+    for (const key of collections) {
+        const ids = new Set();
+        for (const entity of state[key] || []) {
+            if (!entity?.id || typeof entity.id !== 'string') {
+                errors.push(`${key} içinde kimliği eksik kayıt var.`);
+                continue;
+            }
+            if (allIds.has(entity.id)) errors.push(`Entity kimliği benzersiz değil: ${entity.id}`);
+            allIds.add(entity.id);
+            ids.add(entity.id);
+        }
+        idsByType.set(key, ids);
+    }
+
+    for (const requirement of state.requirements || []) {
+        if (requirement.status === 'accepted' && (!Array.isArray(requirement.acceptanceCriteria) || requirement.acceptanceCriteria.length === 0)) {
+            errors.push(`Kabul edilmiş gereksinimin kabul kriteri eksik: ${requirement.id}`);
+        }
+    }
+    for (const decision of state.decisions || []) {
+        if (decision.status === 'accepted' && !String(decision.rationale || '').trim()) {
+            errors.push(`Kabul edilmiş kararın gerekçesi eksik: ${decision.id}`);
+        }
+    }
+    for (const task of state.tasks || []) {
+        for (const requirementId of task.requirementIds || []) {
+            const requirement = (state.requirements || []).find(item => item.id === requirementId);
+            if (!requirement || requirement.status !== 'accepted') {
+                errors.push(`Görev kabul edilmiş olmayan gereksinime bağlı: ${task.id} → ${requirementId}`);
+            }
+        }
+    }
+    const traceTypeMap = {
+        objective: 'objectives', requirement: 'requirements', decision: 'decisions',
+        risk: 'risks', task: 'tasks', test: 'testCases', milestone: 'milestones', prompt: 'agentPrompts'
+    };
+    const allowedRelations = new Set(['supports', 'implements', 'verifies', 'validated_by', 'mitigates', 'depends_on', 'derived_from']);
+    for (const link of state.traceLinks || []) {
+        const fromCollection = traceTypeMap[link.fromType];
+        const toCollection = traceTypeMap[link.toType];
+        if (!fromCollection || !idsByType.get(fromCollection)?.has(link.fromId)) errors.push(`Trace başlangıcı bulunamadı: ${link.id}`);
+        if (!toCollection || !idsByType.get(toCollection)?.has(link.toId)) errors.push(`Trace hedefi bulunamadı: ${link.id}`);
+        if (!allowedRelations.has(link.relation)) errors.push(`Trace ilişkisi geçersiz: ${link.id}`);
+    }
+}

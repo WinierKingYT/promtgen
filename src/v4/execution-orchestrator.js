@@ -78,7 +78,7 @@ export function simulateExecutionRun(project, sessionId) {
     if (!session) return { success: false, project: currentProject, reason: 'Execution oturumu bulunamadı.' };
 
     const logs = [];
-    for (const role of EXECUTION_ROLES) {
+    for (let stepIndex = 0; stepIndex < EXECUTION_ROLES.length; stepIndex += 1) {
         const nextRole = getNextExecutionRole(session);
         if (!nextRole.role) break;
         const res = recordExecutionResult(currentProject, sessionId, {

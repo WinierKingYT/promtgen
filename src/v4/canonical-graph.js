@@ -1,7 +1,7 @@
 import { GraphStore } from '../core/traceability/graph-store.js';
 import { TraceabilityEngine } from '../core/traceability/traceability-engine.js';
 import { EDGE_TYPES, NODE_TYPES } from '../core/traceability/traceability-types.js';
-import { normalizeProjectStateV4 } from './canonical-entities.js';
+import { normalizeProjectDocument } from './canonical-entities.js';
 
 const ENTITY_TYPES = [
     ['objectives', NODE_TYPES.OBJECTIVE, item => item.title],
@@ -29,7 +29,7 @@ function relationType(relation) {
 }
 
 export function buildCanonicalGraph(project) {
-    const source = normalizeProjectStateV4(project);
+    const source = normalizeProjectDocument(project);
     const graph = new GraphStore();
     for (const [collection, type, label] of ENTITY_TYPES) {
         for (const entity of source[collection]) graph.addNode(type, entity.id, label(entity) || entity.id, { ...entity, projectRevision: source.revision });

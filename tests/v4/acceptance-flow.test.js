@@ -6,7 +6,7 @@ import { applyCompiledTaskPlan, compileTaskPlan } from '../../src/v4/task-compil
 
 let project = analyzeIdea('Yerel çalışan küçük bir alışkanlık takip aracı planlamak istiyorum.');
 assert.ok(['quick', 'standard'].includes(project.planningDepth.recommended));
-const bundle = project.suggestionBundles[0];
+const bundle = project.proposalStore.bundles[0];
 const unchangedRevision = project.revision;
 assert.equal(applyApprovedChanges(project, bundle.id).revision, unchangedRevision, 'Pending öneriler plana uygulanmamalı');
 
@@ -16,7 +16,7 @@ for (let index = 0; index < bundle.items.length; index += 1) {
     project = updateSuggestionStatus(project, bundle.id, item.id, status, status === 'edited' ? 'Veri yalnız cihazda saklanacak ve kullanıcı dışa aktarabilecek.' : '');
 }
 project = applyApprovedChanges(project, bundle.id);
-assert.equal(project.suggestionBundles[0].status, 'resolved');
+assert.equal(project.proposalStore.bundles[0].status, 'resolved');
 assert.ok(project.revision > unchangedRevision);
 assert.ok(project.dismissedSuggestionFingerprints.length > 0);
 assert.ok(Object.values(project.sections).some(section => section.sourceSuggestionIds.length > 0));

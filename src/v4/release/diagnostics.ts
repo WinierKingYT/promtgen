@@ -1,9 +1,10 @@
-import { CanonicalProject } from '../domain/types.js';
+import type { ProjectDocumentV5 } from '../contracts.js';
 import { redactSensitiveData } from '../security/secret-guard.js';
 
 export interface DiagnosticReport {
   generatedAt: string;
   appVersion: string;
+  commitSha: string;
   userAgent: string;
   projectSummary?: {
     id: string;
@@ -17,7 +18,7 @@ export interface DiagnosticReport {
   sanitizedLogs: string[];
 }
 
-export function generateDiagnosticReport(project?: CanonicalProject, recentLogs: string[] = []): DiagnosticReport {
+export function generateDiagnosticReport(project?: ProjectDocumentV5, recentLogs: string[] = []): DiagnosticReport {
   const sanitizedLogs = recentLogs.map(log => redactSensitiveData(log).redactedText);
 
   let projectSummary;
@@ -35,7 +36,8 @@ export function generateDiagnosticReport(project?: CanonicalProject, recentLogs:
 
   return {
     generatedAt: new Date().toISOString(),
-    appVersion: '4.0.0-rc1',
+    appVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'development',
+    commitSha: typeof __COMMIT_SHA__ === 'string' ? __COMMIT_SHA__ : 'development',
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Node-CLI-Environment',
     projectSummary,
     sanitizedLogs

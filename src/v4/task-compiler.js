@@ -11,6 +11,23 @@ function uniqueId(prefix, label, used) {
     used.add(candidate); return candidate;
 }
 
+export function assertValidCompilation(result) {
+    if (!result || typeof result !== 'object') throw new Error('TaskCompilationResult must be a non-null object.');
+    if (typeof result.baseRevision !== 'number') throw new Error('TaskCompilationResult.baseRevision must be a number.');
+    if (!Array.isArray(result.tasks)) throw new Error('TaskCompilationResult.tasks must be an array.');
+    if (!Array.isArray(result.testCases)) throw new Error('TaskCompilationResult.testCases must be an array.');
+    if (!Array.isArray(result.milestones)) throw new Error('TaskCompilationResult.milestones must be an array.');
+    if (!Array.isArray(result.traceLinks)) throw new Error('TaskCompilationResult.traceLinks must be an array.');
+    if (!Array.isArray(result.agentPrompts)) throw new Error('TaskCompilationResult.agentPrompts must be an array.');
+    if (!Array.isArray(result.warnings)) throw new Error('TaskCompilationResult.warnings must be an array.');
+    for (const task of result.tasks) {
+        if (!task.id || !task.title) throw new Error('Each compiled task must have id and title.');
+    }
+    for (const testCase of result.testCases) {
+        if (!testCase.id || !testCase.title) throw new Error('Each compiled test case must have id and title.');
+    }
+}
+
 function topologicalOrder(tasks) {
     const byId = new Map(tasks.map(task => [task.id, task]));
     const visiting = new Set(); const visited = new Set(); const ordered = []; const cycles = [];
@@ -57,7 +74,7 @@ function buildPromptChain(project, tasks) {
 export function compileTaskPlan(project) {
     const used = new Set((project.tasks || []).map(task => task.id));
     const tasks = [];
-    const sourceRequirements = (project.requirements || []).filter(r => r.status !== 'rejected' && r.status !== 'deprecated');
+    const sourceRequirements = (project.requirements || []).filter(requirement => requirement.status === 'accepted');
     
     // Task compiler strictly uses formal accepted requirements
     if (!sourceRequirements.length) {
@@ -109,6 +126,7 @@ export function compileTaskPlan(project) {
 }
 
 export function applyCompiledTaskPlan(project, compilation, { approved = false } = {}) {
+    assertValidCompilation(compilation);
     if (!approved) return { success: false, project, reason: 'Görev planı kullanıcı onayı bekliyor.' };
     if (compilation.baseRevision !== project.revision) return { success: false, project, reason: 'Plan revision değişti; görev taslağı yeniden üretilmeli.' };
     if (!compilation.tasks.length) return { success: false, project, reason: compilation.warnings[0] || 'Uygulanabilir görev üretilemedi.' };
