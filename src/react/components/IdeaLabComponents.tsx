@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
-import { ArrowRight, Check, CheckCircle2, Layers, Lightbulb, ShieldAlert, Sparkles, Wand2, Activity, Telescope } from 'lucide-react';
-import { confirmConceptSummary, applyImpactAnalysis, applyExtensionModules, resolveImpactContradiction, runConceptSimulation, applyIdeaExpansion } from '../../v4/planning-engine.js';
+import { ArrowRight, Check, CheckCircle2, Layers, Lightbulb, Sparkles, Wand2, Activity, Telescope } from 'lucide-react';
+import { confirmConceptSummary, applyExtensionModules, runConceptSimulation, applyIdeaExpansion } from '../../v4/planning-engine.js';
 import { generateConceptSummary, generateExpansionDimensions } from '../../v4/ai-discovery.js';
+import { getConceptAgreementGate } from '../../v4/application/idea-discussion-service.js';
+import { ConceptAgreementEditor } from './ConceptAgreementEditor.js';
 
 function MetricBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -296,6 +298,7 @@ export function ConceptSummaryPanel({ project, onCommit }: any) {
   if (!summary) return null;
 
   const sim = summary.simulationResult;
+  const agreementGate = getConceptAgreementGate(project);
 
   const handleConfirm = () => {
     const next = confirmConceptSummary(project);
@@ -312,10 +315,6 @@ export function ConceptSummaryPanel({ project, onCommit }: any) {
         </div>
       </div>
 
-      <p style={{ fontSize: '14px', color: '#d1d5db', lineHeight: '1.5', marginBottom: '16px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
-        {summary.summary}
-      </p>
-
       {/* Simulation Predictions Card */}
       {sim && (
         <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '12px', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -331,135 +330,36 @@ export function ConceptSummaryPanel({ project, onCommit }: any) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-        <div>
-          <h4 style={{ color: '#10b981', margin: '0 0 6px 0', fontSize: '13px' }}>✓ Kesinleşen Özellikler</h4>
-          <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#9ca3af' }}>
-            {summary.confirmedFeatures?.map((f: string, i: number) => <li key={i}>{f}</li>)}
-          </ul>
-        </div>
-
-        <div>
-          <h4 style={{ color: '#ef4444', margin: '0 0 6px 0', fontSize: '13px' }}>✕ Kapsam Dışı Bırakılanlar</h4>
-          <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#9ca3af' }}>
-            {summary.outOfScope?.map((o: string, i: number) => <li key={i}>{o}</li>)}
-          </ul>
-        </div>
-
-        <div>
-          <h4 style={{ color: '#3b82f6', margin: '0 0 6px 0', fontSize: '13px' }}>⚙️ Teknik Yaklaşım</h4>
-          <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#9ca3af' }}>
-            {summary.technicalApproaches?.map((t: string, i: number) => <li key={i}>{t}</li>)}
-          </ul>
-        </div>
-
-        <div>
-          <h4 style={{ color: '#f59e0b', margin: '0 0 6px 0', fontSize: '13px' }}>⚠️ Bilinen Riskler & Sorular</h4>
-          <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#9ca3af' }}>
-            {summary.knownRisks?.concat(summary.openQuestions || [])?.map((r: string, i: number) => <li key={i}>{r}</li>)}
-          </ul>
-        </div>
-      </div>
+      <ConceptAgreementEditor project={project} onCommit={onCommit}/>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         <span style={{ fontSize: '12px', color: '#9ca3af' }}>İlk Sürüm Hedefi: <b>{summary.mvpTarget}</b></span>
         <button
           onClick={handleConfirm}
+          disabled={!agreementGate.ready}
+          title={!agreementGate.ready ? `${agreementGate.unresolvedCount} fikir kaydı tamamlanmalı.` : undefined}
           style={{
-            background: '#10b981',
+            background: agreementGate.ready ? '#10b981' : '#4b5563',
             color: '#fff',
             border: 'none',
             padding: '10px 22px',
             borderRadius: '8px',
             fontWeight: 700,
             fontSize: '14px',
-            cursor: 'pointer',
+            cursor: agreementGate.ready ? 'pointer' : 'not-allowed',
+            opacity: agreementGate.ready ? 1 : 0.75,
             display: 'flex',
             alignItems: 'center',
             gap: '8px'
           }}
         >
-          <Check size={18} /> Konsepti Onayla ve Planı Başlat
+          <Check size={18} />
+          {agreementGate.ready
+            ? 'Konsepti Onayla ve Planı Başlat'
+            : `${agreementGate.unresolvedCount} fikir kaydı tamamlanmalı`}
         </button>
       </div>
     </section>
-  );
-}
-
-export function ImpactAnalysisPanel({ project, onCommit }: any) {
-  const pendingImpacts = (project.impactAnalyses || []).filter((i: any) => i.status === 'proposed');
-  if (!pendingImpacts.length) return null;
-
-  return (
-    <div style={{ margin: '16px 0' }}>
-      {pendingImpacts.map((impact: any) => (
-        <section key={impact.id} style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-            <ShieldAlert size={20} color="#f59e0b" />
-            <h3 style={{ margin: 0, fontSize: '15px', color: '#fef3c7' }}>Yaşayan Plan Etki Analizi: "{impact.userRequest}"</h3>
-          </div>
-          <p style={{ fontSize: '13px', color: '#d1d5db', marginBottom: '12px' }}>{impact.summary}</p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px', marginBottom: '12px' }}>
-            <div>
-              <strong style={{ color: '#f59e0b' }}>Değişen Bölümler:</strong>
-              <p style={{ margin: '2px 0', color: '#9ca3af' }}>{impact.affectedSections?.join(', ')}</p>
-            </div>
-            <div>
-              <strong style={{ color: '#3b82f6' }}>Mimari Etki:</strong>
-              <p style={{ margin: '2px 0', color: '#9ca3af' }}>{impact.architectureImpact}</p>
-            </div>
-          </div>
-
-          {impact.contradictions?.length > 0 && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.15)', padding: '10px 14px', borderRadius: '8px', marginBottom: '12px', fontSize: '12px', color: '#fca5a5' }}>
-              <strong>⚠️ Geçmiş Kararlarla Çelişki Tespiti:</strong>
-              <ul style={{ margin: '4px 0 8px 16px', padding: 0 }}>
-                {impact.contradictions.map((c: string, idx: number) => <li key={idx}>{c}</li>)}
-              </ul>
-              {/* Individual Supersede Action Buttons */}
-              {impact.contradictionDetails?.map((detail: any) => (
-                <div key={detail.decisionId} style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: '6px' }}>
-                  <span>Eski Karar: <b>"{detail.decisionTitle}"</b></span>
-                  <button
-                    onClick={() => {
-                      const next = resolveImpactContradiction(project, impact.id, detail.decisionId, 'supersede');
-                      onCommit(next, `Eski "${detail.decisionTitle}" kararı geçersiz kılındı (superseded) ve yeni sürüm r${next.revision} oluşturuldu.`);
-                    }}
-                    style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    Önceki Kararı Geçersiz Kıl (Supersede)
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => {
-                const next = structuredClone(project);
-                next.impactAnalyses = (next.impactAnalyses || []).filter((i: any) => i.id !== impact.id);
-                onCommit(next, 'Etki analizi reddedildi ve kapatıldı.');
-              }}
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#9ca3af', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-            >
-              Vazgeç / Kapat
-            </button>
-            <button
-              onClick={() => {
-                const next = applyImpactAnalysis(project, impact.id);
-                onCommit(next, 'Etki analizi onaylandı ve yeni sürüm oluşturuldu.');
-              }}
-              style={{ background: '#f59e0b', color: '#000', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Check size={16} /> Etki Analizini Onayla (r{project.revision + 1})
-            </button>
-          </div>
-        </section>
-      ))}
-    </div>
   );
 }
 

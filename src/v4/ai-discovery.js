@@ -5,6 +5,8 @@ import { DISCOVERY_SCHEMA_ID } from './ai-schemas.js';
 import { runAITask } from './ai/orchestrator.ts';
 import { getTaskDefinition } from './ai/registry.ts';
 import { classifyProjectDomain } from './ai/domain-classifier.ts';
+import { buildIdeaDiscussionContext, captureDiscussionBundle } from './application/idea-discussion-service.ts';
+import { createChangeImpactAnalysis } from './application/change-impact-service.ts';
 
 const discoveryTask = getTaskDefinition('discovery');
 const ideaLabTask = getTaskDefinition('idea-lab');
@@ -16,7 +18,10 @@ function id(prefix) { return `${prefix}-${Date.now()}-${Math.random().toString(3
 function fingerprint(title) { return String(title).toLocaleLowerCase('tr-TR').normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 
 export function getSeenSuggestionFingerprints(project) {
-    return new Set(project.proposalStore.bundles.flatMap(bundle => bundle.items).filter(item => item.status !== 'deferred').map(item => item.fingerprint));
+    return new Set([
+        ...project.proposalStore.bundles.flatMap(bundle => bundle.items).filter(item => item.status !== 'deferred').map(item => item.fingerprint),
+        ...(project.ideaDiscussion?.records || []).filter(record => record.status !== 'deferred').map(record => fingerprint(record.text))
+    ]);
 }
 
 export function generateExpansionDimensions(idea) {
@@ -215,9 +220,22 @@ export async function generateDiscoveryBundle(project, { settings, credential = 
 export async function runConversationalDiscoveryTurn(project, { message, focusedQuestion = '', settings, credential = '', memory = null, signal } = {}) {
     const answer = String(message || '').trim();
     if (!answer) throw new Error('Keşif mesajı boş olamaz.');
-    const direction = focusedQuestion
+    const mode = project.ideaDiscussion?.mode || 'explore';
+    const modeInstruction = {
+        explore: 'Fikrin yeni kullanım biçimlerini ve değerini keşfet.',
+        challenge: 'Varsayımları zorla, riskleri ve başarısızlık ihtimallerini görünür yap.',
+        compare: 'Uygulanabilir alternatifleri açık trade-offlarla karşılaştır.',
+        clarify: 'Belirsiz kapsamı, hedef kullanıcıyı ve başarı ölçütlerini netleştir.'
+    }[mode];
+    const discussionContext = buildIdeaDiscussionContext(project);
+    const historyInstruction = [
+        discussionContext.accepted.length ? `Kabul edilen kayıtlar: ${discussionContext.accepted.map(item => item.text).join(' | ')}` : '',
+        discussionContext.rejected.length ? `Yeniden önerme: ${discussionContext.rejected.map(item => item.text).join(' | ')}` : '',
+        discussionContext.deferred.length ? `Şimdilik ertele: ${discussionContext.deferred.map(item => item.text).join(' | ')}` : ''
+    ].filter(Boolean).join('\n');
+    const direction = `Tartışma modu: ${mode}. ${modeInstruction}\n${focusedQuestion
         ? `Açık soru: ${String(focusedQuestion).trim()}\nKullanıcı yanıtı: ${answer}`
-        : answer;
+        : `Kullanıcı mesajı: ${answer}`}${historyInstruction ? `\n${historyInstruction}` : ''}`;
     const withUserMessage = addExplorationMessage(project, 'user', answer);
     const result = await generateDiscoveryBundle(withUserMessage, { settings, credential, direction, memory, signal });
     const replyText = result.bundle.replyMessage || result.bundle.title;
@@ -226,6 +244,7 @@ export async function runConversationalDiscoveryTurn(project, { message, focused
         next.messages[next.messages.length - 1].analysisNote = result.bundle.analysisNote;
     }
     next.proposalStore.bundles.push(result.bundle);
+    next = captureDiscussionBundle(next, result.bundle, next.messages.at(-1)?.id || '');
     if (focusedQuestion) next.openQuestions = next.openQuestions.filter(question => question !== focusedQuestion);
     for (const question of result.bundle.openQuestions || []) {
         if (!next.openQuestions.includes(question)) next.openQuestions.push(question);
@@ -629,56 +648,8 @@ export async function generateConceptSummary(project, { selectedApproachId = '' 
     return next;
 }
 
-export async function generateImpactAnalysis(project, userRequest) {
-    const cleanRequest = String(userRequest || '').trim();
-    if (!cleanRequest) throw new Error('İstek metni boş olamaz.');
-
-    // Simple deterministic & intelligent impact check
-    const text = cleanRequest.toLowerCase();
-    const affectedSections = ['scope', 'tasks'];
-    if (text.includes('mimari') || text.includes('fizik') || text.includes('net') || text.includes('yük') || text.includes('taşı')) {
-        affectedSections.push('architecture', 'requirements');
-    }
-    if (text.includes('güvenlik') || text.includes('auth')) {
-        affectedSections.push('security');
-    }
-
-    const contradictions = [];
-    const contradictionDetails = [];
-    // Check if user request contradicts an accepted decision
-    for (const dec of project.decisions || []) {
-        if (dec.decision.toLowerCase().includes('kapsam dışı') && text.includes(dec.title.toLowerCase())) {
-            contradictions.push(`Evvelce "${dec.title}" kararı kapsam dışı bırakılmıştı.`);
-            contradictionDetails.push({ decisionId: dec.id, decisionTitle: dec.title, decisionText: dec.decision });
-        }
-    }
-
-    const impact = {
-        id: `impact-${Date.now()}`,
-        userRequest: cleanRequest,
-        summary: `"${cleanRequest}" değişikliği projenin kapsamını ve görev sırasını güncelleyecektir.`,
-        affectedSections,
-        newTasks: [
-            `"${cleanRequest}" için veri modeli ve arayüz güncellemeleri`,
-            `"${cleanRequest}" entegrasyon ve kabul testleri`
-        ],
-        architectureImpact: affectedSections.includes('architecture')
-            ? 'Mimari veri yapısına ve state yönetimine yeni alanlar eklenecek.'
-            : 'Mevcut mimari korunacak, modüler ekleme yapılacak.',
-        newRisks: [
-            'Geliştirme süresine ek efor yükü',
-            'Test senaryolarının genişlemesi'
-        ],
-        contradictions,
-        contradictionDetails,
-        status: 'proposed',
-        createdAt: new Date().toISOString()
-    };
-
-    const next = structuredClone(project);
-    if (!next.impactAnalyses) next.impactAnalyses = [];
-    next.impactAnalyses.push(impact);
-    return { project: next, impact };
+export async function generateImpactAnalysis(project, userRequest, options = {}) {
+    return createChangeImpactAnalysis(project, userRequest, options);
 }
 
 

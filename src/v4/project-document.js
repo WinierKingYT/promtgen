@@ -99,6 +99,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
         readiness: createInitialReadiness(1),
         revisions: [], exports: [], commandLog: [], executionSessions: [], dismissedSuggestionFingerprints: [],
         ideaLabSession: { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [] },
+        ideaDiscussion: { mode: 'explore', records: [], updatedAt: createdAt },
         impactAnalyses: [],
         modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
     };
@@ -137,8 +138,35 @@ export function validateProjectDocument(state) {
     if (!Array.isArray(state.proposalStore?.bundles)) errors.push('Öneri deposu geçersiz.');
     if (!Array.isArray(state.revisions)) errors.push('Sürüm geçmişi dizi olmalı.');
     if (!Array.isArray(state.commandLog)) errors.push('Command log dizi olmalı.');
+    if (!state.ideaDiscussion || !Array.isArray(state.ideaDiscussion.records)) {
+        errors.push('Fikir tartışma kayıtları geçersiz.');
+    } else {
+        const validModes = new Set(['explore', 'challenge', 'compare', 'clarify']);
+        const validKinds = new Set(['decision', 'hypothesis', 'risk', 'question']);
+        const validStatuses = new Set(['pending', 'accepted', 'deferred', 'rejected']);
+        if (!validModes.has(state.ideaDiscussion.mode)) errors.push('Fikir tartışma modu geçersiz.');
+        for (const record of state.ideaDiscussion.records) {
+            if (!record?.id || !record.text) errors.push('Fikir tartışma kaydı kimlik ve metin taşımalı.');
+            if (!validKinds.has(record?.kind)) errors.push(`Fikir tartışma kayıt türü geçersiz: ${record?.kind || 'boş'}`);
+            if (!validStatuses.has(record?.status)) errors.push(`Fikir tartışma kayıt durumu geçersiz: ${record?.status || 'boş'}`);
+            if (!Array.isArray(record?.history)) errors.push('Fikir tartışma düzenleme geçmişi dizi olmalı.');
+            if (record?.kind === 'question' && record?.status === 'accepted' && !record.answer) {
+                errors.push(`Kabul edilen açık soru cevap taşımalı: ${record.id}`);
+            }
+        }
+    }
     if (!state.modules || !Array.isArray(state.modules.active) || !Array.isArray(state.modules.localManifests)) errors.push('Modül durumu geçersiz.');
     if (!Array.isArray(state.executionSessions)) errors.push('Execution session kayıtları dizi olmalı.');
+    if (!Array.isArray(state.impactAnalyses)) {
+        errors.push('Etki analizleri dizi olmalı.');
+    } else {
+        for (const impact of state.impactAnalyses) {
+            if (!impact?.id || !impact.userRequest) errors.push('Etki analizi kimlik ve istek taşımalı.');
+            if (!Number.isInteger(impact?.baseRevision) || impact.baseRevision < 1) errors.push(`Etki analizi kaynak revision geçersiz: ${impact?.id || 'boş'}`);
+            if (!Array.isArray(impact?.entityEffects) || !Array.isArray(impact?.changedEntityIds)) errors.push(`Etki analizi izlenebilirlik verisi geçersiz: ${impact?.id || 'boş'}`);
+            if (impact?.status === 'accepted' && !impact.resolvedAt) errors.push(`Uygulanmış etki analizinin çözüm zamanı eksik: ${impact.id}`);
+        }
+    }
     for (const key of ['objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones', 'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings', 'simulationRuns', 'exports']) {
         if (!Array.isArray(state[key])) errors.push(`${key} dizi olmalı.`);
     }
@@ -186,7 +214,7 @@ function validateEntityInvariants(state, errors) {
         objective: 'objectives', requirement: 'requirements', decision: 'decisions',
         risk: 'risks', task: 'tasks', test: 'testCases', milestone: 'milestones', prompt: 'agentPrompts'
     };
-    const allowedRelations = new Set(['supports', 'implements', 'verifies', 'validated_by', 'mitigates', 'depends_on', 'derived_from']);
+    const allowedRelations = new Set(['supports', 'implements', 'verifies', 'validated_by', 'mitigates', 'depends_on', 'derived_from', 'drives', 'supersedes']);
     for (const link of state.traceLinks || []) {
         const fromCollection = traceTypeMap[link.fromType];
         const toCollection = traceTypeMap[link.toType];

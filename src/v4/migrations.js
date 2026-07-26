@@ -66,6 +66,7 @@ export function migrateLegacyToV5(input) {
     project.modules = structuredClone(source.modules || project.modules);
     project.readiness = structuredClone(source.readiness || project.readiness);
     project.ideaLabSession = structuredClone(source.ideaLabSession || project.ideaLabSession);
+    project.ideaDiscussion = structuredClone(source.ideaDiscussion || project.ideaDiscussion);
     if (source.ideaExpansionSession) project.ideaExpansionSession = structuredClone(source.ideaExpansionSession);
     project.metadata = {
         ...(source.metadata || {}),

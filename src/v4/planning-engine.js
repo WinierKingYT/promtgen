@@ -1,6 +1,7 @@
 import { applyDepthSelection, createProjectDocument, getRequiredSections, PLANNING_PHASES } from './project-document.js';
-import { normalizeDecision, normalizeObjective, normalizeRequirement, normalizeRisk, normalizeTask } from './canonical-entities.js';
+import { normalizeAssumption, normalizeDecision, normalizeObjective, normalizeRequirement, normalizeRisk, normalizeTask } from './canonical-entities.js';
 import { analyzeCanonicalTraceability } from './canonical-graph.js';
+import { getConceptAgreementGate } from './application/idea-discussion-service.ts';
 
 const DEPTH_ORDER = ['quick', 'standard', 'advanced', 'enterprise'];
 const SECTION_PHASE = {
@@ -531,6 +532,7 @@ export function restorePlanRevision(project, reference) {
     next.tasks = structuredClone(snapshot.tasks || []);
     next.risks = structuredClone(snapshot.risks || []);
     next.openQuestions = structuredClone(snapshot.openQuestions || []);
+    next.ideaDiscussion = structuredClone(snapshot.ideaDiscussion || project.ideaDiscussion);
     next.revision = project.revision + 1;
     next.lifecycle = { ...next.lifecycle, status: 'active', activePhase: snapshot.lifecycle?.activePhase || PLANNING_PHASES.SHAPING, finalizedAt: null, updatedAt: now() };
     next.exports = structuredClone(project.exports || []);
@@ -556,6 +558,10 @@ export function confirmConceptSummary(project) {
     const next = structuredClone(project);
     if (!next.ideaLabSession || !next.ideaLabSession.conceptSummary) {
         throw new Error('Onaylanacak bir konsept özeti bulunamadı.');
+    }
+    const agreementGate = getConceptAgreementGate(next);
+    if (!agreementGate.ready) {
+        throw new Error(`${agreementGate.unresolvedCount} fikir kaydı henüz tamamlanmadı.`);
     }
 
     const summary = next.ideaLabSession.conceptSummary;
@@ -586,50 +592,44 @@ export function confirmConceptSummary(project) {
         }
     }
 
+    for (const record of agreementGate.accepted) {
+        if (record.kind === 'decision' && !next.decisions.some(item => item.decision === record.text)) {
+            next.decisions.push(normalizeDecision({
+                id: id('decision'),
+                title: record.text,
+                decision: record.text,
+                rationale: record.rationale || record.note || 'Fikir tartışması sırasında kullanıcı tarafından kabul edildi.',
+                status: 'accepted',
+                sourceSuggestionId: record.sourceBundleId,
+                affectedSectionIds: ['decisions', 'architecture']
+            }));
+        }
+        if (record.kind === 'risk' && !next.risks.some(item => item.title === record.text)) {
+            next.risks.push(normalizeRisk({
+                id: id('risk'),
+                title: record.text,
+                description: record.note || 'Fikir tartışması sırasında kullanıcı tarafından kabul edilen risk.',
+                status: 'open',
+                sourceSuggestionId: record.sourceBundleId
+            }));
+        }
+        if (record.kind === 'hypothesis' && !next.assumptions.some(item => item.statement === record.text)) {
+            next.assumptions.push(normalizeAssumption({
+                id: id('assumption'),
+                statement: record.text,
+                confidence: 'medium',
+                validationPlan: record.validationPlan || 'Planlama sırasında kanıtla veya geçersiz kıl.',
+                status: 'open'
+            }));
+        }
+    }
+
     next.lifecycle.activePhase = PLANNING_PHASES.SHAPING;
     next.lifecycle.updatedAt = now();
     next.revision += 1;
 
     const recalculated = recalculateReadiness(next);
     createRevision(recalculated, 'Konsept özeti onaylandı ve canonical plan başlatıldı', [], ['vision', 'scope', 'architecture', 'risks']);
-    return recalculated;
-}
-
-export function applyImpactAnalysis(project, impactId) {
-    const next = structuredClone(project);
-    if (!next.impactAnalyses) return project;
-    const impact = next.impactAnalyses.find(i => i.id === impactId);
-    if (!impact || impact.status === 'accepted') return project;
-
-    impact.status = 'accepted';
-
-    // Add new tasks to canonical entity list
-    for (const taskTitle of impact.newTasks || []) {
-        if (!next.tasks.some(t => t.title === taskTitle)) {
-            next.tasks.push(normalizeTask({ id: id('task'), title: taskTitle, description: `Etki analizi ile eklendi: ${impact.userRequest}`, status: 'backlog', sourceSuggestionIds: [] }));
-        }
-    }
-
-    // Add new risks if any
-    for (const riskTitle of impact.newRisks || []) {
-        if (!next.risks.some(r => r.title === riskTitle)) {
-            next.risks.push(normalizeRisk({ id: id('risk'), title: riskTitle, description: `Etki analizi ile eklendi: ${impact.userRequest}`, status: 'open', sourceSuggestionId: '' }));
-        }
-    }
-
-    // Update section statuses
-    for (const sectionId of impact.affectedSections || []) {
-        if (next.sections[sectionId]) {
-            next.sections[sectionId].status = 'draft';
-            next.sections[sectionId].updatedAtRevision = next.revision + 1;
-        }
-    }
-
-    next.revision += 1;
-    next.lifecycle.updatedAt = now();
-
-    const recalculated = recalculateReadiness(next);
-    createRevision(recalculated, `Etki analizi onaylandı: ${impact.userRequest}`, [], impact.affectedSections || []);
     return recalculated;
 }
 
@@ -665,30 +665,6 @@ export function applyExtensionModules(project, extensionPackageNames = []) {
     const recalculated = recalculateReadiness(next);
     createRevision(recalculated, `İsteğe bağlı modüller eklendi: ${added.join(', ')}`, [], ['scope', 'tasks']);
     return recalculated;
-}
-
-export function resolveImpactContradiction(project, impactId, decisionId, action = 'supersede') {
-    const next = structuredClone(project);
-    const impact = (next.impactAnalyses || []).find(i => i.id === impactId);
-    if (!impact) return project;
-
-    const targetDecision = next.decisions.find(d => d.id === decisionId);
-    if (targetDecision && action === 'supersede') {
-        targetDecision.status = 'superseded';
-        
-        // Add replacement decision
-        next.decisions.push(normalizeDecision({
-            id: id('decision'),
-            title: `Revize Karar: ${impact.userRequest}`,
-            decision: `Evvelki "${targetDecision.title}" kararı geçersiz kılındı (superseded). Yeni istek plana kabul edildi: ${impact.userRequest}`,
-            status: 'accepted',
-            sourceSuggestionId: '',
-            affectedSectionIds: ['decisions', 'scope']
-        }));
-    }
-
-    // Apply the rest of the impact
-    return applyImpactAnalysis(next, impactId);
 }
 
 export function runConceptSimulation(project, approachId) {

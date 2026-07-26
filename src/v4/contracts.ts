@@ -67,6 +67,42 @@ export interface IdeaLabSession {
   conceptSummary?: ConceptSummary
 }
 
+export type IdeaDiscussionMode = 'explore' | 'challenge' | 'compare' | 'clarify'
+export type IdeaRecordKind = 'decision' | 'hypothesis' | 'risk' | 'question'
+export type IdeaRecordStatus = 'pending' | 'accepted' | 'deferred' | 'rejected'
+
+export interface IdeaRecordRevision {
+  editedAt: string
+  text: string
+  note: string
+  answer: string
+  rationale: string
+  validationPlan: string
+}
+
+export interface IdeaDiscussionRecord {
+  id: string
+  kind: IdeaRecordKind
+  text: string
+  originalText: string
+  note: string
+  answer: string
+  rationale: string
+  validationPlan: string
+  history: IdeaRecordRevision[]
+  status: IdeaRecordStatus
+  sourceBundleId: string
+  sourceMessageId: string
+  createdAt: string
+  resolvedAt?: string
+}
+
+export interface IdeaDiscussionState {
+  mode: IdeaDiscussionMode
+  records: IdeaDiscussionRecord[]
+  updatedAt: string
+}
+
 export interface ExpansionDimension {
   id: string
   label: string
@@ -84,16 +120,47 @@ export interface IdeaExpansionSession {
 
 export interface ImpactAnalysis {
   id: string
+  baseRevision: number
   userRequest: string
   summary: string
   affectedSections: string[]
+  changedEntityIds: string[]
+  entityEffects: Array<{
+    sourceEntityId: string
+    sourceType: string
+    targetEntityId: string
+    targetType: string
+    targetLabel: string
+    effect: 'invalidate' | 'stale' | 'regenerate' | 'review' | 'no_action'
+    severity: 'low' | 'medium' | 'high' | 'critical'
+    depth: number
+  }>
+  effectSummary: {
+    total: number
+    byEffect: Record<string, number>
+    bySeverity: Record<string, number>
+  }
   newTasks: string[]
   architectureImpact: string
   newRisks: string[]
   contradictions: string[]
-  contradictionDetails?: Array<{ decisionId: string; decisionTitle: string; decisionText: string }>
-  status: 'proposed' | 'accepted' | 'rejected'
+  contradictionDetails: Array<{
+    decisionId: string
+    decisionTitle: string
+    decisionText: string
+    resolution: 'supersede' | 'keep' | null
+  }>
+  preview: {
+    nextRevision: number
+    requirementCount: number
+    taskCount: number
+    testCount: number
+    riskCount: number
+    traceLinkCount: number
+  }
+  status: 'proposed' | 'accepted' | 'rejected' | 'stale'
   createdAt: string
+  resolvedAt: string | null
 }
 
 
@@ -457,6 +524,7 @@ export interface ProjectDocumentV5 {
   commandLog: CommandLogRecord[]
   dismissedSuggestionFingerprints: string[]
   ideaLabSession?: IdeaLabSession
+  ideaDiscussion: IdeaDiscussionState
   ideaExpansionSession?: IdeaExpansionSession
   impactAnalyses?: ImpactAnalysis[]
   modules: {
