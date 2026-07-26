@@ -32,5 +32,18 @@ export default [
       '@typescript-eslint/no-unused-vars': 'warn',
       '@typescript-eslint/no-unsafe-declaration-merging': 'off'
     }
+  },
+  {
+    files: ['src/react/**/*.ts', 'src/react/**/*.tsx'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.browser, ...globals.node }
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unsafe-declaration-merging': 'off'
+    }
   }
 ];

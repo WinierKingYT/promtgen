@@ -1,1 +1,1 @@
-export { quarantineProject, clearQuarantine, listQuarantinedRecords, QuarantineRecord } from './quarantine.ts';
+export { createQuarantineRecord, quarantineProject } from './quarantine.ts';

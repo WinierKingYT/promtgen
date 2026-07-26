@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { createProjectStateV4 } from '../../src/v4/project-state-v4.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
 import { normalizeAgentPrompt, normalizeTask } from '../../src/v4/canonical-entities.js';
 import { beginExecutionSession, buildExecutionPrompt, EXECUTION_ROLES, getNextExecutionRole, proposeExecution, recordExecutionResult } from '../../src/v4/execution-orchestrator.js';
 
-const project = createProjectStateV4({ idea: 'Execution zinciri olan proje' });
+const project = createProjectDocument({ idea: 'Execution zinciri olan proje' });
 project.tasks = [normalizeTask({ id: 'task-1', title: 'Özelliği uygula', acceptanceCriteria: ['Test geçer'], status: 'ready' })];
 project.agentPrompts = EXECUTION_ROLES.map(role => normalizeAgentPrompt({ id: `prompt-${role}`, role, title: role, instructions: `${role} talimatı`, expectedOutputs: ['Rapor'], status: 'ready' }));
 project.readiness.blockers = [];

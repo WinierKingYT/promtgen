@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
-import { migrateToV4 } from '../../src/v4/migrations.js';
+import { migrateLegacyToV5 } from '../../src/v4/migrations.js';
 import { createDocumentSet, createExportBundle, createIdeWorkspaceFiles, createIdeWorkspacePackage, createPromtgenPackage, exportCanonicalMarkdown, readPromtgenPackage, resolveCanonicalRevision } from '../../src/v4/exporter.js';
 import { redactSensitiveText } from '../../src/v4/ai-context.js';
 
 const legacy = { id: 'legacy-1', schemaVersion: 3, name: 'Eski Plan', stepDepth: 5, workflowStage: 'EXPORTED', draftDescription: 'Bir yerel not uygulaması', tasks: [{ title: 'Editörü oluştur' }] };
-const result = migrateToV4(legacy);
+const result = migrateLegacyToV5(legacy);
 assert.equal(result.success, true);
 assert.deepEqual(result.backup, legacy);
 assert.equal(result.project.lifecycle.status, 'finalized');
@@ -43,7 +43,7 @@ assert.equal(JSON.parse(await ideZip.file('.promtgen/manifest.json').async('stri
 
 async function maliciousPackage(projectJson, extras = [], compression = 'DEFLATE') {
     const zip = new JSZip();
-    zip.file('manifest.json', JSON.stringify({ format: 'promtgen', formatVersion: 1, schemaVersion: 4, files: [] }));
+    zip.file('manifest.json', JSON.stringify({ format: 'promtgen', formatVersion: 1, schemaVersion: 5, schemaRevision: 1, files: [] }));
     zip.file('project.json', projectJson);
     for (const [name, content] of extras) zip.file(name, content);
     return zip.generateAsync({ type: 'uint8array', compression });
@@ -56,5 +56,5 @@ await assert.rejects(readPromtgenPackage(await maliciousPackage(JSON.stringify(r
 await assert.rejects(readPromtgenPackage(await maliciousPackage(JSON.stringify(result.project), [['oversized.txt', 'x'.repeat(5 * 1024 * 1024 + 1)]])), /girdisi çok büyük/);
 const inflatedEntries = Array.from({ length: 11 }, (_, index) => [`inflated-${index}.txt`, 'z'.repeat(5 * 1024 * 1024)]);
 await assert.rejects(readPromtgenPackage(await maliciousPackage(JSON.stringify(result.project), inflatedEntries)), /açılmış içerik boyutu/);
-assert.equal(redactSensitiveText('api_key=super-secret-value'), 'api_key=[REDACTED]');
-console.log('✓ V4 migration and canonical exports');
+assert.equal(redactSensitiveText('api_key=super-secret-value'), 'api_key=[REDACTED_SECRET]');
+console.log('✓ Legacy migration and canonical V5 exports');

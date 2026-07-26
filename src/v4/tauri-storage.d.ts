@@ -1,21 +1,16 @@
-// Type declarations for src/v4/tauri-storage.js
-import { CanonicalProject } from './domain/types.js';
-import { ProjectId } from './domain/ids.js';
+import type { ProjectDocumentV5, ProjectRepository } from './contracts.js';
 
-export interface ProjectRepository {
-  getAllProjects(): Promise<CanonicalProject[]>;
-  saveProject(project: CanonicalProject): Promise<void>;
-  deleteProject(projectId: ProjectId): Promise<void>;
-  archiveProject(projectId: ProjectId): Promise<void>;
-  createCheckpoint(project: CanonicalProject): Promise<any>;
-  getLatestCheckpoint(projectId: ProjectId): Promise<any>;
-  verifyDataIntegrity(project: CanonicalProject, expectedChecksum: string): Promise<boolean>;
-  listProjectBackups(projectId: ProjectId): Promise<any[]>;
-  restoreProjectBackup(projectId: ProjectId, backupId: string): Promise<CanonicalProject>;
-  restoreStorageBackupAsNewRevision(project: CanonicalProject, backupId: string): Promise<CanonicalProject>;
-  getDesktopStorageHealth(): Promise<any>;
+export class TauriSqliteProjectRepository implements ProjectRepository {
+  list(): Promise<ProjectDocumentV5[]>;
+  get(id: string): Promise<ProjectDocumentV5 | null>;
+  save(project: ProjectDocumentV5): Promise<ProjectDocumentV5>;
+  archive(id: string): Promise<boolean>;
 }
 
-export function createPlatformRepository(): ProjectRepository;
-export function createTauriRepository(): ProjectRepository;
+export function restoreStorageBackupAsNewRevision(currentProject: ProjectDocumentV5, backupProject: ProjectDocumentV5): ProjectDocumentV5;
 export function isDesktopStorageAvailable(): boolean;
+export function getDesktopStorageHealth(): Promise<unknown>;
+export function listDesktopProjectBackups(projectId: string): Promise<unknown[]>;
+export function listDesktopQuarantinedProjects(): Promise<unknown[]>;
+export function restoreDesktopProjectBackup(currentProject: ProjectDocumentV5, backupId: string): Promise<ProjectDocumentV5 | null>;
+export function createPlatformRepository(): ProjectRepository;

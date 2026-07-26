@@ -45,7 +45,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
-      - run: npm test -- --reporter=verbose
+      - run: npm run test:all
 
   test-security:
     name: Security Tests
@@ -83,6 +83,8 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
+      - run: npm run performance:budget
+      - run: npm run check:version
 
   tauri-check:
     name: Tauri Check (Rust)
@@ -96,7 +98,6 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run desktop:check
-        working-directory: ./src-tauri
 
   tauri-test:
     name: Tauri Tests (Rust)
@@ -110,7 +111,6 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run desktop:test
-        working-directory: ./src-tauri
 
   tauri-windows-check:
     name: Tauri Check (Windows)
@@ -124,7 +124,6 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run desktop:check
-        working-directory: ./src-tauri
 
   e2e-web:
     name: Playwright E2E (Web)
@@ -147,10 +146,23 @@ jobs:
           name: playwright-trace
           path: test-results/
 
+  verify-contract:
+    name: Verify Command Parity
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run verify
+
   release-evidence:
     name: Generate Release Evidence
     runs-on: ubuntu-latest
-    needs: [build, tauri-check, tauri-test, tauri-windows-check, e2e-web]
+    needs: [build, tauri-check, tauri-test, tauri-windows-check, e2e-web, verify-contract]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +173,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
+      - run: npm run build
       - run: npm run release:evidence
+        env:
+          REQUIRED_JOBS_GREEN: 'true'
+          WINDOWS_SIGNED: 'false'
+      - run: npm run release:readiness
       - uses: actions/upload-artifact@v4
         with:
           name: release-evidence

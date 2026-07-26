@@ -74,7 +74,7 @@ function buildPromptChain(project, tasks) {
 export function compileTaskPlan(project) {
     const used = new Set((project.tasks || []).map(task => task.id));
     const tasks = [];
-    const sourceRequirements = (project.requirements || []).filter(r => r.status !== 'rejected' && r.status !== 'deprecated');
+    const sourceRequirements = (project.requirements || []).filter(requirement => requirement.status === 'accepted');
     
     // Task compiler strictly uses formal accepted requirements
     if (!sourceRequirements.length) {

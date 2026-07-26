@@ -1,12 +1,12 @@
-import { CanonicalProject } from '../types.js';
+import type { ProjectDocumentV5 } from '../../contracts.js';
 import { ProjectId } from '../ids.js';
 import { Result } from '../common/result.js';
 import { ZodSchema } from 'zod';
 
 export interface ProjectRepositoryPort {
-  list(): Promise<Result<CanonicalProject[]>>;
-  get(id: ProjectId): Promise<Result<CanonicalProject | null>>;
-  save(project: CanonicalProject): Promise<Result<CanonicalProject>>;
+  list(): Promise<Result<ProjectDocumentV5[]>>;
+  get(id: ProjectId): Promise<Result<ProjectDocumentV5 | null>>;
+  save(project: ProjectDocumentV5): Promise<Result<ProjectDocumentV5>>;
   remove(id: ProjectId): Promise<Result<boolean>>;
 }
 

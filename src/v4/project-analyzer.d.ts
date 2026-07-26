@@ -1,14 +1,17 @@
-// Type declarations for src/v4/project-analyzer.js
-import { CanonicalProject } from './domain/types.js';
-
-export interface ProjectAnalysis {
-  detectedTech: string[];
-  suggestedStack: string;
-  riskAreas: string[];
-  missingConfigs: string[];
+export interface ProjectInventoryReport {
+  version: number;
+  analyzedAt: string;
+  source: string;
+  totals: { selected: number; included: number; excluded: number; bytes: number };
+  languages: Array<{ name: string; files: number }>;
+  frameworks: string[];
+  manifests: string[];
+  scriptNames: string[];
+  security: { secretFiles: string[]; injectionFiles: string[] };
+  inventory: Array<Record<string, unknown>>;
+  excluded: Array<{ path: string; reason: string }>;
 }
 
-export function analyzeProject(project: CanonicalProject): ProjectAnalysis;
-export function detectTechStack(files: any[]): string[];
-export function analyzeSelectedFiles(files: File[]): Promise<any>;
-export function projectInventoryContext(project: CanonicalProject): any;
+export function analyzeSelectedFiles(files: File[]): Promise<ProjectInventoryReport>;
+export function projectInventoryContext(report: ProjectInventoryReport): Array<{ name: string; kind: string; summary: string }>;
+export function wrapUntrustedProjectContext(context: unknown): string;

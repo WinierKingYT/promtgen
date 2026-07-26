@@ -18,6 +18,6 @@
     "types": ["node"],
     "checkJs": false
   },
-  "include": ["src/v4/**/*.ts", "vite.config.ts"],
-  "exclude": ["node_modules", "dist", "src-tauri", "src/react"]
+  "include": ["src/v4/**/*.ts", "src/react/**/*.ts", "src/react/**/*.tsx", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", "src-tauri"]
 }

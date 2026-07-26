@@ -1,5 +1,5 @@
 import {
-  ProjectId, RequirementId, DecisionId, RiskId, TaskId, MilestoneId, ProposalId, ScopeItemId, AcceptanceCriterionId, TestCaseId
+  RequirementId, DecisionId, RiskId, TaskId, MilestoneId, ProposalId, ScopeItemId, AcceptanceCriterionId, TestCaseId
 } from './ids.js';
 import { GenerationProvenance } from '../contracts.js';
 
@@ -142,33 +142,4 @@ export interface ProposalBundle {
   createdAt: string;
   items: ProposalItem[];
   provenance: GenerationProvenance;
-}
-
-export interface CanonicalProject {
-  id: ProjectId;
-  schemaVersion: number;
-  revision: number;
-  identity: {
-    name: string;
-    originalIdea: string;
-    summary: string;
-  };
-  lifecycle: {
-    activePhase: string;
-    status: 'active' | 'finalized' | 'archived';
-    createdAt: string;
-    updatedAt: string;
-  };
-  scope: {
-    items: ScopeItem[];
-  };
-  requirements: Requirement[];
-  decisions: Decision[];
-  risks: Risk[];
-  tasks: Task[];
-  milestones: Milestone[];
-  proposalStore: {
-    bundles: ProposalBundle[];
-  };
-  metadata: Record<string, any>;
 }

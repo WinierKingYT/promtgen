@@ -1,14 +1,29 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { IndexedDbProjectRepository } from './storage.js';
-import { validateProjectStateV4 } from './project-state-v4.js';
-import { normalizeProjectStateV4 } from './canonical-entities.js';
+import { validateProjectDocument } from './project-document.js';
+import { normalizeProjectDocument } from './canonical-entities.js';
+import { tryMigrateOrPassthrough } from './migrations.js';
 
 export class TauriSqliteProjectRepository {
-    async list() { return (await invoke('list_projects')).map(document => normalizeProjectStateV4(JSON.parse(document))); }
-    async get(id) { const document = await invoke('load_project', { id }); return document ? normalizeProjectStateV4(JSON.parse(document)) : null; }
+    async list() {
+        const projects = [];
+        for (const document of await invoke('list_projects')) {
+            const migration = migrateStoredDocument(JSON.parse(document));
+            if (migration.migrated) await this.save(migration.project);
+            projects.push(migration.project);
+        }
+        return projects;
+    }
+    async get(id) {
+        const document = await invoke('load_project', { id });
+        if (!document) return null;
+        const migration = migrateStoredDocument(JSON.parse(document));
+        if (migration.migrated) await this.save(migration.project);
+        return migration.project;
+    }
     async save(project) {
-        const normalized = normalizeProjectStateV4(project);
-        const validation = validateProjectStateV4(normalized);
+        const normalized = normalizeProjectDocument(project);
+        const validation = validateProjectDocument(normalized);
         if (!validation.valid) throw new Error(validation.errors.join(' '));
         await invoke('save_project', { id: normalized.id, document: JSON.stringify(normalized), updatedAt: normalized.lifecycle.updatedAt });
         return normalized;
@@ -17,8 +32,8 @@ export class TauriSqliteProjectRepository {
 }
 
 export function restoreStorageBackupAsNewRevision(currentProject, backupProject) {
-    const current = normalizeProjectStateV4(currentProject);
-    const backup = normalizeProjectStateV4(backupProject);
+    const current = normalizeProjectDocument(currentProject);
+    const backup = normalizeProjectDocument(backupProject);
     if (current.id !== backup.id) throw new Error('Yedek başka bir projeye ait.');
     const restoredAt = new Date().toISOString();
     const next = structuredClone(backup);
@@ -29,6 +44,7 @@ export function restoreStorageBackupAsNewRevision(currentProject, backupProject)
     next.revisions = structuredClone(current.revisions || []);
     next.exports = structuredClone(current.exports || []);
     next.executionSessions = structuredClone(current.executionSessions || []);
+    next.commandLog = structuredClone(current.commandLog || []);
     next.metadata = { ...next.metadata, restoredFromStorageBackup: { sourceRevision: backup.revision, restoredAt } };
     const snapshot = structuredClone(next);
     snapshot.revisions = [];
@@ -37,7 +53,7 @@ export function restoreStorageBackupAsNewRevision(currentProject, backupProject)
         summary: `Yerel yedek r${backup.revision} yeni revision olarak geri yüklendi`,
         acceptedSuggestionIds: [], affectedSections: Object.keys(next.sections), snapshot
     });
-    const validation = validateProjectStateV4(next);
+    const validation = validateProjectDocument(next);
     if (!validation.valid) throw new Error(`Yedek geri yükleme sonucu geçersiz: ${validation.errors.join(' ')}`);
     return next;
 }
@@ -53,3 +69,9 @@ export async function restoreDesktopProjectBackup(currentProject, backupId) {
 }
 
 export function createPlatformRepository() { return isTauri() ? new TauriSqliteProjectRepository() : new IndexedDbProjectRepository(); }
+
+function migrateStoredDocument(document) {
+    const migration = tryMigrateOrPassthrough(document);
+    if (migration.error) throw new Error(`Migration failure: ${migration.error}`);
+    return { project: normalizeProjectDocument(migration.project), migrated: migration.migrated };
+}

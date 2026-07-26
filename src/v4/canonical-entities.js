@@ -239,7 +239,7 @@ export function normalizeExecutionSession(value = {}, index = 0) {
     };
 }
 
-export function normalizeProjectStateV4(project) {
+export function normalizeProjectDocument(project) {
     if (!project || typeof project !== 'object') return project;
     const next = structuredClone(project);
     next.objectives = (next.objectives || []).map(normalizeObjective);
@@ -264,6 +264,7 @@ export function normalizeProjectStateV4(project) {
     };
     next.executionSessions = (next.executionSessions || []).map(normalizeExecutionSession);
     next.exports = Array.isArray(next.exports) ? next.exports : [];
+    next.commandLog = Array.isArray(next.commandLog) ? next.commandLog : [];
     next.metadata = { ...(next.metadata || {}), canonicalModelVersion: CANONICAL_MODEL_VERSION };
     return next;
 }

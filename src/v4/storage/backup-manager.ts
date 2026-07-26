@@ -1,54 +1,39 @@
-import { CanonicalProject } from '../domain/types.js';
+import type { ProjectDocumentV5 } from '../contracts.js';
 
 export interface StorageCheckpoint {
   id: string;
   projectId: string;
   revision: number;
   createdAt: string;
+  checksumAlgorithm: 'fnv1a32';
   checksumHash: string;
-  projectSnapshot: CanonicalProject;
+  projectSnapshot: ProjectDocumentV5;
 }
 
-const checkpointsStore = new Map<string, StorageCheckpoint[]>();
-
+// Synchronous compatibility checksum for local benchmarks only.
+// Production persistence uses Web Crypto SHA-256 in infrastructure/storage/integrity.ts.
 export function computeDataChecksum(data: unknown): string {
-  const jsonStr = JSON.stringify(data || {});
-  let hash = 0;
-  for (let i = 0; i < jsonStr.length; i++) {
-    const char = jsonStr.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0; // Convert to 32bit integer
+  const text = JSON.stringify(data ?? null);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
   }
-  return `crc32-${Math.abs(hash).toString(16)}`;
+  return `fnv1a32-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
-export function createCheckpoint(project: CanonicalProject): StorageCheckpoint {
-  const pId = String(project.id);
-  const checksumHash = computeDataChecksum(project);
-  const checkpoint: StorageCheckpoint = {
+export function createCheckpoint(project: ProjectDocumentV5): StorageCheckpoint {
+  return {
     id: `chk-${Date.now()}-r${project.revision}`,
-    projectId: pId,
+    projectId: String(project.id),
     revision: project.revision,
     createdAt: new Date().toISOString(),
-    checksumHash,
+    checksumAlgorithm: 'fnv1a32',
+    checksumHash: computeDataChecksum(project),
     projectSnapshot: structuredClone(project)
   };
-
-  const existing = checkpointsStore.get(pId) || [];
-  existing.push(checkpoint);
-  // Keep maximum 5 rolling checkpoints per project
-  if (existing.length > 5) existing.shift();
-
-  checkpointsStore.set(pId, existing);
-  return checkpoint;
 }
 
-export function getLatestCheckpoint(projectId: string): StorageCheckpoint | null {
-  const list = checkpointsStore.get(projectId) || [];
-  return list.length ? list[list.length - 1]! : null;
-}
-
-export function verifyDataIntegrity(project: CanonicalProject, expectedChecksum: string): boolean {
-  const actualHash = computeDataChecksum(project);
-  return actualHash === expectedChecksum;
+export function verifyDataIntegrity(project: ProjectDocumentV5, expectedChecksum: string): boolean {
+  return computeDataChecksum(project) === expectedChecksum;
 }

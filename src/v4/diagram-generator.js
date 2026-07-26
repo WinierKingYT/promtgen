@@ -96,7 +96,7 @@ export function generateArchitectureDiagram(project) {
     return diagram;
 }
 
-export function generateDataFlowDiagram(project) {
+export function generateDataFlowDiagram() {
     let diagram = 'sequenceDiagram\n';
     diagram += '    autonumber\n';
     diagram += '    actor User as Kullanıcı / Oyuncu\n';

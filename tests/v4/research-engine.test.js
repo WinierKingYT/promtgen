@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { createProjectStateV4 } from '../../src/v4/project-state-v4.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
 import { addApprovedEvidence, applyResearchAgenda, inferSourceType, proposeResearchAgenda, validateResearchUrl } from '../../src/v4/research-engine.js';
 import { analyzeCanonicalTraceability } from '../../src/v4/canonical-graph.js';
 import { createDocumentSet } from '../../src/v4/exporter.js';
 
-const project = createProjectStateV4({ idea: 'Güvenli yerel planlama uygulaması', planningDepth: { recommended: 'advanced', selected: 'advanced', overridden: false, rationale: 'test', signals: { score: 8, features: 3, integrations: 1, sensitiveData: true, multiPlatform: true, scaleIntent: false, uncertainty: 2 } } });
+const project = createProjectDocument({ idea: 'Güvenli yerel planlama uygulaması', planningDepth: { recommended: 'advanced', selected: 'advanced', overridden: false, rationale: 'test', signals: { score: 8, features: 3, integrations: 1, sensitiveData: true, multiPlatform: true, scaleIntent: false, uncertainty: 2 } } });
 const agenda = proposeResearchAgenda(project);
 assert.equal(agenda.optional, true);
 assert.ok(agenda.questions.length >= 2);

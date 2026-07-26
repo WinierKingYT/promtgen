@@ -74,7 +74,7 @@ describe('Category 10: Performance & Scalability Benchmarks', () => {
     const hash = computeDataChecksum(proj);
     const duration = performance.now() - start;
 
-    assert.ok(hash.startsWith('crc32-'));
+    assert.ok(hash.startsWith('fnv1a32-'));
     assert.ok(duration < 50, `3k entity checksum took ${duration.toFixed(2)}ms (expected <50ms)`);
   });
 });

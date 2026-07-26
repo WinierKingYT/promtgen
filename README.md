@@ -15,7 +15,7 @@ PromtGen'deki her özellik dürüst ürün sözleşmesine ve olgunluk etiketine 
 - **Gelişmiş Dışa Aktarım**: Markdown, PRD, görev listeleri, `.promtgen` taşıma paketi ve IDE şablonları (Cursor, Claude Code, Windsurf).
 
 ### 🟡 2. Beta Özellikler (Beta Capabilities)
-- **AI Sağlayıcı Entegrasyonu**: Ollama, OpenAI, Gemini ve NVIDIA sağlayıcıları üzerinden plan önerileri üretimi (AI başarısız olduğunda açık uyarı gösterilir; sessiz fallback yapılmaz).
+- **AI Sağlayıcı Entegrasyonu**: Ollama, OpenAI, Gemini ve NVIDIA sağlayıcıları üzerinden plan önerileri üretimi. Çağrı başarısız olursa yerel kural motoru otomatik fallback üretir; öneri kartı üzerinde kaynak ve fallback etiketi kalıcı olarak gösterilir.
 - **İzole Codex Worktree Yürütmesi**: Desktop ortamında Codex CLI ile izole Git worktree üzerinde görev çalıştırma.
 - **Mimari Karşılaştırma Şablonu**: Karar matrisi (Geliştirme hızı, maliyet, operasyon yükü, vendor lock-in kullanıcı tarafından düzenlenebilir başlangıç varsayımıdır).
 
@@ -61,4 +61,4 @@ npm run desktop:build
 npm run verify
 ```
 
-Bu komut sırasıyla birim testlerini, TypeScript tip kontrolünü (`npm run typecheck`), capability iddiasızlık doğrulama testlerini (`capability-claims.test.ts`) ve PWA production build'ini çalıştırır.
+Bu komut sırasıyla tüm birim/entegrasyon/güvenlik testlerini, TypeScript tip kontrolünü, lint kontrolünü, PWA production build'ini ve Tauri Rust testlerini çalıştırır. Browser E2E için ayrıca `npm run test:e2e` kullanılır.

@@ -1,4 +1,4 @@
-import { normalizeProjectStateV4 } from './canonical-entities.js';
+import { normalizeProjectDocument } from './canonical-entities.js';
 
 const DEPTHS = ['quick', 'standard', 'advanced', 'enterprise'];
 
@@ -12,7 +12,7 @@ function ranked(map, limit = 8) {
 }
 
 export function buildLocalPlanningMemory(projects = [], excludeProjectId = '') {
-    const source = projects.filter(project => project?.id && project.id !== excludeProjectId).map(normalizeProjectStateV4);
+    const source = projects.filter(project => project?.id && project.id !== excludeProjectId).map(normalizeProjectDocument);
     const depthCounts = new Map(DEPTHS.map(depth => [depth, 0]));
     const moduleCounts = new Map();
     const acceptedKinds = new Map();
@@ -27,7 +27,7 @@ export function buildLocalPlanningMemory(projects = [], excludeProjectId = '') {
             const theme = String(decision.title || '').toLocaleLowerCase('tr-TR').normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
             increment(recurringDecisionThemes, theme);
         }
-        for (const item of project.suggestionBundles.flatMap(bundle => bundle.items)) {
+        for (const item of project.proposalStore.bundles.flatMap(bundle => bundle.items)) {
             if (['accepted', 'edited'].includes(item.status)) {
                 increment(acceptedKinds, item.kind);
                 for (const section of item.affectedSections || []) increment(sectionAffinity, section);

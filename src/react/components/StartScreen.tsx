@@ -3,22 +3,26 @@ import { ArrowRight, FolderOpen, LoaderCircle, Settings2, Sparkles, X } from 'lu
 import { getProviderMeta } from '../../v4/provider-settings.js';
 import { isDesktopProjectImportAvailable, selectDesktopProjectFolder } from '../../v4/desktop-project-import.js';
 import { PortfolioOverview } from './PortfolioOverview.js';
+import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import type { ProviderSettings } from '../../v4/provider-settings.js';
+import { useI18n } from '../providers/I18nProvider.js';
 
-type Project = any;
+type Project = ProjectDocumentV5;
 
 interface StartScreenProps {
   onCreate: (idea: string, language: string, files: File[], nativeInventory?: any) => Promise<void>;
   onImport: (file: File) => void;
   projects: Project[];
   onOpen: (id: string) => void;
-  providerSettings: any;
-  onProviderSettings: (settings: any) => void;
+  providerSettings: ProviderSettings;
+  onProviderSettings: (settings: ProviderSettings) => void;
   onOpenSettings: () => void;
 }
 
 export function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, onProviderSettings, onOpenSettings }: StartScreenProps) {
+  const { locale, setLocale, t } = useI18n();
   const [idea, setIdea] = useState('');
-  const [language, setLanguage] = useState('tr');
+  const [language, setLanguage] = useState(locale === 'en-US' ? 'en' : 'tr');
   const [files, setFiles] = useState<File[]>([]);
   const [nativeInventory, setNativeInventory] = useState<any>(null);
   const [selectingFolder, setSelectingFolder] = useState(false);
@@ -45,15 +49,17 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
   };
 
   return (
-    <main className="start-shell">
+    <main id="main-content" className="start-shell">
+      <a className="skip-link" href="#idea-input">{t('start.skip')}</a>
       <div className="start-mark"><Sparkles size={20} /> PROMTGEN / LOCAL-FIRST</div>
       <section className="start-card" aria-labelledby="start-title">
-        <div className="eyebrow">YAŞAYAN PROJE MİMARI · V4</div>
-        <h1 id="start-title">Fikrini söyle.<br /><span>Planı birlikte büyütelim.</span></h1>
-        <p className="lead">Kısa bir düşünceden, kararları sana ait olan uygulanabilir bir proje planına. Teknolojiyi baştan bilmen gerekmiyor.</p>
+        <div className="eyebrow">{t('start.eyebrow')}</div>
+        <h1 id="start-title">{t('start.title')}<br /><span>{t('start.titleAccent')}</span></h1>
+        <p className="lead">{t('start.lead')}</p>
         <label className="idea-box">
-          <span>Ne yapmak istiyorsun?</span>
+          <span>{t('start.ideaLabel')}</span>
           <textarea
+            id="idea-input"
             value={idea}
             onChange={event => setIdea(event.target.value)}
             onKeyDown={event => {
@@ -65,18 +71,17 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
               }
             }}
             rows={5}
-            placeholder="Örn. Yerel çalışan, kısa bir fikri adım adım geliştirip kodlama ajanları için plana dönüştüren bir uygulama..."
-            autoFocus
+            placeholder={t('start.ideaPlaceholder')}
           />
           <div className="idea-footer">
-            <span>{idea.length} karakter {idea.length < 50 ? '(🔭 Fikir Büyütücü açılacak)' : ''}</span>
+            <span>{t('start.characterCount', { count: String(idea.length) })} {idea.length < 50 ? t('start.amplifierHint') : ''}</span>
             <span style={{ color: idea.trim().length >= 10 ? '#10b981' : '#f59e0b' }}>
-              {idea.trim().length < 10 ? 'Min. 10 karakter gerekli' : 'Ctrl + Enter ile başlat'}
+              {idea.trim().length < 10 ? t('start.minimum') : t('start.shortcut')}
             </span>
           </div>
         </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0 16px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11px', color: '#9ca3af' }}>Örnek Fikirler:</span>
+          <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('start.examples')}</span>
           <button type="button" onClick={() => setIdea('Yerel çalışan, çevrimdışı destekli ve bildirimli kişisel alışkanlık takip uygulaması yapmak istiyorum.')}
             style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#ddd6fe', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', cursor: 'pointer' }}>
             📱 Mobil Alışkanlık Takipçisi
@@ -92,14 +97,18 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
         </div>
 
         <div className="start-actions">
-          <label className="file-action"><FolderOpen size={17} /> Proje dosyaları<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)} /></label>
+          <label className="file-action"><FolderOpen size={17} /> {t('start.files')}<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)} /></label>
           {isDesktopProjectImportAvailable()
             ? <button type="button" className="file-action" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17} /> : <FolderOpen size={17} />} Proje klasörü</button>
-            : <label className="file-action"><FolderOpen size={17} /> Proje klasörü<input type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as any)} onChange={event => appendFiles(event.target.files)} /></label>}
+            : <label className="file-action"><FolderOpen size={17} /> {t('start.folder')}<input type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as any)} onChange={event => appendFiles(event.target.files)} /></label>}
           <button className="file-action" onClick={onOpenSettings}><Settings2 size={17} /> AI: {getProviderMeta(providerSettings.providerId).label}</button>
-          <label>Çıktı dili<select value={language} onChange={event => setLanguage(event.target.value)}><option value="tr">Türkçe</option><option value="en">English (Partial Beta)</option></select></label>
+          <label>{t('start.outputLanguage')}<select value={language} onChange={event => {
+            const next = event.target.value;
+            setLanguage(next);
+            setLocale(next === 'en' ? 'en-US' : 'tr-TR');
+          }}><option value="tr">{t('language.turkish')}</option><option value="en">{t('language.english')}</option></select></label>
           <button className="primary" disabled={idea.trim().length < 10 || creating} onClick={handleCreate}>
-            {creating ? <><LoaderCircle className="spin" size={18} /> Fikir analiz ediliyor</> : <>Fikri analiz et <ArrowRight size={18} /></>}
+            {creating ? <><LoaderCircle className="spin" size={18} /> {t('start.analyzing')}</> : <>{t('start.analyze')} <ArrowRight size={18} /></>}
           </button>
         </div>
 
@@ -120,11 +129,11 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
                 </span>
               ))}
             </div>
-            <p className="context-note" style={{ margin: '6px 0 0 0' }}>Dosyalar cihazda güvenlik taramasından geçirilir. Ham içerik saklanmaz.</p>
+            <p data-capability-id="project-inventory-analyzer" className="context-note" style={{ margin: '6px 0 0 0' }}>{t('start.inventoryNotice')}</p>
           </div>
         )}
         {nativeInventory && <p className="context-note">{nativeInventory.rootName}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe güvenlik politikasıyla dışarıda bırakıldı.</p>}
-        <div className="import-row"><span>Daha önce başladın mı?</span><button className="text-button" onClick={() => packageRef.current?.click()}><Sparkles size={16} /> .promtgen paketi aç</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => event.target.files?.[0] && onImport(event.target.files[0])} /></div>
+        <div className="import-row"><span>{t('start.previous')}</span><button className="text-button" onClick={() => packageRef.current?.click()}><Sparkles size={16} /> {t('start.openPackage')}</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => event.target.files?.[0] && onImport(event.target.files[0])} /></div>
         <PortfolioOverview projects={projects} onOpen={onOpen} />
       </section>
       <footer>

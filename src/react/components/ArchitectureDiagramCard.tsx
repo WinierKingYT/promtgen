@@ -5,7 +5,7 @@ import { generateArchitectureDiagram, generateDataFlowDiagram } from '../../v4/d
 export function ArchitectureDiagramCard({ project }: { project: any }) {
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const archDiagram = useMemo(() => generateArchitectureDiagram(project), [project]);
-  const flowDiagram = useMemo(() => generateDataFlowDiagram(project), [project]);
+  const flowDiagram = useMemo(() => generateDataFlowDiagram(), []);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);

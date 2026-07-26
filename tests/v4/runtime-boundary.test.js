@@ -30,7 +30,12 @@ walk(entry);
 const runtimeFiles = [...visited].map(file => relative(root, file).replaceAll('\\', '/'));
 for (const prefix of forbidden) assert.ok(!runtimeFiles.some(file => file === prefix || file.startsWith(prefix)), `Legacy runtime yolu production graph'ına girdi: ${prefix}`);
 assert.ok(runtimeFiles.includes('src/react/App.tsx'));
-assert.ok(runtimeFiles.includes('src/v4/project-state-v4.js'));
+assert.ok(runtimeFiles.includes('src/v4/project-document.js'));
 assert.ok(runtimeFiles.includes('src/v4/exporter.js'));
+assert.ok(!runtimeFiles.includes('src/v4/project-state-v4.js'), 'Legacy V4 constructor production import graphına giremez.');
+for (const file of runtimeFiles.filter(file => file.startsWith('src/react/'))) {
+    const source = readFileSync(resolve(root, file), 'utf8');
+    assert.doesNotMatch(source, /type\s+Project\s*=\s*any\b/, `${file} canonical ProjectDocument tipini atlayamaz.`);
+}
 
-console.log(`✓ V4 production runtime boundary (${runtimeFiles.length} local module)`);
+console.log(`✓ canonical V5 production runtime boundary (${runtimeFiles.length} local module)`);

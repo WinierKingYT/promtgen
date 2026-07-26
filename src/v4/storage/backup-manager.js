@@ -1,1 +1,1 @@
-export { createCheckpoint, computeDataChecksum, getLatestCheckpoint, verifyDataIntegrity, StorageCheckpoint } from './backup-manager.ts';
+export { createCheckpoint, computeDataChecksum, verifyDataIntegrity } from './backup-manager.ts';

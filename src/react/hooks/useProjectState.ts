@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { analyzeIdea, captureCurrentRevision, recalculateReadiness } from '../../v4/planning-engine.js';
+import { analyzeIdea } from '../../v4/planning-engine.js';
 import { createPlatformRepository } from '../../v4/tauri-storage.js';
 import { generateIdeaLabBundle } from '../../v4/ai-discovery.js';
 import { loadProviderSettings } from '../../v4/provider-settings.js';
 import { createCredentialVault } from '../../v4/credential-vault.js';
 import { analyzeSelectedFiles, projectInventoryContext } from '../../v4/project-analyzer.js';
 import { readPromtgenPackage } from '../../v4/exporter.js';
+import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import { prepareInitialProject } from '../../v4/application/project-creation-service.js';
+import { commitProjectCandidate, saveInitialProject } from '../../v4/application/command-transaction.js';
 
-type Project = any;
+type Project = ProjectDocumentV5;
 
 const repository = createPlatformRepository();
 const credentialVault = createCredentialVault();
@@ -27,11 +30,30 @@ export function useProjectState() {
     }).finally(() => setLoading(false));
   }, []);
 
-  const persist = async (project: Project) => {
-    const next = recalculateReadiness(project);
-    await repository.save(next);
+  const persist = async (project: Project, commandType = 'UpdateProject') => {
+    const currentProject = projects.find(item => item.id === project.id);
+    const createdAt = new Date().toISOString();
+    const commandId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `cmd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const result = currentProject
+      ? await commitProjectCandidate(repository, currentProject, project, {
+          commandId,
+          commandType,
+          projectId: currentProject.id,
+          expectedRevision: currentProject.revision,
+          createdAt
+        })
+      : await saveInitialProject(repository, project, commandId, createdAt);
+    if (!result.success) {
+      setAppError(result.error);
+      window.setTimeout(() => setAppError(''), 4200);
+      return false;
+    }
+    const next = result.project;
     setProjects(current => [next, ...current.filter(item => item.id !== next.id)]);
     setActiveId(next.id);
+    return true;
   };
 
   const create = async (idea: string, outputLanguage: string, files: File[], nativeInventory?: any) => {
@@ -45,31 +67,16 @@ export function useProjectState() {
       includedFiles: inventory.totals.included,
       excludedFiles: inventory.totals.excluded,
     };
-    project.suggestionBundles = [];
     const credential = await credentialVault.get(providerSettings.providerId) || '';
-    const ideaLabResult = await generateIdeaLabBundle(project, {
-      settings: providerSettings,
-      credential,
-      ideaText: idea,
-    } as any);
-    const targetProject = ideaLabResult.project;
-    if (ideaLabResult.usedFallback || ideaLabResult.error) {
-      targetProject.messages.push({
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: `⚠️ Bulut AI çağrısı tamamlanamadı (${ideaLabResult.error || 'Sağlayıcı zaman aşımı'}). Yerel kural motoru devreye girerek 3 başlangıç mimari alternatifi üretti. Dilerseniz Ayarlar'dan API anahtarınızı güncelleyebilir veya bu yerel seçeneklerle devam edebilirsiniz.`,
-        analysisNote: 'Local Fallback Engine (Sağlayıcı Kesintisi)',
-        createdAt: new Date().toISOString(),
-      });
-    } else {
-      targetProject.messages.push({
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: 'Fikir Laboratuvarı: Projeniz için 3 mimari alternatif ve metrik matrisi hazırlandı.',
-        createdAt: new Date().toISOString(),
-      });
-    }
-    await persist(captureCurrentRevision(targetProject));
+    const prepared = await prepareInitialProject({
+      project,
+      generateIdeaLab: candidate => generateIdeaLabBundle(candidate, {
+        settings: providerSettings,
+        credential,
+        ideaText: idea,
+      } as any)
+    });
+    await persist(prepared.project);
   };
 
   const importPackage = async (file: File) => {

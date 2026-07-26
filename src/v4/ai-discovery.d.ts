@@ -1,28 +1,28 @@
-// Type declarations for src/v4/ai-discovery.js
-import { CanonicalProject } from './domain/types.js';
+import type { ExpansionDimension, ProjectDocumentV5 } from './contracts.js';
+import type { ProviderSettings } from './provider-settings.js';
+import type { LocalPlanningMemory } from './planning-memory.js';
 
-export interface DiscoveryOptions {
-  project: CanonicalProject;
+export interface GenerationTurnResult {
+  project: ProjectDocumentV5;
+  usedFallback?: boolean;
+  error?: string | null;
+  bundle?: unknown;
+}
+export interface ProviderConnectionResult {
+  ok: boolean;
+  message: string;
   providerId: string;
-  apiKey: string;
+  latencyMs: number;
+  errorCode?: string;
 }
 
-export interface DiscoveryBundle {
-  summary: string;
-  options: any[];
-  openQuestions: string[];
-  analysisNote: string;
-  mode?: string;
-  fallbackReason?: string;
-  provenanceId?: string;
-}
-
-export function generateDiscoveryBundle(options: DiscoveryOptions): Promise<DiscoveryBundle>;
-export function generateIdeaLabBundle(options: DiscoveryOptions): Promise<any>;
-export function generateImpactAnalysis(project: CanonicalProject, changeId: string): Promise<any>;
-export function runConversationalDiscoveryTurn(project: CanonicalProject, userMessage: string, options: any): Promise<any>;
-export function localFallbackDiscovery(options: any): any;
-export function contextualFallback(project: CanonicalProject, error: any): any;
-export function buildDiscoverySystemPrompt(project: CanonicalProject): string;
-export function mapAiBundle(bundle: any, project: CanonicalProject): any;
-export function testProviderConnection(providerId: string, apiKey: string): Promise<boolean>;
+export function getSeenSuggestionFingerprints(project: ProjectDocumentV5): Set<string>;
+export function generateExpansionDimensions(idea: string): ExpansionDimension[];
+export function buildDiscoverySystemPrompt(project: ProjectDocumentV5): string;
+export function generateDiscoveryBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; direction?: string; memory?: LocalPlanningMemory | null; signal?: AbortSignal }): Promise<GenerationTurnResult>;
+export function runConversationalDiscoveryTurn(project: ProjectDocumentV5, options: { message: string; focusedQuestion?: string; settings: ProviderSettings; credential?: string; memory?: LocalPlanningMemory | null; signal?: AbortSignal }): Promise<GenerationTurnResult>;
+export function localFallbackIdeaLab(project: ProjectDocumentV5): GenerationTurnResult;
+export function generateIdeaLabBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; ideaText?: string; signal?: AbortSignal }): Promise<GenerationTurnResult>;
+export function generateConceptSummary(project: ProjectDocumentV5, options?: { selectedApproachId?: string }): Promise<ProjectDocumentV5>;
+export function generateImpactAnalysis(project: ProjectDocumentV5, userRequest: string): Promise<unknown>;
+export function testProviderConnection(settings: Partial<ProviderSettings> & Pick<ProviderSettings, 'providerId' | 'model' | 'baseUrl'>, credential?: string, signal?: AbortSignal): Promise<ProviderConnectionResult>;

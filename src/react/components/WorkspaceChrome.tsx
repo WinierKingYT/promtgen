@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Check, ChevronDown, Pencil, Plus, Sparkles, X } from 'lucide-react';
+import { ProvenanceBadge } from './ProvenanceBadge.js';
+import type { GenerationProvenance } from '../../v4/contracts.js';
 
 type ProjectSummary = {
   id: string;
@@ -53,8 +55,9 @@ export function ProjectRail({ projects, activeId, onSelect, onNew, open, onClose
   </aside>;
 }
 
-export function SuggestionCard({ item, onStatus, onSection }: {
+export function SuggestionCard({ item, provenance, onStatus, onSection }: {
   item: any;
+  provenance?: GenerationProvenance;
   onStatus: (status: string, editedDescription?: string) => void;
   onSection: (sectionId: string) => void;
 }) {
@@ -78,7 +81,13 @@ export function SuggestionCard({ item, onStatus, onSection }: {
       <span className="kind" style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
         {kindLabels[item.kind] || item.kind}
       </span>
-      {item.recommended && <span className="recommend" style={{ background: '#8b5cf6', color: '#fff', fontSize: '10px', padding: '2px 8px', borderRadius: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><Sparkles size={11}/> AI Önerisi</span>}
+      {provenance && (
+        <ProvenanceBadge
+          kind={provenance.mode === 'fallback' ? 'degraded' : provenance.mode === 'rule-engine' ? 'local-rule' : 'ai-proposed'}
+          providerName={provenance.model || provenance.providerId || undefined}
+        />
+      )}
+      {item.recommended && <span className="recommend" style={{ background: '#8b5cf6', color: '#fff', fontSize: '10px', padding: '2px 8px', borderRadius: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><Sparkles size={11}/> Tavsiye edilen</span>}
       <span className={`effort effort-${item.effort}`} style={{ marginLeft: 'auto', fontSize: '11px', color: '#9ca3af' }}>{item.effort === 'high' ? 'Yüksek Efor' : item.effort === 'medium' ? 'Orta Efor' : 'Düşük Efor'}</span>
     </div>
 
@@ -129,4 +138,3 @@ export function SuggestionCard({ item, onStatus, onSection }: {
     </div>
   </article>;
 }
-

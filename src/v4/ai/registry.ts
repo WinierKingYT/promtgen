@@ -1,77 +1,14 @@
-import { ZodSchema } from 'zod';
-import { discoverySchema, DISCOVERY_SCHEMA_ID, ideaLabSchema, IDEA_LAB_SCHEMA_ID, architectureReviewSchema, ARCHITECTURE_REVIEW_SCHEMA_ID } from '../ai-schemas.js';
+import { discoveryTask } from './tasks/discovery.js';
+import { ideaLabTask } from './tasks/idea-lab.js';
 
-export type AITaskType =
-  | 'idea-expansion'
-  | 'discovery'
-  | 'approach-generation'
-  | 'decision-proposal'
-  | 'risk-analysis'
-  | 'architecture-review'
-  | 'task-compilation';
+export type AITaskType = 'discovery' | 'idea-lab';
+export type AITaskDefinition = typeof discoveryTask | typeof ideaLabTask;
 
-export interface AITaskDefinition<T> {
-  id: AITaskType;
-  promptVersion: string;
-  schemaId: string;
-  schema: ZodSchema<T>;
-  description: string;
-}
-
-const baseSchema = discoverySchema as ZodSchema<any>;
-
-export const TASK_REGISTRY: Record<AITaskType, AITaskDefinition<any>> = {
-  discovery: {
-    id: 'discovery',
-    promptVersion: '1.0.0',
-    schemaId: DISCOVERY_SCHEMA_ID,
-    schema: discoverySchema,
-    description: 'Ham fikri keşif önerileri ve belirsizlik soruları ile derinleştirir.'
-  },
-  'approach-generation': {
-    id: 'approach-generation',
-    promptVersion: '1.0.0',
-    schemaId: IDEA_LAB_SCHEMA_ID,
-    schema: ideaLabSchema,
-    description: 'Fikir Laboratuvarı için 3 alternatif mimari yaklaşım ve metrik matrisi üretir.'
-  },
-  'architecture-review': {
-    id: 'architecture-review',
-    promptVersion: '1.0.0',
-    schemaId: ARCHITECTURE_REVIEW_SCHEMA_ID,
-    schema: architectureReviewSchema,
-    description: 'Planın mimari çelişkilerini, risklerini ve kalite skorunu değerlendirir.'
-  },
-  'idea-expansion': {
-    id: 'idea-expansion',
-    promptVersion: '1.0.0',
-    schemaId: DISCOVERY_SCHEMA_ID,
-    schema: baseSchema,
-    description: 'Kısa fikirleri genişletir ve yapılandırır.'
-  },
-  'decision-proposal': {
-    id: 'decision-proposal',
-    promptVersion: '1.0.0',
-    schemaId: DISCOVERY_SCHEMA_ID,
-    schema: baseSchema,
-    description: 'Karar önerisi üretir.'
-  },
-  'risk-analysis': {
-    id: 'risk-analysis',
-    promptVersion: '1.0.0',
-    schemaId: DISCOVERY_SCHEMA_ID,
-    schema: baseSchema,
-    description: 'Risk analizi yapar.'
-  },
-  'task-compilation': {
-    id: 'task-compilation',
-    promptVersion: '1.0.0',
-    schemaId: DISCOVERY_SCHEMA_ID,
-    schema: baseSchema,
-    description: 'Görev planı derler.'
-  }
+export const TASK_REGISTRY: Record<AITaskType, AITaskDefinition> = {
+  discovery: discoveryTask,
+  'idea-lab': ideaLabTask
 };
 
-export function getTaskDefinition(taskId: AITaskType): AITaskDefinition<any> {
-  return TASK_REGISTRY[taskId] ?? TASK_REGISTRY.discovery;
+export function getTaskDefinition(taskId: AITaskType): AITaskDefinition {
+  return TASK_REGISTRY[taskId];
 }

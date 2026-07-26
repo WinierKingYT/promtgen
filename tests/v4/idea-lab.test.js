@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createProjectStateV4 } from '../../src/v4/project-state-v4.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
 import { generateIdeaLabBundle, generateConceptSummary } from '../../src/v4/ai-discovery.js';
 import { confirmConceptSummary, runConceptSimulation } from '../../src/v4/planning-engine.js';
 
 test('Fikir Laboratuvarı: Metrik matrisi ve preset cevap çipleri', async () => {
-    const project = createProjectStateV4({ idea: 'S&box oyun motorunda bir at sistemi yapmak istiyorum' });
+    const project = createProjectDocument({ idea: 'S&box oyun motorunda bir at sistemi yapmak istiyorum' });
     const result = await generateIdeaLabBundle(project, { settings: { providerId: 'offline' } });
 
     assert.equal(result.project.lifecycle.activePhase, 'IDEA_LAB');
@@ -20,7 +20,7 @@ test('Fikir Laboratuvarı: Metrik matrisi ve preset cevap çipleri', async () =>
 });
 
 test('Konsept A/B Simülasyonu ve Onayı', async () => {
-    const project = createProjectStateV4({ idea: 'S&box at sistemi' });
+    const project = createProjectDocument({ idea: 'S&box at sistemi' });
     const ideaLab = await generateIdeaLabBundle(project, { settings: { providerId: 'offline' } });
     
     // Run simulation prediction

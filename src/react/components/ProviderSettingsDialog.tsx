@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Bot, Check, CircleAlert, Eye, EyeOff, KeyRound, LoaderCircle, Save, ShieldCheck, Wifi, X } from 'lucide-react';
 import { getProviderMeta, PROVIDER_CATALOG, saveProviderSettings } from '../../v4/provider-settings.js';
 import { validateProviderSettings } from '../../v4/provider-url-policy.js';
@@ -15,6 +15,7 @@ interface ProviderSettingsDialogProps {
 
 export function ProviderSettingsDialog({ open, settings, onSave, onClose, credentialVault }: ProviderSettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const [draftSettings, setDraftSettings] = useState(settings);
   const [credential, setCredential] = useState('');
   const [showCredential, setShowCredential] = useState(false);
@@ -23,12 +24,39 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
   const provider = getProviderMeta(draftSettings.providerId);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      returnFocusRef.current?.focus();
+      returnFocusRef.current = null;
+      return;
+    }
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDraftSettings(settings);
     setResult(null);
     credentialVault.get(settings.providerId).then((value: string | null) => setCredential(value || ''));
-    if (!dialogRef.current?.open) dialogRef.current?.showModal();
-  }, [open, settings]);
+    requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLElement>('button, input, select')?.focus());
+  }, [credentialVault, open, settings]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) || [])].filter(element => !element.hasAttribute('hidden'));
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   const chooseProvider = async (providerId: string) => {
     const meta = getProviderMeta(providerId);
@@ -56,7 +84,7 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
   };
 
   return (
-    <dialog ref={dialogRef} className="provider-dialog" aria-labelledby="provider-dialog-title" onCancel={onClose} onClose={onClose}>
+    <dialog ref={dialogRef} open={open} className="provider-dialog" aria-modal="true" aria-labelledby="provider-dialog-title" onKeyDown={handleKeyDown} onCancel={onClose} onClose={onClose}>
       <div className="dialog-head"><div className="dialog-icon"><Bot size={20} /></div><div><span className="meta">AI YAPILANDIRMASI</span><h2 id="provider-dialog-title">Planlama motoru</h2></div><IconButton label="Ayarları kapat" onClick={() => { dialogRef.current?.close(); onClose(); }}><X size={18} /></IconButton></div>
       <p className="dialog-lead">AI yalnızca filtrelenmiş canonical plan bağlamını görür. Ürettiği hiçbir değişiklik sen onaylamadan plana uygulanmaz.</p>
       <fieldset className="provider-options"><legend>Sağlayıcı</legend>{PROVIDER_CATALOG.map(item => <label key={item.id} className={draftSettings.providerId === item.id ? 'active' : ''}><input type="radio" name="provider" value={item.id} checked={draftSettings.providerId === item.id} onChange={() => chooseProvider(item.id)} /><span className="provider-radio" /><span><b>{item.label}</b><small>{item.description}</small></span>{item.id === 'offline' && <em>Varsayılan</em>}</label>)}</fieldset>

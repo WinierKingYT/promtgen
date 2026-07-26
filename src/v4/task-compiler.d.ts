@@ -1,5 +1,5 @@
 // Type declarations for src/v4/task-compiler.js
-import { CanonicalProject } from './domain/types.js';
+import { ProjectDocumentV5 } from './contracts.js';
 
 export interface CompiledTask {
   id: string;
@@ -64,12 +64,12 @@ export interface TaskCompilationResult {
 
 export interface ApplyResult {
   success: boolean;
-  project: CanonicalProject;
+  project: ProjectDocumentV5;
   reason: string;
   warnings?: string[];
 }
 
-export function compileTaskPlan(project: CanonicalProject): TaskCompilationResult;
-export function applyCompiledTaskPlan(project: CanonicalProject, compilation: TaskCompilationResult, options?: { approved?: boolean }): ApplyResult;
+export function compileTaskPlan(project: ProjectDocumentV5): TaskCompilationResult;
+export function applyCompiledTaskPlan(project: ProjectDocumentV5, compilation: TaskCompilationResult, options?: { approved?: boolean }): ApplyResult;
 export function assertValidCompilation(result: TaskCompilationResult): void;
 export function topologicalOrder(tasks: { id: string; dependencies: string[] }[]): { ordered: { id: string; dependencies: string[] }[]; cycles: string[] };

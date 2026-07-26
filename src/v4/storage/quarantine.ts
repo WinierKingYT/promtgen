@@ -1,29 +1,23 @@
 export interface QuarantinedRecord {
   id: string;
+  projectId: string | null;
   quarantinedAt: string;
   reason: string;
   rawPayload: unknown;
 }
 
-const quarantineMemoryStore = new Map<string, QuarantinedRecord>();
-
-export function quarantineProject(rawPayload: any, reason: string): QuarantinedRecord {
-  const id = `quarantine-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const record: QuarantinedRecord = {
-    id,
+export function createQuarantineRecord(rawPayload: unknown, reason: string): QuarantinedRecord {
+  const candidate = rawPayload && typeof rawPayload === 'object'
+    ? rawPayload as { id?: unknown }
+    : null;
+  return {
+    id: `quarantine-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    projectId: typeof candidate?.id === 'string' ? candidate.id : null,
     quarantinedAt: new Date().toISOString(),
     reason,
-    rawPayload
+    rawPayload: structuredClone(rawPayload)
   };
-
-  quarantineMemoryStore.set(id, record);
-  return record;
 }
 
-export function listQuarantinedRecords(): QuarantinedRecord[] {
-  return Array.from(quarantineMemoryStore.values());
-}
-
-export function clearQuarantine(): void {
-  quarantineMemoryStore.clear();
-}
+// Compatibility name; persistence belongs to the repository transaction.
+export const quarantineProject = createQuarantineRecord;

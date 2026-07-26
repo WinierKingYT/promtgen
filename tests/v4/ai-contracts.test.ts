@@ -7,9 +7,11 @@ import { validateSuggestionResponse } from '../../src/v4/ai-context.js';
 describe('Category 2: AI & Prompt Architecture Contracts', () => {
   it('TASK_REGISTRY defines task definitions with explicit schema IDs and versions', () => {
     assert.ok(TASK_REGISTRY['discovery'], 'Discovery task registered');
-    assert.ok(TASK_REGISTRY['approach-generation'], 'Approach generation task registered');
-    assert.equal(TASK_REGISTRY['approach-generation'].schemaId, IDEA_LAB_SCHEMA_ID);
+    assert.ok(TASK_REGISTRY['idea-lab'], 'Idea Lab task registered');
+    assert.equal(TASK_REGISTRY['idea-lab'].schemaId, IDEA_LAB_SCHEMA_ID);
     assert.equal(TASK_REGISTRY['discovery'].schemaId, DISCOVERY_SCHEMA_ID);
+    assert.equal(getTaskDefinition('discovery').buildPrompt instanceof Function, true);
+    assert.equal(getTaskDefinition('idea-lab').buildContext instanceof Function, true);
   });
 
   it('validateSuggestionResponse validates IdeaLab output using ideaLabSchema without throwing', () => {

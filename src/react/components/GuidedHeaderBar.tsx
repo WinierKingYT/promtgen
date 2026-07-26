@@ -69,10 +69,11 @@ export const GuidedHeaderBar: React.FC<GuidedHeaderBarProps> = ({
       <div className="flex items-center gap-2">
         <button
           type="button"
+          onClick={onOpenAdvancedTools}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-sm"
         >
           <Sparkles size={14} />
-          <span>Aşamayı İlet</span>
+          <span>Gelişmiş araçlar</span>
         </button>
 
         {/* Overflow Menu for Advanced Tools */}

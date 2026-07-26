@@ -1,6 +1,6 @@
-import { createProjectStateV4, validateProjectStateV4 } from './project-state-v4.js';
-import { assessPlanningDepth, recalculateReadiness } from './planning-engine.js';
-import { normalizeProjectStateV4 } from './canonical-entities.js';
+import { createProjectDocument, validateProjectDocument } from './project-document.js';
+import { assessPlanningDepth } from './planning-engine.js';
+import { normalizeProjectDocument } from './canonical-entities.js';
 
 const PHASE_MAP = {
     IDEA_CAPTURED: 'DISCOVERY', PROFILE_DRAFTED: 'DISCOVERY', PROJECT_PROFILED: 'DISCOVERY', DISCOVERY_IN_PROGRESS: 'DISCOVERY',
@@ -10,32 +10,43 @@ const PHASE_MAP = {
     REVIEW_IN_PROGRESS: 'REVIEW', READY_FOR_EXPORT: 'READY', EXPORTED: 'READY'
 };
 
-export const LATEST_SCHEMA_VERSION = 5;
+const ARRAY_FIELDS = [
+    'objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones',
+    'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings',
+    'simulationRuns', 'executionSessions', 'openQuestions', 'messages', 'revisions', 'exports', 'commandLog',
+    'dismissedSuggestionFingerprints', 'impactAnalyses'
+];
 
-export function migrateToV4(input) {
-    if (!input || typeof input !== 'object') return { success: false, error: 'Geçersiz proje verisi.', project: null, backup: input };
-    if (input.schemaVersion === 4) {
-        const normalized = normalizeProjectStateV4(input);
-        const validation = validateProjectStateV4(normalized);
-        return validation.valid ? { success: true, project: normalized, backup: structuredClone(input), migratedFrom: 4 } : { success: false, error: validation.errors.join('; '), project: null, backup: input };
-    }
+export const LATEST_SCHEMA_VERSION = 5;
+export const LATEST_SCHEMA_REVISION = 1;
+
+export function migrateLegacyToV5(input) {
+    if (!input || typeof input !== 'object') return failure(input, 'Geçersiz proje verisi.');
     const source = input.currentProjectState || input;
     const idea = source.identity?.originalIdea || source.identity?.summary || source.identity?.problemStatement || input.draftDescription || 'İçe aktarılan proje';
-    const depthName = source.configuration?.planningDepth || ({ 3: 'quick', 5: 'standard', 8: 'advanced', 12: 'enterprise' }[input.stepDepth]) || assessPlanningDepth(idea).recommended;
-    const project = createProjectStateV4({
+    const assessment = assessPlanningDepth(idea);
+    const depthName = source.configuration?.planningDepth || ({ 3: 'quick', 5: 'standard', 8: 'advanced', 12: 'enterprise' }[input.stepDepth]) || assessment.recommended;
+    const project = createProjectDocument({
         idea,
         name: source.identity?.name || input.name || 'İçe Aktarılan Proje',
-        outputLanguage: source.configuration?.language === 'en' ? 'en' : 'tr',
-        planningDepth: { ...assessPlanningDepth(idea), selected: depthName, overridden: Boolean(source.configuration?.planningDepth || input.stepDepth) },
-        profile: { domains: source.profile?.domains || [], platforms: source.profile?.platforms || [], importedContext: [] }
+        outputLanguage: source.identity?.outputLanguage || (source.configuration?.language === 'en' ? 'en' : 'tr'),
+        planningDepth: { ...assessment, selected: depthName, overridden: Boolean(source.configuration?.planningDepth || input.stepDepth) },
+        profile: {
+            domains: source.profile?.domains || [],
+            platforms: source.profile?.platforms || [],
+            importedContext: source.profile?.importedContext || []
+        }
     });
-    project.id = source.projectId || input.id || project.id;
-    project.lifecycle.activePhase = PHASE_MAP[source.phase || source.workflowStage] || 'DISCOVERY';
-    project.lifecycle.status = source.lifecycle?.status === 'archived' ? 'archived' : 'active';
+
+    project.id = source.id || source.projectId || input.id || project.id;
+    project.revision = Number(source.revision || project.revision);
+    project.lifecycle = { ...project.lifecycle, ...(source.lifecycle || {}) };
+    project.lifecycle.activePhase = PHASE_MAP[source.phase || source.workflowStage] || source.lifecycle?.activePhase || project.lifecycle.activePhase;
     if ((source.phase || source.workflowStage) === 'EXPORTED') {
         project.lifecycle.status = 'finalized';
         project.exports.push({ id: `legacy-export-${Date.now()}`, format: 'legacy', revision: project.revision, createdAt: source.lifecycle?.updatedAt || new Date().toISOString() });
     }
+
     copySection(project, 'vision', source.identity?.summary || idea, []);
     copySection(project, 'objectives', '', (source.objectives || source.requirements || []).map(item => item.title || item.description || item.text || String(item)));
     copySection(project, 'scope', '', [...(source.scope?.mustHave || []), ...(source.scope?.shouldHave || [])]);
@@ -43,70 +54,94 @@ export function migrateToV4(input) {
     copySection(project, 'architecture', source.moduleData?.software?.architecture?.description || source.architecture?.description || '', []);
     copySection(project, 'tasks', '', (source.tasks || []).map(item => item.title || String(item)));
     copySection(project, 'risks', '', (source.risks || []).map(item => item.description || item.title || String(item)));
-    project.objectives = structuredClone(source.objectives || []);
-    project.requirements = structuredClone(source.requirements || []);
-    project.decisions = structuredClone(source.decisions || []);
-    project.assumptions = structuredClone(source.assumptions || []);
-    project.tasks = structuredClone(source.tasks || []);
-    project.risks = structuredClone(source.risks || []);
-    project.testCases = structuredClone(source.testCases || []);
-    project.milestones = structuredClone(source.milestones || []);
-    project.traceLinks = structuredClone(source.traceLinks || []);
-    project.agentPrompts = structuredClone(source.agentPrompts || source.prompts || []);
-    project.researchQuestions = structuredClone(source.researchQuestions || []);
-    project.sources = structuredClone(source.sources || []);
-    project.evidence = structuredClone(source.evidence || []);
-    project.reviewFindings = structuredClone(source.reviewFindings || []);
-    project.simulationRuns = structuredClone(source.simulationRuns || []);
-    project.executionSessions = structuredClone(source.executionSessions || []);
-    project.openQuestions = structuredClone(source.openQuestions || []);
-    project.metadata.legacyBackup = { schemaVersion: source.schemaVersion || 1, importedAt: new Date().toISOString() };
-    const validation = validateProjectStateV4(project);
-    if (!validation.valid) return { success: false, error: validation.errors.join('; '), project: null, backup: structuredClone(input) };
-    return { success: true, project: recalculateReadiness(normalizeProjectStateV4(project)), backup: structuredClone(input), migratedFrom: source.schemaVersion || 1 };
+
+    for (const field of ARRAY_FIELDS) {
+        if (Array.isArray(source[field])) project[field] = structuredClone(source[field]);
+    }
+    project.agentPrompts = structuredClone(source.agentPrompts || source.prompts || project.agentPrompts);
+    if (source.sections && typeof source.sections === 'object') project.sections = structuredClone(source.sections);
+    project.proposalStore = {
+        bundles: structuredClone(source.proposalStore?.bundles || source.suggestionBundles || [])
+    };
+    project.modules = structuredClone(source.modules || project.modules);
+    project.readiness = structuredClone(source.readiness || project.readiness);
+    project.ideaLabSession = structuredClone(source.ideaLabSession || project.ideaLabSession);
+    if (source.ideaExpansionSession) project.ideaExpansionSession = structuredClone(source.ideaExpansionSession);
+    project.metadata = {
+        ...(source.metadata || {}),
+        canonicalModelVersion: 1,
+        migration: {
+            migratedAt: new Date().toISOString(),
+            sourceSchemaVersion: source.schemaVersion ?? 1,
+            sourceSchemaRevision: source.schemaRevision ?? null
+        }
+    };
+
+    return finalizeMigration(project, input, source.schemaVersion ?? 1);
 }
 
-export function migrateV4toV5(project) {
-    if (!project || typeof project !== 'object') return { success: false, error: 'Geçersiz proje verisi.', project: null };
-    if (project.schemaVersion === 5) return { success: true, project: structuredClone(project), migratedFrom: 5 };
-    if (project.schemaVersion !== 4) return { success: false, error: `Beklenmeyen schemaVersion: ${project.schemaVersion}. Yalnızca 4→5 migration destekleniyor.`, project: null };
-
-    const next = structuredClone(project);
-    next.schemaVersion = 5;
-
-    next.proposalStore = { bundles: structuredClone(next.suggestionBundles || []) };
-    delete next.suggestionBundles;
-
-    next.metadata = next.metadata || {};
-    next.metadata.migratedFromV4 = { migratedAt: new Date().toISOString(), originalSchemaVersion: 4 };
-
-    const validation = validateProjectStateV4({ ...next, schemaVersion: 4, suggestionBundles: next.proposalStore?.bundles || [] });
-    if (!validation.valid) return { success: false, error: validation.errors.join('; '), project: null };
-
-    return { success: true, project: next, migratedFrom: 4 };
+export function migrateV4toV5(input) {
+    if (!input || typeof input !== 'object') return failure(input, 'Geçersiz proje verisi.');
+    if (input.schemaVersion !== 4) {
+        return failure(input, `Beklenmeyen schemaVersion: ${input.schemaVersion}. Yalnızca 4→5 migration destekleniyor.`);
+    }
+    return migrateLegacyToV5(input);
 }
 
 export function tryMigrateOrPassthrough(input) {
-    if (!input || typeof input !== 'object') return { project: input, migrated: false, error: 'Geçersiz proje verisi.' };
+    if (!input || typeof input !== 'object') return { project: input, migrated: false, error: 'Geçersiz proje verisi.', backup: input };
 
-    const version = input.schemaVersion;
-    if (version === LATEST_SCHEMA_VERSION) return { project: input, migrated: false, error: null };
-
-    if (version === 4) {
-        const result = migrateV4toV5(input);
-        if (result.success) return { project: result.project, migrated: true, error: null };
-        return { project: input, migrated: false, error: result.error };
+    if (input.schemaVersion === LATEST_SCHEMA_VERSION && input.schemaRevision === LATEST_SCHEMA_REVISION) {
+        const project = normalizeProjectDocument(structuredClone(input));
+        const validation = validateProjectDocument(project);
+        return validation.valid
+            ? { project, migrated: false, error: null, backup: structuredClone(input) }
+            : { project: input, migrated: false, error: validation.errors.join('; '), backup: structuredClone(input) };
     }
 
-    if (version === undefined || version === null || version < 4) {
-        const v4Result = migrateToV4(input);
-        if (!v4Result.success) return { project: input, migrated: false, error: v4Result.error };
-        const v5Result = migrateV4toV5(v4Result.project);
-        if (v5Result.success) return { project: v5Result.project, migrated: true, error: null };
-        return { project: v4Result.project, migrated: true, error: `V4→V5 migration başarısız, V4 ile devam: ${v5Result.error}` };
-    }
+    const result = input.schemaVersion === 4 ? migrateV4toV5(input) : migrateLegacyToV5(input);
+    return result.success
+        ? { project: result.project, migrated: true, error: null, backup: result.backup }
+        : { project: input, migrated: false, error: result.error, backup: result.backup };
+}
 
-    return { project: input, migrated: false, error: `Bilinmeyen schemaVersion: ${version}` };
+function finalizeMigration(candidate, original, migratedFrom) {
+    const project = normalizeProjectDocument(candidate);
+    project.schemaVersion = LATEST_SCHEMA_VERSION;
+    project.schemaRevision = LATEST_SCHEMA_REVISION;
+    delete project.suggestionBundles;
+    repairLegacyAcceptanceMetadata(project);
+    const validation = validateProjectDocument(project);
+    if (!validation.valid) return failure(original, validation.errors.join('; '));
+    return {
+        success: true,
+        project,
+        backup: structuredClone(original),
+        migratedFrom
+    };
+}
+
+function repairLegacyAcceptanceMetadata(project) {
+    const warnings = [];
+    for (const requirement of project.requirements) {
+        if (requirement.status === 'accepted' && requirement.acceptanceCriteria.length === 0) {
+            requirement.acceptanceCriteria = ['Migration sonrası kabul kriteri kullanıcı tarafından doğrulanmalı.'];
+            warnings.push(`Gereksinim kabul kriteri tamamlandı: ${requirement.id}`);
+        }
+    }
+    for (const decision of project.decisions) {
+        if (decision.status === 'accepted' && !decision.rationale) {
+            decision.rationale = 'Eski kayıtta gerekçe bulunmadı; migration sonrası kullanıcı doğrulaması gerekiyor.';
+            warnings.push(`Karar gerekçesi tamamlandı: ${decision.id}`);
+        }
+    }
+    if (warnings.length > 0) {
+        project.metadata.migrationWarnings = [...(project.metadata.migrationWarnings || []), ...warnings];
+    }
+}
+
+function failure(original, error) {
+    return { success: false, error, project: null, backup: structuredClone(original) };
 }
 
 function copySection(project, id, content, items) {

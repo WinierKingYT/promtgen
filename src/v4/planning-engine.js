@@ -1,4 +1,4 @@
-import { applyDepthSelection, createProjectStateV4, getRequiredSections, PLANNING_PHASES } from './project-state-v4.js';
+import { applyDepthSelection, createProjectDocument, getRequiredSections, PLANNING_PHASES } from './project-document.js';
 import { normalizeDecision, normalizeObjective, normalizeRequirement, normalizeRisk, normalizeTask } from './canonical-entities.js';
 import { analyzeCanonicalTraceability } from './canonical-graph.js';
 
@@ -52,7 +52,7 @@ export function assessPlanningDepth(idea, importedContext = []) {
 
 export function analyzeIdea(idea, options = {}) {
     const planningDepth = assessPlanningDepth(idea, options.importedContext || []);
-    const project = createProjectStateV4({
+    const project = createProjectDocument({
         idea,
         name: options.name || inferProjectName(idea),
         outputLanguage: options.outputLanguage || 'tr',
@@ -64,7 +64,7 @@ export function analyzeIdea(idea, options = {}) {
     if (isShortIdea) {
         project.lifecycle.activePhase = PLANNING_PHASES.IDEA_EXPANSION;
     } else {
-        project.suggestionBundles.push(proposeNextOptions(project));
+        project.proposalStore.bundles.push(proposeNextOptions(project));
     }
     return recalculateReadiness(project);
 }
@@ -92,7 +92,7 @@ export function applyIdeaExpansion(project, { answers = {}, dimensions = [] } = 
     };
     next.lifecycle.activePhase = PLANNING_PHASES.DISCOVERY;
     next.lifecycle.updatedAt = new Date().toISOString();
-    next.suggestionBundles.push(proposeNextOptions(next));
+    next.proposalStore.bundles.push(proposeNextOptions(next));
     return recalculateReadiness(next);
 }
 
@@ -131,7 +131,7 @@ function suggestion({ kind, title, description, pros, cons, effort, impact, affe
 
 export function proposeNextOptions(project, options = {}) {
     const dismissed = new Set(project.dismissedSuggestionFingerprints || []);
-    const seen = new Set(project.suggestionBundles.flatMap(bundle => bundle.items).map(item => item.fingerprint));
+    const seen = new Set(project.proposalStore.bundles.flatMap(bundle => bundle.items).map(item => item.fingerprint));
     const ideaText = project.identity.originalIdea || 'Yeni Proje';
     const text = ideaText.toLowerCase();
     const direction = String(options.direction || '').trim();
@@ -247,7 +247,7 @@ export function proposeNextOptions(project, options = {}) {
     let items = candidates.filter(item => !dismissed.has(item.fingerprint) && !seen.has(item.fingerprint)).slice(0, 5);
 
     if (items.length < 3) {
-        const round = project.suggestionBundles.length + 1;
+        const round = project.proposalStore.bundles.length + 1;
         const dynamic = [
             suggestion({ kind: 'question', title: `Tur ${round}: ${ideaText.slice(0, 30)} kullanıcı değerini doğrula`, description: direction ? `"${direction.slice(0, 50)}" odağında en önemli sonucu kesinleştir.` : 'Bu turda en önemli kullanıcı sonucunu ve onu kanıtlayacak gözlemi kesinleştir.', pros: ['Ürün odağını korur'], cons: ['Kullanıcı araştırması gerektirebilir'], effort: 'low', impact: 'high', affectedSections: ['vision', 'objectives'] }),
             suggestion({ kind: 'risk', title: `Tur ${round}: ${ideaText.slice(0, 30)} en pahalı varsayımını test et`, description: 'Yanlış çıkarsa mimariyi veya kapsamı en çok değiştirecek varsayım için erken doğrulama görevi ekle.', pros: ['Geç yeniden çalışmayı azaltır'], cons: ['Kısa prototip gerekebilir'], effort: 'medium', impact: 'high', affectedSections: ['risks', 'tasks', 'testing'] }),
@@ -260,7 +260,7 @@ export function proposeNextOptions(project, options = {}) {
 
 export function updateSuggestionStatus(project, bundleId, suggestionId, status, editedDescription = '') {
     const next = structuredClone(project);
-    const bundle = next.suggestionBundles.find(item => item.id === bundleId);
+    const bundle = next.proposalStore.bundles.find(item => item.id === bundleId);
     const item = bundle?.items.find(entry => entry.id === suggestionId);
     if (!bundle || !item) return next;
     item.status = status;
@@ -277,7 +277,7 @@ function approvedItems(bundle) {
 }
 
 export function previewApprovedChanges(project, bundleId) {
-    const bundle = project.suggestionBundles.find(item => item.id === bundleId);
+    const bundle = project.proposalStore.bundles.find(item => item.id === bundleId);
     if (!bundle) return { canApply: false, reason: 'Öneri paketi bulunamadı.', acceptedCount: 0, pendingCount: 0, sections: [], records: { decisions: 0, risks: 0 }, nextRevision: project.revision };
     const accepted = approvedItems(bundle);
     const sectionChanges = new Map();
@@ -310,7 +310,7 @@ export function previewApprovedChanges(project, bundleId) {
 
 export function applyApprovedChanges(project, bundleId) {
     const next = structuredClone(project);
-    const bundle = next.suggestionBundles.find(item => item.id === bundleId);
+    const bundle = next.proposalStore.bundles.find(item => item.id === bundleId);
     if (!bundle) return project;
     if (bundle.items.some(item => item.status === 'pending')) return project;
     const accepted = approvedItems(bundle);
@@ -331,10 +331,18 @@ export function applyApprovedChanges(project, bundleId) {
             section.sourceSuggestionIds.push(item.id);
             affected.add(sectionId);
         }
-        if (item.kind === 'decision' || item.kind === 'architecture') next.decisions.push(normalizeDecision({ id: id('decision'), title: item.title, decision: description, status: 'accepted', sourceSuggestionId: item.id, affectedSectionIds: item.affectedSections }));
+        if (item.kind === 'decision' || item.kind === 'architecture') next.decisions.push(normalizeDecision({
+            id: id('decision'), title: item.title, decision: description,
+            rationale: item.recommendationReason || item.pros.join('; ') || 'Kullanıcı tarafından öneri paketinden kabul edildi.',
+            status: 'accepted', sourceSuggestionId: item.id, affectedSectionIds: item.affectedSections
+        }));
         if (item.kind === 'risk') next.risks.push(normalizeRisk({ id: id('risk'), title: item.title, description, status: 'open', sourceSuggestionId: item.id }));
         if (item.kind === 'feature' && item.affectedSections.includes('objectives')) next.objectives.push(normalizeObjective({ id: id('objective'), title: item.title, description, status: 'accepted', sourceSuggestionIds: [item.id] }));
-        if (item.kind === 'feature' && item.affectedSections.includes('requirements')) next.requirements.push(normalizeRequirement({ id: id('requirement'), title: item.title, statement: description, status: 'accepted', sourceSuggestionIds: [item.id] }));
+        if (item.kind === 'feature' && item.affectedSections.includes('requirements')) next.requirements.push(normalizeRequirement({
+            id: id('requirement'), title: item.title, statement: description,
+            acceptanceCriteria: [`${item.title} davranışı doğrulanabilir bir kabul testini geçmeli.`],
+            status: 'accepted', sourceSuggestionIds: [item.id]
+        }));
         if (item.kind === 'feature' && item.affectedSections.includes('tasks')) next.tasks.push(normalizeTask({ id: id('task'), title: item.title, description, status: 'backlog', sourceSuggestionIds: [item.id] }));
     }
     next.revision += 1;
@@ -387,7 +395,7 @@ export function recalculateReadiness(project) {
     const requiredSections = requiredIds.map(id => next.sections[id]).filter(Boolean);
     const filled = requiredSections.filter(section => section.content || section.items.length);
     const completeness = requiredSections.length ? Math.round(filled.length / requiredSections.length * 100) : 100;
-    const acceptedSuggestions = next.suggestionBundles.flatMap(bundle => bundle.items).filter(item => ['accepted', 'edited'].includes(item.status));
+    const acceptedSuggestions = next.proposalStore.bundles.flatMap(bundle => bundle.items).filter(item => ['accepted', 'edited'].includes(item.status));
     const graphReport = analyzeCanonicalTraceability(next).report;
     const suggestionTraceability = acceptedSuggestions.length ? Math.round(acceptedSuggestions.filter(item => item.affectedSections.length > 0).length / acceptedSuggestions.length * 100) : 0;
     const traceability = graphReport.stats.totalNodes > 0 ? graphReport.health.score : suggestionTraceability;
@@ -528,7 +536,8 @@ export function restorePlanRevision(project, reference) {
     next.exports = structuredClone(project.exports || []);
     next.revisions = structuredClone(project.revisions || []);
     next.messages = structuredClone(project.messages || []);
-    next.suggestionBundles = structuredClone(project.suggestionBundles || []);
+    next.proposalStore = { bundles: structuredClone(project.proposalStore?.bundles || []) };
+    next.commandLog = structuredClone(project.commandLog || []);
     next.dismissedSuggestionFingerprints = structuredClone(project.dismissedSuggestionFingerprints || []);
     next.metadata = { ...structuredClone(project.metadata || {}), restoredFromRevision: snapshot.revision };
     for (const section of Object.values(next.sections)) if (comparison.sections.some(change => change.sectionId === section.id)) section.updatedAtRevision = next.revision;
@@ -694,4 +703,3 @@ export function runConceptSimulation(project, approachId) {
 
     return { riskCount, taskEstimate, completenessScore };
 }
-

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { analyzeSelectedFiles, PROJECT_ANALYSIS_POLICY, projectInventoryContext, wrapUntrustedProjectContext } from '../../src/v4/project-analyzer.js';
 import { buildPlanningContext } from '../../src/v4/ai-context.js';
-import { createProjectStateV4 } from '../../src/v4/project-state-v4.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
 
 function selectedFile(path, content, type = 'text/plain') {
     return { name: path.split('/').at(-1), webkitRelativePath: path, size: new TextEncoder().encode(content).length, type, text: async () => content };
@@ -32,7 +32,7 @@ const limited = await analyzeSelectedFiles([selectedFile('a.ts', 'a'), selectedF
 assert.equal(limited.totals.included, 1);
 assert.equal(limited.excluded[0].reason, 'file_limit');
 
-const project = createProjectStateV4({ idea: 'Mevcut projeyi geliştir' });
+const project = createProjectDocument({ idea: 'Mevcut projeyi geliştir' });
 project.profile.projectInventory = report;
 const planningContext = buildPlanningContext(project);
 assert.match(planningContext.importedProject, /^<UNTRUSTED_PROJECT_INVENTORY>/);

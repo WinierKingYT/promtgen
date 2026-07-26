@@ -1,11 +1,8 @@
-// Type declarations for src/v4/provider-url-policy.js
+import type { ProviderMeta, ProviderSettings } from './provider-settings.js';
 
-export interface ProviderUrlPolicy {
-  allowedDomains: string[];
-  requireHttps: boolean;
-  maxRedirects: number;
-}
-
-export function normalizeProviderSettings(settings: any): any;
-export function validateProviderSettings(settings: any): { valid: boolean; errors: string[] };
-export function getProviderUrlPolicy(providerId: string): ProviderUrlPolicy;
+export function normalizeProviderBaseUrl(providerId: string, value?: string): string;
+export function normalizeProviderSettings(settings?: Partial<ProviderSettings>, catalogEntry?: Partial<ProviderMeta>): ProviderSettings;
+export function validateProviderSettings(settings?: Partial<ProviderSettings>, catalogEntry?: Partial<ProviderMeta>):
+  | { valid: true; settings: ProviderSettings; error: null }
+  | { valid: false; settings: null; error: string };
+export function getFixedProviderEndpoint(providerId: string): string;
