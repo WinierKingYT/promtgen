@@ -141,6 +141,7 @@ export function getAllEdgeStrengths() {
 export function getDefaultImpactRules() {
     return [
         { sourceType: NODE_TYPES.DECISION, edgeType: EDGE_TYPES.DRIVES, targetType: NODE_TYPES.ARCHITECTURE_COMPONENT, effect: IMPACT_EFFECTS.STALE, severity: IMPACT_SEVERITY.HIGH, propagate: true },
+        { sourceType: NODE_TYPES.DECISION, edgeType: EDGE_TYPES.DRIVES, targetType: NODE_TYPES.REQUIREMENT, effect: IMPACT_EFFECTS.REVIEW, severity: IMPACT_SEVERITY.HIGH, propagate: true },
         { sourceType: NODE_TYPES.REQUIREMENT, edgeType: EDGE_TYPES.IMPLEMENTS, targetType: NODE_TYPES.TASK, effect: IMPACT_EFFECTS.REVIEW, severity: IMPACT_SEVERITY.HIGH, propagate: false },
         { sourceType: NODE_TYPES.REQUIREMENT, edgeType: EDGE_TYPES.DRIVES, targetType: NODE_TYPES.DECISION, effect: IMPACT_EFFECTS.REVIEW, severity: IMPACT_SEVERITY.HIGH, propagate: true },
         { sourceType: NODE_TYPES.REQUIREMENT, edgeType: EDGE_TYPES.VALIDATED_BY, targetType: NODE_TYPES.TEST, effect: IMPACT_EFFECTS.REVIEW, severity: IMPACT_SEVERITY.MEDIUM, propagate: false },

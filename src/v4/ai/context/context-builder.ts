@@ -1,4 +1,5 @@
 import type { ProjectDocumentV5 } from '../../contracts.js';
+import { buildIdeaDiscussionContext } from '../../application/idea-discussion-service.js';
 
 export interface BudgetedContextResult {
   contextData: Record<string, unknown>;
@@ -39,7 +40,8 @@ export function buildBudgetedContext(
     identity,
     phase: project.lifecycle.activePhase,
     acceptedDecisions,
-    acceptedRequirements
+    acceptedRequirements,
+    ideaDiscussion: buildIdeaDiscussionContext(project)
   };
 
   let jsonString = JSON.stringify(contextData);
@@ -60,6 +62,34 @@ export function buildBudgetedContext(
     estimatedTokens = estimateTokenCount(jsonString);
     truncated = true;
     truncationReason = 'older-decisions-removed';
+  }
+  const ideaDiscussion = contextData.ideaDiscussion as {
+    accepted: unknown[];
+    deferred: unknown[];
+    rejected: unknown[];
+    pending: unknown[];
+  };
+  for (const [key, reason] of [
+    ['rejected', 'older-rejected-idea-records-removed'],
+    ['deferred', 'older-deferred-idea-records-removed'],
+    ['pending', 'older-pending-idea-records-removed'],
+    ['accepted', 'older-accepted-idea-records-removed']
+  ] as const) {
+    while (estimatedTokens > maxTokens && ideaDiscussion[key].length > (key === 'accepted' ? 1 : 0)) {
+      ideaDiscussion[key].shift();
+      jsonString = JSON.stringify(contextData);
+      estimatedTokens = estimateTokenCount(jsonString);
+      truncated = true;
+      truncationReason = reason;
+    }
+  }
+  if (estimatedTokens > maxTokens) {
+    identity.originalIdea = identity.originalIdea.slice(0, 800);
+    identity.summary = identity.summary.slice(0, 800);
+    jsonString = JSON.stringify(contextData);
+    estimatedTokens = estimateTokenCount(jsonString);
+    truncated = true;
+    truncationReason = 'identity-text-shortened';
   }
 
   return {

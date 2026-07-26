@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Archive, ArrowRight, Check, ChevronDown, CircleAlert, Code2, Download, Eye, Gauge, History, Lightbulb, LoaderCircle, Menu, MessageCircle, RotateCcw, Save, Send, Settings2, Sparkles } from 'lucide-react';
+import { Archive, ArrowRight, Check, ChevronDown, CircleAlert, Code2, Download, Eye, Gauge, GitBranch, History, Lightbulb, LoaderCircle, Menu, MessageCircle, RotateCcw, Save, Send, Settings2, Sparkles } from 'lucide-react';
 import { applyApprovedChanges, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../v4/planning-engine.js';
 import { PHASE_REGISTRY } from '../v4/project-document.js';
 import { createPromtgenPackage, downloadBlob, exportCanonicalMarkdown } from '../v4/exporter.js';
-import { runConversationalDiscoveryTurn } from '../v4/ai-discovery.js';
+import { generateImpactAnalysis, runConversationalDiscoveryTurn } from '../v4/ai-discovery.js';
 import { getProviderMeta } from '../v4/provider-settings.js';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../v4/task-compiler.js';
 import { IconButton, ProjectRail, SuggestionCard } from './components/WorkspaceChrome';
@@ -15,7 +15,8 @@ import { IdeExportDialog } from './components/IdeExportDialog';
 import { StorageHealthPanel } from './components/StorageHealthPanel';
 import { RuntimeHealthDialog } from './components/RuntimeHealthDialog';
 import { buildLocalPlanningMemory } from '../v4/planning-memory.js';
-import { ConceptSummaryPanel, ExtensionModulesPanel, IdeaLabPanel, ImpactAnalysisPanel } from './components/IdeaLabComponents';
+import { ConceptSummaryPanel, ExtensionModulesPanel, IdeaLabPanel } from './components/IdeaLabComponents';
+import { ChangeImpactPanel } from './components/ChangeImpactPanel.js';
 import { IdeaAmplifierPanel } from './components/IdeaAmplifierPanel';
 import { ArchitectureDiagramCard } from './components/ArchitectureDiagramCard.js';
 import { DecisionTimelineModal } from './components/DecisionTimelineModal.js';
@@ -29,6 +30,7 @@ import { RevisionHistoryDialog } from './components/RevisionHistoryDialog.js';
 import { FinalizePlanDialog } from './components/FinalizePlanDialog.js';
 import { GuidedHeaderBar } from './components/GuidedHeaderBar.js';
 import { LiveAnnouncer } from './components/LiveAnnouncer.js';
+import { IdeaDiscussionPanel } from './components/IdeaDiscussionPanel.js';
 import type { ProjectDocumentV5 } from '../v4/contracts.js';
 import type { ProviderSettings } from '../v4/provider-settings.js';
 import type { CredentialVault } from '../v4/credential-vault.js';
@@ -176,6 +178,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const [direction, setDirection] = useState('');
   const [focusedQuestion, setFocusedQuestion] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [changeImpactMode, setChangeImpactMode] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState(false);
 
   const [confirmingClearChat, setConfirmingClearChat] = useState(false);
@@ -218,6 +221,14 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     if (generating || !message) return;
     setGenerating(true);
     try {
+      if (changeImpactMode) {
+        const result = await generateImpactAnalysis(project, message, { pendingCommit: true });
+        setDirection('');
+        setFocusedQuestion('');
+        setChangeImpactMode(false);
+        commit(result.project, 'Değişiklik etkileri hesaplandı; canonical plan henüz değiştirilmedi.', 'ProposeChangeImpact');
+        return;
+      }
       const credential = await credentialVault.get(providerSettings.providerId) || '';
       const memory = providerSettings.useLocalMemory ? buildLocalPlanningMemory(projects, project.id) : null;
       const target = prepareDiscoveryTurnProject(project, currentBundle?.id);
@@ -267,6 +278,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const decisionComplete = !bundleResolved && pendingCount === 0;
   const bundleSource = currentBundle?.source?.type === 'ai' ? getProviderMeta(currentBundle.source.providerId).label : 'Yerel motor';
   const openQuestions = [...new Set((project.openQuestions || []).filter(Boolean))] as string[];
+  const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
 
   return <div className="app-shell">
     <a className="skip-link" href="#workspace-content">Ana içeriğe geç</a>
@@ -308,7 +320,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           )}
 
           {['CONCEPT_CONFIRMATION', 'IDEA_LAB'].includes(project.lifecycle.activePhase) && project.ideaLabSession?.conceptSummary && <ConceptSummaryPanel project={project} onCommit={commit} />}
-          {project.impactAnalyses?.some((x: any) => x.status === 'proposed') && <ImpactAnalysisPanel project={project} onCommit={commit} />}
+          {project.impactAnalyses?.some(impact => impact.status === 'proposed') && <ChangeImpactPanel project={project} onCommit={commit} />}
+          {['DISCOVERY', 'IDEA_LAB', 'CONCEPT_CONFIRMATION'].includes(project.lifecycle.activePhase) && <IdeaDiscussionPanel project={project} onCommit={commit} />}
           <section className="discovery-chat" aria-labelledby="discovery-chat-title">
             {/* Live Conversation Summary Bar */}
             <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#d1d5db' }}>
@@ -394,6 +407,17 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             )}
 
             <form className="discovery-composer" onSubmit={addBundle} style={{ marginTop: '12px' }}>
+              {hasCanonicalPlan && (
+                <div className="composer-mode-switch" role="group" aria-label="Mesaj işleme modu">
+                  <button type="button" className={!changeImpactMode ? 'active' : ''} aria-pressed={!changeImpactMode} onClick={() => setChangeImpactMode(false)}>
+                    Fikri tartış
+                  </button>
+                  <button type="button" className={changeImpactMode ? 'active impact' : ''} aria-pressed={changeImpactMode} onClick={() => setChangeImpactMode(true)}>
+                    <GitBranch size={14} /> Plan değişikliğini analiz et
+                  </button>
+                  {changeImpactMode && <small>Mesajın önce diff ve etki önizlemesine dönüşür; onayın olmadan plana uygulanmaz.</small>}
+                </div>
+              )}
               <label htmlFor="discovery-direction"><Sparkles size={16}/><span><b>{focusedQuestion || 'Soru sor, fikir ekle veya mimari kısıt belirt:'}</b><small>{focusedQuestion ? 'Seçilen soruya yanıtını yazıyorsun.' : 'Örn. Atların dayanıklılık statı olsun mu? Multiplayer senkronizasyon nasıl olmalı?'}</small></span></label>
               <div className="composer-row"><textarea id="discovery-direction" rows={2} value={direction} onChange={event => setDirection(event.target.value)} placeholder={focusedQuestion ? 'Bu soruya yanıtını yaz…' : 'Mesajını yaz…'}/><button className="primary" type="submit" disabled={!direction.trim() || generating}>{generating ? <LoaderCircle className="spin" size={17}/> : <Send size={17}/>}<span>{generating ? 'Yanıtla' : 'Gönder'}</span></button></div>
 

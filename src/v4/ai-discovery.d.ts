@@ -1,4 +1,4 @@
-import type { ExpansionDimension, ProjectDocumentV5 } from './contracts.js';
+import type { ExpansionDimension, ImpactAnalysis, ProjectDocumentV5 } from './contracts.js';
 import type { ProviderSettings } from './provider-settings.js';
 import type { LocalPlanningMemory } from './planning-memory.js';
 
@@ -24,5 +24,5 @@ export function runConversationalDiscoveryTurn(project: ProjectDocumentV5, optio
 export function localFallbackIdeaLab(project: ProjectDocumentV5): GenerationTurnResult;
 export function generateIdeaLabBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; ideaText?: string; signal?: AbortSignal }): Promise<GenerationTurnResult>;
 export function generateConceptSummary(project: ProjectDocumentV5, options?: { selectedApproachId?: string }): Promise<ProjectDocumentV5>;
-export function generateImpactAnalysis(project: ProjectDocumentV5, userRequest: string): Promise<unknown>;
+export function generateImpactAnalysis(project: ProjectDocumentV5, userRequest: string, options?: { pendingCommit?: boolean }): Promise<{ project: ProjectDocumentV5; impact: ImpactAnalysis }>;
 export function testProviderConnection(settings: Partial<ProviderSettings> & Pick<ProviderSettings, 'providerId' | 'model' | 'baseUrl'>, credential?: string, signal?: AbortSignal): Promise<ProviderConnectionResult>;

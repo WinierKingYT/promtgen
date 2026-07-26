@@ -239,6 +239,57 @@ export function normalizeExecutionSession(value = {}, index = 0) {
     };
 }
 
+export function normalizeImpactAnalysis(value = {}, index = 0) {
+    const source = typeof value === 'object' && value ? value : {};
+    const effects = Array.isArray(source.entityEffects) ? source.entityEffects.map(effect => ({
+        sourceEntityId: text(effect.sourceEntityId),
+        sourceType: text(effect.sourceType),
+        targetEntityId: text(effect.targetEntityId),
+        targetType: text(effect.targetType),
+        targetLabel: text(effect.targetLabel || effect.targetEntityId),
+        effect: ['invalidate', 'stale', 'regenerate', 'review', 'no_action'].includes(effect.effect) ? effect.effect : 'review',
+        severity: ['low', 'medium', 'high', 'critical'].includes(effect.severity) ? effect.severity : 'medium',
+        depth: Math.max(0, Number(effect.depth || 0))
+    })) : [];
+    const contradictions = list(source.contradictions);
+    const details = Array.isArray(source.contradictionDetails) ? source.contradictionDetails.map(detail => ({
+        decisionId: text(detail.decisionId),
+        decisionTitle: text(detail.decisionTitle),
+        decisionText: text(detail.decisionText),
+        resolution: ['supersede', 'keep'].includes(detail.resolution) ? detail.resolution : null
+    })) : [];
+    return {
+        id: entityId('impact', source, index),
+        baseRevision: Math.max(1, Number(source.baseRevision || 1)),
+        userRequest: text(source.userRequest),
+        summary: text(source.summary),
+        affectedSections: list(source.affectedSections),
+        changedEntityIds: list(source.changedEntityIds),
+        entityEffects: effects,
+        effectSummary: {
+            total: Number(source.effectSummary?.total ?? effects.length),
+            byEffect: source.effectSummary?.byEffect && typeof source.effectSummary.byEffect === 'object' ? { ...source.effectSummary.byEffect } : {},
+            bySeverity: source.effectSummary?.bySeverity && typeof source.effectSummary.bySeverity === 'object' ? { ...source.effectSummary.bySeverity } : {}
+        },
+        newTasks: list(source.newTasks),
+        architectureImpact: text(source.architectureImpact),
+        newRisks: list(source.newRisks),
+        contradictions,
+        contradictionDetails: details,
+        preview: {
+            nextRevision: Math.max(2, Number(source.preview?.nextRevision || Number(source.baseRevision || 1) + 1)),
+            requirementCount: Math.max(0, Number(source.preview?.requirementCount ?? 1)),
+            taskCount: Math.max(0, Number(source.preview?.taskCount ?? list(source.newTasks).length)),
+            testCount: Math.max(0, Number(source.preview?.testCount ?? 1)),
+            riskCount: Math.max(0, Number(source.preview?.riskCount ?? list(source.newRisks).length)),
+            traceLinkCount: Math.max(0, Number(source.preview?.traceLinkCount ?? 2))
+        },
+        status: ['proposed', 'accepted', 'rejected', 'stale'].includes(source.status) ? source.status : 'proposed',
+        createdAt: text(source.createdAt),
+        resolvedAt: text(source.resolvedAt) || null
+    };
+}
+
 export function normalizeProjectDocument(project) {
     if (!project || typeof project !== 'object') return project;
     const next = structuredClone(project);
@@ -257,6 +308,7 @@ export function normalizeProjectDocument(project) {
     next.evidence = (next.evidence || []).map(normalizeEvidence);
     next.reviewFindings = (next.reviewFindings || []).map(normalizeReviewFinding);
     next.simulationRuns = (next.simulationRuns || []).map(normalizeSimulationRun);
+    next.impactAnalyses = (next.impactAnalyses || []).map(normalizeImpactAnalysis);
     next.modules = {
         active: Array.isArray(next.modules?.active) ? next.modules.active.map(item => ({ id: text(item.id), version: text(item.version), enabledAtRevision: Number(item.enabledAtRevision || 0), config: item.config && typeof item.config === 'object' ? item.config : {} })).filter(item => item.id) : [],
         dismissed: list(next.modules?.dismissed),
@@ -265,6 +317,33 @@ export function normalizeProjectDocument(project) {
     next.executionSessions = (next.executionSessions || []).map(normalizeExecutionSession);
     next.exports = Array.isArray(next.exports) ? next.exports : [];
     next.commandLog = Array.isArray(next.commandLog) ? next.commandLog : [];
+    next.ideaDiscussion = {
+        mode: ['explore', 'challenge', 'compare', 'clarify'].includes(next.ideaDiscussion?.mode) ? next.ideaDiscussion.mode : 'explore',
+        records: Array.isArray(next.ideaDiscussion?.records) ? next.ideaDiscussion.records.filter(item => item && item.id && item.text).map(item => ({
+            id: text(item.id),
+            kind: ['decision', 'hypothesis', 'risk', 'question'].includes(item.kind) ? item.kind : 'hypothesis',
+            text: text(item.text),
+            originalText: text(item.originalText || item.text),
+            note: text(item.note),
+            answer: text(item.answer),
+            rationale: text(item.rationale),
+            validationPlan: text(item.validationPlan),
+            history: Array.isArray(item.history) ? item.history.map(entry => ({
+                editedAt: text(entry.editedAt),
+                text: text(entry.text),
+                note: text(entry.note),
+                answer: text(entry.answer),
+                rationale: text(entry.rationale),
+                validationPlan: text(entry.validationPlan)
+            })) : [],
+            status: ['pending', 'accepted', 'deferred', 'rejected'].includes(item.status) ? item.status : 'pending',
+            sourceBundleId: text(item.sourceBundleId),
+            sourceMessageId: text(item.sourceMessageId),
+            createdAt: text(item.createdAt),
+            ...(item.resolvedAt ? { resolvedAt: text(item.resolvedAt) } : {})
+        })) : [],
+        updatedAt: text(next.ideaDiscussion?.updatedAt)
+    };
     next.metadata = { ...(next.metadata || {}), canonicalModelVersion: CANONICAL_MODEL_VERSION };
     return next;
 }

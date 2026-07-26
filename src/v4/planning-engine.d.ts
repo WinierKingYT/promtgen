@@ -34,7 +34,5 @@ export function comparePlanRevisions(project: ProjectDocumentV5, fromReference: 
 export function captureCurrentRevision(project: ProjectDocumentV5, summary?: string): ProjectDocumentV5;
 export function restorePlanRevision(project: ProjectDocumentV5, reference: any): { success: boolean; project: ProjectDocumentV5; reason: string; restoredFromRevision?: number };
 export function confirmConceptSummary(project: ProjectDocumentV5): ProjectDocumentV5;
-export function applyImpactAnalysis(project: ProjectDocumentV5, impactId: string): ProjectDocumentV5;
 export function applyExtensionModules(project: ProjectDocumentV5, extensionPackageNames: string[]): ProjectDocumentV5;
-export function resolveImpactContradiction(project: ProjectDocumentV5, impactId: string, decisionId: string, action?: string): ProjectDocumentV5;
 export function runConceptSimulation(project: ProjectDocumentV5, approachId: string): any;
