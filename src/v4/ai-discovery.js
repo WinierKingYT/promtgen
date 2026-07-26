@@ -1,7 +1,7 @@
 import { buildPlanningContext, createProvider } from './ai-context.js';
 import { addExplorationMessage, proposeNextOptions } from './planning-engine.js';
 import { normalizeProviderSettings, validateProviderSettings } from './provider-url-policy.js';
-import { ideaLabSchema } from './ai-schemas.js';
+import { ideaLabSchema, discoverySchema, DISCOVERY_SCHEMA_ID } from './ai-schemas.js';
 
 const VALID_SECTIONS = new Set(['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment', 'operations']);
 const VALID_KINDS = new Set(['feature', 'decision', 'risk', 'question', 'architecture']);
@@ -134,7 +134,7 @@ function mapAiBundle(project, response, providerId) {
             requestedAt: now,
             completedAt: now,
             fallbackReason: null,
-            schemaId: 'discovery-bundle-v1',
+            schemaId: DISCOVERY_SCHEMA_ID,
             schemaVersion: 1
         }
     };
@@ -200,7 +200,7 @@ function contextualFallback(project, direction, reason = '') {
             requestedAt: now,
             completedAt: now,
             fallbackReason: reason || null,
-            schemaId: 'discovery-bundle-v1',
+            schemaId: DISCOVERY_SCHEMA_ID,
             schemaVersion: 1
         }
     };
@@ -225,7 +225,7 @@ export async function generateDiscoveryBundle(project, { settings, credential = 
         if (recentMessages.length > 0) {
             context.conversationHistory = recentMessages.map(m => ({ role: m.role, content: String(m.content || '').slice(0, 400) }));
         }
-        const response = await provider.structured({ system: buildDiscoverySystemPrompt(project), context, signal: requestSignal });
+        const response = await provider.structured({ system: buildDiscoverySystemPrompt(project), context, schema: discoverySchema, signal: requestSignal });
         const bundle = mapAiBundle(project, response, settings.providerId);
         if (!bundle) throw new Error('AI yeterli sayıda yeni ve benzersiz seçenek üretmedi.');
         return { bundle, usedFallback: false, error: null };

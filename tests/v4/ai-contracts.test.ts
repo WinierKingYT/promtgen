@@ -48,4 +48,93 @@ describe('Category 2: AI & Prompt Architecture Contracts', () => {
     assert.equal(parsed.approaches.length, 2);
     assert.equal(parsed.approaches[0].title, 'Sade Web MVP');
   });
+
+  describe('discoverySchema contracts', () => {
+    const validDiscoveryPayload = {
+      reply: 'Mimari değerlendirmem...',
+      analysisNote: 'Bu projeye özgü efor ve risk analizi',
+      summary: 'Proje mimarisi için 3 kritik karar',
+      options: [
+        {
+          kind: 'feature',
+          title: 'Özellik 1',
+          description: 'Açıklama',
+          pros: ['Artı'],
+          cons: ['Eksi'],
+          effort: 'low',
+          impact: 'high',
+          affectedSections: ['scope'],
+          recommended: true
+        },
+        {
+          kind: 'decision',
+          title: 'Özellik 2',
+          description: 'Açıklama',
+          pros: ['Artı'],
+          cons: ['Eksi'],
+          effort: 'medium',
+          impact: 'medium',
+          affectedSections: ['architecture'],
+          recommended: false
+        },
+        {
+          kind: 'risk',
+          title: 'Özellik 3',
+          description: 'Açıklama',
+          pros: ['Artı'],
+          cons: ['Eksi'],
+          effort: 'high',
+          impact: 'low',
+          affectedSections: ['risks'],
+          recommended: false
+        }
+      ],
+      openQuestions: ['Soru 1?']
+    };
+
+    it('validates complete discovery payload with reply and analysisNote', () => {
+      const parsed = validateSuggestionResponse(validDiscoveryPayload, discoverySchema);
+      assert.equal(parsed.reply, 'Mimari değerlendirmem...');
+      assert.equal(parsed.analysisNote, 'Bu projeye özgü efor ve risk analizi');
+      assert.equal(parsed.summary, 'Proje mimarisi için 3 kritik karar');
+      assert.equal(parsed.options.length, 3);
+      assert.equal(parsed.openQuestions.length, 1);
+    });
+
+    it('provides defaults for missing reply and analysisNote', () => {
+      const { reply, analysisNote, ...payloadWithoutOptional } = validDiscoveryPayload;
+      const parsed = validateSuggestionResponse(payloadWithoutOptional, discoverySchema);
+      assert.equal(parsed.reply, '', 'reply defaults to empty string');
+      assert.equal(parsed.analysisNote, '', 'analysisNote defaults to empty string');
+    });
+
+    it('rejects discovery payload with invalid affectedSections', () => {
+      const invalid = {
+        ...validDiscoveryPayload,
+        options: validDiscoveryPayload.options.map(o => ({
+          ...o,
+          affectedSections: ['unknown_section']
+        }))
+      };
+      assert.throws(() => validateSuggestionResponse(invalid, discoverySchema));
+    });
+
+    it('rejects discovery payload with too few options', () => {
+      const invalid = {
+        ...validDiscoveryPayload,
+        options: validDiscoveryPayload.options.slice(0, 2)
+      };
+      assert.throws(() => validateSuggestionResponse(invalid, discoverySchema));
+    });
+
+    it('rejects discovery payload with empty summary', () => {
+      const invalid = { ...validDiscoveryPayload, summary: '' };
+      assert.throws(() => validateSuggestionResponse(invalid, discoverySchema));
+    });
+
+    it('rejects discovery payload with summary exceeding 1200 chars', () => {
+      const invalid = { ...validDiscoveryPayload, summary: 'x'.repeat(1201) };
+      assert.throws(() => validateSuggestionResponse(invalid, discoverySchema));
+    });
+  });
 });

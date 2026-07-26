@@ -3,6 +3,8 @@ import {
 } from './ids.js';
 import { GenerationProvenance } from '../contracts.js';
 
+export type { ProjectId, RequirementId, DecisionId, RiskId, TaskId, MilestoneId, ProposalId, ScopeItemId, AcceptanceCriterionId, TestCaseId } from './ids.js';
+
 export type KnowledgeStatus = 'user-stated' | 'user-approved' | 'imported' | 'inferred' | 'ai-proposed' | 'deprecated' | 'conflicted';
 
 export type RequirementCategory = 'functional' | 'non-functional' | 'business' | 'compliance' | 'operational';
@@ -17,6 +19,8 @@ export type RiskStatus = 'identified' | 'mitigating' | 'accepted' | 'resolved' |
 export type TaskType = 'implementation' | 'design' | 'research' | 'testing' | 'documentation' | 'operations';
 export type TaskStatus = 'proposed' | 'ready' | 'in-progress' | 'blocked' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export type PlanningDepth = 'quick' | 'standard' | 'advanced' | 'enterprise';
 
 export interface EntityProvenance {
   origin: 'user' | 'ai' | 'rule-engine' | 'import' | 'system';

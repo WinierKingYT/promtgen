@@ -18,7 +18,9 @@ export interface AITaskDefinition<T> {
   description: string;
 }
 
-export const TASK_REGISTRY: Record<string, AITaskDefinition<any>> = {
+const baseSchema = discoverySchema as ZodSchema<any>;
+
+export const TASK_REGISTRY: Record<AITaskType, AITaskDefinition<any>> = {
   discovery: {
     id: 'discovery',
     promptVersion: '1.0.0',
@@ -39,9 +41,37 @@ export const TASK_REGISTRY: Record<string, AITaskDefinition<any>> = {
     schemaId: ARCHITECTURE_REVIEW_SCHEMA_ID,
     schema: architectureReviewSchema,
     description: 'Planın mimari çelişkilerini, risklerini ve kalite skorunu değerlendirir.'
+  },
+  'idea-expansion': {
+    id: 'idea-expansion',
+    promptVersion: '1.0.0',
+    schemaId: DISCOVERY_SCHEMA_ID,
+    schema: baseSchema,
+    description: 'Kısa fikirleri genişletir ve yapılandırır.'
+  },
+  'decision-proposal': {
+    id: 'decision-proposal',
+    promptVersion: '1.0.0',
+    schemaId: DISCOVERY_SCHEMA_ID,
+    schema: baseSchema,
+    description: 'Karar önerisi üretir.'
+  },
+  'risk-analysis': {
+    id: 'risk-analysis',
+    promptVersion: '1.0.0',
+    schemaId: DISCOVERY_SCHEMA_ID,
+    schema: baseSchema,
+    description: 'Risk analizi yapar.'
+  },
+  'task-compilation': {
+    id: 'task-compilation',
+    promptVersion: '1.0.0',
+    schemaId: DISCOVERY_SCHEMA_ID,
+    schema: baseSchema,
+    description: 'Görev planı derler.'
   }
 };
 
 export function getTaskDefinition(taskId: AITaskType): AITaskDefinition<any> {
-  return TASK_REGISTRY[taskId] || TASK_REGISTRY.discovery;
+  return TASK_REGISTRY[taskId] ?? TASK_REGISTRY.discovery;
 }

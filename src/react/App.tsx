@@ -30,250 +30,20 @@ import { ProjectHealthRadarCard } from './components/ProjectHealthRadarCard.js';
 import { ArchitectSmartTipsWidget } from './components/ArchitectSmartTipsWidget.js';
 import { ProjectInventoryModal } from './components/ProjectInventoryModal.js';
 import { AgentCommitteeModal } from './components/AgentCommitteeModal.js';
+import { StartScreen } from './components/StartScreen.js';
+import { ProviderSettingsDialog } from './components/ProviderSettingsDialog.js';
+import { RevisionHistoryDialog } from './components/RevisionHistoryDialog.js';
+import { FinalizePlanDialog } from './components/FinalizePlanDialog.js';
+import { useProjectState } from './hooks/useProjectState.js';
 
 
 type Project = any;
-const repository = createPlatformRepository();
-const credentialVault = createCredentialVault();
 const depths = [
   { id: 'quick', label: 'Quick', detail: 'Fikir → kapsam → görevler' },
   { id: 'standard', label: 'Standard', detail: 'Dengeli ürün ve teknik plan' },
   { id: 'advanced', label: 'Advanced', detail: 'Güvenlik ve dağıtım dahil' },
   { id: 'enterprise', label: 'Enterprise', detail: 'Tam operasyonel mimari' }
 ];
-
-function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, onProviderSettings }: { onCreate: (idea: string, language: string, files: File[], nativeInventory?: any) => Promise<void>; onImport: (file: File) => void; projects: Project[]; onOpen: (id: string) => void; providerSettings: any; onProviderSettings: (settings: any) => void }) {
-  const [idea, setIdea] = useState('');
-  const [language, setLanguage] = useState('tr');
-  const [files, setFiles] = useState<File[]>([]);
-  const [nativeInventory, setNativeInventory] = useState<any>(null);
-  const [selectingFolder, setSelectingFolder] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const packageRef = useRef<HTMLInputElement>(null);
-  const appendFiles = (incoming: FileList | null) => { setNativeInventory(null); setFiles(current => [...current, ...Array.from(incoming || [])]); };
-  const chooseDesktopFolder = async () => {
-    setSelectingFolder(true);
-    try { const report = await selectDesktopProjectFolder(); if (report) { setFiles([]); setNativeInventory(report); } }
-    finally { setSelectingFolder(false); }
-  };
-  return <main className="start-shell">
-    <div className="start-mark"><Sparkles size={20} /> PROMTGEN / LOCAL-FIRST</div>
-    <section className="start-card" aria-labelledby="start-title">
-      <div className="eyebrow">YAŞAYAN PROJE MİMARI · V4</div>
-      <h1 id="start-title">Fikrini söyle.<br/><span>Planı birlikte büyütelim.</span></h1>
-      <p className="lead">Kısa bir düşünceden, kararları sana ait olan uygulanabilir bir proje planına. Teknolojiyi baştan bilmen gerekmiyor.</p>
-      <label className="idea-box">
-        <span>Ne yapmak istiyorsun?</span>
-        <textarea
-          value={idea}
-          onChange={event => setIdea(event.target.value)}
-          onKeyDown={event => {
-            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-              if (idea.trim().length >= 10 && !creating) {
-                event.preventDefault();
-                setCreating(true);
-                onCreate(idea, language, files, nativeInventory).finally(() => setCreating(false));
-              }
-            }
-          }}
-          rows={5}
-          placeholder="Örn. Yerel çalışan, kısa bir fikri adım adım geliştirip kodlama ajanları için plana dönüştüren bir uygulama..."
-          autoFocus
-        />
-        <div className="idea-footer">
-          <span>{idea.length} karakter {idea.length < 50 ? '(🔭 Fikir Büyütücü açılacak)' : ''}</span>
-          <span style={{ color: idea.trim().length >= 10 ? '#10b981' : '#f59e0b' }}>
-            {idea.trim().length < 10 ? 'Min. 10 karakter gerekli' : 'Ctrl + Enter ile başlat'}
-          </span>
-        </div>
-      </label>
-      {/* Sample Idea Chips */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0 16px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '11px', color: '#9ca3af' }}>Örnek Fikirler:</span>
-        <button
-          type="button"
-          onClick={() => setIdea('Yerel çalışan, çevrimdışı destekli ve bildirimli kişisel alışkanlık takip uygulaması yapmak istiyorum.')}
-          style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#ddd6fe', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', cursor: 'pointer' }}
-        >
-          📱 Mobil Alışkanlık Takipçisi
-        </button>
-        <button
-          type="button"
-          onClick={() => setIdea('KOBİ\'ler için sipariş, stok, fatura ve müşteri yönetim paneli tasarlamak istiyorum.')}
-          style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#ddd6fe', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', cursor: 'pointer' }}
-        >
-          🌐 E-Ticaret Yönetim Paneli
-        </button>
-        <button
-          type="button"
-          onClick={() => setIdea('Fizik tabanlı, modüler ve eklenti destekli 2D arcade oyunu geliştirmek istiyorum.')}
-          style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#ddd6fe', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', cursor: 'pointer' }}
-        >
-          🎮 2D Arcade Oyun Projesi
-        </button>
-      </div>
-
-      <div className="start-actions">
-        <label className="file-action"><FolderOpen size={17}/> Proje dosyaları<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)}/></label>
-        {isDesktopProjectImportAvailable() ? <button type="button" className="file-action" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17}/> : <FolderOpen size={17}/>} Proje klasörü</button> : <label className="file-action"><FolderOpen size={17}/> Proje klasörü<input type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as any)} onChange={event => appendFiles(event.target.files)}/></label>}
-        <button className="file-action" onClick={() => setSettingsOpen(true)}><Settings2 size={17}/> AI: {getProviderMeta(providerSettings.providerId).label}</button>
-        <label>Çıktı dili<select value={language} onChange={event => setLanguage(event.target.value)}><option value="tr">Türkçe</option><option value="en">English (Partial Beta)</option></select></label>
-        <button className="primary" disabled={idea.trim().length < 10 || creating} onClick={async () => { setCreating(true); try { await onCreate(idea, language, files, nativeInventory); } finally { setCreating(false); } }}>{creating ? <><LoaderCircle className="spin" size={18}/> Fikir analiz ediliyor</> : <>Fikri analiz et <ArrowRight size={18}/></>}</button>
-      </div>
-
-      {/* Individual Attached Files Removable Chips */}
-      {files.length > 0 && (
-        <div style={{ marginTop: '12px', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#a78bfa', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📁 Eklenen Dosyalar ({files.length}):</span>
-            <button type="button" onClick={() => setFiles([])} style={{ background: 'none', border: 'none', color: '#fca5a5', fontSize: '10px', cursor: 'pointer' }}>Tümünü Temizle</button>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {files.map((file, idx) => (
-              <span key={`${file.name}-${idx}`} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#d1d5db', fontSize: '11px', padding: '2px 8px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                {file.name}
-                <button
-                  type="button"
-                  onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
-                  style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: 0, fontSize: '12px', lineHeight: 1 }}
-                >
-                  <X size={12}/>
-                </button>
-              </span>
-            ))}
-          </div>
-          <p className="context-note" style={{ margin: '6px 0 0 0' }}>Dosyalar cihazda güvenlik taramasından geçirilir. Ham içerik saklanmaz.</p>
-        </div>
-      )}
-      {nativeInventory && <p className="context-note">{nativeInventory.rootName}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe güvenlik politikasıyla dışarıda bırakıldı.</p>}
-      <div className="import-row"><span>Daha önce başladın mı?</span><button className="text-button" onClick={() => packageRef.current?.click()}><Download size={16}/> .promtgen paketi aç</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => event.target.files?.[0] && onImport(event.target.files[0])}/></div>
-      <PortfolioOverview projects={projects} onOpen={onOpen}/>
-    </section>
-    <footer>
-      {['offline', 'ollama'].includes(providerSettings.providerId)
-        ? 'Hesap yok · Plan cihazında · Bulut AI bağlantısı yok'
-        : `Hesap yok · Plan cihazında · Seçili AI sağlayıcısına (${getProviderMeta(providerSettings.providerId).label}) filtrelenmiş bağlam gönderilir`}
-    </footer>
-    <ProviderSettingsDialog open={settingsOpen} settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)}/>
-  </main>;
-}
-
-function ProviderSettingsDialog({ open, settings, onSave, onClose }: any) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [draftSettings, setDraftSettings] = useState(settings);
-  const [credential, setCredential] = useState('');
-  const [showCredential, setShowCredential] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const provider = getProviderMeta(draftSettings.providerId);
-
-  useEffect(() => {
-    if (!open) return;
-    setDraftSettings(settings);
-    setResult(null);
-    credentialVault.get(settings.providerId).then((value: string | null) => setCredential(value || ''));
-    if (!dialogRef.current?.open) dialogRef.current?.showModal();
-  }, [open, settings]);
-
-  const chooseProvider = async (providerId: string) => {
-    const meta = getProviderMeta(providerId);
-    setDraftSettings((current: any) => ({ ...current, providerId, model: meta.defaultModel, baseUrl: meta.defaultBaseUrl || '' }));
-    setCredential(await credentialVault.get(providerId) || '');
-    setResult(null);
-  };
-  const test = async () => {
-    if (provider.credentialRequired && !credential.trim()) { setResult({ ok: false, message: 'Bu sağlayıcı için API anahtarı gerekli.' }); return; }
-    const validation = validateProviderSettings(draftSettings, provider);
-    if (!validation.valid) { setResult({ ok: false, message: validation.error, providerId: draftSettings.providerId, latencyMs: 0, errorCode: 'configuration' }); return; }
-    setTesting(true); setResult(null);
-    try { setResult(await testProviderConnection(draftSettings, credential.trim())); }
-    finally { setTesting(false); }
-  };
-  const save = async () => {
-    const validation = validateProviderSettings(draftSettings, provider);
-    if (!validation.valid) { setResult({ ok: false, message: validation.error, providerId: draftSettings.providerId, latencyMs: 0, errorCode: 'configuration' }); return; }
-    if (credential.trim()) await credentialVault.set(draftSettings.providerId, credential.trim());
-    else await credentialVault.remove(draftSettings.providerId);
-    onSave(saveProviderSettings(draftSettings));
-    dialogRef.current?.close(); onClose();
-  };
-
-  return <dialog ref={dialogRef} className="provider-dialog" aria-labelledby="provider-dialog-title" onCancel={onClose} onClose={onClose}>
-    <div className="dialog-head"><div className="dialog-icon"><Bot size={20}/></div><div><span className="meta">AI YAPILANDIRMASI</span><h2 id="provider-dialog-title">Planlama motoru</h2></div><IconButton label="Ayarları kapat" onClick={() => { dialogRef.current?.close(); onClose(); }}><X size={18}/></IconButton></div>
-    <p className="dialog-lead">AI yalnızca filtrelenmiş canonical plan bağlamını görür. Ürettiği hiçbir değişiklik sen onaylamadan plana uygulanmaz.</p>
-    <fieldset className="provider-options"><legend>Sağlayıcı</legend>{PROVIDER_CATALOG.map(item => <label key={item.id} className={draftSettings.providerId === item.id ? 'active' : ''}><input type="radio" name="provider" value={item.id} checked={draftSettings.providerId === item.id} onChange={() => chooseProvider(item.id)}/><span className="provider-radio"/><span><b>{item.label}</b><small>{item.description}</small></span>{item.id === 'offline' && <em>Varsayılan</em>}</label>)}</fieldset>
-    <div className="provider-fields">
-      <label htmlFor="provider-model">Model<input id="provider-model" value={draftSettings.model} onChange={event => setDraftSettings({ ...draftSettings, model: event.target.value })} disabled={draftSettings.providerId === 'offline'}/></label>
-      {draftSettings.providerId === 'ollama' && <label htmlFor="provider-url">Yerel Ollama adresi<input id="provider-url" type="url" value={draftSettings.baseUrl} onChange={event => setDraftSettings({ ...draftSettings, baseUrl: event.target.value.replace(/\/$/, '') })}/><small>Yalnız localhost veya loopback adresleri kabul edilir.</small></label>}
-      {['openai', 'nvidia'].includes(draftSettings.providerId) && <label htmlFor="provider-url">Sabit API adresi<input id="provider-url" type="url" value={draftSettings.baseUrl} readOnly aria-readonly="true"/></label>}
-      {provider.credentialRequired && <label htmlFor="provider-credential">API anahtarı<div className="secret-input"><KeyRound size={16}/><input id="provider-credential" type={showCredential ? 'text' : 'password'} value={credential} autoComplete="off" onChange={event => setCredential(event.target.value)} placeholder="Yalnızca bu oturumda saklanır"/><IconButton label={showCredential ? 'Anahtarı gizle' : 'Anahtarı göster'} onClick={() => setShowCredential(value => !value)}>{showCredential ? <EyeOff size={16}/> : <Eye size={16}/>}</IconButton></div></label>}
-    </div>
-    <label className="memory-toggle"><input type="checkbox" checked={draftSettings.useLocalMemory === true} onChange={event => setDraftSettings({ ...draftSettings, useLocalMemory: event.target.checked })}/><span><b>Yerel proje tercihlerimi kullan</b><small>Geçmiş projelerin ham metni paylaşılmaz. Yalnız toplulaştırılmış plan derinliği, karar türü, bölüm ve modül eğilimleri yeni AI turlarına eklenir.</small></span></label>
-    <div className="privacy-callout"><ShieldCheck size={18}/><span><b>{draftSettings.providerId === 'ollama' || draftSettings.providerId === 'offline' ? 'Bağlam cihazda kalır' : 'Kontrollü bağlam paylaşımı'}</b><small>{provider.credentialRequired ? 'Web anahtarı oturum belleğinde; masaüstü anahtarı işletim sistemi kasasında tutulur.' : 'API anahtarı veya bulut bağlantısı gerektirmez.'}</small></span></div>
-    {result && <div className={`connection-result ${result.ok ? 'ok' : 'error'}`} role="status">{result.ok ? <Check size={16}/> : <CircleAlert size={16}/>}<span>{result.message}<small>{result.providerId} · {result.latencyMs} ms{result.errorCode ? ` · ${result.errorCode}` : ''}</small></span></div>}
-    <div className="dialog-actions"><button onClick={test} disabled={testing}>{testing ? <LoaderCircle className="spin" size={16}/> : <Wifi size={16}/>} Bağlantıyı test et</button><button className="primary" onClick={save}><Save size={16}/> Ayarları kaydet</button></div>
-  </dialog>;
-}
-
-function RevisionHistoryDialog({ open, project, onRestore, onClose }: any) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const revisions = useMemo(() => [...project.revisions].filter((revision: any) => revision.snapshot).sort((a: any, b: any) => b.number - a.number), [project.revisions]);
-  const defaultFrom = revisions.find((revision: any) => revision.number < project.revision)?.id || revisions[0]?.id || 'current';
-  const [from, setFrom] = useState(defaultFrom);
-  const [to, setTo] = useState('current');
-  const [confirmRestore, setConfirmRestore] = useState(false);
-  const comparison = useMemo(() => comparePlanRevisions(project, from, to), [project, from, to]);
-  const selectedRevision = revisions.find((revision: any) => revision.id === from);
-
-  useEffect(() => {
-    if (!open) return;
-    const nextFrom = revisions.find((revision: any) => revision.number < project.revision)?.id || revisions[0]?.id || 'current';
-    setFrom(nextFrom); setTo('current'); setConfirmRestore(false);
-    if (!dialogRef.current?.open) dialogRef.current?.showModal();
-  }, [open, project.id, project.revision]);
-
-  const close = () => { dialogRef.current?.close(); onClose(); };
-  return <dialog ref={dialogRef} className="revision-dialog" aria-labelledby="revision-dialog-title" onCancel={close} onClose={onClose}>
-    <div className="dialog-head"><div className="dialog-icon"><History size={20}/></div><div><span className="meta">SÜRÜM GEÇMİŞİ</span><h2 id="revision-dialog-title">Plan revision’larını karşılaştır</h2></div><IconButton label="Geçmişi kapat" onClick={close}><X size={18}/></IconButton></div>
-    <div className="revision-body">
-      {revisions.length === 0 ? <div className="empty-history"><History size={25}/><b>Henüz karşılaştırılabilir snapshot yok</b><p>İlk plan değişikliğinden sonra revision geçmişi burada görünecek.</p></div> : <>
-        <div className="revision-selectors">
-          <label htmlFor="revision-from">Eski sürüm<select id="revision-from" value={from} onChange={event => { setFrom(event.target.value); setConfirmRestore(false); }}>{revisions.map((revision: any) => <option key={revision.id} value={revision.id}>r{revision.number} — {revision.summary}</option>)}</select></label>
-          <ArrowRight size={18}/>
-          <label htmlFor="revision-to">Yeni sürüm<select id="revision-to" value={to} onChange={event => setTo(event.target.value)}><option value="current">r{project.revision} — Güncel plan</option>{revisions.map((revision: any) => <option key={revision.id} value={revision.id}>r{revision.number} — {revision.summary}</option>)}</select></label>
-        </div>
-        {comparison.valid && <div className="revision-summary" role="status" aria-live="polite"><span><b>{comparison.summary.changedSections}</b> bölüm</span><span className="added"><b>+{comparison.summary.addedLines + comparison.summary.addedItems}</b> ekleme</span><span className="removed"><b>−{comparison.summary.removedLines + comparison.summary.removedItems}</b> kaldırma</span></div>}
-        <div className="revision-diffs">
-          {comparison.valid && comparison.sections.length === 0 && <p className="no-diff">Seçilen revision’lar arasında canonical plan farkı yok.</p>}
-          {comparison.sections.map((section: any) => <details key={section.sectionId} open><summary><span><b>{section.title}</b><small>{section.beforeStatus} → {section.afterStatus}</small></span><ChevronDown size={15}/></summary><div className="line-diff" aria-label={`${section.title} satır farkları`}>{section.content.map((line: any, index: number) => <div key={`${line.type}-${index}`} className={line.type}><span>{line.type === 'added' ? '+' : line.type === 'removed' ? '−' : ' '}</span><code>{line.text || ' '}</code></div>)}</div>{(section.addedItems.length > 0 || section.removedItems.length > 0) && <div className="item-diff">{section.removedItems.map((item: string) => <p className="removed" key={`removed-${item}`}>− {item}</p>)}{section.addedItems.map((item: string) => <p className="added" key={`added-${item}`}>+ {item}</p>)}</div>}</details>)}
-        </div>
-      </>}
-    </div>
-    {revisions.length > 0 && <div className="revision-actions">{confirmRestore ? <div className="restore-confirm" role="alert"><span><b>r{selectedRevision?.number} planı geri yüklensin mi?</b><small>Mevcut geçmiş ve exportlar korunacak; sonuç r{project.revision + 1} olarak kaydedilecek.</small></span><button onClick={() => { onRestore(from); close(); }}>Evet, yeni revision oluştur</button><button onClick={() => setConfirmRestore(false)}>Vazgeç</button></div> : <><span>Geri yükleme mevcut planın üzerine yazmaz.</span><button disabled={!selectedRevision || selectedRevision.number === project.revision} onClick={() => setConfirmRestore(true)}><RotateCcw size={15}/> Seçili sürümü geri yükle</button></>}</div>}
-  </dialog>;
-}
-
-function FinalizePlanDialog({ blockers, onConfirm, onClose }: { blockers: string[]; onConfirm: () => void; onClose: () => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const open = blockers.length > 0;
-
-  useEffect(() => {
-    if (open && !dialogRef.current?.open) dialogRef.current?.showModal();
-    if (!open && dialogRef.current?.open) dialogRef.current.close();
-  }, [open]);
-
-  const close = () => { dialogRef.current?.close(); onClose(); };
-  return <dialog ref={dialogRef} className="confirm-dialog" aria-labelledby="finalize-dialog-title" aria-describedby="finalize-dialog-description" onCancel={close} onClose={onClose}>
-    <div className="dialog-head"><div className="dialog-icon warning"><CircleAlert size={20}/></div><div><span className="meta">HAZIRLIK UYARISI</span><h2 id="finalize-dialog-title">Plan henüz tamamen hazır değil</h2></div><IconButton label="Finalizasyon uyarısını kapat" onClick={close}><X size={18}/></IconButton></div>
-    <div className="confirm-body">
-      <p id="finalize-dialog-description">{blockers.length} eksik veya geçersiz bölüm var. Planı şimdi finalleştirebilirsin; uyarılar revision geçmişinde korunur.</p>
-      <ul>{blockers.slice(0, 8).map(blocker => <li key={blocker}>{blocker}</li>)}</ul>
-      {blockers.length > 8 && <small>+{blockers.length - 8} ek uyarı</small>}
-    </div>
-    <div className="dialog-actions"><button type="button" onClick={close}>Planı geliştirmeye devam et</button><button type="button" className="primary danger" onClick={() => { onConfirm(); close(); }}><Check size={16}/> Uyarılarla finalleştir</button></div>
-  </dialog>;
-}
 
 function GuidedHeaderBar({ phase }: { phase: string; conceptSummary?: any }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -377,7 +147,7 @@ function GuidedHeaderBar({ phase }: { phase: string; conceptSummary?: any }) {
   );
 }
 
-function Workspace({ project, projects, onProject, onNew, onPersist, providerSettings, onProviderSettings }: any) {
+function Workspace({ project, projects, onProject, onNew, onPersist, providerSettings, onProviderSettings, credentialVault }: any) {
   const nativeInventory = project.inventoryReport || null;
   const [railOpen, setRailOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('vision');
@@ -704,7 +474,7 @@ function Workspace({ project, projects, onProject, onNew, onPersist, providerSet
         </aside>
       </div>
     </main>
-    <ProviderSettingsDialog open={settingsOpen} settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)}/>
+    <ProviderSettingsDialog open={settingsOpen} settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)} credentialVault={credentialVault}/>
     <RevisionHistoryDialog open={historyOpen} project={project} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)}/>
     <DecisionTimelineModal open={timelineOpen} project={project} onClose={() => setTimelineOpen(false)}/>
     <ArchitectureComparatorModal open={comparatorOpen} project={project} onClose={() => setComparatorOpen(false)}/>
@@ -718,50 +488,8 @@ function Workspace({ project, projects, onProject, onNew, onPersist, providerSet
 }
 
 export default function App() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [appError, setAppError] = useState('');
-  const [providerSettings, setProviderSettings] = useState(loadProviderSettings);
-  const activeProject = useMemo(() => projects.find(project => project.id === activeId), [projects, activeId]);
-  useEffect(() => { repository.list().then((items: Project[]) => { setProjects(items.filter(item => item.lifecycle.status !== 'archived')); setActiveId(null); }).finally(() => setLoading(false)); }, []);
-  const persist = async (project: Project) => { const next = recalculateReadiness(project); await repository.save(next); setProjects(current => [next, ...current.filter(item => item.id !== next.id)]); setActiveId(next.id); };
-  const create = async (idea: string, outputLanguage: string, files: File[], nativeInventory?: any) => {
-    const inventory = nativeInventory || await analyzeSelectedFiles(files);
-    const importedContext = projectInventoryContext(inventory);
-    const project = analyzeIdea(idea, { outputLanguage, importedContext });
-    project.profile.projectInventory = inventory;
-    project.metadata.projectAnalysis = { version: inventory.version, analyzedAt: inventory.analyzedAt, includedFiles: inventory.totals.included, excludedFiles: inventory.totals.excluded };
-    project.suggestionBundles = [];
-    const credential = await credentialVault.get(providerSettings.providerId) || '';
-    const ideaLabResult = await generateIdeaLabBundle(project, { settings: providerSettings, credential, ideaText: idea } as any);
-    const targetProject = ideaLabResult.project;
-    if (ideaLabResult.usedFallback || ideaLabResult.error) {
-      targetProject.messages.push({
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: `⚠️ Bulut AI çağrısı tamamlanamadı (${ideaLabResult.error || 'Sağlayıcı zaman aşımı'}). Yerel kural motoru devreye girerek 3 başlangıç mimari alternatifi üretti. Dilerseniz Ayarlar'dan API anahtarınızı güncelleyebilir veya bu yerel seçeneklerle devam edebilirsiniz.`,
-        analysisNote: 'Local Fallback Engine (Sağlayıcı Kesintisi)',
-        createdAt: new Date().toISOString()
-      });
-    } else {
-      targetProject.messages.push({
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: 'Fikir Laboratuvarı: Projeniz için 3 mimari alternatif ve metrik matrisi hazırlandı.',
-        createdAt: new Date().toISOString()
-      });
-    }
-    await persist(captureCurrentRevision(targetProject));
-  };
-  const importPackage = async (file: File) => {
-    try { await persist(await readPromtgenPackage(file)); }
-    catch (error) {
-      setAppError(error instanceof Error ? error.message : 'Paket açılamadı.');
-      window.setTimeout(() => setAppError(''), 4200);
-    }
-  };
+  const { projects, activeId, setActiveId, activeProject, loading, appError, providerSettings, setProviderSettings, persist, create, importPackage, credentialVault } = useProjectState();
   if (loading) return <div className="loading"><Sparkles/> PromtGen hazırlanıyor…</div>;
-  if (!activeProject) return <><StartScreen onCreate={create} onImport={importPackage} projects={projects} onOpen={setActiveId} providerSettings={providerSettings} onProviderSettings={setProviderSettings}/>{appError && <div className="toast error" role="alert"><CircleAlert size={17}/>{appError}</div>}</>;
-  return <Workspace project={activeProject} projects={projects} onProject={setActiveId} onNew={() => setActiveId(null)} onPersist={persist} providerSettings={providerSettings} onProviderSettings={setProviderSettings}/>;
+  if (!activeProject) return <><StartScreen onCreate={create} onImport={importPackage} projects={projects} onOpen={setActiveId} providerSettings={providerSettings} onProviderSettings={setProviderSettings} onOpenSettings={() => {}}/>{appError && <div className="toast error" role="alert"><CircleAlert size={17}/>{appError}</div>}</>;
+  return <Workspace project={activeProject} projects={projects} onProject={setActiveId} onNew={() => setActiveId(null)} onPersist={persist} providerSettings={providerSettings} onProviderSettings={setProviderSettings} credentialVault={credentialVault}/>;
 }

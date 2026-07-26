@@ -44,7 +44,7 @@ export function buildBudgetedContext(
 
   // Truncate requirements if over budget
   if (estimatedTokens > maxTokens && acceptedRequirements.length > 5) {
-    contextData.acceptedRequirements = acceptedRequirements.slice(0, 5);
+    contextData['acceptedRequirements'] = acceptedRequirements.slice(0, 5);
     jsonString = JSON.stringify(contextData);
     estimatedTokens = estimateTokenCount(jsonString);
     truncated = true;

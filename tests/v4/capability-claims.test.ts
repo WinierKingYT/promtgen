@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { CAPABILITY_REGISTRY, getCapability } from '../../src/v4/capability-registry.js';
 import { generateDiscoveryBundle } from '../../src/v4/ai-discovery.js';
+import { DISCOVERY_SCHEMA_ID } from '../../src/v4/ai-schemas.js';
 
 describe('Product Capability Claims Honesty Audit (Category 1)', () => {
   it('CAPABILITY_REGISTRY defines all core capabilities with honest maturity tags and limitations', () => {
@@ -41,7 +42,7 @@ describe('Product Capability Claims Honesty Audit (Category 1)', () => {
     const result = await generateDiscoveryBundle(mockProject, { settings: { providerId: 'offline' } });
     assert.ok(result.bundle, 'Bundle generated');
     assert.ok(result.bundle.provenance, 'Provenance metadata present');
-    assert.equal(result.bundle.provenance.schemaId, 'discovery-bundle-v1');
+    assert.equal(result.bundle.provenance.schemaId, DISCOVERY_SCHEMA_ID);
     assert.ok(['rule-engine', 'fallback', 'local-ai', 'cloud-ai'].includes(result.bundle.provenance.mode));
   });
 });

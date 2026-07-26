@@ -6,6 +6,8 @@ const planSectionSchema = z.enum(['vision', 'objectives', 'scope', 'requirements
 // 1. Discovery Bundle Schema
 export const DISCOVERY_SCHEMA_ID = 'discovery-v1';
 export const discoverySchema = z.object({
+  reply: z.string().trim().min(1).max(4000).default(''),
+  analysisNote: z.string().trim().min(1).max(2000).default(''),
   summary: z.string().trim().min(1).max(1200),
   options: z.array(z.object({
     kind: z.enum(['feature', 'decision', 'risk', 'question', 'architecture']).default('feature'),

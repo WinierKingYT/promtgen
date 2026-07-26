@@ -45,7 +45,7 @@ export function createCheckpoint(project: CanonicalProject): StorageCheckpoint {
 
 export function getLatestCheckpoint(projectId: string): StorageCheckpoint | null {
   const list = checkpointsStore.get(projectId) || [];
-  return list.length ? list[list.length - 1] : null;
+  return list.length ? list[list.length - 1]! : null;
 }
 
 export function verifyDataIntegrity(project: CanonicalProject, expectedChecksum: string): boolean {

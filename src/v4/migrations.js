@@ -10,6 +10,8 @@ const PHASE_MAP = {
     REVIEW_IN_PROGRESS: 'REVIEW', READY_FOR_EXPORT: 'READY', EXPORTED: 'READY'
 };
 
+export const LATEST_SCHEMA_VERSION = 5;
+
 export function migrateToV4(input) {
     if (!input || typeof input !== 'object') return { success: false, error: 'Geçersiz proje verisi.', project: null, backup: input };
     if (input.schemaVersion === 4) {
@@ -62,6 +64,49 @@ export function migrateToV4(input) {
     const validation = validateProjectStateV4(project);
     if (!validation.valid) return { success: false, error: validation.errors.join('; '), project: null, backup: structuredClone(input) };
     return { success: true, project: recalculateReadiness(normalizeProjectStateV4(project)), backup: structuredClone(input), migratedFrom: source.schemaVersion || 1 };
+}
+
+export function migrateV4toV5(project) {
+    if (!project || typeof project !== 'object') return { success: false, error: 'Geçersiz proje verisi.', project: null };
+    if (project.schemaVersion === 5) return { success: true, project: structuredClone(project), migratedFrom: 5 };
+    if (project.schemaVersion !== 4) return { success: false, error: `Beklenmeyen schemaVersion: ${project.schemaVersion}. Yalnızca 4→5 migration destekleniyor.`, project: null };
+
+    const next = structuredClone(project);
+    next.schemaVersion = 5;
+
+    next.proposalStore = { bundles: structuredClone(next.suggestionBundles || []) };
+    delete next.suggestionBundles;
+
+    next.metadata = next.metadata || {};
+    next.metadata.migratedFromV4 = { migratedAt: new Date().toISOString(), originalSchemaVersion: 4 };
+
+    const validation = validateProjectStateV4({ ...next, schemaVersion: 4, suggestionBundles: next.proposalStore?.bundles || [] });
+    if (!validation.valid) return { success: false, error: validation.errors.join('; '), project: null };
+
+    return { success: true, project: next, migratedFrom: 4 };
+}
+
+export function tryMigrateOrPassthrough(input) {
+    if (!input || typeof input !== 'object') return { project: input, migrated: false, error: 'Geçersiz proje verisi.' };
+
+    const version = input.schemaVersion;
+    if (version === LATEST_SCHEMA_VERSION) return { project: input, migrated: false, error: null };
+
+    if (version === 4) {
+        const result = migrateV4toV5(input);
+        if (result.success) return { project: result.project, migrated: true, error: null };
+        return { project: input, migrated: false, error: result.error };
+    }
+
+    if (version === undefined || version === null || version < 4) {
+        const v4Result = migrateToV4(input);
+        if (!v4Result.success) return { project: input, migrated: false, error: v4Result.error };
+        const v5Result = migrateV4toV5(v4Result.project);
+        if (v5Result.success) return { project: v5Result.project, migrated: true, error: null };
+        return { project: v4Result.project, migrated: true, error: `V4→V5 migration başarısız, V4 ile devam: ${v5Result.error}` };
+    }
+
+    return { project: input, migrated: false, error: `Bilinmeyen schemaVersion: ${version}` };
 }
 
 function copySection(project, id, content, items) {

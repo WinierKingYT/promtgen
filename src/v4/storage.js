@@ -2,6 +2,7 @@ import { validateProjectStateV4 } from './project-state-v4.js';
 import { normalizeProjectStateV4 } from './canonical-entities.js';
 import { quarantineProject } from './storage/quarantine.js';
 import { createCheckpoint, computeDataChecksum } from './storage/backup-manager.js';
+import { tryMigrateOrPassthrough } from './migrations.js';
 
 const DB_NAME = 'promtgen-v4';
 const STORE_NAME = 'projects';
@@ -31,13 +32,17 @@ export class IndexedDbProjectRepository {
     async list() {
         const db = await openDatabase();
         const projects = await transaction(db, 'readonly', store => store.getAll());
-        return projects.map(normalizeProjectStateV4).sort((a, b) => b.lifecycle.updatedAt.localeCompare(a.lifecycle.updatedAt));
+        return projects.map(project => {
+            const { project: migrated } = tryMigrateOrPassthrough(project);
+            return normalizeProjectStateV4(migrated);
+        }).sort((a, b) => b.lifecycle.updatedAt.localeCompare(a.lifecycle.updatedAt));
     }
     async get(id) {
         try {
             const value = await transaction(await openDatabase(), 'readonly', store => store.get(id));
             if (!value) return null;
-            return normalizeProjectStateV4(value);
+            const { project: migrated } = tryMigrateOrPassthrough(value);
+            return normalizeProjectStateV4(migrated);
         } catch (error) {
             quarantineProject({ id, error: String(error) }, `IndexedDB read corruption: ${error}`);
             return null;
@@ -65,8 +70,8 @@ export class IndexedDbProjectRepository {
 
 export class MemoryProjectRepository {
     constructor() { this.projects = new Map(); }
-    async list() { return [...this.projects.values()].map(normalizeProjectStateV4); }
-    async get(id) { const value = this.projects.get(id); return value ? normalizeProjectStateV4(value) : null; }
+    async list() { return [...this.projects.values()].map(project => { const { project: migrated } = tryMigrateOrPassthrough(project); return normalizeProjectStateV4(migrated); }); }
+    async get(id) { const value = this.projects.get(id); if (!value) return null; const { project: migrated } = tryMigrateOrPassthrough(value); return normalizeProjectStateV4(migrated); }
     async save(project) { const normalized = normalizeProjectStateV4(project); this.projects.set(project.id, normalized); return normalized; }
     async archive(id) { const item = await this.get(id); if (!item) return false; item.lifecycle.status = 'archived'; await this.save(item); return true; }
     async remove(id) { this.projects.delete(id); }
