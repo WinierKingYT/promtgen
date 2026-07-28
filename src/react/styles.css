@@ -33,6 +33,8 @@ select { border:1px solid var(--line); border-radius:8px; padding:9px 10px; back
 .primary { border:0!important; border-radius:9px; padding:11px 16px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:750; background:var(--violet); color:#0c0d16; box-shadow:0 10px 30px #8b7cf633; }
 .start-actions .primary { margin-left:auto; }
 .context-note { font-size:12px; color:var(--mint); }
+.capability-summary { margin:8px 0 0; }
+.capability-maturity-badge { display:inline-flex; margin-inline-start:8px; padding:2px 7px; border:1px solid #7ce7c866; border-radius:999px; color:var(--mint); font-size:10px; font-weight:800; letter-spacing:.02em; vertical-align:middle; }
 .import-row { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:28px; color:var(--muted); font-size:13px; }
 .recent-projects { display:grid;gap:7px;margin:28px auto 0;width:min(620px,100%); }.recent-projects>.meta { margin-bottom:3px; }.recent-projects button { display:flex;align-items:center;justify-content:space-between;text-align:left;border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#101625; }.recent-projects b,.recent-projects small { display:block; }.recent-projects b { font-size:13px; }.recent-projects small { margin-top:3px;color:var(--muted);font-size:10px;text-transform:uppercase; }
 .text-button { display:inline-flex; align-items:center; gap:7px; color:#d8dded; }

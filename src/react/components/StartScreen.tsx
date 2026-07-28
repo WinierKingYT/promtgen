@@ -7,6 +7,7 @@ import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
 import { useI18n } from '../providers/I18nProvider.js';
 import { getProductCopy, PRODUCT_CONTRACT } from '../../v4/product/product-contract.js';
+import { getCapability } from '../../v4/capability-registry.js';
 
 type Project = ProjectDocumentV5;
 
@@ -23,7 +24,8 @@ interface StartScreenProps {
 export function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, onProviderSettings, onOpenSettings }: StartScreenProps) {
   const { locale, setLocale, t } = useI18n();
   const productCopy = getProductCopy(locale);
-  const stableProjectTypes = PRODUCT_CONTRACT.supportedProjects.filter(project => project.support === 'stable');
+  const candidateProjectTypes = PRODUCT_CONTRACT.supportedProjects.filter(project => project.support === 'candidate-stable');
+  const inventoryCapability = getCapability('project-inventory-analyzer');
   const [idea, setIdea] = useState('');
   const [language, setLanguage] = useState(locale === 'en-US' ? 'en' : 'tr');
   const [files, setFiles] = useState<File[]>([]);
@@ -61,9 +63,15 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
         <p className="lead">{productCopy.promise}</p>
         <p className="product-positioning">{productCopy.positioning}</p>
         <div className="support-summary" aria-label={locale === 'en-US' ? 'Stable project support' : 'Kararlı proje desteği'}>
-          <b>{locale === 'en-US' ? 'Stable focus' : 'Kararlı odak'}</b>
-          {stableProjectTypes.map(projectType => <span key={projectType.id}>{projectType.label}</span>)}
+          <b>{locale === 'en-US' ? 'Candidate-supported focus' : 'Doğrulanma adayı odak'}</b>
+          {candidateProjectTypes.map(projectType => <span key={projectType.id}>{projectType.label}</span>)}
         </div>
+        {inventoryCapability ? (
+          <p data-capability-id="project-inventory-analyzer" className="context-note capability-summary">
+            {locale === 'en-US' ? 'Local file inventory' : 'Yerel dosya envanteri'}
+            <span className="capability-maturity-badge">{inventoryCapability.maturity}</span>
+          </p>
+        ) : null}
         <label className="idea-box">
           <span>{t('start.ideaLabel')}</span>
           <textarea
@@ -137,7 +145,7 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
                 </span>
               ))}
             </div>
-            <p data-capability-id="project-inventory-analyzer" className="context-note" style={{ margin: '6px 0 0 0' }}>{t('start.inventoryNotice')}</p>
+            <p className="context-note" style={{ margin: '6px 0 0 0' }}>{t('start.inventoryNotice')}</p>
           </div>
         )}
         {nativeInventory && <p className="context-note">{nativeInventory.rootName}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe güvenlik politikasıyla dışarıda bırakıldı.</p>}

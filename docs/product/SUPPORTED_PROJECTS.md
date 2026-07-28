@@ -4,11 +4,11 @@ Bu tablo ürün sözleşmesinden üretilir. “Unsupported” alanlarda PromtGen
 
 | Proje türü | Destek | Sınırlamalar |
 |---|---|---|
-| Web uygulaması | stable | — |
-| Backend / API | stable | — |
-| Küçük SaaS | stable | — |
-| Yönetim paneli | stable | — |
-| İç araç | stable | — |
+| Web uygulaması | candidate-stable | Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı. |
+| Backend / API | candidate-stable | Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı. |
+| Küçük SaaS | candidate-stable | Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı. |
+| Yönetim paneli | candidate-stable | Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı. |
+| İç araç | candidate-stable | Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı. |
 | Basit otomasyon | beta | Alan benchmark seti henüz tamamlanmadı. |
 | Mobil uygulama | beta | Platforma özel dağıtım ayrıntıları insan incelemesi gerektirir. |
 | Masaüstü uygulaması | beta | Platforma özel paketleme ayrıntıları insan incelemesi gerektirir. |

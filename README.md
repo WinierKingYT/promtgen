@@ -12,7 +12,9 @@ Ana ürün **Planner** akışıdır: fikri anlat → sistem yorumunu düzelt/ona
 
 PromtGen'deki her özellik dürüst ürün sözleşmesine ve olgunluk etiketine tabidir:
 
-### 🟢 1. Kararlı Özellikler (Stable Capabilities)
+### 🟡 1. Doğrulanma Adayı Özellikler (Candidate Stable)
+
+Bu yeteneklerin üretim entegrasyon testleri vardır; ancak bütün terfi kanıtları tamamlanmadığı için henüz **Stable** ilan edilmezler. Güncel engeller [Yetenek Kanıtları](docs/product/CAPABILITY_EVIDENCE.md), deterministic sonuçlar [Planner Benchmark Raporu](docs/product/BENCHMARK_REPORT.md), gerçek yöntem karşılaştırması ise [Karşılaştırmalı Sonuç Raporu](docs/product/COMPARISON_REPORT.md) üzerinden izlenir.
 - **Canonical Yaşayan Plan ve Revizyon Yönetimi**: Proje durumunun JSON formatında saklanması, r1..rN sürüm takibi, etki analizi ve geri alma.
 - **Local-First Depolama ve Yedekleme**: Web'de IndexedDB; masaüstünde WAL modlu SQLite, 20 otomatik yedekleme ve kurtarma.
 - **Dosya Envanteri ve Güvenlik Filtresi**: Hassas dosyaların (`.env`, `node_modules`, binary içerikler) dışarıda bırakılması ve envantere alınması.

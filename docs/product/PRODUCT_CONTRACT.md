@@ -19,6 +19,12 @@ Sözleşme kimliği: `promtgen-focused-planner` · sürüm: `1`
 
 ## Olgunluk kuralları
 
+## Candidate Stable
+
+- Çekirdek üretim akışı otomatik entegrasyon testleriyle korunur.
+- Stable terfi kapısı için benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmamıştır.
+- Bilinen sınırlamalar ve kurtarma yolu açıkça yayınlanır.
+
 ## Stable
 
 - Otomatik üretim entegrasyon testi vardır.

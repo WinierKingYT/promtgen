@@ -12,6 +12,13 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await expect(app).toBeVisible();
   });
 
+  test('shows evidence-backed candidate maturity on the production start screen', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByText('Doğrulanma adayı odak')).toBeVisible();
+    await expect(page.locator('[data-capability-id="project-inventory-analyzer"] .capability-maturity-badge'))
+      .toHaveText('candidate-stable');
+  });
+
   test('has no console errors on load', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', msg => {

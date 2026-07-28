@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "studyId": "promtgen-comparison-v1",
+  "methods": ["baseline-chat", "master-prompt", "promtgen"],
+  "blindEvaluation": true,
+  "policy": {
+    "minimumScenariosPerMethod": 5,
+    "minimumUserParticipants": 5,
+    "minimumPromtgenScopeImprovement": 0.3,
+    "minimumPromtgenAcceptanceImprovement": 0.4
+  },
+  "notes": [
+    "Submission dosyaları yöntem bilgisini içermez.",
+    "Yöntem eşlemesi yalnız blind-map.json içinde tutulur ve değerlendirmeden sonra açılır.",
+    "Boş başlangıç dosyaları sonuç kanıtı sayılmaz."
+  ]
+}

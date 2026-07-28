@@ -1,4 +1,4 @@
-export type SupportLevel = 'stable' | 'beta' | 'experimental' | 'unsupported';
+export type SupportLevel = 'candidate-stable' | 'stable' | 'beta' | 'experimental' | 'unsupported';
 export type ProductLocale = 'tr-TR' | 'en-US';
 
 export interface SupportedProjectType {
@@ -54,11 +54,11 @@ export const PRODUCT_CONTRACT = Object.freeze({
   labsNavigation: ['Proje Analizörü', 'Codex Yürütmesi', 'Mimari Karşılaştırma', 'Uzman Perspektifleri'],
   coreExports: ['PROJECT_BRIEF.md', 'REQUIREMENTS.md', 'DECISIONS.md', 'TASKS.md', 'AGENTS.md', 'project.promtgen'],
   supportedProjects: [
-    { id: 'web-app', label: 'Web uygulaması', support: 'stable', limitations: [] },
-    { id: 'backend-api', label: 'Backend / API', support: 'stable', limitations: [] },
-    { id: 'small-saas', label: 'Küçük SaaS', support: 'stable', limitations: [] },
-    { id: 'admin-panel', label: 'Yönetim paneli', support: 'stable', limitations: [] },
-    { id: 'internal-tool', label: 'İç araç', support: 'stable', limitations: [] },
+    { id: 'web-app', label: 'Web uygulaması', support: 'candidate-stable', limitations: ['Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı.'] },
+    { id: 'backend-api', label: 'Backend / API', support: 'candidate-stable', limitations: ['Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı.'] },
+    { id: 'small-saas', label: 'Küçük SaaS', support: 'candidate-stable', limitations: ['Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı.'] },
+    { id: 'admin-panel', label: 'Yönetim paneli', support: 'candidate-stable', limitations: ['Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı.'] },
+    { id: 'internal-tool', label: 'İç araç', support: 'candidate-stable', limitations: ['Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı.'] },
     { id: 'automation', label: 'Basit otomasyon', support: 'beta', limitations: ['Alan benchmark seti henüz tamamlanmadı.'] },
     { id: 'mobile-app', label: 'Mobil uygulama', support: 'beta', limitations: ['Platforma özel dağıtım ayrıntıları insan incelemesi gerektirir.'] },
     { id: 'desktop-app', label: 'Masaüstü uygulaması', support: 'beta', limitations: ['Platforma özel paketleme ayrıntıları insan incelemesi gerektirir.'] },
@@ -78,6 +78,14 @@ export const PRODUCT_CONTRACT = Object.freeze({
     'Antivirüs, SAST, hukuki, finansal veya klinik doğrulama sağlamak.'
   ],
   maturityPolicies: {
+    'candidate-stable': {
+      label: 'Candidate Stable',
+      requirements: [
+        'Çekirdek üretim akışı otomatik entegrasyon testleriyle korunur.',
+        'Stable terfi kapısı için benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmamıştır.',
+        'Bilinen sınırlamalar ve kurtarma yolu açıkça yayınlanır.'
+      ]
+    },
     stable: {
       label: 'Stable',
       requirements: [

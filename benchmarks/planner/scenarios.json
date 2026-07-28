@@ -1,0 +1,182 @@
+[
+  {
+    "version": 1,
+    "id": "landing-page",
+    "title": "Ürün Landing Page",
+    "domain": "web-app",
+    "idea": "Bireysel geliştiricinin ürününü anlatan, iletişim formu ve ölçülebilir dönüşüm hedefi bulunan hızlı bir landing page yapmak istiyorum.",
+    "targetUser": "Ürününü tanıtmak isteyen bireysel geliştirici",
+    "problem": "Ürünün değeri ve kullanıcı eylemi tek bir sayfada açık anlatılamıyor.",
+    "desiredOutcome": "Ziyaretçi ürün değerini anlayıp iletişim eylemini tamamlar.",
+    "mvpTarget": "Tek sayfalık erişilebilir tanıtım ve iletişim akışı",
+    "inScope": ["Değer önerisi", "İletişim formu", "Mobil uyum"],
+    "outOfScope": ["Üyelik sistemi", "Ödeme altyapısı"],
+    "requirements": [
+      { "title": "Değer önerisini göster", "statement": "Ana sayfa ürünün hedef kullanıcısını ve temel değerini açıkça göstermeli.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Ana başlık ve değer önerisi ilk ekranda görünür."] },
+      { "title": "İletişim formunu doğrula", "statement": "Ziyaretçi geçerli iletişim bilgileriyle form gönderebilmeli.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Geçersiz e-posta gönderimi engellenir.", "Başarılı gönderim kullanıcıya bildirilir."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "admin-panel",
+    "title": "Yönetim Paneli",
+    "domain": "admin-panel",
+    "idea": "Küçük işletme çalışanlarının kayıtları rol bazlı görüntüleyip düzenleyebildiği denetlenebilir bir web yönetim paneli yapmak istiyorum.",
+    "targetUser": "Küçük işletme operasyon çalışanı",
+    "problem": "Operasyon kayıtları dağınık tablolarda güncel tutulamıyor.",
+    "desiredOutcome": "Yetkili kullanıcı kayıtları tek panelden güvenle yönetir.",
+    "mvpTarget": "Rol kontrollü listeleme, düzenleme ve denetim kaydı",
+    "inScope": ["Rol bazlı erişim", "Kayıt listeleme", "Değişiklik geçmişi"],
+    "outOfScope": ["Mobil uygulama", "Gelişmiş analitik"],
+    "requirements": [
+      { "title": "Rol bazlı erişim", "statement": "Kullanıcı yalnız rolünün izin verdiği kayıt ve eylemleri görebilmeli.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Yetkisiz kullanıcı korunan eylemi gerçekleştiremez."] },
+      { "title": "Değişiklik kaydı", "statement": "Kritik kayıt değişiklikleri kullanıcı ve zaman bilgisiyle saklanmalı.", "kind": "constraint", "priority": "must", "acceptanceCriteria": ["Her düzenleme denetim geçmişinde kullanıcıyla görünür."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "rest-api",
+    "title": "REST API",
+    "domain": "backend-api",
+    "idea": "İstemcilerin kaynak oluşturup güncelleyebildiği, doğrulama hatalarını standart biçimde döndüren küçük bir REST API geliştirmek istiyorum.",
+    "targetUser": "API tüketen uygulama geliştiricisi",
+    "problem": "Kaynak işlemleri için tutarlı ve belgelenmiş bir servis sözleşmesi yok.",
+    "desiredOutcome": "İstemciler kaynak işlemlerini öngörülebilir yanıtlarla tamamlar.",
+    "mvpTarget": "Sürümlü CRUD uçları ve standart hata sözleşmesi",
+    "inScope": ["CRUD uçları", "Girdi doğrulama", "API dokümantasyonu"],
+    "outOfScope": ["GraphQL", "Gerçek zamanlı abonelik"],
+    "requirements": [
+      { "title": "Kaynak işlemleri", "statement": "API kaynak oluşturma, okuma, güncelleme ve silme uçları sunmalı.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Geçerli istekler belgelenen durum kodlarını döndürür."] },
+      { "title": "Standart hata yanıtı", "statement": "Doğrulama hataları alan ve açıklama içeren ortak yapıda dönmeli.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Geçersiz alanlar makinece okunabilir hata listesinde bulunur."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "small-saas",
+    "title": "Küçük SaaS",
+    "domain": "small-saas",
+    "idea": "Bağımsız çalışanların müşteri projelerini ve teslim tarihlerini takip edebildiği local-first odaklı küçük bir SaaS planlamak istiyorum.",
+    "targetUser": "Birden fazla müşteriyle çalışan bağımsız profesyonel",
+    "problem": "Proje teslimleri ve müşteri durumu farklı araçlara dağılıyor.",
+    "desiredOutcome": "Kullanıcı aktif işleri ve yaklaşan teslimleri tek görünümden yönetir.",
+    "mvpTarget": "Müşteri, proje ve teslim tarihi yönetimi",
+    "inScope": ["Müşteri kaydı", "Proje takibi", "Teslim tarihi görünümü"],
+    "outOfScope": ["Faturalama", "Takım sohbeti"],
+    "requirements": [
+      { "title": "Müşteri projesi oluştur", "statement": "Kullanıcı müşteriye bağlı proje ve teslim tarihi oluşturabilmeli.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Yeni proje müşteri ve teslim tarihiyle listede görünür."] },
+      { "title": "Yerel devamlılık", "statement": "Kaydedilen proje bilgileri uygulama yeniden açıldığında korunmalı.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Yeniden açılan uygulama son kayıtları eksiksiz gösterir."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "ecommerce-mvp",
+    "title": "E-ticaret MVP",
+    "domain": "web-app",
+    "idea": "Küçük bir üreticinin sınırlı ürün kataloğunu yayınlayıp sipariş talebi alabildiği ödeme içermeyen bir e-ticaret MVP'si yapmak istiyorum.",
+    "targetUser": "Doğrudan satışa başlayan küçük üretici",
+    "problem": "Ürünler çevrimiçi sergilenemiyor ve sipariş talepleri düzenli toplanamıyor.",
+    "desiredOutcome": "Müşteri ürünü bulup doğrulanmış sipariş talebi oluşturur.",
+    "mvpTarget": "Ürün kataloğu, ürün detayı ve sipariş talebi",
+    "inScope": ["Ürün kataloğu", "Ürün detayı", "Sipariş talebi"],
+    "outOfScope": ["Çevrimiçi ödeme", "Marketplace"],
+    "requirements": [
+      { "title": "Ürün kataloğu", "statement": "Ziyaretçi aktif ürünleri fiyat ve stok durumuyla görüntüleyebilmeli.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Aktif ürünler fiyat ve stok bilgisiyle listelenir."] },
+      { "title": "Sipariş talebi", "statement": "Ziyaretçi seçtiği ürün için iletişim bilgileriyle talep oluşturabilmeli.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Geçerli talep benzersiz kayıt numarasıyla oluşturulur."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "file-processor",
+    "title": "Dosya İşleme Aracı",
+    "domain": "internal-tool",
+    "idea": "Kullanıcının CSV dosyasını yerel olarak doğrulayıp hatalı satırları raporladığı ve temiz sonucu indirebildiği bir iç araç yapmak istiyorum.",
+    "targetUser": "Düzenli CSV verisi hazırlayan operasyon çalışanı",
+    "problem": "Hatalı satırlar manuel kontrol edildiği için veri aktarımı gecikiyor.",
+    "desiredOutcome": "Kullanıcı dosya hatalarını görüp temiz çıktıyı güvenle üretir.",
+    "mvpTarget": "Yerel CSV doğrulama, hata raporu ve temiz çıktı",
+    "inScope": ["CSV yükleme", "Satır doğrulama", "Hata raporu"],
+    "outOfScope": ["Bulut depolama", "Excel makro desteği"],
+    "requirements": [
+      { "title": "Dosyayı yerel işle", "statement": "CSV içeriği harici servise gönderilmeden cihazda işlenmeli.", "kind": "constraint", "priority": "must", "acceptanceCriteria": ["Ağ bağlantısı olmadan CSV doğrulaması tamamlanır."] },
+      { "title": "Hatalı satır raporu", "statement": "Geçersiz satırlar neden ve satır numarasıyla raporlanmalı.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Her hata satır numarası ve doğrulama mesajı içerir."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "existing-app-feature",
+    "title": "Mevcut Uygulamaya Özellik",
+    "domain": "web-app",
+    "idea": "Mevcut görev uygulamasına kullanıcı onayıyla çalışan, eski görevleri bozmadan etiket filtreleme özelliği eklemek istiyorum.",
+    "targetUser": "Çok sayıda görevi sınıflandıran mevcut uygulama kullanıcısı",
+    "problem": "Kullanıcı belirli bağlamdaki görevleri hızlıca ayıramıyor.",
+    "desiredOutcome": "Görevler etiketlenir ve seçilen etikete göre güvenle filtrelenir.",
+    "mvpTarget": "Geriye uyumlu etiket ekleme ve filtreleme",
+    "inScope": ["Etiket ekleme", "Etiket filtresi", "Eski veri uyumluluğu"],
+    "outOfScope": ["Etiket paylaşımı", "Otomatik etiketleme"],
+    "requirements": [
+      { "title": "Göreve etiket ekle", "statement": "Kullanıcı mevcut veya yeni göreve birden fazla etiket ekleyebilmeli.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Kaydedilen etiketler görev yeniden açıldığında görünür."] },
+      { "title": "Eski görevleri koru", "statement": "Etiketi olmayan eski görevler migration sonrasında açılabilmeli.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Migration öncesi görevler veri kaybı olmadan listelenir."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "role-based-app",
+    "title": "Rol Tabanlı Uygulama",
+    "domain": "backend-api",
+    "idea": "Yönetici ve editör rollerinin farklı içerik işlemlerine eriştiği, yetkisiz denemelerin kaydedildiği küçük bir web uygulaması yapmak istiyorum.",
+    "targetUser": "İçerik yayınlayan küçük ekip üyesi",
+    "problem": "İçerik işlemlerinde yetki sınırları ve sorumluluk kayıtları belirsiz.",
+    "desiredOutcome": "Her rol yalnız izinli işlemleri yapar ve kritik denemeler izlenir.",
+    "mvpTarget": "İki rol, izin matrisi ve güvenlik olay kaydı",
+    "inScope": ["Yönetici rolü", "Editör rolü", "Yetki kontrolü"],
+    "outOfScope": ["Kurumsal SSO", "Özel rol tasarımcısı"],
+    "requirements": [
+      { "title": "İzin matrisi", "statement": "Her korunan işlem merkezi rol ve izin matrisiyle kontrol edilmeli.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Editör yöneticiye özel işlemi gerçekleştiremez."] },
+      { "title": "Yetkisiz denemeyi kaydet", "statement": "Reddedilen kritik eylemler kullanıcı ve zaman bilgisiyle kaydedilmeli.", "kind": "constraint", "priority": "must", "acceptanceCriteria": ["Reddedilen işlem güvenlik olay listesinde görünür."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "local-first-notes",
+    "title": "Local-first Not Uygulaması",
+    "domain": "web-app",
+    "idea": "Kişisel notların çevrimdışı oluşturulup aranabildiği ve tarayıcı yeniden açıldığında korunduğu local-first bir not uygulaması yapmak istiyorum.",
+    "targetUser": "İnternet bağlantısından bağımsız not tutan bireysel kullanıcı",
+    "problem": "Bulut bağlantısı olmadığında notlara güvenilir biçimde erişilemiyor.",
+    "desiredOutcome": "Kullanıcı çevrimdışı not oluşturur, arar ve yeniden açar.",
+    "mvpTarget": "Çevrimdışı not oluşturma, arama ve kalıcı kayıt",
+    "inScope": ["Not oluşturma", "Yerel arama", "Kalıcı depolama"],
+    "outOfScope": ["Bulut senkronizasyonu", "Ortak düzenleme"],
+    "requirements": [
+      { "title": "Çevrimdışı not oluştur", "statement": "Kullanıcı ağ bağlantısı olmadan yeni not oluşturup kaydedebilmeli.", "kind": "functional", "priority": "must", "acceptanceCriteria": ["Çevrimdışı oluşturulan not listede hemen görünür."] },
+      { "title": "Notu yeniden aç", "statement": "Kaydedilen not tarayıcı yeniden başlatıldığında korunmalı.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Yeniden açılan uygulama kayıtlı not içeriğini gösterir."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  },
+  {
+    "version": 1,
+    "id": "ai-document-tool",
+    "title": "AI Doküman Aracı",
+    "domain": "internal-tool",
+    "idea": "Kullanıcının seçtiği doküman parçalarından taslak özet üreten, gönderilecek bağlamı önceden gösteren kontrollü bir AI doküman aracı planlamak istiyorum.",
+    "targetUser": "Uzun teknik dokümanlarla çalışan bireysel geliştirici",
+    "problem": "Özetleme sırasında hangi içeriğin sağlayıcıya gönderildiği anlaşılamıyor.",
+    "desiredOutcome": "Kullanıcı filtrelenmiş bağlamı görüp onayladıktan sonra taslak özet alır.",
+    "mvpTarget": "Bağlam seçimi, payload önizleme ve kullanıcı onaylı özet",
+    "inScope": ["Doküman seçimi", "Payload önizleme", "Özet taslağı"],
+    "outOfScope": ["Otomatik yayınlama", "Model eğitimi"],
+    "requirements": [
+      { "title": "Payload önizleme", "statement": "Sağlayıcıya gönderilecek filtrelenmiş içerik çağrıdan önce gösterilmeli.", "kind": "quality", "priority": "must", "acceptanceCriteria": ["Kullanıcı gönderilecek metni çağrıdan önce inceleyebilir."] },
+      { "title": "Açık kullanıcı onayı", "statement": "AI çağrısı kullanıcı açıkça onay vermeden başlatılmamalı.", "kind": "constraint", "priority": "must", "acceptanceCriteria": ["Onay verilmeden sağlayıcı isteği oluşmaz."] }
+    ],
+    "thresholds": { "minimumReadiness": 85, "minimumMustTaskCoverage": 1, "minimumMustTestCoverage": 1, "minimumTaskAcceptanceCoverage": 1 }
+  }
+]

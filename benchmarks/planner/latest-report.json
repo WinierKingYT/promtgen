@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "planner-core-v1",
+  "scenarioCount": 10,
+  "passedCount": 10,
+  "passRate": 1,
+  "generatedAt": "2026-07-28T19:56:15.279Z",
+  "results": [
+    {
+      "scenarioId": "landing-page",
+      "title": "Ürün Landing Page",
+      "domain": "web-app",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "admin-panel",
+      "title": "Yönetim Paneli",
+      "domain": "admin-panel",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "rest-api",
+      "title": "REST API",
+      "domain": "backend-api",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "small-saas",
+      "title": "Küçük SaaS",
+      "domain": "small-saas",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "ecommerce-mvp",
+      "title": "E-ticaret MVP",
+      "domain": "web-app",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "file-processor",
+      "title": "Dosya İşleme Aracı",
+      "domain": "internal-tool",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "existing-app-feature",
+      "title": "Mevcut Uygulamaya Özellik",
+      "domain": "web-app",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "role-based-app",
+      "title": "Rol Tabanlı Uygulama",
+      "domain": "backend-api",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "local-first-notes",
+      "title": "Local-first Not Uygulaması",
+      "domain": "web-app",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    },
+    {
+      "scenarioId": "ai-document-tool",
+      "title": "AI Doküman Aracı",
+      "domain": "internal-tool",
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "readiness": 100,
+        "mustTaskCoverage": 1,
+        "mustTestCoverage": 1,
+        "taskAcceptanceCoverage": 1,
+        "scopeContradictions": 0,
+        "exportFiles": 11
+      },
+      "capabilityResults": {
+        "canonical-planning": true,
+        "canonical-export": true
+      }
+    }
+  ],
+  "capabilities": {
+    "canonical-planning": {
+      "completed": 10,
+      "passed": 10
+    },
+    "canonical-export": {
+      "completed": 10,
+      "passed": 10
+    }
+  }
+}

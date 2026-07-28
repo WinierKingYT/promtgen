@@ -16,8 +16,8 @@ describe('Focused Planner product contract', () => {
 
   it('publishes a bounded support matrix and keeps high-risk domains unsupported', () => {
     const support = new Map(PRODUCT_CONTRACT.supportedProjects.map(project => [project.id, project.support]));
-    assert.equal(support.get('web-app'), 'stable');
-    assert.equal(support.get('backend-api'), 'stable');
+    assert.equal(support.get('web-app'), 'candidate-stable');
+    assert.equal(support.get('backend-api'), 'candidate-stable');
     assert.equal(support.get('game-2d'), 'experimental');
     assert.equal(support.get('game-3d'), 'unsupported');
     assert.equal(support.get('critical-health'), 'unsupported');

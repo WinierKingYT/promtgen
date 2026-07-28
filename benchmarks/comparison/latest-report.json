@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "studyId": "promtgen-comparison-v1",
+  "generatedAt": "2026-07-28T20:04:36.932Z",
+  "blindedEvaluation": [],
+  "byMethod": {},
+  "userEvidence": {
+    "validParticipants": 0,
+    "completionRate": 0,
+    "firstExportRate": 0,
+    "minorEditMvpAcceptanceRate": 0,
+    "averageSatisfaction": 0
+  },
+  "publicationGate": {
+    "eligible": false,
+    "blockers": [
+      "baseline-chat için en az 5 kör senaryo gerekli.",
+      "master-prompt için en az 5 kör senaryo gerekli.",
+      "promtgen için en az 5 kör senaryo gerekli.",
+      "En az 5 anonim kullanıcı oturumu gerekli.",
+      "PromtGen kapsam koruması baseline üstünlük eşiğini karşılamıyor.",
+      "PromtGen kabul kriteri kapsamı baseline üstünlük eşiğini karşılamıyor."
+    ]
+  }
+}
