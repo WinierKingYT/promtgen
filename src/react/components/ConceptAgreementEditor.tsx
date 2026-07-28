@@ -30,7 +30,7 @@ export function ConceptAgreementEditor({ project, onCommit }: {
 }) {
   const summary = project.ideaLabSession?.conceptSummary;
   const [draft, setDraft] = useState(() => summary ? toDraft(summary) : null);
-  useEffect(() => setDraft(summary ? toDraft(summary) : null), [project.id, project.revision, summary]);
+  useEffect(() => setDraft(summary ? toDraft(summary) : null), [project.id, project.canonicalRevision, summary]);
   const gate = getConceptAgreementGate(project);
   const ledger = useMemo(() => ({
     decisions: gate.accepted.filter(record => record.kind === 'decision'),

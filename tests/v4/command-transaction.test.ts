@@ -20,6 +20,30 @@ class FakeRepository implements ProjectRepository {
 }
 
 describe('Persistent command transaction boundary', () => {
+  it('advances document revision without changing canonical revision for draft commands', async () => {
+    const repository = new FakeRepository();
+    const current = createProjectDocument({ idea: 'Taslak revision ayrımı' });
+    const candidate = structuredClone(current);
+    candidate.messages.push({
+      id: 'message-draft',
+      role: 'user',
+      content: 'Bu yalnız tartışma notudur.',
+      createdAt: '2026-01-01T00:00:00.000Z'
+    });
+    const result = await commitProjectCandidate(repository, current, candidate, {
+      commandId: 'cmd-draft',
+      commandType: 'AddDiscoveryTurn',
+      projectId: current.id,
+      expectedDocumentRevision: current.documentRevision,
+      expectedCanonicalRevision: current.canonicalRevision,
+      canonicalChange: false,
+      createdAt: '2026-01-01T00:00:00.000Z'
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.project.documentRevision, current.documentRevision + 1);
+    assert.equal(result.project.canonicalRevision, current.canonicalRevision);
+  });
+
   it('persists idempotency in ProjectDocument and survives a repository reload', async () => {
     const repository = new FakeRepository();
     const initial = createProjectDocument({ idea: 'Command log ile planlama' });
@@ -32,7 +56,9 @@ describe('Persistent command transaction boundary', () => {
       commandId: 'cmd-update-1',
       commandType: 'UpdatePlanSection',
       projectId: created.project.id,
-      expectedRevision: created.project.revision,
+      expectedDocumentRevision: created.project.documentRevision,
+      expectedCanonicalRevision: created.project.canonicalRevision,
+      canonicalChange: true,
       createdAt: '2026-01-01T00:01:00.000Z'
     };
     const first = await commitProjectCandidate(repository, created.project, candidate, command);
@@ -44,7 +70,8 @@ describe('Persistent command transaction boundary', () => {
     const replay = await commitProjectCandidate(repository, reloaded!, candidate, command);
     assert.equal(replay.success, true);
     assert.equal(replay.success && replay.alreadyApplied, true);
-    assert.equal(replay.project.revision, first.project.revision);
+    assert.equal(replay.project.documentRevision, first.project.documentRevision);
+    assert.equal(replay.project.canonicalRevision, first.project.canonicalRevision);
   });
 
   it('rejects stale revisions and does not commit UI candidate when save fails', async () => {
@@ -55,7 +82,9 @@ describe('Persistent command transaction boundary', () => {
       commandId: 'cmd-stale',
       commandType: 'UpdatePlanSection',
       projectId: current.id,
-      expectedRevision: current.revision - 1,
+      expectedDocumentRevision: current.documentRevision - 1,
+      expectedCanonicalRevision: current.canonicalRevision,
+      canonicalChange: true,
       createdAt: '2026-01-01T00:00:00.000Z'
     });
     assert.equal(stale.success, false);
@@ -66,7 +95,9 @@ describe('Persistent command transaction boundary', () => {
       commandId: 'cmd-save-fail',
       commandType: 'UpdatePlanSection',
       projectId: current.id,
-      expectedRevision: current.revision,
+      expectedDocumentRevision: current.documentRevision,
+      expectedCanonicalRevision: current.canonicalRevision,
+      canonicalChange: true,
       createdAt: '2026-01-01T00:00:00.000Z'
     });
     assert.equal(failedSave.success, false);

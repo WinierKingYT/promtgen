@@ -1,36 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, useEffect, useMemo, useState } from 'react';
 import { Archive, ArrowRight, Check, ChevronDown, CircleAlert, Code2, Download, Eye, Gauge, GitBranch, History, Lightbulb, LoaderCircle, Menu, MessageCircle, RotateCcw, Save, Send, Settings2, Sparkles } from 'lucide-react';
 import { applyApprovedChanges, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../v4/planning-engine.js';
 import { PHASE_REGISTRY } from '../v4/project-document.js';
-import { createPromtgenPackage, downloadBlob, exportCanonicalMarkdown } from '../v4/exporter.js';
 import { generateImpactAnalysis, runConversationalDiscoveryTurn } from '../v4/ai-discovery.js';
 import { getProviderMeta } from '../v4/provider-settings.js';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../v4/task-compiler.js';
 import { IconButton, ProjectRail, SuggestionCard } from './components/WorkspaceChrome';
-import { ResearchPanel } from './components/ResearchPanel';
-import { ReviewPanel } from './components/ReviewPanel';
-import { ModulePanel } from './components/ModulePanel';
-import { ExecutionPanel } from './components/ExecutionPanel';
-import { IdeExportDialog } from './components/IdeExportDialog';
-import { StorageHealthPanel } from './components/StorageHealthPanel';
-import { RuntimeHealthDialog } from './components/RuntimeHealthDialog';
 import { buildLocalPlanningMemory } from '../v4/planning-memory.js';
-import { ConceptSummaryPanel, ExtensionModulesPanel, IdeaLabPanel } from './components/IdeaLabComponents';
-import { ChangeImpactPanel } from './components/ChangeImpactPanel.js';
-import { IdeaAmplifierPanel } from './components/IdeaAmplifierPanel';
 import { ArchitectureDiagramCard } from './components/ArchitectureDiagramCard.js';
-import { DecisionTimelineModal } from './components/DecisionTimelineModal.js';
-import { ArchitectureComparatorModal } from './components/ArchitectureComparatorModal.js';
 import { ProjectHealthRadarCard } from './components/ProjectHealthRadarCard.js';
 import { ArchitectSmartTipsWidget } from './components/ArchitectSmartTipsWidget.js';
-import { ProjectInventoryModal } from './components/ProjectInventoryModal.js';
-import { AgentCommitteeModal } from './components/AgentCommitteeModal.js';
-import { ProviderSettingsDialog } from './components/ProviderSettingsDialog.js';
-import { RevisionHistoryDialog } from './components/RevisionHistoryDialog.js';
-import { FinalizePlanDialog } from './components/FinalizePlanDialog.js';
 import { GuidedHeaderBar } from './components/GuidedHeaderBar.js';
 import { LiveAnnouncer } from './components/LiveAnnouncer.js';
 import { IdeaDiscussionPanel } from './components/IdeaDiscussionPanel.js';
+import { LazyFeatureBoundary } from './components/LazyFeatureBoundary.js';
 import type { ProjectDocumentV5 } from '../v4/contracts.js';
 import type { ProviderSettings } from '../v4/provider-settings.js';
 import type { CredentialVault } from '../v4/credential-vault.js';
@@ -38,6 +21,28 @@ import { prepareDiscoveryTurnProject } from '../v4/application/discovery-service
 
 
 type Project = ProjectDocumentV5;
+const IdeaAmplifierPanel = lazy(() => import('./components/IdeaAmplifierPanel.js').then(module => ({ default: module.IdeaAmplifierPanel })));
+const IdeaLabPanel = lazy(() => import('./components/IdeaLabComponents.js').then(module => ({ default: module.IdeaLabPanel })));
+const ConceptSummaryPanel = lazy(() => import('./components/IdeaLabComponents.js').then(module => ({ default: module.ConceptSummaryPanel })));
+const ExtensionModulesPanel = lazy(() => import('./components/IdeaLabComponents.js').then(module => ({ default: module.ExtensionModulesPanel })));
+const ChangeImpactPanel = lazy(() => import('./components/ChangeImpactPanel.js').then(module => ({ default: module.ChangeImpactPanel })));
+const ResearchPanel = lazy(() => import('./components/ResearchPanel.js').then(module => ({ default: module.ResearchPanel })));
+const ReviewPanel = lazy(() => import('./components/ReviewPanel.js').then(module => ({ default: module.ReviewPanel })));
+const ModulePanel = lazy(() => import('./components/ModulePanel.js').then(module => ({ default: module.ModulePanel })));
+const ExecutionPanel = lazy(() => import('./components/ExecutionPanel.js').then(module => ({ default: module.ExecutionPanel })));
+const StorageHealthPanel = lazy(() => import('./components/StorageHealthPanel.js').then(module => ({ default: module.StorageHealthPanel })));
+const TraceabilityMap = lazy(() => import('./components/TraceabilityMap.js').then(module => ({ default: module.TraceabilityMap })));
+const PlanningScenarioPanel = lazy(() => import('./components/PlanningScenarioPanel.js').then(module => ({ default: module.PlanningScenarioPanel })));
+const SectionRegenerationPanel = lazy(() => import('./components/SectionRegenerationPanel.js').then(module => ({ default: module.SectionRegenerationPanel })));
+const ProviderSettingsDialog = lazy(() => import('./components/ProviderSettingsDialog.js').then(module => ({ default: module.ProviderSettingsDialog })));
+const RevisionHistoryDialog = lazy(() => import('./components/RevisionHistoryDialog.js').then(module => ({ default: module.RevisionHistoryDialog })));
+const DecisionTimelineModal = lazy(() => import('./components/DecisionTimelineModal.js').then(module => ({ default: module.DecisionTimelineModal })));
+const ArchitectureComparatorModal = lazy(() => import('./components/ArchitectureComparatorModal.js').then(module => ({ default: module.ArchitectureComparatorModal })));
+const ProjectInventoryModal = lazy(() => import('./components/ProjectInventoryModal.js').then(module => ({ default: module.ProjectInventoryModal })));
+const AgentCommitteeModal = lazy(() => import('./components/AgentCommitteeModal.js').then(module => ({ default: module.AgentCommitteeModal })));
+const IdeExportDialog = lazy(() => import('./components/IdeExportDialog.js').then(module => ({ default: module.IdeExportDialog })));
+const RuntimeHealthDialog = lazy(() => import('./components/RuntimeHealthDialog.js').then(module => ({ default: module.RuntimeHealthDialog })));
+const FinalizePlanDialog = lazy(() => import('./components/FinalizePlanDialog.js').then(module => ({ default: module.FinalizePlanDialog })));
 const depths = [
   { id: 'quick', label: 'Quick', detail: 'Fikir → kapsam → görevler' },
   { id: 'standard', label: 'Standard', detail: 'Dengeli ürün ve teknik plan' },
@@ -180,6 +185,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const [generating, setGenerating] = useState(false);
   const [changeImpactMode, setChangeImpactMode] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState(false);
+  const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false);
 
   const [confirmingClearChat, setConfirmingClearChat] = useState(false);
 
@@ -243,14 +249,18 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     commit(updatePlanSection(project, activeSection, { content: draft }), `${active.title} kaydedildi.`, 'UpdatePlanSection');
   };
   const exportPackage = async () => {
+    const { createPromtgenPackage, downloadBlob } = await import('../v4/exporter.js');
     const result = await createPromtgenPackage(project);
     downloadBlob(result.blob, result.filename);
     const next = structuredClone(project);
     next.exports = [...(next.exports || []), result.record];
     next.lifecycle.updatedAt = new Date().toISOString();
-    commit(next, `r${result.record.revision} export kaydı korundu.`, 'RecordExport');
+    commit(next, `r${result.record.canonicalRevision} export kaydı korundu.`, 'RecordExport');
   };
-  const exportMarkdown = () => downloadBlob(new Blob([exportCanonicalMarkdown(project)], { type: 'text/markdown' }), `${project.identity.name}.md`);
+  const exportMarkdown = async () => {
+    const { downloadBlob, exportCanonicalMarkdown } = await import('../v4/exporter.js');
+    downloadBlob(new Blob([exportCanonicalMarkdown(project)], { type: 'text/markdown' }), `${project.identity.name}.md`);
+  };
   const finish = () => {
     const result = finalizePlan(project, false);
     if (result.success) commit(result.project, 'Plan finalleştirildi.', 'FinalizePlan');
@@ -284,11 +294,11 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     <a className="skip-link" href="#workspace-content">Ana içeriğe geç</a>
     <ProjectRail projects={projects} activeId={project.id} onSelect={onProject} onNew={onNew} open={railOpen} onClose={() => setRailOpen(false)}/>
     <main id="workspace-content" className="workspace" tabIndex={-1}>
-      <header className="topbar"><IconButton label="Projeleri aç" onClick={() => setRailOpen(true)}><Menu size={20}/></IconButton><div className="title-block"><span>{project.identity.name}</span><small><span className="live-dot"/> r{project.revision} · {project.lifecycle.status === 'finalized' ? 'Final plan' : 'Canlı plan'}</small></div><div className="phase-strip">{PHASE_REGISTRY.map((phase: any) => <span key={phase.id} className={phase.id === project.lifecycle.activePhase ? 'active' : ''}>{phase.label}</span>)}</div><div className="top-actions"><button onClick={openRuntimeHealth}><Gauge size={16}/> Sistem</button><button onClick={() => setSettingsOpen(true)}><Settings2 size={16}/> {getProviderMeta(providerSettings.providerId).label}</button><button onClick={() => setIdeExportOpen(true)}><Code2 size={16}/> IDE</button><button onClick={exportMarkdown}><Download size={16}/> Markdown</button><button onClick={exportPackage}><Archive size={16}/> Paket</button>{project.lifecycle.status === 'finalized' ? <button className="primary compact" onClick={() => commit(reopenPlan(project), 'Yeni bir plan sürümü açıldı.', 'ReopenPlan')}><RotateCcw size={15}/> Yeniden aç</button> : <button className="primary compact" onClick={finish}><Check size={15}/> Finalleştir</button>}</div></header>
+      <header className="topbar"><IconButton label="Projeleri aç" onClick={() => setRailOpen(true)}><Menu size={20}/></IconButton><div className="title-block"><span>{project.identity.name}</span><small><span className="live-dot"/> r{project.canonicalRevision} · d{project.documentRevision} · {project.lifecycle.status === 'finalized' ? 'Final plan' : 'Canlı plan'}</small></div><div className="phase-strip">{PHASE_REGISTRY.map((phase: any) => <span key={phase.id} className={phase.id === project.lifecycle.activePhase ? 'active' : ''}>{phase.label}</span>)}</div><div className="top-actions"><button onClick={openRuntimeHealth}><Gauge size={16}/> Sistem</button><button onClick={() => setSettingsOpen(true)}><Settings2 size={16}/> {getProviderMeta(providerSettings.providerId).label}</button><button onClick={() => setIdeExportOpen(true)}><Code2 size={16}/> IDE</button><button onClick={exportMarkdown}><Download size={16}/> Markdown</button><button onClick={exportPackage}><Archive size={16}/> Paket</button>{project.lifecycle.status === 'finalized' ? <button className="primary compact" onClick={() => commit(reopenPlan(project), 'Yeni bir plan sürümü açıldı.', 'ReopenPlan')}><RotateCcw size={15}/> Yeniden aç</button> : <button className="primary compact" onClick={finish}><Check size={15}/> Finalleştir</button>}</div></header>
       <GuidedHeaderBar
         projectName={project.identity.name}
         activePhase={project.lifecycle.activePhase}
-        revision={project.revision}
+        revision={project.canonicalRevision}
         onOpenAdvancedTools={openRuntimeHealth}
         onOpenExpertPerspectives={() => setCommitteeOpen(true)}
         onOpenArchitectureComparator={() => setComparatorOpen(true)}
@@ -299,7 +309,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         <section className="conversation" aria-label="Planlama sohbeti">
           <div className="idea-summary"><div className="ai-avatar"><Sparkles size={18}/></div><div><div className="meta">FİKİR ANALİZİ</div><p>{project.identity.originalIdea}</p></div></div>
           <div className="depth-panel"><div><span className="meta">ÖNERİLEN PLAN DERİNLİĞİ</span><h2>{project.planningDepth.recommended.toUpperCase()} <span>{project.planningDepth.signals.score}/100 karmaşıklık</span></h2><p>{project.planningDepth.rationale}</p></div><label>Derinliği değiştir<select value={project.planningDepth.selected} onChange={event => commit(overridePlanningDepth(project, event.target.value as Project['planningDepth']['selected']))}>{depths.map(depth => <option key={depth.id} value={depth.id}>{depth.label} — {depth.detail}</option>)}</select></label></div>
-          {project.lifecycle.activePhase === 'IDEA_EXPANSION' && <IdeaAmplifierPanel project={project} onCommit={commit} />}
+          {project.lifecycle.activePhase === 'IDEA_EXPANSION' && <LazyFeatureBoundary label="Fikir büyütücü" resetKey={project.id}><IdeaAmplifierPanel project={project} onCommit={commit} /></LazyFeatureBoundary>}
           {project.lifecycle.activePhase === 'IDEA_LAB' && (
             <>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-8px', marginTop: '4px' }}>
@@ -315,12 +325,12 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                   Fikir Lab'ı Atla →
                 </button>
               </div>
-              <IdeaLabPanel project={project} onCommit={commit} providerSettings={providerSettings} />
+              <LazyFeatureBoundary label="Fikir laboratuvarı" resetKey={project.id}><IdeaLabPanel project={project} onCommit={commit} providerSettings={providerSettings} /></LazyFeatureBoundary>
             </>
           )}
 
-          {['CONCEPT_CONFIRMATION', 'IDEA_LAB'].includes(project.lifecycle.activePhase) && project.ideaLabSession?.conceptSummary && <ConceptSummaryPanel project={project} onCommit={commit} />}
-          {project.impactAnalyses?.some(impact => impact.status === 'proposed') && <ChangeImpactPanel project={project} onCommit={commit} />}
+          {['CONCEPT_CONFIRMATION', 'IDEA_LAB'].includes(project.lifecycle.activePhase) && project.ideaLabSession?.conceptSummary && <LazyFeatureBoundary label="Konsept özeti" resetKey={project.id}><ConceptSummaryPanel project={project} onCommit={commit} /></LazyFeatureBoundary>}
+          {project.impactAnalyses?.some(impact => impact.status === 'proposed') && <LazyFeatureBoundary label="Plan etki analizi" resetKey={project.documentRevision}><ChangeImpactPanel project={project} onCommit={commit} /></LazyFeatureBoundary>}
           {['DISCOVERY', 'IDEA_LAB', 'CONCEPT_CONFIRMATION'].includes(project.lifecycle.activePhase) && <IdeaDiscussionPanel project={project} onCommit={commit} />}
           <section className="discovery-chat" aria-labelledby="discovery-chat-title">
             {/* Live Conversation Summary Bar */}
@@ -328,7 +338,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span>💬 <b>{project.messages.length}</b> Diyalog Mesajı</span>
                 <span>🎯 <b>{project.decisions?.length || 0}</b> Kesinleşen Karar</span>
-                <span>⚡ Revizyon: <b>r{project.revision}</b></span>
+                <span>⚡ Canonical: <b>r{project.canonicalRevision}</b> · Doküman: <b>d{project.documentRevision}</b></span>
               </div>
               <span style={{ color: '#a78bfa', fontWeight: 600 }}>{project.lifecycle.activePhase} AŞAMASI</span>
             </div>
@@ -475,7 +485,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           <div className="conversation-heading"><div><span className="meta">KARAR TURU · {bundleSource.toUpperCase()}</span><h2>{currentBundle?.title || 'Planı geliştir'}</h2><p>Yalnızca kabul ettiğin değişiklikler yaşayan plana uygulanır.</p></div><Lightbulb size={23}/></div>
           <div className="suggestions">{currentBundle?.items.map((item: any) => <SuggestionCard key={item.id} item={item} provenance={currentBundle.provenance} onSection={setActiveSection} onStatus={(nextStatus: string, edited = '') => status(item.id, nextStatus, edited)}/>)}</div>
           {!bundleResolved && changePreview && changePreview.acceptedCount > 0 && <section className="change-preview" aria-labelledby="change-preview-title" aria-live="polite">
-            <div className="preview-head"><div className="preview-icon"><Eye size={17}/></div><div><span className="meta">UYGULAMA ÖNCESİ ÖNİZLEME</span><h3 id="change-preview-title">r{project.revision} → r{changePreview.nextRevision}</h3></div><div className="preview-count"><b>{changePreview.acceptedCount}</b><span>kabul</span></div></div>
+            <div className="preview-head"><div className="preview-icon"><Eye size={17}/></div><div><span className="meta">UYGULAMA ÖNCESİ ÖNİZLEME</span><h3 id="change-preview-title">r{project.canonicalRevision} → r{changePreview.nextRevision}</h3></div><div className="preview-count"><b>{changePreview.acceptedCount}</b><span>kabul</span></div></div>
             <p>{changePreview.canApply ? 'Uyguladığında aşağıdaki canonical plan bölümleri güncellenecek.' : changePreview.reason}</p>
             <div className="preview-sections">{changePreview.sections.map((section: any) => <button type="button" key={section.sectionId} onClick={() => setActiveSection(section.sectionId)}><span><b>{section.title}</b><small>{section.additions.length} yeni öğe{section.unchanged.length ? ` · ${section.unchanged.length} zaten mevcut` : ''}</small></span><ArrowRight size={15}/></button>)}</div>
             {(changePreview.records.decisions > 0 || changePreview.records.risks > 0) && <div className="preview-records">{changePreview.records.decisions > 0 && <span>+{changePreview.records.decisions} karar kaydı</span>}{changePreview.records.risks > 0 && <span>+{changePreview.records.risks} risk kaydı</span>}</div>}
@@ -500,21 +510,26 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           <div className="section-tabs">{Object.values(project.sections).filter((section: any) => section.required || section.content || section.items.length || impactedSections.has(section.id)).map((section: any) => <button key={section.id} aria-current={activeSection === section.id ? 'true' : undefined} className={`${activeSection === section.id ? 'active' : ''} ${impactedSections.has(section.id) ? 'impacted' : ''}`} onClick={() => setActiveSection(section.id)}><span className={`section-state ${section.status}`}/><span>{section.title}<small>{impactedSections.has(section.id) ? 'Uygulanınca değişecek' : section.items.length ? `${section.items.length} karar/öğe` : section.required ? 'Gerekli' : 'İsteğe bağlı'}</small></span></button>)}</div>
           {active && <div className="section-editor"><div className="editor-head"><div><span className="meta">PLAN BÖLÜMÜ</span><h2>{active.title}</h2></div><span>r{active.updatedAtRevision}</span></div><p className="section-description">{active.description}</p><textarea aria-label={`${active.title} canonical içeriği`} value={draft} onChange={event => setDraft(event.target.value)} rows={8} placeholder="Bu bölümün canonical içeriğini yaz..."/>{active.items.length > 0 && <ul>{active.items.map((item: string) => <li key={item}>{item}</li>)}</ul>}<button type="button" className="save-button" disabled={draft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{activeSection === 'tasks' && <div className="task-compiler"><button type="button" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button>{taskCompilation && <div className="task-compilation" role="region" aria-label="Görev planı önizlemesi"><b>{taskCompilation.tasks.length} görev · {taskCompilation.testCases.length} test · {taskCompilation.agentPrompts.length} ajan adımı</b>{taskCompilation.tasks.slice(0, 5).map((task: any) => <span key={task.id}>{task.title}<small>{task.priority} · {task.status}</small></span>)}{taskCompilation.warnings.map((warning: string) => <p key={warning}><CircleAlert size={13}/>{warning}</p>)}<div><button type="button" onClick={() => setTaskCompilation(null)}>Vazgeç</button><button type="button" className="primary" disabled={!taskCompilation.tasks.length} onClick={approveTaskPlan}><Check size={14}/> Taslağı onayla</button></div></div>}</div>}</div>}
           {['SHAPING', 'DESIGN', 'PLANNING', 'REVIEW', 'READY'].includes(project.lifecycle.activePhase) && <ArchitectureDiagramCard project={project} />}
-          <details style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', marginTop: '12px' }}>
+          <details onToggle={event => setAdvancedToolsOpen(event.currentTarget.open)} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', marginTop: '12px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '12px', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '6px' }}>
               🛠️ Gelişmiş Araçlar & Analizler (Modüller, Testler, Ajanlar)
             </summary>
-            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <ExtensionModulesPanel project={project} onCommit={commit}/>
-              <ReviewPanel project={project} onCommit={commit}/>
-              <ModulePanel project={project} onCommit={commit}/>
-              <ExecutionPanel project={project} onCommit={commit}/>
-              <StorageHealthPanel project={project} onCommit={commit}/>
-              <ResearchPanel project={project} onCommit={commit}/>
-            </div>
+            {advancedToolsOpen && <LazyFeatureBoundary label="Gelişmiş araçlar" resetKey={project.documentRevision}>
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <ExtensionModulesPanel project={project} onCommit={commit}/>
+                <ReviewPanel project={project} onCommit={commit}/>
+                <ModulePanel project={project} onCommit={commit}/>
+                <ExecutionPanel project={project} onCommit={commit}/>
+                <StorageHealthPanel project={project} onCommit={commit}/>
+                <ResearchPanel project={project} onCommit={commit}/>
+                <TraceabilityMap project={project}/>
+                <PlanningScenarioPanel project={project} onCommit={commit}/>
+                <SectionRegenerationPanel project={project} onCommit={commit} providerSettings={providerSettings} credentialVault={credentialVault}/>
+              </div>
+            </LazyFeatureBoundary>}
           </details>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
-            <button className="history-line" onClick={() => setHistoryOpen(true)}><History size={15}/><span>{project.revisions.length} kayıtlı değişiklik · r{project.revision}</span><ArrowRight size={14}/></button>
+            <button className="history-line" onClick={() => setHistoryOpen(true)}><History size={15}/><span>{project.revisions.length} kayıtlı değişiklik · r{project.canonicalRevision}</span><ArrowRight size={14}/></button>
             <button type="button" onClick={() => setTimelineOpen(true)} style={{ background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#ddd6fe', padding: '0 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }} title="Etkileşimli Karar Zaman Çizelgesi">
               📅 Çizelge
             </button>
@@ -522,15 +537,15 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         </aside>
       </div>
     </main>
-    <ProviderSettingsDialog open={settingsOpen} settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)} credentialVault={credentialVault}/>
-    <RevisionHistoryDialog open={historyOpen} project={project} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)}/>
-    <DecisionTimelineModal open={timelineOpen} project={project} onClose={() => setTimelineOpen(false)}/>
-    <ArchitectureComparatorModal open={comparatorOpen} project={project} onClose={() => setComparatorOpen(false)}/>
-    <ProjectInventoryModal open={inventoryOpen} nativeInventory={nativeInventory} onClose={() => setInventoryOpen(false)}/>
-    <AgentCommitteeModal open={committeeOpen} project={project} onCommit={commit} onClose={() => setCommitteeOpen(false)}/>
-    <IdeExportDialog open={ideExportOpen} project={project} onCommit={commit} onClose={() => setIdeExportOpen(false)}/>
-    <RuntimeHealthDialog open={runtimeHealthOpen} settings={providerSettings} credential={runtimeCredential} onClose={() => setRuntimeHealthOpen(false)}/>
-    <FinalizePlanDialog blockers={finalizationBlockers} onConfirm={forceFinish} onClose={() => setFinalizationBlockers([])}/>
+    {settingsOpen && <LazyFeatureBoundary label="AI sağlayıcı ayarları" resetKey={settingsOpen}><ProviderSettingsDialog open settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)} credentialVault={credentialVault}/></LazyFeatureBoundary>}
+    {historyOpen && <LazyFeatureBoundary label="Revision geçmişi" resetKey={historyOpen}><RevisionHistoryDialog open project={project} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)}/></LazyFeatureBoundary>}
+    {timelineOpen && <LazyFeatureBoundary label="Karar zaman çizelgesi" resetKey={timelineOpen}><DecisionTimelineModal open project={project} onClose={() => setTimelineOpen(false)}/></LazyFeatureBoundary>}
+    {comparatorOpen && <LazyFeatureBoundary label="Mimari karşılaştırma" resetKey={comparatorOpen}><ArchitectureComparatorModal open project={project} onClose={() => setComparatorOpen(false)}/></LazyFeatureBoundary>}
+    {inventoryOpen && <LazyFeatureBoundary label="Proje envanteri" resetKey={inventoryOpen}><ProjectInventoryModal open nativeInventory={nativeInventory} onClose={() => setInventoryOpen(false)}/></LazyFeatureBoundary>}
+    {committeeOpen && <LazyFeatureBoundary label="Uzman perspektifleri" resetKey={committeeOpen}><AgentCommitteeModal open project={project} onCommit={commit} onClose={() => setCommitteeOpen(false)}/></LazyFeatureBoundary>}
+    {ideExportOpen && <LazyFeatureBoundary label="IDE export araçları" resetKey={ideExportOpen}><IdeExportDialog open project={project} onCommit={commit} onClose={() => setIdeExportOpen(false)}/></LazyFeatureBoundary>}
+    {runtimeHealthOpen && <LazyFeatureBoundary label="Sistem durumu" resetKey={runtimeHealthOpen}><RuntimeHealthDialog open settings={providerSettings} credential={runtimeCredential} onClose={() => setRuntimeHealthOpen(false)}/></LazyFeatureBoundary>}
+    {finalizationBlockers.length > 0 && <LazyFeatureBoundary label="Plan finalizasyonu" resetKey={finalizationBlockers.length}><FinalizePlanDialog blockers={finalizationBlockers} onConfirm={forceFinish} onClose={() => setFinalizationBlockers([])}/></LazyFeatureBoundary>}
     <LiveAnnouncer message={notice} />
     {notice && <div className="toast" role="status"><Check size={17}/>{notice}</div>}
   </div>;

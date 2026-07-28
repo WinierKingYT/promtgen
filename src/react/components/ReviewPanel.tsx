@@ -3,7 +3,7 @@ import { CheckCircle2, CircleAlert, FlaskConical, ScanSearch, ShieldCheck } from
 import { applyReviewResult, runPlanReview, simulatePlan } from '../../v4/review-engine.js';
 import { CustomReviewRuleEditorModal } from './CustomReviewRuleEditorModal.js';
 
-export function ReviewPanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string) => void }) {
+export function ReviewPanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string, commandType?: string) => void }) {
   const [running, setRunning] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const lastReview = project.metadata?.lastReview;
@@ -13,7 +13,7 @@ export function ReviewPanel({ project, onCommit }: { project: any; onCommit: (pr
     try {
       const review = runPlanReview(project, { profile: 'deep' });
       const result = applyReviewResult(project, review, simulatePlan(project));
-      if (result.success) onCommit(result.project, `Plan incelemesi tamamlandı: ${review.score}/100.`);
+      if (result.success) onCommit(result.project, `Plan incelemesi tamamlandı: ${review.score}/100.`, 'ApplyPlanReview');
     } finally { setRunning(false); }
   };
   return <details className="review-panel" open={Boolean(project.reviewFindings.length && project.reviewFindings.some((item: any) => ['critical', 'high'].includes(item.severity)))}>

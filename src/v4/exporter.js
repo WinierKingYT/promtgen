@@ -33,6 +33,41 @@ function stableJson(value) {
     return JSON.stringify(value);
 }
 
+export function canonicalHashPayload(project) {
+    const source = resolveCanonicalRevision(project);
+    return {
+        schemaVersion: source.schemaVersion,
+        schemaRevision: source.schemaRevision,
+        canonicalRevision: source.canonicalRevision,
+        identity: source.identity,
+        planningDepth: source.planningDepth,
+        profile: source.profile,
+        lifecycle: {
+            status: source.lifecycle.status,
+            activePhase: source.lifecycle.activePhase,
+            finalizedAt: source.lifecycle.finalizedAt
+        },
+        sections: source.sections,
+        objectives: source.objectives,
+        assumptions: source.assumptions,
+        requirements: source.requirements,
+        decisions: source.decisions,
+        tasks: source.tasks,
+        risks: source.risks,
+        milestones: source.milestones,
+        testCases: source.testCases,
+        traceLinks: source.traceLinks,
+        agentPrompts: source.agentPrompts,
+        researchQuestions: source.researchQuestions,
+        sources: source.sources,
+        evidence: source.evidence,
+        reviewFindings: source.reviewFindings,
+        simulationRuns: source.simulationRuns,
+        modules: source.modules,
+        readiness: source.readiness
+    };
+}
+
 async function sha256(value) {
     const bytes = new TextEncoder().encode(value);
     const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
@@ -55,11 +90,12 @@ function sectionMarkdown(section) {
 
 export function resolveCanonicalRevision(project, reference = 'current') {
     const normalized = normalizeProjectDocument(project);
-    if (reference === 'current' || reference == null || Number(reference) === normalized.revision) return normalized;
+    if (reference === 'current' || reference == null || Number(reference) === normalized.canonicalRevision) return normalized;
     const revision = normalized.revisions.find(item => item.id === reference || item.number === Number(reference));
     if (!revision?.snapshot) throw new Error(`Plan revision'ı bulunamadı: ${reference}`);
     const snapshot = normalizeProjectDocument(revision.snapshot);
-    snapshot.revision = revision.number;
+    snapshot.canonicalRevision = revision.number;
+    snapshot.documentRevision = Math.max(snapshot.documentRevision || revision.number, revision.number);
     return snapshot;
 }
 
@@ -69,7 +105,7 @@ export function exportCanonicalMarkdown(project, revision = 'current') {
     const archDiagram = generateArchitectureDiagram(source);
     return [
         `# ${source.identity.name}`,
-        `> Plan sürümü ${source.revision} · ${source.planningDepth.selected.toUpperCase()} · Hazırlık ${source.readiness.score}/100`,
+        `> Plan sürümü ${source.canonicalRevision} · ${source.planningDepth.selected.toUpperCase()} · Hazırlık ${source.readiness.score}/100`,
         `**Başlangıç fikri:** ${source.identity.originalIdea}`,
         ...visible.map(sectionMarkdown),
         '## Mimari Şema',
@@ -77,7 +113,7 @@ export function exportCanonicalMarkdown(project, revision = 'current') {
         '## Kabul Edilmiş Kararlar',
         source.decisions.length ? source.decisions.filter(item => item.status === 'accepted').map(item => `- **${item.title}:** ${item.decision}${item.rationale ? ` — ${item.rationale}` : ''}`).join('\n') : '_Henüz karar yok._',
         '## Plan Geçmişi',
-        `Toplama ${source.revisions.length} revizyon kaydedildi. Son revizyon: r${source.revision}.`,
+        `Toplama ${source.revisions.length} revizyon kaydedildi. Son revizyon: r${source.canonicalRevision}.`,
         '## Açık Uyarılar',
         bulletList([...source.readiness.blockers, ...source.readiness.warnings], '_Açık uyarı yok._')
     ].join('\n\n');
@@ -173,7 +209,7 @@ function moduleContributionDocument(project, manifest, documentId) {
     return [
         `# ${manifest.name} — ${documentId}`,
         manifest.description,
-        `Kaynak canonical plan: r${project.revision}`,
+        `Kaynak canonical plan: r${project.canonicalRevision}`,
         ...sectionIds.map(sectionId => sectionMarkdown(project.sections[sectionId])),
         '## Alan kalite kontrolleri',
         bulletList(manifest.contributions.reviewerRuleIds || [], '_Alan kuralı tanımlanmadı._')
@@ -193,7 +229,7 @@ export function buildAgentPrompt(project, adapter = 'generic', revision = 'curre
     };
     return [
         `# ${labels[adapter] || labels.generic} Uygulama Promptu`,
-        `Kaynak: canonical plan r${source.revision}. Aşağıdaki planı tek doğruluk kaynağı kabul et; kabul edilmiş kararlarla çelişme.`,
+        `Kaynak: canonical plan r${source.canonicalRevision}. Aşağıdaki planı tek doğruluk kaynağı kabul et; kabul edilmiş kararlarla çelişme.`,
         'Önce mevcut kod tabanını incele, sonra bağımlılık sırasına göre küçük ve doğrulanabilir adımlarla uygula. Her adımda testleri çalıştır; belirsizlikte varsayımı açıkça yaz.',
         adapter === 'codex' ? 'Değişiklikleri workspace içinde uygula; test sonuçlarını ve kalan riskleri özetle.' : '',
         adapter === 'cursor' ? 'Planı uygulanabilir görevler halinde ele al ve ilgili dosyaları bağlama ekle.' : '',
@@ -251,7 +287,7 @@ function ideWorkflowDocument(project) {
         : '1. Önce canonical görev planını oluştur ve kullanıcıya onaylat.\n2. Uygula.\n3. İncele.\n4. Kabul kriterlerini doğrula.';
     return [
         '# PromtGen IDE Çalışma Sözleşmesi',
-        `Bu paket canonical plan **r${project.revision}** için üretildi. Planın kaynak durumu: **${project.lifecycle.status}**; hazırlık skoru: **${project.readiness.score}/100**.`,
+        `Bu paket canonical plan **r${project.canonicalRevision}** için üretildi. Planın kaynak durumu: **${project.lifecycle.status}**; hazırlık skoru: **${project.readiness.score}/100**.`,
         '## Değişmez kurallar',
         '- `.promtgen/manifest.json` içindeki revision ve canonical hash bu paketin kimliğidir.',
         '- Canonical kararları sessizce değiştirme. Çelişki veya yeni kapsam görürsen uygulamayı durdurup kullanıcı kararı iste.',
@@ -270,7 +306,7 @@ function ideWorkflowDocument(project) {
 
 function adapterInstruction(project, adapter) {
     const common = `${ideWorkflowDocument(project)}\n\n${buildAgentPrompt(project, adapter)}`;
-    if (adapter === 'cursor') return `---\ndescription: PromtGen canonical plan r${project.revision} çalışma kuralları\nalwaysApply: true\n---\n\n${common}`;
+    if (adapter === 'cursor') return `---\ndescription: PromtGen canonical plan r${project.canonicalRevision} çalışma kuralları\nalwaysApply: true\n---\n\n${common}`;
     return common;
 }
 
@@ -289,7 +325,7 @@ export function createIdeWorkspaceFiles(project, { revision = 'current', adapter
         '.promtgen/plan/master-plan.md': exportCanonicalMarkdown(source),
         '.promtgen/plan/decisions.md': entityDocument('Kabul Edilmiş Kararlar', source.decisions.filter(item => item.status === 'accepted'), item => `## ${item.id} — ${item.title}\n\n${item.decision}\n\n**Gerekçe:** ${item.rationale || 'Belirtilmedi.'}`),
         '.promtgen/execution.json': JSON.stringify({
-            sourceRevision: source.revision,
+            sourceRevision: source.canonicalRevision,
             lifecycleStatus: source.lifecycle.status,
             tasks: source.tasks,
             testCases: source.testCases,
@@ -309,11 +345,11 @@ export async function createIdeWorkspacePackage(project, options = {}) {
     const workspace = createIdeWorkspaceFiles(project, options);
     const validation = validateProjectDocument(workspace.source);
     if (!validation.valid) throw new Error(`Geçersiz proje: ${validation.errors.join(' ')}`);
-    const canonicalHash = await sha256(stableJson(workspace.source));
+    const canonicalHash = await sha256(stableJson(canonicalHashPayload(workspace.source)));
     const createdAt = new Date().toISOString();
     const manifest = {
         format: 'promtgen-ide-workspace', formatVersion: 1, schemaVersion: 5,
-        projectId: workspace.source.id, sourceRevision: workspace.source.revision,
+        projectId: workspace.source.id, sourceRevision: workspace.source.canonicalRevision,
         lifecycleStatus: workspace.source.lifecycle.status,
         readinessScore: workspace.source.readiness.score,
         canonicalHash, createdAt, adapters: workspace.adapters,
@@ -323,12 +359,12 @@ export async function createIdeWorkspacePackage(project, options = {}) {
     for (const [path, content] of Object.entries(workspace.files)) zip.file(path, content);
     zip.file('.promtgen/manifest.json', JSON.stringify(manifest, null, 2));
     const record = {
-        id: recordId(), format: 'ide-workspace', revision: workspace.source.revision,
+        id: recordId(), format: 'ide-workspace', canonicalRevision: workspace.source.canonicalRevision,
         createdAt, canonicalHash, adapterIds: workspace.adapters, fileNames: manifest.files
     };
     return {
         blob: await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }),
-        filename: `${safeName(workspace.source.identity.name)}-ide-r${workspace.source.revision}.zip`,
+        filename: `${safeName(workspace.source.identity.name)}-ide-r${workspace.source.canonicalRevision}.zip`,
         record, manifest, files: workspace.files
     };
 }
@@ -338,10 +374,10 @@ export async function createExportBundle(project, { revision = 'current', adapte
     const validation = validateProjectDocument(source);
     if (!validation.valid) throw new Error(`Geçersiz proje: ${validation.errors.join(' ')}`);
     const documents = createDocumentSet(source, { adapters });
-    const canonicalHash = await sha256(stableJson(source));
+    const canonicalHash = await sha256(stableJson(canonicalHashPayload(source)));
     const createdAt = new Date().toISOString();
     const record = {
-        id: recordId(), format, revision: source.revision, createdAt, canonicalHash,
+        id: recordId(), format, canonicalRevision: source.canonicalRevision, createdAt, canonicalHash,
         adapterIds: [...adapters], fileNames: Object.keys(documents)
     };
     return { source, documents, canonicalHash, record };
@@ -351,8 +387,8 @@ export async function createPromtgenPackage(project, options = {}) {
     const bundle = await createExportBundle(project, options);
     const zip = new JSZip();
     const manifest = {
-        format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 1, projectId: project.id,
-        revision: bundle.source.revision, canonicalHash: bundle.canonicalHash,
+        format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 2, projectId: project.id,
+        revision: bundle.source.canonicalRevision, canonicalRevision: bundle.source.canonicalRevision, canonicalHash: bundle.canonicalHash,
         createdAt: bundle.record.createdAt, files: options.includeExports === false ? [] : Object.keys(bundle.documents), adapters: bundle.record.adapterIds
     };
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
@@ -363,7 +399,7 @@ export async function createPromtgenPackage(project, options = {}) {
     if (options.includeExports !== false) for (const [path, content] of Object.entries(bundle.documents)) zip.file(path, content);
     return {
         blob: await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }),
-        filename: `${safeName(project.identity.name)}-r${bundle.source.revision}.promtgen`,
+        filename: `${safeName(project.identity.name)}-r${bundle.source.canonicalRevision}.promtgen`,
         record: bundle.record,
         manifest
     };
@@ -424,8 +460,8 @@ export async function readPromtgenPackage(file) {
     if (manifestFiles.some(path => !zip.file(path))) throw new Error('Paket manifestinde belirtilen bir dosya eksik.');
     const projectJson = await readSafeJsonEntry(zip, 'project.json');
     if (manifest.formatVersion === 2 && manifest.canonicalHash) {
-        const hashSource = resolveCanonicalRevision(projectJson, manifest.revision);
-        if (await sha256(stableJson(hashSource)) !== manifest.canonicalHash) throw new Error('Paket canonical özeti doğrulanamadı; içerik değiştirilmiş olabilir.');
+        const hashSource = resolveCanonicalRevision(projectJson, manifest.canonicalRevision || manifest.revision);
+        if (await sha256(stableJson(canonicalHashPayload(hashSource))) !== manifest.canonicalHash) throw new Error('Paket canonical özeti doğrulanamadı; içerik değiştirilmiş olabilir.');
     }
     const migration = tryMigrateOrPassthrough(projectJson);
     if (migration.error) throw new Error(`Paket migration başarısız: ${migration.error}`);

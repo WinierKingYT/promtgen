@@ -43,5 +43,5 @@ test('Konsept A/B Simülasyonu ve Onayı', async () => {
 
     assert.equal(confirmedProject.ideaLabSession.conceptSummary.userConfirmed, true);
     assert.equal(confirmedProject.lifecycle.activePhase, 'SHAPING');
-    assert.ok(confirmedProject.revision > 1);
+    assert.ok(confirmedProject.canonicalRevision > 1);
 });

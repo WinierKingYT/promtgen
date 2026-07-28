@@ -20,17 +20,17 @@ assert.ok(exportCanonicalMarkdown(result.project).includes('Editörü oluştur')
 const bundle = await createExportBundle(result.project, { adapters: ['codex'] });
 assert.equal(bundle.canonicalHash.length, 64);
 assert.deepEqual(bundle.record.adapterIds, ['codex']);
-assert.equal(bundle.record.revision, result.project.revision);
+assert.equal(bundle.record.canonicalRevision, result.project.canonicalRevision);
 const packaged = await createPromtgenPackage(result.project, { adapters: ['codex'] });
 assert.equal(packaged.manifest.formatVersion, 2);
 const imported = await readPromtgenPackage(packaged.blob);
 assert.equal(imported.id, result.project.id);
-assert.equal(resolveCanonicalRevision(imported, imported.revision).revision, imported.revision);
+assert.equal(resolveCanonicalRevision(imported, imported.canonicalRevision).canonicalRevision, imported.canonicalRevision);
 const ideFiles = createIdeWorkspaceFiles(result.project, { adapters: ['codex', 'cursor', 'claude'] });
-assert.ok(ideFiles.files['AGENTS.md'].includes(`canonical plan **r${result.project.revision}**`));
+assert.ok(ideFiles.files['AGENTS.md'].includes(`canonical plan **r${result.project.canonicalRevision}**`));
 assert.ok(ideFiles.files['.cursor/rules/promtgen-plan.mdc'].includes('alwaysApply: true'));
 assert.ok(ideFiles.files['CLAUDE.md'].includes('Zorunlu rol sırası'));
-assert.equal(JSON.parse(ideFiles.files['.promtgen/execution.json']).sourceRevision, result.project.revision);
+assert.equal(JSON.parse(ideFiles.files['.promtgen/execution.json']).sourceRevision, result.project.canonicalRevision);
 assert.throws(() => createIdeWorkspaceFiles(result.project, { adapters: ['unknown'] }), /En az bir IDE/);
 const idePackage = await createIdeWorkspacePackage(result.project, { adapters: ['codex', 'cursor'] });
 assert.equal(idePackage.manifest.format, 'promtgen-ide-workspace');
@@ -39,7 +39,7 @@ assert.deepEqual(idePackage.record.adapterIds, ['codex', 'cursor']);
 const ideZip = await JSZip.loadAsync(await idePackage.blob.arrayBuffer());
 assert.ok(ideZip.file('AGENTS.md'));
 assert.ok(ideZip.file('.cursor/rules/promtgen-plan.mdc'));
-assert.equal(JSON.parse(await ideZip.file('.promtgen/manifest.json').async('string')).sourceRevision, result.project.revision);
+assert.equal(JSON.parse(await ideZip.file('.promtgen/manifest.json').async('string')).sourceRevision, result.project.canonicalRevision);
 
 async function maliciousPackage(projectJson, extras = [], compression = 'DEFLATE') {
     const zip = new JSZip();

@@ -7,8 +7,8 @@ import { applyCompiledTaskPlan, compileTaskPlan } from '../../src/v4/task-compil
 let project = analyzeIdea('Yerel çalışan küçük bir alışkanlık takip aracı planlamak istiyorum.');
 assert.ok(['quick', 'standard'].includes(project.planningDepth.recommended));
 const bundle = project.proposalStore.bundles[0];
-const unchangedRevision = project.revision;
-assert.equal(applyApprovedChanges(project, bundle.id).revision, unchangedRevision, 'Pending öneriler plana uygulanmamalı');
+const unchangedRevision = project.canonicalRevision;
+assert.equal(applyApprovedChanges(project, bundle.id).canonicalRevision, unchangedRevision, 'Pending öneriler plana uygulanmamalı');
 
 for (let index = 0; index < bundle.items.length; index += 1) {
     const item = bundle.items[index];
@@ -17,7 +17,7 @@ for (let index = 0; index < bundle.items.length; index += 1) {
 }
 project = applyApprovedChanges(project, bundle.id);
 assert.equal(project.proposalStore.bundles[0].status, 'resolved');
-assert.ok(project.revision > unchangedRevision);
+assert.ok(project.canonicalRevision > unchangedRevision);
 assert.ok(project.dismissedSuggestionFingerprints.length > 0);
 assert.ok(Object.values(project.sections).some(section => section.sourceSuggestionIds.length > 0));
 
@@ -36,14 +36,14 @@ const finalized = finalizePlan(project, true);
 assert.equal(finalized.success, true);
 assert.equal(finalized.project.lifecycle.status, 'finalized');
 assert.equal(finalized.project.lifecycle.activePhase, 'READY');
-const finalRevision = finalized.project.revision;
+const finalRevision = finalized.project.canonicalRevision;
 const canonicalMarkdown = exportCanonicalMarkdown(finalized.project);
 assert.ok(canonicalMarkdown.includes('Kişisel alışkanlıkları'));
 assert.ok(canonicalMarkdown.includes('Yerel kayıt'));
 
 const portable = await createPromtgenPackage(finalized.project, { adapters: ['codex'] });
 const imported = await readPromtgenPackage(portable.blob);
-assert.equal(imported.revision, finalRevision);
+assert.equal(imported.canonicalRevision, finalRevision);
 assert.equal(exportCanonicalMarkdown(imported), canonicalMarkdown);
 const ide = await createIdeWorkspacePackage(imported, { adapters: ['codex', 'cursor'] });
 assert.equal(ide.manifest.sourceRevision, finalRevision);
@@ -52,7 +52,7 @@ assert.ok(ide.files['.cursor/rules/promtgen-plan.mdc'].includes('alwaysApply: tr
 
 const reopened = reopenPlan(imported);
 assert.equal(reopened.lifecycle.status, 'active');
-assert.equal(reopened.revision, finalRevision + 1);
+assert.equal(reopened.canonicalRevision, finalRevision + 1);
 assert.ok(reopened.revisions.some(revision => revision.number === finalRevision));
 
 console.log('✓ V4 end-to-end canonical planning acceptance flow');

@@ -101,7 +101,7 @@ export function runPlanReview(project, { profile = 'deep' } = {}) {
         execution: !findings.some(item => ['requirements', 'execution', 'traceability'].includes(item.category) && ['critical', 'high'].includes(item.severity)),
         final: !findings.some(item => ['critical', 'high'].includes(item.severity))
     };
-    return { baseRevision: project.revision, profile, score, counts, gates, findings, reviewedAt: new Date().toISOString() };
+    return { baseRevision: project.canonicalRevision, profile, score, counts, gates, findings, reviewedAt: new Date().toISOString() };
 }
 
 function check(idValue, label, passed, detail) { return { id: idValue, label, passed, detail }; }
@@ -116,18 +116,18 @@ export function simulatePlan(project) {
     return scenarios.map(item => {
         const passed = item.checks.filter(value => value.passed).length;
         const status = passed === item.checks.length ? 'passed' : passed === 0 ? 'failed' : 'warning';
-        return normalizeSimulationRun({ id: id('simulation'), scenario: item.scenario, title: item.title, status, summary: `${passed}/${item.checks.length} kontrol geçti.`, checks: item.checks, createdAt: new Date().toISOString(), projectRevision: project.revision });
+        return normalizeSimulationRun({ id: id('simulation'), scenario: item.scenario, title: item.title, status, summary: `${passed}/${item.checks.length} kontrol geçti.`, checks: item.checks, createdAt: new Date().toISOString(), projectRevision: project.canonicalRevision });
     });
 }
 
 export function applyReviewResult(project, review, simulations = []) {
-    if (review.baseRevision !== project.revision) return { success: false, project, reason: 'Plan revision değişti; inceleme yeniden çalıştırılmalı.' };
+    if (review.baseRevision !== project.canonicalRevision) return { success: false, project, reason: 'Plan revision değişti; inceleme yeniden çalıştırılmalı.' };
     const next = structuredClone(project);
     next.reviewFindings = review.findings;
     next.simulationRuns = [...next.simulationRuns, ...simulations].slice(-20);
-    next.metadata = { ...(next.metadata || {}), lastReview: { revision: project.revision, score: review.score, counts: review.counts, gates: review.gates, reviewedAt: review.reviewedAt } };
-    next.revision += 1; next.lifecycle.updatedAt = new Date().toISOString();
+    next.metadata = { ...(next.metadata || {}), lastReview: { revision: project.canonicalRevision, score: review.score, counts: review.counts, gates: review.gates, reviewedAt: review.reviewedAt } };
+    next.documentRevision += 1; next.canonicalRevision += 1; next.lifecycle.updatedAt = new Date().toISOString();
     const snapshot = structuredClone(next); snapshot.revisions = [];
-    next.revisions.push({ id: id('revision'), number: next.revision, createdAt: next.lifecycle.updatedAt, summary: 'Deterministic plan incelemesi kaydedildi', acceptedSuggestionIds: [], affectedSections: [], snapshot });
+    next.revisions.push({ id: id('revision'), number: next.canonicalRevision, createdAt: next.lifecycle.updatedAt, summary: 'Deterministic plan incelemesi kaydedildi', acceptedSuggestionIds: [], affectedSections: [], snapshot });
     return { success: true, project: next, reason: '' };
 }

@@ -35,7 +35,7 @@ export function PortfolioOverview({ projects, onOpen }: any) {
               onClick={() => onOpen(p.id)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', textDecoration: 'underline', padding: 0, fontSize: '12px' }}
             >
-              <b>{p.name}</b> (r{p.revision})
+              <b>{p.name}</b> (r{p.canonicalRevision})
             </button>
           ))}
         </div>
@@ -44,7 +44,7 @@ export function PortfolioOverview({ projects, onOpen }: any) {
 
     <div className="portfolio-controls"><label><Search size={14}/><input aria-label="Projelerde ara" value={query} onChange={event => setQuery(event.target.value)} placeholder="Proje ara…"/></label><select aria-label="Proje durumu" value={status} onChange={event => setStatus(event.target.value)}><option value="all">Tüm durumlar</option><option value="active">Canlı</option><option value="finalized">Final</option><option value="archived">Arşiv</option></select><select aria-label="Plan derinliği" value={depth} onChange={event => setDepth(event.target.value)}><option value="all">Tüm derinlikler</option><option value="quick">Quick</option><option value="standard">Standard</option><option value="advanced">Advanced</option><option value="enterprise">Enterprise</option></select><select aria-label="Proje sıralaması" value={sort} onChange={event => setSort(event.target.value)}><option value="updated">Son güncellenen</option><option value="readiness">Hazırlık skoru</option><option value="name">Ada göre</option></select></div>
     {summary.attention.length > 0 && <p className="portfolio-attention"><CircleAlert size={14}/>{summary.attention.length} proje eksik veya güncelliğini yitirmiş bölüm içeriyor.</p>}
-    <div className="portfolio-projects">{visible.slice(0, 20).map((project: any) => <button type="button" key={project.id} onClick={() => onOpen(project.id)}><span className="portfolio-score"><Gauge size={13}/>{project.readiness.score}</span><span><b>{project.identity.name}</b><small>{project.planningDepth.selected} · r{project.revision} · {project.lifecycle.status === 'finalized' ? 'final' : project.lifecycle.status === 'archived' ? 'arşiv' : 'canlı'}</small></span><ArrowRight size={15}/></button>)}</div>
+    <div className="portfolio-projects">{visible.slice(0, 20).map((project: any) => <button type="button" key={project.id} onClick={() => onOpen(project.id)}><span className="portfolio-score"><Gauge size={13}/>{project.readiness.score}</span><span><b>{project.identity.name}</b><small>{project.planningDepth.selected} · r{project.canonicalRevision} · {project.lifecycle.status === 'finalized' ? 'final' : project.lifecycle.status === 'archived' ? 'arşiv' : 'canlı'}</small></span><ArrowRight size={15}/></button>)}</div>
     {!visible.length && <p className="portfolio-empty">Bu filtrelerle eşleşen yerel proje yok.</p>}
   </section>;
 }

@@ -9,7 +9,7 @@ function id(prefix) { return `${prefix}-${Date.now()}-${Math.random().toString(3
 
 function captureRevision(project, summary) {
     const snapshot = structuredClone(project); snapshot.revisions = [];
-    project.revisions.push({ id: id('revision'), number: project.revision, createdAt: project.lifecycle.updatedAt, summary, acceptedSuggestionIds: [], affectedSections: [], snapshot });
+    project.revisions.push({ id: id('revision'), number: project.canonicalRevision, createdAt: project.lifecycle.updatedAt, summary, acceptedSuggestionIds: [], affectedSections: [], snapshot });
 }
 
 export function proposeExecution(project, adapterId = 'codex') {
@@ -19,7 +19,7 @@ export function proposeExecution(project, adapterId = 'codex') {
     if (!EXECUTION_ROLES.every(role => project.agentPrompts.some(prompt => prompt.role === role))) blockers.push('Planner → Implementer → Reviewer → Verifier prompt zinciri eksik.');
     if (project.readiness.blockers.length) blockers.push(`${project.readiness.blockers.length} readiness blocker çözülmeli veya kullanıcı bilinçli olarak devam etmeli.`);
     return {
-        baseRevision: project.revision, adapterId,
+        baseRevision: project.canonicalRevision, adapterId,
         roles: EXECUTION_ROLES.map(role => ({ role, risk: ROLE_RISK[role], sandbox: role === 'implementer' ? 'workspace-write' : 'read-only' })),
         blockers, requiresNativeWorktree: adapterId === 'codex'
     };
@@ -27,12 +27,12 @@ export function proposeExecution(project, adapterId = 'codex') {
 
 export function beginExecutionSession(project, proposal, { approved = false, force = false, worktreeLabel = '' } = {}) {
     if (!approved) return { success: false, project, reason: 'Execution session kullanıcı onayı bekliyor.' };
-    if (proposal.baseRevision !== project.revision) return { success: false, project, reason: 'Plan revision değişti; execution önerisi yenilenmeli.' };
+    if (proposal.baseRevision !== project.canonicalRevision) return { success: false, project, reason: 'Plan revision değişti; execution önerisi yenilenmeli.' };
     if (proposal.blockers.length && !force) return { success: false, project, reason: proposal.blockers.join(' ') };
     const next = structuredClone(project); const now = new Date().toISOString();
-    if (!next.revisions.some(revision => revision.number === project.revision)) captureRevision(next, 'Execution kaynak planı');
-    const session = normalizeExecutionSession({ id: id('execution'), adapterId: proposal.adapterId, sourceRevision: project.revision, status: proposal.adapterId === 'generic' ? 'external' : 'prepared', worktreeLabel, steps: proposal.roles.map(item => ({ ...item, status: 'pending' })), createdAt: now, updatedAt: now });
-    next.executionSessions.push(session); next.revision += 1; next.lifecycle.updatedAt = now;
+    if (!next.revisions.some(revision => revision.number === project.canonicalRevision)) captureRevision(next, 'Execution kaynak planı');
+    const session = normalizeExecutionSession({ id: id('execution'), adapterId: proposal.adapterId, sourceRevision: project.canonicalRevision, status: proposal.adapterId === 'generic' ? 'external' : 'prepared', worktreeLabel, steps: proposal.roles.map(item => ({ ...item, status: 'pending' })), createdAt: now, updatedAt: now });
+    next.executionSessions.push(session); next.documentRevision += 1; next.lifecycle.updatedAt = now;
     captureRevision(next, `${proposal.adapterId} execution session onaylandı`);
     return { success: true, project: next, session, reason: '' };
 }
@@ -67,7 +67,7 @@ export function recordExecutionResult(project, sessionId, result) {
     step.outputSummary = String(result.outputSummary || result.stdout || result.stderr || '').slice(0, 2000);
     step.completedAt = result.completedAt || new Date().toISOString();
     session.status = result.success ? (result.role === 'verifier' ? 'completed' : 'prepared') : 'failed'; session.updatedAt = step.completedAt;
-    next.revision += 1; next.lifecycle.updatedAt = step.completedAt;
+    next.documentRevision += 1; next.lifecycle.updatedAt = step.completedAt;
     captureRevision(next, `${result.role} execution adımı ${result.success ? 'tamamlandı' : 'başarısız oldu'}`);
     return { success: true, project: next, session, reason: '' };
 }

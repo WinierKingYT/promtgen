@@ -32,7 +32,7 @@ export function buildCanonicalGraph(project) {
     const source = normalizeProjectDocument(project);
     const graph = new GraphStore();
     for (const [collection, type, label] of ENTITY_TYPES) {
-        for (const entity of source[collection]) graph.addNode(type, entity.id, label(entity) || entity.id, { ...entity, projectRevision: source.revision });
+        for (const entity of source[collection]) graph.addNode(type, entity.id, label(entity) || entity.id, { ...entity, projectRevision: source.canonicalRevision });
     }
     for (const requirement of source.requirements) {
         for (const objectiveId of requirement.sourceObjectiveIds) addEdge(graph, objectiveId, requirement.id, EDGE_TYPES.REFINES);

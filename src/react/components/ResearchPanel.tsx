@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { BookOpenCheck, Check, CircleAlert, Plus, Search } from 'lucide-react';
 import { addApprovedEvidence, applyResearchAgenda, proposeResearchAgenda } from '../../v4/research-engine.js';
 
-export function ResearchPanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string) => void }) {
+export function ResearchPanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string, commandType?: string) => void }) {
   const [agenda, setAgenda] = useState<any>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
@@ -18,13 +18,13 @@ export function ResearchPanel({ project, onCommit }: { project: any; onCommit: (
   const approveAgenda = () => {
     const result = applyResearchAgenda(project, agenda, { approvedQuestionIds: [...selected] });
     if (!result.success) { setMessage(result.reason); return; }
-    onCommit(result.project, `${selected.size} araştırma sorusu plana eklendi.`);
+    onCommit(result.project, `${selected.size} araştırma sorusu plana eklendi.`, 'ApplyResearchAgenda');
     setAgenda(null); setSelected(new Set());
   };
   const approveEvidence = () => {
     const result = addApprovedEvidence(project, form, { approved: true });
     if (!result.success) { setMessage(result.reason); return; }
-    onCommit(result.project, 'Kaynak ve araştırma kanıtı onaylandı.');
+    onCommit(result.project, 'Kaynak ve araştırma kanıtı onaylandı.', 'AddApprovedEvidence');
     setForm({ questionId: '', url: '', title: '', publisher: '', claim: '', summary: '', confidence: 'medium' });
     setMessage('');
   };

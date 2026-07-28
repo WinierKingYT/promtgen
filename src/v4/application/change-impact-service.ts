@@ -106,7 +106,7 @@ function normalizeEffects(rawEffects: unknown[]) {
 export function createChangeImpactAnalysis(
   project: ProjectDocumentV5,
   userRequest: string,
-  options: { pendingCommit?: boolean } = {}
+  _options: { pendingCommit?: boolean } = {}
 ) {
   const cleanRequest = String(userRequest || '').trim()
   if (!cleanRequest) throw new Error('Değişiklik isteği boş olamaz.')
@@ -138,10 +138,10 @@ export function createChangeImpactAnalysis(
       resolution: null
     }))
 
-  const baseRevision = project.revision + (options.pendingCommit ? 1 : 0)
+  const baseCanonicalRevision = project.canonicalRevision
   const impact: ImpactAnalysis = {
     id: id('impact'),
-    baseRevision,
+    baseCanonicalRevision,
     userRequest: cleanRequest,
     summary: `"${cleanRequest}" isteği uygulanmadan önce ilişkili kararlar, gereksinimler, görevler ve testler yeniden doğrulanacak.`,
     affectedSections: [...affectedSections],
@@ -159,7 +159,7 @@ export function createChangeImpactAnalysis(
     contradictions: contradictionDetails.map(detail => `"${detail.decisionTitle}" kararı yeni istekle çelişiyor.`),
     contradictionDetails,
     preview: {
-      nextRevision: baseRevision + 1,
+      nextCanonicalRevision: baseCanonicalRevision + 1,
       requirementCount: 1,
       taskCount: 1,
       testCount: 1,
@@ -208,11 +208,11 @@ export function applyChangeImpact(
   if (!sourceImpact || sourceImpact.status !== 'proposed') {
     return { success: false, project, reason: 'Uygulanabilir etki analizi bulunamadı.' }
   }
-  if (sourceImpact.baseRevision !== project.revision) {
+  if (sourceImpact.baseCanonicalRevision !== project.canonicalRevision) {
     const stale = structuredClone(project)
     const impact = (stale.impactAnalyses || []).find(item => item.id === impactId)
     if (impact) impact.status = 'stale'
-    return { success: false, project: stale, reason: `Plan r${sourceImpact.baseRevision} sonrasında değişti; etki analizi yenilenmeli.` }
+    return { success: false, project: stale, reason: `Plan r${sourceImpact.baseCanonicalRevision} sonrasında değişti; etki analizi yenilenmeli.` }
   }
   const effectiveDetails = sourceImpact.contradictionDetails.map(detail => ({
     ...detail,
@@ -330,7 +330,7 @@ export function applyChangeImpact(
     const section = next.sections[sectionId]
     if (!section) continue
     section.status = section.content || section.items.length ? 'stale' : 'draft'
-    section.updatedAtRevision = project.revision + 1
+    section.updatedAtRevision = project.canonicalRevision + 1
     const warning = `"${impact.userRequest}" değişikliği nedeniyle yeniden doğrulanmalı.`
     if (!section.warnings.includes(warning)) section.warnings.push(warning)
   }
@@ -346,7 +346,17 @@ export function applyChangeImpact(
 
   impact.status = 'accepted'
   impact.resolvedAt = now()
-  next.revision += 1
+  if (impact.sourceScenarioId) {
+    const scenario = next.planningScenarios.find(item => item.id === impact.sourceScenarioId)
+    if (scenario) {
+      scenario.status = 'merged'
+      scenario.impactAnalysisId = impact.id
+      scenario.mergedAt = impact.resolvedAt
+      scenario.updatedAt = impact.resolvedAt
+    }
+  }
+  next.documentRevision += 1
+  next.canonicalRevision += 1
   next.lifecycle.status = 'active'
   next.lifecycle.updatedAt = now()
 

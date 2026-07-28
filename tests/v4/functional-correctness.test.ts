@@ -61,11 +61,12 @@ describe('Category 4: Functional Correctness Pipeline', () => {
       bundleId: 'bundle-1',
       itemId: 'prop-item-1',
       commandId,
-      expectedRevision: 1
+      expectedDocumentRevision: 1
     });
 
     assert.ok(res1.success, 'First call succeeds');
-    assert.equal(res1.project.revision, 2, 'Revision bumped to 2');
+    assert.equal(res1.project.documentRevision, 2, 'Document revision bumped to 2');
+    assert.equal(res1.project.canonicalRevision, 2, 'Canonical revision bumped to 2');
     assert.equal(res1.project.requirements.length, 1, 'Requirement added');
 
     // Second call with SAME commandId (simulating double click)
@@ -74,7 +75,7 @@ describe('Category 4: Functional Correctness Pipeline', () => {
       bundleId: 'bundle-1',
       itemId: 'prop-item-1',
       commandId, // Duplicate commandId
-      expectedRevision: 2
+      expectedDocumentRevision: 2
     });
 
     assert.ok(res2.success, 'Duplicate call returns success without re-applying');
@@ -84,17 +85,17 @@ describe('Category 4: Functional Correctness Pipeline', () => {
 
   it('acceptProposalItemAtomically rejects stale revision (Concurrency Control)', () => {
     const project = createCanonicalProjectInstance({ ideaText: 'Test Projesi' });
-    project.revision = 3; // Current revision is 3
+    project.documentRevision = 3;
 
     const res = acceptProposalItemAtomically({
       project,
       bundleId: 'bundle-1',
       itemId: 'prop-item-1',
       commandId: `cmd-stale-${Date.now()}`,
-      expectedRevision: 1 // Stale expected revision!
+      expectedDocumentRevision: 1
     });
 
     assert.ok(!res.success, 'Fails on stale revision');
-    assert.ok(res.error?.includes('Çakışan revizyon saptandı'), 'Contains concurrency error message');
+    assert.ok(res.error?.includes('Çakışan doküman revizyonu'), 'Contains concurrency error message');
   });
 });

@@ -126,9 +126,9 @@ test.describe('PromtGen guided production workflow', () => {
     const supersede = preview.getByLabel('Eski kararı geçersiz kıl ve yenisiyle değiştir');
     await supersede.click();
     await expect(supersede).toBeChecked();
-    await preview.getByRole('button', { name: /Onayla ve r3 oluştur/ }).click();
+    await preview.getByRole('button', { name: /Onayla ve r2 oluştur/ }).click();
     await expect(preview).toBeHidden();
-    await expect(page.locator('.toast')).toContainText('r3 oluşturuldu');
+    await expect(page.locator('.toast')).toContainText('r2 oluşturuldu');
   });
 
   for (const width of [320, 375, 768, 1024, 1440]) {

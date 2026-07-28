@@ -14,6 +14,12 @@ type Project = ProjectDocumentV5;
 
 const repository = createPlatformRepository();
 const credentialVault = createCredentialVault();
+const DOCUMENT_ONLY_COMMANDS = new Set([
+  'AddDiscoveryTurn', 'UpdateSuggestionStatus', 'ProposeChangeImpact', 'ResolveImpactContradiction',
+  'RejectChangeImpact', 'CreatePlanningScenario', 'DiscardPlanningScenario', 'SelectPlanningScenario',
+  'GenerateSectionPatches', 'UpdateSectionPatchStatus', 'MarkSectionPatchesStale', 'UpdateIdeaDiscussion',
+  'StartExecutionSession', 'RecordExecutionResult', 'RecordExport', 'UpdateProject'
+]);
 
 export function useProjectState() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -41,7 +47,9 @@ export function useProjectState() {
           commandId,
           commandType,
           projectId: currentProject.id,
-          expectedRevision: currentProject.revision,
+          expectedDocumentRevision: currentProject.documentRevision,
+          expectedCanonicalRevision: currentProject.canonicalRevision,
+          canonicalChange: !DOCUMENT_ONLY_COMMANDS.has(commandType),
           createdAt
         })
       : await saveInitialProject(repository, project, commandId, createdAt);

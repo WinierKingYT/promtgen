@@ -17,7 +17,7 @@ assert.ok(expanded.proposalStore.bundles.length > 0, 'DISCOVERY fazında öneri 
 let project = analyzeIdea('Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması yapmak istiyorum.');
 assert.equal(project.lifecycle.activePhase, 'DISCOVERY', 'Uzun fikir doğrudan DISCOVERY fazını başlatmalı');
 assert.equal(project.schemaVersion, 5);
-assert.equal(project.schemaRevision, 1);
+assert.equal(project.schemaRevision, 2);
 assert.ok(project.proposalStore.bundles[0].items.length >= 3 && project.proposalStore.bundles[0].items.length <= 5);
 assert.ok(project.proposalStore.bundles[0].items.every(item => item.status === 'pending'));
 
@@ -35,7 +35,7 @@ assert.equal(applyApprovedChanges(project, bundle.id).sections.scope.items.lengt
 for (const item of bundle.items.slice(1)) project = updateSuggestionStatus(project, bundle.id, item.id, 'deferred');
 const readyPreview = previewApprovedChanges(project, bundle.id);
 assert.equal(readyPreview.canApply, true);
-assert.equal(readyPreview.nextRevision, project.revision + 1);
+assert.equal(readyPreview.nextRevision, project.canonicalRevision + 1);
 project = applyApprovedChanges(project, bundle.id);
 assert.ok(project.sections.scope.items.length > before, 'Yalnız onaylanan öneri plana uygulanmalı');
 
@@ -74,7 +74,7 @@ const messageCount = versioned.messages.length;
 const restored = restorePlanRevision(versioned, revisionTwo.id);
 assert.equal(restored.success, true);
 assert.equal(restored.project.sections.scope.content, 'İlk satır\nEski satır');
-assert.equal(restored.project.revision, versioned.revision + 1, 'Restore yeni revision oluşturmalı');
+assert.equal(restored.project.canonicalRevision, versioned.canonicalRevision + 1, 'Restore yeni revision oluşturmalı');
 assert.equal(restored.project.revisions.length, historyLength + 1, 'Eski revision geçmişi korunmalı');
 assert.equal(restored.project.exports.length, 1, 'Geçmiş exportlar korunmalı');
 assert.equal(restored.project.messages.length, messageCount, 'Keşif konuşması korunmalı');

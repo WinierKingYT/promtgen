@@ -35,7 +35,18 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
+          const moduleId = id.replaceAll('\\', '/');
+          if (!moduleId.includes('node_modules')) {
+            if (moduleId.includes('/src/react/components/IdeExportDialog.')) return 'export-tools';
+            if (moduleId.includes('/src/react/components/RevisionHistoryDialog.') || moduleId.includes('/src/react/components/DecisionTimelineModal.')) return 'revision-tools';
+            if (moduleId.includes('/src/react/components/RuntimeHealthDialog.')) return 'execution-tools';
+            if ([
+              'IdeaAmplifierPanel.', 'IdeaLabComponents.', 'ChangeImpactPanel.', 'ResearchPanel.',
+              'ReviewPanel.', 'ModulePanel.', 'StorageHealthPanel.', 'TraceabilityMap.', 'PlanningScenarioPanel.', 'SectionRegenerationPanel.', 'ArchitectureComparatorModal.',
+              'ProjectInventoryModal.', 'AgentCommitteeModal.', 'FinalizePlanDialog.'
+            ].some(name => moduleId.includes(`/src/react/components/${name}`))) return 'planning-tools';
+            return undefined;
+          }
           if (id.includes('jszip')) return 'archive';
           if (id.includes('lucide-react')) return 'icons';
           if (id.includes('react') || id.includes('scheduler')) return 'react-vendor';

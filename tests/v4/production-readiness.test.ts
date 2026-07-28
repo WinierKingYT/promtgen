@@ -25,7 +25,8 @@ describe('Category 12: Production Readiness Verification', () => {
 
     assert.equal(report.appVersion, 'development');
     assert.equal(report.commitSha, 'development');
-    assert.equal(report.projectSummary?.revision, 1);
+    assert.equal(report.projectSummary?.documentRevision, 1);
+    assert.equal(report.projectSummary?.canonicalRevision, 1);
     assert.ok(report.sanitizedLogs[0].includes('[REDACTED_OPENAI_KEY]'));
     assert.ok(report.sanitizedLogs[1].includes('[REDACTED_CONNECTION_STRING]'));
     assert.ok(!report.sanitizedLogs[1].includes('secretpass'), 'Secret removed from diagnostic logs');

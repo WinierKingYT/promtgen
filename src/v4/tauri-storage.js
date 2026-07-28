@@ -37,7 +37,8 @@ export function restoreStorageBackupAsNewRevision(currentProject, backupProject)
     if (current.id !== backup.id) throw new Error('Yedek başka bir projeye ait.');
     const restoredAt = new Date().toISOString();
     const next = structuredClone(backup);
-    next.revision = current.revision + 1;
+    next.documentRevision = current.documentRevision + 1;
+    next.canonicalRevision = current.canonicalRevision + 1;
     next.lifecycle.status = 'active';
     next.lifecycle.updatedAt = restoredAt;
     next.lifecycle.finalizedAt = '';
@@ -45,12 +46,12 @@ export function restoreStorageBackupAsNewRevision(currentProject, backupProject)
     next.exports = structuredClone(current.exports || []);
     next.executionSessions = structuredClone(current.executionSessions || []);
     next.commandLog = structuredClone(current.commandLog || []);
-    next.metadata = { ...next.metadata, restoredFromStorageBackup: { sourceRevision: backup.revision, restoredAt } };
+    next.metadata = { ...next.metadata, restoredFromStorageBackup: { sourceRevision: backup.canonicalRevision, restoredAt } };
     const snapshot = structuredClone(next);
     snapshot.revisions = [];
     next.revisions.push({
-        id: `revision-storage-${Date.now()}`, number: next.revision, createdAt: restoredAt,
-        summary: `Yerel yedek r${backup.revision} yeni revision olarak geri yüklendi`,
+        id: `revision-storage-${Date.now()}`, number: next.canonicalRevision, createdAt: restoredAt,
+        summary: `Yerel yedek r${backup.canonicalRevision} yeni revision olarak geri yüklendi`,
         acceptedSuggestionIds: [], affectedSections: Object.keys(next.sections), snapshot
     });
     const validation = validateProjectDocument(next);

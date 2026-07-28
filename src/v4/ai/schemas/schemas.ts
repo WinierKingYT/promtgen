@@ -60,3 +60,14 @@ export const architectureReviewSchema = z.object({
   conflicts: z.array(z.string()),
   score: z.number().min(0).max(100)
 });
+
+export const SECTION_REGENERATION_SCHEMA_ID = 'section-regeneration-v1';
+export const sectionRegenerationSchema = z.object({
+  summary: z.string().trim().min(1).max(1200),
+  patches: z.array(z.object({
+    sectionId: planSectionSchema,
+    proposedContent: z.string().trim().min(1).max(12_000),
+    rationale: z.string().trim().min(1).max(1200),
+    warnings: z.array(shortText).max(8).default([])
+  }).strict()).min(1).max(12)
+}).strict();

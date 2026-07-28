@@ -31,7 +31,7 @@ export function IdeExportDialog({ open, project, onCommit, onClose }: any) {
       const next = structuredClone(project);
       next.exports = [...(next.exports || []), result.record];
       next.lifecycle.updatedAt = new Date().toISOString();
-      onCommit(next, `r${result.record.revision} IDE çalışma paketi oluşturuldu.`);
+      onCommit(next, `r${result.record.canonicalRevision} IDE çalışma paketi oluşturuldu.`);
       close();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'IDE paketi oluşturulamadı.'); }
     finally { setBusy(false); }
@@ -62,11 +62,11 @@ export function IdeExportDialog({ open, project, onCommit, onClose }: any) {
     <div className="dialog-head"><div className="dialog-icon"><Code2 size={20}/></div><div><span className="meta">IDE ÇALIŞMA PAKETİ</span><h2 id="ide-export-title">Planı kodlama ortamına taşı</h2></div><IconButton label="IDE paketini kapat" onClick={close}><X size={18}/></IconButton></div>
     <p className="dialog-lead">Seçtiğin canonical revision; görev bağımlılıkları, doğrulama sözleşmesi ve IDE’nin otomatik okuyacağı talimat dosyalarıyla tek bir ZIP’e dönüştürülür veya panoya kopyalanır.</p>
     <div className="ide-export-body">
-      <label className="ide-revision">Kaynak plan sürümü<select value={revision} onChange={event => setRevision(event.target.value)}><option value="current">Güncel r{project.revision}</option>{revisionOptions.filter((item: any) => item.number !== project.revision).map((item: any) => <option key={item.id} value={item.id}>r{item.number} — {item.summary}</option>)}</select></label>
+      <label className="ide-revision">Kaynak plan sürümü<select value={revision} onChange={event => setRevision(event.target.value)}><option value="current">Güncel r{project.canonicalRevision}</option>{revisionOptions.filter((item: any) => item.number !== project.canonicalRevision).map((item: any) => <option key={item.id} value={item.id}>r{item.number} — {item.summary}</option>)}</select></label>
       <fieldset className="ide-adapters"><legend>Hedef Ajanlar</legend>{IDE_ADAPTERS.map(adapter => <label key={adapter.id} className={adapters.includes(adapter.id) ? 'active' : ''}><input type="checkbox" checked={adapters.includes(adapter.id)} onChange={() => toggleAdapter(adapter.id)}/><span className="ide-check">{adapters.includes(adapter.id) && <Check size={12}/>}</span><span><b>{adapter.label}</b><small>{adapter.path}</small></span></label>)}</fieldset>
       <section className="ide-file-preview" aria-label="Üretilecek dosyalar">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div><span className="meta">DOSYA ÖNİZLEMESİ VE PANODAN KOPYALAMA</span><b>{fileKeys.length} dosya · canonical r{preview.source.revision}</b></div>
+          <div><span className="meta">DOSYA ÖNİZLEMESİ VE PANODAN KOPYALAMA</span><b>{fileKeys.length} dosya · canonical r{preview.source.canonicalRevision}</b></div>
           <button type="button" onClick={copyPrompt} style={{ background: copied ? '#10b981' : '#8b5cf6', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Check size={14} /> {copied ? 'Kopyalandı!' : 'Seçili Dosyayı Kopyala'}
           </button>

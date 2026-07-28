@@ -120,7 +120,8 @@ export interface IdeaExpansionSession {
 
 export interface ImpactAnalysis {
   id: string
-  baseRevision: number
+  baseCanonicalRevision: number
+  sourceScenarioId?: string
   userRequest: string
   summary: string
   affectedSections: string[]
@@ -151,7 +152,7 @@ export interface ImpactAnalysis {
     resolution: 'supersede' | 'keep' | null
   }>
   preview: {
-    nextRevision: number
+    nextCanonicalRevision: number
     requirementCount: number
     taskCount: number
     testCount: number
@@ -159,6 +160,53 @@ export interface ImpactAnalysis {
     traceLinkCount: number
   }
   status: 'proposed' | 'accepted' | 'rejected' | 'stale'
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export interface PlanningScenarioDecision {
+  id: string
+  title: string
+  decision: string
+  rationale: string
+  affectedSectionIds: string[]
+  dependencies: string[]
+}
+
+export interface PlanningScenarioComparison {
+  effortScore: number
+  riskScore: number
+  readinessDelta: number
+  affectedSectionIds: string[]
+  dependencies: string[]
+}
+
+export interface PlanningScenario {
+  id: string
+  name: string
+  description: string
+  baseCanonicalRevision: number
+  decisions: PlanningScenarioDecision[]
+  comparison: PlanningScenarioComparison
+  status: 'draft' | 'selected' | 'discarded' | 'merged'
+  createdAt: string
+  updatedAt: string
+  mergedAt: string | null
+  impactAnalysisId: string | null
+}
+
+export interface SectionPatchProposal {
+  id: string
+  impactAnalysisId: string
+  baseCanonicalRevision: number
+  sectionId: string
+  originalContent: string
+  proposedContent: string
+  editedContent: string
+  rationale: string
+  warnings: string[]
+  status: 'pending' | 'accepted' | 'edited' | 'deferred' | 'rejected' | 'stale'
+  provenance: GenerationProvenance
   createdAt: string
   resolvedAt: string | null
 }
@@ -360,7 +408,7 @@ export interface ExecutionSession {
 export interface ExportRecord {
   id: string
   format: string
-  revision: number
+  canonicalRevision: number
   createdAt: string
   canonicalHash?: string
   adapterIds?: string[]
@@ -455,8 +503,10 @@ export interface ReadinessResult {
 export interface CommandLogRecord {
   commandId: string
   commandType: string
-  expectedRevision: number
-  committedRevision: number
+  expectedDocumentRevision: number
+  committedDocumentRevision: number
+  expectedCanonicalRevision: number
+  committedCanonicalRevision: number
   createdAt: string
 }
 
@@ -472,9 +522,10 @@ export interface PlanRevision {
 
 export interface ProjectDocumentV5 {
   schemaVersion: 5
-  schemaRevision: 1
+  schemaRevision: 2
   id: string
-  revision: number
+  documentRevision: number
+  canonicalRevision: number
   lifecycle: {
     status: ProjectLifecycleStatus
     activePhase: PlanningPhase
@@ -527,6 +578,8 @@ export interface ProjectDocumentV5 {
   ideaDiscussion: IdeaDiscussionState
   ideaExpansionSession?: IdeaExpansionSession
   impactAnalyses?: ImpactAnalysis[]
+  planningScenarios: PlanningScenario[]
+  sectionPatchProposals: SectionPatchProposal[]
   modules: {
     active: Array<{ id: string; version: string; enabledAtRevision: number; config: Record<string, unknown> }>
     dismissed: string[]

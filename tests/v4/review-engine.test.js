@@ -10,7 +10,7 @@ const incompleteReview = runPlanReview(incomplete);
 assert.ok(incompleteReview.counts.high > 0);
 assert.equal(incompleteReview.gates.final, false);
 assert.ok(simulatePlan(incomplete).some(run => run.status === 'failed'));
-assert.equal(applyReviewResult({ ...incomplete, revision: 2 }, incompleteReview).success, false);
+assert.equal(applyReviewResult({ ...incomplete, documentRevision: 2, canonicalRevision: 2 }, incompleteReview).success, false);
 
 const ready = createProjectDocument({ idea: 'Hazır gelişmiş proje', planningDepth: advancedDepth });
 for (const sectionId of getRequiredSections('advanced')) { ready.sections[sectionId].content = `${sectionId} planı`; ready.sections[sectionId].status = 'draft'; }

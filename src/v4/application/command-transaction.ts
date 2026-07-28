@@ -7,7 +7,9 @@ export interface ProjectCommandEnvelope {
   commandId: string;
   commandType: string;
   projectId: string;
-  expectedRevision: number;
+  expectedDocumentRevision: number;
+  expectedCanonicalRevision: number;
+  canonicalChange: boolean;
   createdAt: string;
 }
 
@@ -27,19 +29,27 @@ export async function commitProjectCandidate(
   if (current.commandLog.some(record => record.commandId === command.commandId)) {
     return { success: true, project: current, alreadyApplied: true };
   }
-  if (current.revision !== command.expectedRevision) {
-    return { success: false, project: current, error: `Stale revision: beklenen ${command.expectedRevision}, mevcut ${current.revision}.` };
+  if (current.documentRevision !== command.expectedDocumentRevision) {
+    return { success: false, project: current, error: `Stale document revision: beklenen ${command.expectedDocumentRevision}, mevcut ${current.documentRevision}.` };
+  }
+  if (current.canonicalRevision !== command.expectedCanonicalRevision) {
+    return { success: false, project: current, error: `Stale canonical revision: beklenen ${command.expectedCanonicalRevision}, mevcut ${current.canonicalRevision}.` };
   }
 
   const next = normalizeProjectDocument(structuredClone(candidate));
   next.commandLog = structuredClone(current.commandLog);
-  next.revision = Math.max(candidate.revision, current.revision + 1);
+  next.documentRevision = Math.max(candidate.documentRevision, current.documentRevision + 1);
+  next.canonicalRevision = command.canonicalChange
+    ? Math.max(candidate.canonicalRevision, current.canonicalRevision + 1)
+    : current.canonicalRevision;
   next.lifecycle.updatedAt = command.createdAt;
   next.commandLog.push({
     commandId: command.commandId,
     commandType: command.commandType,
-    expectedRevision: command.expectedRevision,
-    committedRevision: next.revision,
+    expectedDocumentRevision: command.expectedDocumentRevision,
+    committedDocumentRevision: next.documentRevision,
+    expectedCanonicalRevision: command.expectedCanonicalRevision,
+    committedCanonicalRevision: next.canonicalRevision,
     createdAt: command.createdAt
   });
   const ready = recalculateReadiness(next);
@@ -66,8 +76,10 @@ export async function saveInitialProject(
   next.commandLog.push({
     commandId,
     commandType: 'CreateProject',
-    expectedRevision: 0,
-    committedRevision: next.revision,
+    expectedDocumentRevision: 0,
+    committedDocumentRevision: next.documentRevision,
+    expectedCanonicalRevision: 0,
+    committedCanonicalRevision: next.canonicalRevision,
     createdAt
   });
   const validation = validateProjectDocument(next);

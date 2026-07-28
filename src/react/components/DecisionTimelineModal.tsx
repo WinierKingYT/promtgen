@@ -11,9 +11,9 @@ export function DecisionTimelineModal({ open, project, onClose }: { open: boolea
 
   useEffect(() => {
     if (!open) return;
-    setSelectedRevNum(project.revision);
+    setSelectedRevNum(project.canonicalRevision);
     if (!dialogRef.current?.open) dialogRef.current?.showModal();
-  }, [open, project.id, project.revision]);
+  }, [open, project.id, project.canonicalRevision]);
 
   const close = () => { dialogRef.current?.close(); onClose(); };
 
@@ -42,7 +42,7 @@ export function DecisionTimelineModal({ open, project, onClose }: { open: boolea
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {revisions.map((rev: any) => {
-              const isCurrent = rev.number === project.revision;
+              const isCurrent = rev.number === project.canonicalRevision;
               const isSelected = selectedRevNum === rev.number;
               return (
                 <button

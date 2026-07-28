@@ -24,9 +24,9 @@ export function computeDataChecksum(data: unknown): string {
 
 export function createCheckpoint(project: ProjectDocumentV5): StorageCheckpoint {
   return {
-    id: `chk-${Date.now()}-r${project.revision}`,
+    id: `chk-${Date.now()}-d${project.documentRevision}`,
     projectId: String(project.id),
-    revision: project.revision,
+    revision: project.documentRevision,
     createdAt: new Date().toISOString(),
     checksumAlgorithm: 'fnv1a32',
     checksumHash: computeDataChecksum(project),
