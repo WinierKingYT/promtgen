@@ -387,7 +387,7 @@ export async function createPromtgenPackage(project, options = {}) {
     const bundle = await createExportBundle(project, options);
     const zip = new JSZip();
     const manifest = {
-        format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 2, projectId: project.id,
+        format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 3, projectId: project.id,
         revision: bundle.source.canonicalRevision, canonicalRevision: bundle.source.canonicalRevision, canonicalHash: bundle.canonicalHash,
         createdAt: bundle.record.createdAt, files: options.includeExports === false ? [] : Object.keys(bundle.documents), adapters: bundle.record.adapterIds
     };

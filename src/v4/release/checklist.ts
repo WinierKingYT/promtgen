@@ -21,7 +21,7 @@ export function verifyProjectReadiness(project: ProjectDocumentV5): ReleaseReadi
   const checks: ReleaseCheckItem[] = [];
 
   // 1. Schema Version Check
-  const isSchemaV5 = project.schemaVersion === 5 && project.schemaRevision === 2;
+  const isSchemaV5 = project.schemaVersion === 5 && project.schemaRevision === 3;
   checks.push({
     id: 'check-schema-v5',
     category: 'domain',

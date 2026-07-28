@@ -3,13 +3,16 @@ import { test } from 'node:test';
 import { createProjectDocument } from '../../src/v4/project-document.js';
 import { generateIdeaLabBundle, generateConceptSummary } from '../../src/v4/ai-discovery.js';
 import { confirmConceptSummary, runConceptSimulation } from '../../src/v4/planning-engine.js';
+import { createInitialConceptInterpretation } from '../../src/v4/application/idea-discussion-service.js';
 
 test('Fikir Laboratuvarı: Metrik matrisi ve preset cevap çipleri', async () => {
     const project = createProjectDocument({ idea: 'S&box oyun motorunda bir at sistemi yapmak istiyorum' });
+    project.ideaLabSession.conceptSummary = createInitialConceptInterpretation(project);
     const result = await generateIdeaLabBundle(project, { settings: { providerId: 'offline' } });
 
     assert.equal(result.project.lifecycle.activePhase, 'IDEA_LAB');
     assert.equal(result.approaches.length, 3);
+    assert.equal(result.project.ideaLabSession.conceptSummary.summary, project.ideaLabSession.conceptSummary.summary);
     
     // Check metric ratings matrix presence
     const app = result.approaches[0];
@@ -34,9 +37,11 @@ test('Konsept A/B Simülasyonu ve Onayı', async () => {
         settings: { providerId: 'offline' }
     });
     conceptProject.ideaLabSession.conceptSummary.simulationResult = sim;
+    conceptProject.ideaLabSession.conceptSummary.openQuestions = [];
 
     assert.equal(conceptProject.lifecycle.activePhase, 'CONCEPT_CONFIRMATION');
     assert.ok(conceptProject.ideaLabSession.conceptSummary.simulationResult);
+    assert.ok(conceptProject.ideaLabSession.conceptSummary.targetUser);
 
     // User approves concept summary -> canonical plan starts
     const confirmedProject = confirmConceptSummary(conceptProject);

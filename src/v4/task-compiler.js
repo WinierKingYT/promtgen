@@ -1,4 +1,5 @@
 import { normalizeAgentPrompt, normalizeMilestone, normalizeTask, normalizeTestCase, normalizeTraceLink } from './canonical-entities.js';
+import { evaluateRequirementQuality } from './application/requirement-quality-service.ts';
 
 function slug(value) {
     return String(value || 'item').toLocaleLowerCase('tr-TR').normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 36) || 'item';
@@ -75,6 +76,7 @@ export function compileTaskPlan(project) {
     const used = new Set((project.tasks || []).map(task => task.id));
     const tasks = [];
     const sourceRequirements = (project.requirements || []).filter(requirement => requirement.status === 'accepted');
+    const quality = evaluateRequirementQuality(project);
     
     // Task compiler strictly uses formal accepted requirements
     if (!sourceRequirements.length) {
@@ -86,6 +88,17 @@ export function compileTaskPlan(project) {
             traceLinks: [],
             agentPrompts: [],
             warnings: ['Görev üretmek için en az bir kabul edilmiş (accepted) gereksinim bulunmalıdır.']
+        };
+    }
+    if (!quality.readyForTaskCompilation) {
+        return {
+            baseRevision: project.canonicalRevision || 1,
+            tasks: [],
+            testCases: [],
+            milestones: [],
+            traceLinks: [],
+            agentPrompts: [],
+            warnings: quality.issues
         };
     }
 
@@ -134,7 +147,10 @@ export function applyCompiledTaskPlan(project, compilation, { approved = false }
     next.tasks = compilation.tasks;
     next.testCases = compilation.testCases;
     next.milestones = compilation.milestones;
-    next.traceLinks = compilation.traceLinks;
+    next.traceLinks = [
+        ...next.traceLinks.filter(link => !['task', 'test'].includes(link.fromType) && !['task', 'test'].includes(link.toType)),
+        ...compilation.traceLinks
+    ];
     next.agentPrompts = compilation.agentPrompts;
     next.documentRevision += 1;
     next.canonicalRevision += 1;

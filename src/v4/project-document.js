@@ -67,8 +67,13 @@ export function createPlanSections(depth = 'standard', revision = 1) {
 
 export function createInitialReadiness(revision = 1) {
     return {
+        version: 2,
+        status: 'blocked',
         score: 0,
         dimensions: { completeness: 0, consistency: 100, traceability: 0, riskCoverage: 0, implementationReadiness: 0 },
+        dimensionWeights: { completeness: 20, consistency: 20, traceability: 25, riskCoverage: 15, implementationReadiness: 20 },
+        dimensionLabels: { completeness: 'Tamlık', consistency: 'Tutarlılık', traceability: 'İzlenebilirlik', riskCoverage: 'Risk kapsamı', implementationReadiness: 'Uygulamaya hazırlık' },
+        checks: [],
         blockers: ['Proje fikri henüz analiz edilmedi.'],
         warnings: [],
         calculatedAtRevision: revision
@@ -85,7 +90,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
     const initialIdea = String(idea || '').trim();
     const state = {
         schemaVersion: 5,
-        schemaRevision: 2,
+        schemaRevision: 3,
         id: projectId(),
         documentRevision: 1,
         canonicalRevision: 1,
@@ -129,7 +134,7 @@ export function validateProjectDocument(state) {
     const errors = [];
     if (!state || typeof state !== 'object') return { valid: false, errors: ['Proje durumu nesne olmalı.'] };
     if (state.schemaVersion !== 5) errors.push('schemaVersion 5 olmalı.');
-    if (state.schemaRevision !== 2) errors.push('schemaRevision 2 olmalı.');
+    if (state.schemaRevision !== 3) errors.push('schemaRevision 3 olmalı.');
     if (!state.id || typeof state.id !== 'string') errors.push('Proje kimliği eksik.');
     if (!Number.isInteger(state.documentRevision) || state.documentRevision < 1) errors.push('documentRevision pozitif tam sayı olmalı.');
     if (!Number.isInteger(state.canonicalRevision) || state.canonicalRevision < 1) errors.push('canonicalRevision pozitif tam sayı olmalı.');
@@ -143,6 +148,27 @@ export function validateProjectDocument(state) {
     if (!Array.isArray(state.proposalStore?.bundles)) errors.push('Öneri deposu geçersiz.');
     if (!Array.isArray(state.revisions)) errors.push('Sürüm geçmişi dizi olmalı.');
     if (!Array.isArray(state.commandLog)) errors.push('Command log dizi olmalı.');
+    if (state.readiness?.version !== 2) errors.push('Readiness sözleşmesi version 2 olmalı.');
+    if (!['blocked', 'needs_review', 'ready'].includes(state.readiness?.status)) errors.push('Readiness durumu geçersiz.');
+    if (!Array.isArray(state.readiness?.checks)) errors.push('Readiness kanıt kontrolleri dizi olmalı.');
+    if (state.readiness?.checks?.some(check => !check.id || !['passed', 'warning', 'blocked'].includes(check.status))) {
+        errors.push('Readiness kanıt kontrolü geçersiz.');
+    }
+    const conceptSummary = state.ideaLabSession?.conceptSummary;
+    if (conceptSummary) {
+        for (const field of ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'mvpTarget']) {
+            if (typeof conceptSummary[field] !== 'string' || !conceptSummary[field].trim()) errors.push(`Konsept yorum alanı eksik: ${field}`);
+        }
+        if (!Number.isInteger(conceptSummary.interpretationConfidence) || conceptSummary.interpretationConfidence < 0 || conceptSummary.interpretationConfidence > 100) {
+            errors.push('Konsept yorum güveni 0-100 arasında tam sayı olmalı.');
+        }
+        for (const field of ['confidenceRationale', 'confirmedFeatures', 'outOfScope', 'technicalApproaches', 'openQuestions', 'knownRisks']) {
+            if (!Array.isArray(conceptSummary[field])) errors.push(`Konsept liste alanı geçersiz: ${field}`);
+        }
+        if (conceptSummary.userConfirmed && (conceptSummary.openQuestions.length || !conceptSummary.confirmedFeatures.length || !conceptSummary.outOfScope.length)) {
+            errors.push('Onaylanmış konseptte açık soru bulunamaz; MVP içi ve kapsam dışı listeler boş olamaz.');
+        }
+    }
     if (!state.ideaDiscussion || !Array.isArray(state.ideaDiscussion.records)) {
         errors.push('Fikir tartışma kayıtları geçersiz.');
     } else {

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   buildIdeaDiscussionContext,
   captureDiscussionBundle,
+  createInitialConceptInterpretation,
   getConceptAgreementGate,
   setIdeaDiscussionMode,
   updateConceptAgreement,
@@ -71,9 +72,10 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
     const initial = createProjectDocument({ idea: 'S&box oyun motorunda at sistemi' });
     const project = captureDiscussionBundle(initial, discussionBundle());
     project.ideaLabSession.conceptSummary = {
+      ...createInitialConceptInterpretation(project),
       summary: 'Sunucu otoriteli, genişletilebilir bir binek sistemi.',
       confirmedFeatures: ['Temel binme ve inme'],
-      outOfScope: [],
+      outOfScope: ['Savaş animasyonları'],
       technicalApproaches: ['Sunucu otoriteli hareket'],
       knownRisks: [],
       openQuestions: [],
@@ -83,7 +85,7 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
 
     assert.throws(
       () => confirmConceptSummary(project),
-      /4 fikir kaydı henüz tamamlanmadı/
+      /4 yorum, kapsam veya fikir kaydı henüz tamamlanmadı/
     );
   });
 
@@ -130,6 +132,7 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
   it('konsept mutabakatının bütün düzenlenebilir alanlarını günceller', () => {
     const project = createProjectDocument({ idea: 'Yerel planlama uygulaması' });
     project.ideaLabSession.conceptSummary = {
+      ...createInitialConceptInterpretation(project),
       summary: 'İlk özet',
       confirmedFeatures: [],
       outOfScope: [],
@@ -141,6 +144,10 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
     };
     const updated = updateConceptAgreement(project, {
       summary: 'Düzenlenmiş özet',
+      targetUser: 'AI kodlama aracı kullanan bireysel geliştirici',
+      problemStatement: 'Dağınık fikirler uygulama sırasında kapsam sapmasına dönüşüyor.',
+      currentAlternative: 'Genel amaçlı sohbet ve metin belgeleri',
+      desiredOutcome: 'Onaylı ve izlenebilir bir uygulama planı',
       mvpTarget: 'Yerel kayıtlı çalışan MVP',
       confirmedFeatures: ['Fikir tartışması', 'Fikir tartışması', 'Canonical plan'],
       outOfScope: ['Bulut senkronizasyonu'],
@@ -150,8 +157,50 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
     });
 
     assert.equal(updated.ideaLabSession.conceptSummary?.summary, 'Düzenlenmiş özet');
+    assert.equal(updated.ideaLabSession.conceptSummary?.targetUser, 'AI kodlama aracı kullanan bireysel geliştirici');
     assert.deepEqual(updated.ideaLabSession.conceptSummary?.confirmedFeatures, ['Fikir tartışması', 'Canonical plan']);
     assert.equal(updated.ideaLabSession.conceptSummary?.mvpTarget, 'Yerel kayıtlı çalışan MVP');
+  });
+
+  it('eksik yorum ve kapsamı açıkça raporlar, düzenleme sonrası onaya açar', () => {
+    const project = createProjectDocument({ idea: 'Yerel planlama uygulaması' });
+    project.ideaLabSession.conceptSummary = {
+      ...createInitialConceptInterpretation(project),
+      targetUser: '',
+      problemStatement: '',
+      confirmedFeatures: [],
+      outOfScope: [],
+      openQuestions: ['Birincil kullanıcı kim?']
+    };
+    const blocked = getConceptAgreementGate(project);
+    assert.equal(blocked.ready, false);
+    assert.deepEqual(blocked.missingInterpretationFields, ['targetUser', 'problemStatement']);
+    assert.deepEqual(blocked.missingScopeLists, ['confirmedFeatures', 'outOfScope']);
+    assert.deepEqual(blocked.unresolvedSummaryQuestions, ['Birincil kullanıcı kim?']);
+
+    const readyProject = updateConceptAgreement(project, {
+      targetUser: 'Bireysel geliştirici',
+      problemStatement: 'Plan kararları uygulama sırasında kayboluyor.',
+      confirmedFeatures: ['Fikir yorumu'],
+      outOfScope: ['Takım senkronizasyonu'],
+      openQuestions: []
+    });
+    assert.equal(getConceptAgreementGate(readyProject).ready, true);
+  });
+
+  it('onaylanmış yoruma yapılan her düzenlemede yeniden kullanıcı onayı ister', () => {
+    const project = createProjectDocument({ idea: 'Yerel planlama uygulaması' });
+    project.ideaLabSession.conceptSummary = {
+      ...createInitialConceptInterpretation(project),
+      confirmedFeatures: ['Fikir yorumu'],
+      outOfScope: ['Bulut senkronizasyonu'],
+      openQuestions: [],
+      userConfirmed: true,
+      confirmedAt: '2026-07-28T10:00:00.000Z'
+    };
+    const updated = updateConceptAgreement(project, { desiredOutcome: 'Daha dar bir MVP planı' });
+    assert.equal(updated.ideaLabSession.conceptSummary?.userConfirmed, false);
+    assert.equal(updated.ideaLabSession.conceptSummary?.confirmedAt, undefined);
   });
 
   it('kabul edilen karar, risk ve varsayımı plana taşır; ertelenen soruyu saklar', () => {
@@ -165,9 +214,10 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
       );
     }
     project.ideaLabSession.conceptSummary = {
+      ...createInitialConceptInterpretation(project),
       summary: 'Sunucu otoriteli, genişletilebilir bir binek sistemi.',
       confirmedFeatures: ['Temel binme ve inme'],
-      outOfScope: [],
+      outOfScope: ['Savaş animasyonları'],
       technicalApproaches: ['Sunucu otoriteli hareket'],
       knownRisks: [],
       openQuestions: [],

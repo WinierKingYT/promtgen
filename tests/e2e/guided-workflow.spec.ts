@@ -58,6 +58,55 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(questionRecord).toHaveClass(/status-accepted/);
   });
 
+  test('system interpretation stays draft until MVP scope is completed and explicitly approved', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin dağınık fikirlerini yerel olarak MVP kapsamına ve uygulanabilir görevlere dönüştüren bir web uygulaması yapmak istiyorum.'
+    );
+    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+
+    const gate = page.locator('.concept-summary-card');
+    await expect(gate.getByText('Sistem Yorumu ve MVP Kapsam Kapısı')).toBeVisible();
+    await expect(gate.getByText(/doğruluk garantisi değildir/i)).toBeVisible();
+    await expect(gate.getByRole('button', { name: /yorum\/kapsam maddesi tamamlanmalı/i })).toBeDisabled();
+
+    await gate.getByLabel('Açık kritik sorular').fill('');
+    await gate.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+    await expect(gate.getByRole('button', { name: 'Yorumu Onayla ve Canonical Planı Başlat' })).toBeEnabled();
+
+    await gate.getByRole('button', { name: 'Yorumu Onayla ve Canonical Planı Başlat' }).click();
+    await expect(page.locator('.toast')).toContainText('Canonical plan oluşturuldu');
+    await expect(page.getByText('SHAPING AŞAMASI', { exact: true })).toBeVisible();
+    await expect(page.getByText('r2', { exact: true }).first()).toBeVisible();
+
+    const requirementGate = page.locator('.requirement-quality');
+    await expect(requirementGate.getByText('Gereksinim Kalite Kapısı')).toBeVisible();
+    await requirementGate.getByRole('button', { name: 'MVP’den taslak üret' }).click();
+    await expect(requirementGate.locator('.requirement-card')).toHaveCount(2);
+    await expect(page.getByText('r2', { exact: true }).first()).toBeVisible();
+
+    await requirementGate.locator('.requirement-card').first().getByRole('button', { name: 'Gereksinimi kabul et' }).click();
+    await expect(requirementGate.getByText('Görev üretimine hazır')).toBeVisible();
+    await expect(page.getByText('r3', { exact: true }).first()).toBeVisible();
+
+    await page.getByRole('button', { name: /Görevler ve Yol Haritası/ }).click();
+    await page.getByRole('button', { name: 'Gereksinimlerden görev taslağı üret' }).click();
+    await expect(page.getByRole('region', { name: 'Görev planı önizlemesi' })).toContainText('1 görev');
+    await page.getByRole('button', { name: 'Taslağı onayla' }).click();
+    await expect(requirementGate.getByText(/Must gereksinimlerin görev ve test bağlantıları tamamlandı/)).toBeVisible();
+
+    const readiness = page.locator('.readiness-breakdown');
+    await expect(readiness.getByText('READINESS 2.0')).toBeVisible();
+    await readiness.locator('summary').click();
+    await expect(readiness.getByLabel(/Tamlık \d+\/100/)).toBeVisible();
+    await expect(readiness.getByText(/Skor kayıt sayısına değil/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Finalleştir' }).click();
+    const completionGate = page.getByRole('dialog');
+    await expect(completionGate.getByText('Plan henüz finalleştirilemez')).toBeVisible();
+    await expect(completionGate.getByText(/kritik koşul tamamlanmadı/)).toBeVisible();
+    await expect(completionGate.getByRole('button', { name: 'Uyarılarla finalleştir' })).toHaveCount(0);
+  });
+
   test('canonical plan change requires impact preview and explicit approval', async ({ page }) => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Yerel çalışan bir oyun planlama sistemi geliştirip görev ve kabul testlerini birlikte yönetmek istiyorum.'

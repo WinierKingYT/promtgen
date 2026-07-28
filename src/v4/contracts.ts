@@ -41,6 +41,12 @@ export interface DesignApproach {
 
 export interface ConceptSummary {
   summary: string
+  targetUser: string
+  problemStatement: string
+  currentAlternative: string
+  desiredOutcome: string
+  interpretationConfidence: number
+  confidenceRationale: string[]
   confirmedFeatures: string[]
   outOfScope: string[]
   technicalApproaches: string[]
@@ -486,7 +492,23 @@ export interface RevisionComparison {
   summary: { changedSections: number; addedLines: number; removedLines: number; addedItems: number; removedItems: number }
 }
 
+export type ReadinessDimension = 'completeness' | 'consistency' | 'traceability' | 'riskCoverage' | 'implementationReadiness'
+
+export interface ReadinessCheck {
+  id: string
+  dimension: ReadinessDimension
+  label: string
+  status: 'passed' | 'warning' | 'blocked'
+  earned: number
+  possible: number
+  message: string
+  blocking: boolean
+  entityIds: string[]
+}
+
 export interface ReadinessResult {
+  version: 2
+  status: 'blocked' | 'needs_review' | 'ready'
   score: number
   dimensions: {
     completeness: number
@@ -495,6 +517,9 @@ export interface ReadinessResult {
     riskCoverage: number
     implementationReadiness: number
   }
+  dimensionWeights: Record<ReadinessDimension, number>
+  dimensionLabels: Record<ReadinessDimension, string>
+  checks: ReadinessCheck[]
   blockers: string[]
   warnings: string[]
   calculatedAtRevision: number
@@ -522,7 +547,7 @@ export interface PlanRevision {
 
 export interface ProjectDocumentV5 {
   schemaVersion: 5
-  schemaRevision: 2
+  schemaRevision: 3
   id: string
   documentRevision: number
   canonicalRevision: number

@@ -14,7 +14,8 @@ assert.match(workspace, /const FinalizePlanDialog = lazy\(\(\) => import\('\.\/c
 assert.match(workspace, /<FinalizePlanDialog/);
 assert.match(finalizeDialog, /aria-labelledby="finalize-dialog-title"/);
 assert.match(finalizeDialog, /aria-describedby="finalize-dialog-description"/);
-assert.match(finalizeDialog, /Uyarılarla finalleştir/);
+assert.match(finalizeDialog, /kritik koşul tamamlanmadı/);
+assert.doesNotMatch(finalizeDialog, /Uyarılarla finalleştir/);
 assert.match(revisionDialog, /role="alert"/);
 assert.match(revisionDialog, /role="status"/);
 

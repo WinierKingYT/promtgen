@@ -31,6 +31,8 @@ describe('Production project creation routing', () => {
 
     assert.equal(result.ideaLabGenerated, true);
     assert.equal(result.project.lifecycle.activePhase, 'IDEA_LAB');
+    assert.ok(result.project.ideaLabSession.conceptSummary, 'Initial interpretation survives Idea Lab generation');
+    assert.equal(result.project.ideaLabSession.conceptSummary?.userConfirmed, false);
     assert.ok(result.project.revisions.length > 0);
   });
 });

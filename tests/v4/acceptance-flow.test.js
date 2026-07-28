@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { normalizeRequirement } from '../../src/v4/canonical-entities.js';
 import { createIdeWorkspacePackage, createPromtgenPackage, exportCanonicalMarkdown, readPromtgenPackage } from '../../src/v4/exporter.js';
-import { analyzeIdea, applyApprovedChanges, finalizePlan, reopenPlan, updatePlanSection, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
+import { analyzeIdea, applyApprovedChanges, confirmConceptSummary, finalizePlan, reopenPlan, updatePlanSection, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../../src/v4/task-compiler.js';
 
 let project = analyzeIdea('Yerel çalışan küçük bir alışkanlık takip aracı planlamak istiyorum.');
@@ -21,7 +21,9 @@ assert.ok(project.canonicalRevision > unchangedRevision);
 assert.ok(project.dismissedSuggestionFingerprints.length > 0);
 assert.ok(Object.values(project.sections).some(section => section.sourceSuggestionIds.length > 0));
 
-project.requirements.push(normalizeRequirement({ id: 'req-local-save', title: 'Yerel kayıt', statement: 'Kayıtlar cihazda kalıcı tutulmalı.', acceptanceCriteria: ['Uygulama yeniden açıldığında kayıtlar görünür.'], status: 'accepted' }));
+project.ideaLabSession.conceptSummary.openQuestions = [];
+project = confirmConceptSummary(project);
+project.requirements.push(normalizeRequirement({ id: 'req-local-save', title: 'Yerel kayıt', statement: 'Kayıtlar cihazda kalıcı tutulmalı.', priority: 'must', acceptanceCriteria: ['Uygulama yeniden açıldığında kayıtlar görünür.'], status: 'accepted' }));
 project = updatePlanSection(project, 'vision', { content: 'Kişisel alışkanlıkları çevrimdışı ve güvenli biçimde takip etmeyi kolaylaştır.' });
 project = updatePlanSection(project, 'scope', { content: 'Tek kullanıcı, yerel kayıt ve temel ilerleme görünümü.' });
 const compilation = compileTaskPlan(project);
@@ -32,8 +34,21 @@ assert.equal(approvedTasks.success, true);
 project = approvedTasks.project;
 assert.deepEqual(project.agentPrompts.map(prompt => prompt.role), ['planner', 'implementer', 'reviewer', 'verifier']);
 
-const finalized = finalizePlan(project, true);
-assert.equal(finalized.success, true);
+for (const risk of project.risks) {
+    if (risk.status === 'open' && risk.impact === 'high') {
+        risk.owner = 'Proje sahibi';
+        risk.mitigation = risk.mitigation || 'Riski azaltan görev planlama sırasında doğrulanacak.';
+    }
+}
+for (let pass = 0; pass < 3; pass += 1) {
+    for (const [id, section] of Object.entries(project.sections)) {
+        if (section.required && (section.status === 'stale' || (!section.content && !section.items.length))) {
+            project = updatePlanSection(project, id, { content: section.content || `${section.title} kullanıcı kararlarıyla doğrulandı.` });
+        }
+    }
+}
+const finalized = finalizePlan(project);
+assert.equal(finalized.success, true, finalized.blockers.join(' · '));
 assert.equal(finalized.project.lifecycle.status, 'finalized');
 assert.equal(finalized.project.lifecycle.activePhase, 'READY');
 const finalRevision = finalized.project.canonicalRevision;

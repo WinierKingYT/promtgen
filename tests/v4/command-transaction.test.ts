@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import type { ProjectDocumentV5, ProjectRepository } from '../../src/v4/contracts.js';
 import { createProjectDocument } from '../../src/v4/project-document.js';
 import { updatePlanSection } from '../../src/v4/planning-engine.js';
+import {
+  createInitialConceptInterpretation,
+  updateConceptAgreement
+} from '../../src/v4/application/idea-discussion-service.js';
 import { commitProjectCandidate, saveInitialProject } from '../../src/v4/application/command-transaction.js';
 
 class FakeRepository implements ProjectRepository {
@@ -42,6 +46,52 @@ describe('Persistent command transaction boundary', () => {
     assert.equal(result.success, true);
     assert.equal(result.project.documentRevision, current.documentRevision + 1);
     assert.equal(result.project.canonicalRevision, current.canonicalRevision);
+  });
+
+  it('keeps interpretation drafts outside canonical revision and advances both on approval', async () => {
+    const repository = new FakeRepository();
+    const current = createProjectDocument({ idea: 'Yerel çalışan proje planlama aracı' });
+    current.ideaLabSession.conceptSummary = {
+      ...createInitialConceptInterpretation(current),
+      openQuestions: []
+    };
+    const draft = updateConceptAgreement(current, {
+      targetUser: 'AI kodlama araçları kullanan bireysel geliştirici',
+      problemStatement: 'Dağınık fikirler kapsam sapmasına yol açıyor.',
+      currentAlternative: 'Genel amaçlı sohbet ve metin belgeleri',
+      desiredOutcome: 'Onaylanmış ve izlenebilir bir MVP planı',
+      confirmedFeatures: ['Fikir yorumu', 'MVP kapsamı'],
+      outOfScope: ['Bulut senkronizasyonu'],
+      openQuestions: []
+    });
+    const draftResult = await commitProjectCandidate(repository, current, draft, {
+      commandId: 'cmd-concept-draft',
+      commandType: 'UpdateConceptAgreement',
+      projectId: current.id,
+      expectedDocumentRevision: current.documentRevision,
+      expectedCanonicalRevision: current.canonicalRevision,
+      canonicalChange: false,
+      createdAt: '2026-01-01T00:00:00.000Z'
+    });
+    assert.equal(draftResult.success, true);
+    assert.equal(draftResult.project.documentRevision, current.documentRevision + 1);
+    assert.equal(draftResult.project.canonicalRevision, current.canonicalRevision);
+
+    const approved = structuredClone(draftResult.project);
+    approved.ideaLabSession.conceptSummary!.userConfirmed = true;
+    approved.ideaLabSession.conceptSummary!.confirmedAt = '2026-01-01T00:01:00.000Z';
+    const approvalResult = await commitProjectCandidate(repository, draftResult.project, approved, {
+      commandId: 'cmd-concept-confirm',
+      commandType: 'ConfirmConceptSummary',
+      projectId: current.id,
+      expectedDocumentRevision: draftResult.project.documentRevision,
+      expectedCanonicalRevision: draftResult.project.canonicalRevision,
+      canonicalChange: true,
+      createdAt: '2026-01-01T00:01:00.000Z'
+    });
+    assert.equal(approvalResult.success, true);
+    assert.equal(approvalResult.project.documentRevision, draftResult.project.documentRevision + 1);
+    assert.equal(approvalResult.project.canonicalRevision, draftResult.project.canonicalRevision + 1);
   });
 
   it('persists idempotency in ProjectDocument and survives a repository reload', async () => {

@@ -18,6 +18,7 @@ const DOCUMENT_ONLY_COMMANDS = new Set([
   'AddDiscoveryTurn', 'UpdateSuggestionStatus', 'ProposeChangeImpact', 'ResolveImpactContradiction',
   'RejectChangeImpact', 'CreatePlanningScenario', 'DiscardPlanningScenario', 'SelectPlanningScenario',
   'GenerateSectionPatches', 'UpdateSectionPatchStatus', 'MarkSectionPatchesStale', 'UpdateIdeaDiscussion',
+  'UpdateConceptAgreement', 'GenerateRequirementDrafts', 'UpdateRequirementDraft', 'RemoveRequirementDraft',
   'StartExecutionSession', 'RecordExecutionResult', 'RecordExport', 'UpdateProject'
 ]);
 

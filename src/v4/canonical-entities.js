@@ -362,11 +362,33 @@ export function normalizeSectionPatchProposal(value = {}, index = 0) {
 export function normalizeProjectDocument(project) {
     if (!project || typeof project !== 'object') return project;
     const next = structuredClone(project);
+    const sourceSchemaRevision = Math.max(1, Number(next.schemaRevision || 1));
     next.schemaVersion = 5;
-    next.schemaRevision = 2;
+    next.schemaRevision = 3;
     next.documentRevision = Math.max(1, Number(next.documentRevision || next.revision || 1));
     next.canonicalRevision = Math.max(1, Math.min(next.documentRevision, Number(next.canonicalRevision || next.revision || 1)));
     delete next.revision;
+    const previousReadiness = next.readiness || {};
+    next.readiness = {
+        version: 2,
+        status: ['blocked', 'needs_review', 'ready'].includes(previousReadiness.status)
+            ? previousReadiness.status
+            : (previousReadiness.blockers?.length ? 'blocked' : previousReadiness.warnings?.length ? 'needs_review' : 'ready'),
+        score: Math.max(0, Math.min(100, Number(previousReadiness.score || 0))),
+        dimensions: {
+            completeness: Number(previousReadiness.dimensions?.completeness || 0),
+            consistency: Number(previousReadiness.dimensions?.consistency ?? 100),
+            traceability: Number(previousReadiness.dimensions?.traceability || 0),
+            riskCoverage: Number(previousReadiness.dimensions?.riskCoverage || 0),
+            implementationReadiness: Number(previousReadiness.dimensions?.implementationReadiness || 0)
+        },
+        dimensionWeights: { completeness: 20, consistency: 20, traceability: 25, riskCoverage: 15, implementationReadiness: 20 },
+        dimensionLabels: { completeness: 'Tamlık', consistency: 'Tutarlılık', traceability: 'İzlenebilirlik', riskCoverage: 'Risk kapsamı', implementationReadiness: 'Uygulamaya hazırlık' },
+        checks: Array.isArray(previousReadiness.checks) ? previousReadiness.checks : [],
+        blockers: list(previousReadiness.blockers),
+        warnings: list(previousReadiness.warnings),
+        calculatedAtRevision: Math.max(1, Number(previousReadiness.calculatedAtRevision || next.canonicalRevision))
+    };
     next.objectives = (next.objectives || []).map(normalizeObjective);
     next.requirements = (next.requirements || []).map(normalizeRequirement);
     next.decisions = (next.decisions || []).map(normalizeDecision);
@@ -411,7 +433,7 @@ export function normalizeProjectDocument(project) {
     next.revisions = Array.isArray(next.revisions) ? next.revisions.map(revision => {
         const snapshot = revision.snapshot && typeof revision.snapshot === 'object' ? structuredClone(revision.snapshot) : {};
         snapshot.schemaVersion = 5;
-        snapshot.schemaRevision = 2;
+        snapshot.schemaRevision = 3;
         snapshot.documentRevision = Math.max(1, Number(snapshot.documentRevision || snapshot.revision || revision.number || 1));
         snapshot.canonicalRevision = Math.max(1, Number(snapshot.canonicalRevision || snapshot.revision || revision.number || 1));
         delete snapshot.revision;
@@ -446,6 +468,33 @@ export function normalizeProjectDocument(project) {
         })) : [],
         updatedAt: text(next.ideaDiscussion?.updatedAt)
     };
+    if (next.ideaLabSession?.conceptSummary) {
+        const source = next.ideaLabSession.conceptSummary;
+        const needsReconfirmation = sourceSchemaRevision < 3;
+        next.ideaLabSession.conceptSummary = {
+            ...source,
+            summary: text(source.summary, next.identity?.summary || next.identity?.originalIdea),
+            targetUser: text(source.targetUser, 'Birincil kullanıcı migration sonrası doğrulanmalı.'),
+            problemStatement: text(source.problemStatement, next.identity?.originalIdea || 'Problem tanımı migration sonrası doğrulanmalı.'),
+            currentAlternative: text(source.currentAlternative, 'Mevcut çözüm migration sonrası doğrulanmalı.'),
+            desiredOutcome: text(source.desiredOutcome, next.identity?.desiredOutcome || 'Beklenen sonuç migration sonrası doğrulanmalı.'),
+            interpretationConfidence: Math.max(0, Math.min(100, Math.round(Number(source.interpretationConfidence ?? 40)))),
+            confidenceRationale: list(source.confidenceRationale).length
+                ? list(source.confidenceRationale)
+                : ['Eski proje kaydında yorum güveni bulunmadığı için düşük başlangıç değeri kullanıldı.'],
+            confirmedFeatures: list(source.confirmedFeatures),
+            outOfScope: list(source.outOfScope),
+            technicalApproaches: list(source.technicalApproaches),
+            openQuestions: [
+                ...list(source.openQuestions),
+                ...(needsReconfirmation ? ['Yeni hedef kullanıcı ve problem alanları migration sonrası doğrulanmalı.'] : [])
+            ],
+            knownRisks: list(source.knownRisks),
+            mvpTarget: text(source.mvpTarget),
+            userConfirmed: needsReconfirmation ? false : Boolean(source.userConfirmed),
+            ...(needsReconfirmation ? { confirmedAt: undefined } : {})
+        };
+    }
     next.metadata = { ...(next.metadata || {}), canonicalModelVersion: CANONICAL_MODEL_VERSION };
     return next;
 }

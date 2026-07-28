@@ -5,7 +5,7 @@ import { DISCOVERY_SCHEMA_ID } from './ai-schemas.js';
 import { runAITask } from './ai/orchestrator.ts';
 import { getTaskDefinition } from './ai/registry.ts';
 import { classifyProjectDomain } from './ai/domain-classifier.ts';
-import { buildIdeaDiscussionContext, captureDiscussionBundle } from './application/idea-discussion-service.ts';
+import { buildIdeaDiscussionContext, captureDiscussionBundle, createInitialConceptInterpretation } from './application/idea-discussion-service.ts';
 import { createChangeImpactAnalysis } from './application/change-impact-service.ts';
 
 const discoveryTask = getTaskDefinition('discovery');
@@ -505,6 +505,7 @@ export async function generateIdeaLabBundle(project, { settings, credential = ''
         const fallback = localFallbackIdeaLab(project);
         const next = structuredClone(project);
         next.ideaLabSession = {
+            ...(next.ideaLabSession || {}),
             status: 'active',
             approaches: fallback.approaches,
             ideaNotes: fallback.ideaNotes,
@@ -532,6 +533,7 @@ export async function generateIdeaLabBundle(project, { settings, credential = ''
         const response = run.output;
         const next = structuredClone(project);
         next.ideaLabSession = {
+            ...(next.ideaLabSession || {}),
             status: 'active',
             approaches: response.approaches || [],
             ideaNotes: response.ideaNotes || [],
@@ -546,6 +548,7 @@ export async function generateIdeaLabBundle(project, { settings, credential = ''
         const reason = e instanceof Error ? e.message : String(e);
         const next = structuredClone(project);
         next.ideaLabSession = {
+            ...(next.ideaLabSession || {}),
             status: 'active',
             approaches: fallback.approaches,
             ideaNotes: fallback.ideaNotes,
@@ -627,14 +630,19 @@ export async function generateConceptSummary(project, { selectedApproachId = '' 
 
     const summaryText = `"${rawIdea.slice(0, 60)}" projesi; ${approachDesc} mimarisine dayanan, ${confirmedFeatures[1].toLowerCase()} ve ${confirmedFeatures[2].toLowerCase()} içeren bir konsept.`;
 
+    const initialInterpretation = project.ideaLabSession?.conceptSummary || createInitialConceptInterpretation(project);
     const conceptSummary = {
-        summary: summaryText,
-        confirmedFeatures,
-        outOfScope,
+        ...initialInterpretation,
+        summary: initialInterpretation.summary || summaryText,
+        confirmedFeatures: [...new Set([...initialInterpretation.confirmedFeatures, ...confirmedFeatures])],
+        outOfScope: initialInterpretation.outOfScope.length ? initialInterpretation.outOfScope : outOfScope,
         technicalApproaches: [approachDesc],
-        openQuestions,
-        knownRisks: selectedApproach?.risks || (isGame ? ['Ağ senkronizasyon gecikmesi'] : isWebSaaS ? ['Yüksek yük altında veritabanı darboğazı'] : isMobile ? ['Çevrimdışı veri çakışması'] : ['Kapsam kayması']),
-        mvpTarget: `"${rawIdea.slice(0, 40)}" için temel fonksiyonel prototip ve ilk sürüm deneyimi`,
+        openQuestions: initialInterpretation.openQuestions.length ? initialInterpretation.openQuestions : openQuestions,
+        knownRisks: [...new Set([
+            ...initialInterpretation.knownRisks,
+            ...(selectedApproach?.risks || (isGame ? ['Ağ senkronizasyon gecikmesi'] : isWebSaaS ? ['Yüksek yük altında veritabanı darboğazı'] : isMobile ? ['Çevrimdışı veri çakışması'] : ['Kapsam kayması']))
+        ])],
+        mvpTarget: initialInterpretation.mvpTarget || `"${rawIdea.slice(0, 40)}" için temel fonksiyonel prototip ve ilk sürüm deneyimi`,
         userConfirmed: false
     };
 
