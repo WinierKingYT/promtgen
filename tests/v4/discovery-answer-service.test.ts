@@ -45,6 +45,8 @@ describe('discovery answer proposal service', () => {
     assert.deepEqual(draft.patches.map(patch => patch.field), ['targetUser', 'openQuestions']);
     assert.ok(draft.patches.every(patch => patch.status === 'pending'));
     assert.equal(draft.provenance.mode, 'rule-engine');
+    assert.equal(draft.assessment.quality, 'actionable');
+    assert.ok(draft.patches[0].evidence.length >= 2);
   });
 
   it('yalnız kabul edilen ve düzenlenen alanları tek işlemde uygular', () => {
@@ -96,13 +98,16 @@ describe('discovery answer proposal service', () => {
     assert.deepEqual(changed, before);
   });
 
-  it('soru alanla güvenli biçimde eşleşmiyorsa öneri uydurmaz', () => {
+  it('soru alanla güvenli biçimde eşleşmiyorsa öneri uydurmaz ve soruyu kapatmaz', () => {
     const project = projectWithQuestion('Bu fikir hakkında başka ne düşünüyorsun?');
     const draft = createDiscoveryAnswerDraft(project, {
       focusedQuestion: project.ideaLabSession!.conceptSummary!.openQuestions[0],
       answer: 'Birçok farklı şey olabilir.'
     }, options);
 
-    assert.equal(draft, null);
+    assert.ok(draft);
+    assert.equal(draft.assessment.quality, 'ambiguous');
+    assert.equal(draft.assessment.canCloseQuestion, false);
+    assert.deepEqual(draft.patches, []);
   });
 });

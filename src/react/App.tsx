@@ -46,7 +46,6 @@ export default function App() {
           projects={projects}
           onOpen={setActiveId}
           providerSettings={providerSettings}
-          onProviderSettings={setProviderSettings}
           onOpenSettings={openSettings}
         />
         {settingsOpen && <LazyFeatureBoundary label="AI sağlayıcı ayarları" resetKey={settingsOpen}>

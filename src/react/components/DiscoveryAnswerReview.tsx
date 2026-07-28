@@ -44,6 +44,11 @@ export function DiscoveryAnswerReview({
     });
   };
   const selected = draft.patches.filter(patch => patch.status === 'accepted' || patch.status === 'edited').length;
+  const qualityLabel = draft.assessment.quality === 'actionable'
+    ? 'İşlenebilir yanıt'
+    : draft.assessment.quality === 'conflicting'
+      ? 'Çelişkili yanıt'
+      : 'Belirsiz yanıt';
 
   return <section className="discovery-answer-review" aria-labelledby="discovery-answer-review-title">
     <div className="answer-review-head">
@@ -51,9 +56,18 @@ export function DiscoveryAnswerReview({
         <span className="meta">YAPISAL ALAN ÖNERİSİ · OTOMATİK UYGULANMAZ</span>
         <h3 id="discovery-answer-review-title"><ShieldCheck size={17}/> Yanıtından çıkarılan değişiklikleri incele</h3>
       </div>
-      <span className="answer-source">{draft.provenance.label}</span>
+      <div className="answer-review-badges">
+        <span className={`answer-quality ${draft.assessment.quality}`}>{qualityLabel}</span>
+        <span className="answer-source">{draft.provenance.label}</span>
+      </div>
     </div>
     <p className="answer-source-question"><b>Soru:</b> {draft.sourceQuestion}</p>
+    {draft.assessment.warnings.length > 0 && <div className="answer-assessment-warnings" role="alert">
+      {draft.assessment.warnings.map(warning => <p key={warning}>{warning}</p>)}
+    </div>}
+    {draft.patches.length === 0 && <p className="answer-empty">
+      Plan alanı bulunamadı. Soru açık kaldı; alan adıyla netleştir.
+    </p>}
     <div className="answer-patch-list">
       {draft.patches.map(patch => {
         const proposed = display(patch.proposedValue);
@@ -64,6 +78,9 @@ export function DiscoveryAnswerReview({
             <span>%{patch.confidence} eşleme güveni</span>
           </div>
           <small>{patch.rationale}</small>
+          <ul className="answer-evidence">
+            {patch.evidence.map(item => <li key={item}>{item}</li>)}
+          </ul>
           <div className="answer-value-comparison">
             <div><span>Mevcut</span><pre>{display(patch.currentValue) || '—'}</pre></div>
             <div><span>Önerilen</span>{isEditing

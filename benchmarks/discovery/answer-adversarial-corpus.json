@@ -1,0 +1,94 @@
+[
+  {
+    "id": "multi-field-answer",
+    "question": "Hedef kullanıcı ve ana problem nedir?",
+    "answer": "Hedef kullanıcı: Her gün AI araçları kullanan bireysel geliştirici. Ana problem: Dağınık görevler yüzünden sıradaki işi kaybediyor.",
+    "expectedQuality": "actionable",
+    "expectedFields": ["targetUser", "problemStatement"],
+    "forbiddenFields": [],
+    "canCloseQuestion": true
+  },
+  {
+    "id": "contradictory-scope",
+    "question": "MVP için tek birincil kullanıcı kim?",
+    "answer": "Yalnız bireysel kullanıcı olacak ama ekip işbirliği ve çok kullanıcılı paylaşım zorunlu.",
+    "expectedQuality": "conflicting",
+    "expectedFields": [],
+    "forbiddenFields": ["targetUser", "confirmedFeatures"],
+    "canCloseQuestion": false
+  },
+  {
+    "id": "unknown-answer",
+    "question": "İlk sürümün hedef kullanıcısı kim?",
+    "answer": "Bilmiyorum, henüz emin değilim.",
+    "expectedQuality": "ambiguous",
+    "expectedFields": [],
+    "forbiddenFields": ["targetUser"],
+    "canCloseQuestion": false
+  },
+  {
+    "id": "ironic-answer",
+    "question": "Kritik risk nedir?",
+    "answer": "Tabii ki hiçbir risk yok!",
+    "expectedQuality": "ambiguous",
+    "expectedFields": [],
+    "forbiddenFields": ["knownRisks"],
+    "canCloseQuestion": false
+  },
+  {
+    "id": "mixed-language-answer",
+    "question": "Who is the target user and what is the pain point?",
+    "answer": "Target user: freelance developer. Ana problem: Requirements get lost ve işler tekrar yapılıyor.",
+    "expectedQuality": "actionable",
+    "expectedFields": ["targetUser", "problemStatement"],
+    "forbiddenFields": [],
+    "canCloseQuestion": true
+  },
+  {
+    "id": "multiple-personas",
+    "question": "Tek birincil kullanıcı kim?",
+    "answer": "Hedef kullanıcı: bireysel geliştirici ve proje yöneticisi.",
+    "expectedQuality": "actionable",
+    "expectedFields": ["targetUser"],
+    "forbiddenFields": [],
+    "canCloseQuestion": false
+  },
+  {
+    "id": "mvp-and-future",
+    "question": "MVP içinde ve kapsam dışında neler kalacak?",
+    "answer": "MVP içinde: görev oluşturma, öncelik verme. Kapsam dışında: ekip paylaşımı, mobil uygulama.",
+    "expectedQuality": "actionable",
+    "expectedFields": ["confirmedFeatures", "outOfScope"],
+    "forbiddenFields": [],
+    "canCloseQuestion": true
+  },
+  {
+    "id": "technology-is-not-requirement",
+    "question": "Teknoloji zorunlu mu ve gerçek problem nedir?",
+    "answer": "React zorunlu değil. Ana problem: kullanıcı görevlerinin farklı dosyalarda kaybolması.",
+    "expectedQuality": "actionable",
+    "expectedFields": ["problemStatement"],
+    "forbiddenFields": ["technicalApproaches"],
+    "canCloseQuestion": true
+  },
+  {
+    "id": "changed-previous-answer",
+    "question": "Birincil kullanıcı kim?",
+    "answer": "Hedef kullanıcı: küçük ajansın teknik lideri.",
+    "existingTargetUser": "AI araçları kullanan bireysel geliştirici",
+    "expectedQuality": "actionable",
+    "expectedFields": ["targetUser"],
+    "forbiddenFields": [],
+    "canCloseQuestion": true,
+    "expectsChangeWarning": true
+  },
+  {
+    "id": "unmapped-generic-answer",
+    "question": "Bu fikir hakkında başka ne düşünüyorsun?",
+    "answer": "Birçok farklı şey olabilir.",
+    "expectedQuality": "ambiguous",
+    "expectedFields": [],
+    "forbiddenFields": [],
+    "canCloseQuestion": false
+  }
+]

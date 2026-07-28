@@ -16,16 +16,34 @@ test.describe('PromtGen guided production workflow', () => {
 
   test('short idea remains in the expansion phase and survives reload', async ({ page }) => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill('S&box içinde at sistemi yapmak istiyorum');
-    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
 
-    await expect(page.getByText('AŞAMA 1: FİKİR BÜYÜTÜCÜ')).toBeVisible();
-    await expect(page.getByText('Canonical Plan', { exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Fikrinle ne yapmak istiyorsun?' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Fikri geliştir/ })).toHaveAttribute('aria-current', 'step');
 
     await page.reload();
     await expect(page.getByRole('heading', { name: /Projelerin \(1\)/ })).toBeVisible();
   });
 
+  test('lets the user keep developing, create a guide, or open the detailed plan', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin günlük işlerini yerel olarak düzenleyen sade bir web uygulaması yapmak istiyorum.'
+    );
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Fikri konuşarak geliştir' })).toBeVisible();
+    await page.getByRole('button', { name: /Rehber oluştur/ }).click();
+    await expect(page.getByRole('heading', { name: /Bireysel geliştiricilerin/ })).toBeVisible();
+    await expect(page.getByText('CANONICAL PLANI DEĞİŞTİRMEZ')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Rehberi indir' })).toBeVisible();
+
+    await page.getByRole('button', { name: /Detaylı planla/ }).click();
+    await expect(page.getByText('ÖNERİLEN PLAN DERİNLİĞİ')).toBeVisible();
+    await expect(page.getByLabel('Yaşayan plan')).toBeVisible();
+  });
+
   test('AI settings button opens the real provider dialog', async ({ page }) => {
+    await page.getByText('Dosya, dil ve AI seçenekleri').click();
     const trigger = page.getByRole('button', { name: /AI:/ });
     await trigger.click();
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -38,7 +56,7 @@ test.describe('PromtGen guided production workflow', () => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Web oyununda oyuncular için sadece yerel çalışan bir binek sistemi yapmak istiyorum; hedef gecikme sorununu çözmek ve güvenli bir API mimarisi kurmak.'
     );
-    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
 
     await expect(page.getByText('FİKİR TARTIŞMA MOTORU')).toBeVisible();
     const compareMode = page.getByRole('radio', { name: /Karşılaştır/ });
@@ -62,7 +80,7 @@ test.describe('PromtGen guided production workflow', () => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Bireysel geliştiricilerin dağınık görevlerini yerel bir web uygulamasında düzenlemek ve ilk sürümde yalnız günlük önceliklerini göstermek istiyorum.'
     );
-    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
 
     const question = page.locator('.open-question-list button').filter({ hasText: /kullanıcı|kim/i }).first();
     await expect(question).toBeVisible();
@@ -84,11 +102,32 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(page.locator('.toast')).toContainText(/yanıt alanı sistem yorumuna uygulandı/i);
   });
 
+  test('an ambiguous discovery answer stays outside the plan and keeps the question open', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin görevlerini yerel bir web uygulamasında düzenlemek istiyorum.'
+    );
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+
+    const question = page.locator('.open-question-list button').first();
+    const questionText = await question.innerText();
+    await question.click();
+    await page.locator('#discovery-direction').fill('Bilmiyorum, henüz emin değilim.');
+    await page.getByRole('button', { name: 'Gönder', exact: true }).click();
+
+    const review = page.locator('.discovery-answer-review');
+    await expect(review.getByText('Belirsiz yanıt')).toBeVisible();
+    await expect(review.getByText(/Soru açık kaldı/i)).toBeVisible();
+    await expect(review.locator('.answer-patch')).toHaveCount(0);
+    await expect(review.getByRole('button', { name: /alanı sistem yorumuna uygula/ })).toBeDisabled();
+    expect(await page.locator('.concept-agreement .agreement-grid textarea').last().inputValue())
+      .toContain(questionText.replace(/^\d+\.\s*/, ''));
+  });
+
   test('system interpretation stays draft until MVP scope is completed and explicitly approved', async ({ page }) => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Bireysel geliştiricilerin dağınık fikirlerini yerel olarak MVP kapsamına ve uygulanabilir görevlere dönüştüren bir web uygulaması yapmak istiyorum.'
     );
-    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
 
     const gate = page.locator('.concept-summary-card');
     await expect(gate.getByText('Sistem Yorumu ve MVP Kapsam Kapısı')).toBeVisible();
@@ -101,19 +140,16 @@ test.describe('PromtGen guided production workflow', () => {
 
     await gate.getByRole('button', { name: 'Yorumu Onayla ve Canonical Planı Başlat' }).click();
     await expect(page.locator('.toast')).toContainText('Canonical plan oluşturuldu');
-    await expect(page.getByText('SHAPING AŞAMASI', { exact: true })).toBeVisible();
-    await expect(page.getByText('r2', { exact: true }).first()).toBeVisible();
 
     const requirementGate = page.locator('.requirement-quality');
     await expect(requirementGate.getByText('Gereksinim Kalite Kapısı')).toBeVisible();
     await requirementGate.getByRole('button', { name: 'MVP’den taslak üret' }).click();
     await expect(requirementGate.locator('.requirement-card')).toHaveCount(2);
-    await expect(page.getByText('r2', { exact: true }).first()).toBeVisible();
 
     await requirementGate.locator('.requirement-card').first().getByRole('button', { name: 'Gereksinimi kabul et' }).click();
     await expect(requirementGate.getByText('Görev üretimine hazır')).toBeVisible();
-    await expect(page.getByText('r3', { exact: true }).first()).toBeVisible();
 
+    await page.getByRole('button', { name: /Detaylı planla/ }).click();
     await page.getByRole('button', { name: /Görevler ve Yol Haritası/ }).click();
     await page.getByRole('button', { name: 'Gereksinimlerden görev taslağı üret' }).click();
     await expect(page.getByRole('region', { name: 'Görev planı önizlemesi' })).toContainText('1 görev');
@@ -137,7 +173,7 @@ test.describe('PromtGen guided production workflow', () => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Yerel çalışan bir oyun planlama sistemi geliştirip görev ve kabul testlerini birlikte yönetmek istiyorum.'
     );
-    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
     await expect(page.getByText('FİKİR TARTIŞMA MOTORU')).toBeVisible();
 
     await page.evaluate(async () => {
@@ -216,6 +252,7 @@ test.describe('PromtGen guided production workflow', () => {
   }
 
   test('language selection updates the visible onboarding copy', async ({ page }) => {
+    await page.getByText('Dosya, dil ve AI seçenekleri').click();
     await page.getByLabel('Çıktı dili').selectOption('en');
     await expect(page.getByRole('heading', { name: /Share your idea/ })).toBeVisible();
     await expect(page.getByLabel('What do you want to build?')).toBeVisible();

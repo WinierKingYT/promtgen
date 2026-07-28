@@ -7,7 +7,7 @@ Akış:
 `ham fikir → discovery sinyalleri → sistem yorumu ve kritik sorular → simüle kullanıcı düzeltmesi → açık onay → canonical vizyon ve kapsam`
 
 - Suite: `guided-discovery-v1`
-- Son çalışma: 2026-07-28T20:32:32.598Z
+- Son çalışma: 2026-07-28T21:06:12.703Z
 - Sonuç: 8/8
 - Başarı oranı: %100
 - Kritik sinyal yakalama: %96
@@ -16,6 +16,7 @@ Akış:
 - Ortalama kullanıcı düzeltme alanı: 8.0/8
 - Otomatik kullanıcı onayı: 0
 - Erken teknik kesinleştirme: 0
+- Serbest cevap güvenlik corpus'u: 10 adversarial sınıf
 
 | Senaryo | Tür | Sonuç | Sinyal yakalama | Soru | Düzeltilen alan | İlk güven |
 |---|---|---|---:|---:|---:|---:|
@@ -34,6 +35,7 @@ Bu benchmark gerçek kullanıcı araştırması veya AI sağlayıcı üstünlü�
 
 - ham fikirde kritik belirsizliklerin görünür olduğunu,
 - sistemin yorumu kendiliğinden onaylamadığını,
-- kullanıcı düzeltmesinin canonical kapsamı kayıpsız oluşturduğunu
+- kullanıcı düzeltmesinin canonical kapsamı kayıpsız oluşturduğunu,
+- serbest cevap eşleyicinin çok alanlı, çelişkili, belirsiz, uzun ve karma dilli girdilerde onay kapısını koruduğunu
 
-kanıtlar. Serbest biçimli kullanıcı cevabından doğru structured plan çıkarma kalitesi ve PromtGen'in standart sohbet araçlarına üstünlüğü ayrı kör karşılaştırma verisi gerektirir.
+kanıtlar. Adversarial corpus gerçek kullanıcı semantik doğruluğu değildir; serbest biçimli cevaptan doğru structured plan çıkarma kalitesi ve PromtGen'in standart sohbet araçlarına üstünlüğü ayrı kör karşılaştırma verisi gerektirir.

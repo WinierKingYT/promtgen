@@ -84,10 +84,11 @@ describe('Product Capability Claims Honesty Audit (Category 1)', () => {
     assert.doesNotMatch(readme, /Kararlı Özellikler \(Stable Capabilities\)/);
   });
 
-  it('connects the production start screen to the capability registry maturity', () => {
+  it('keeps optional inventory behind progressive disclosure without overstating it', () => {
     const startScreen = readFileSync(path.resolve('src/react/components/StartScreen.tsx'), 'utf8');
-    assert.match(startScreen, /getCapability\('project-inventory-analyzer'\)/);
-    assert.match(startScreen, /inventoryCapability\.maturity/);
+    assert.match(startScreen, /Dosya, dil ve AI seçenekleri/);
+    assert.match(startScreen, /inventoryNotice/);
+    assert.doesNotMatch(startScreen, /güvenlik taraması|security scan/i);
   });
 
   it('Expert perspectives capability is marked as experimental rule-engine and declares no LLM agents', () => {

@@ -9,9 +9,14 @@ import {
 
 const checkOnly = process.argv.includes('--check');
 const scenarioPath = path.resolve('benchmarks', 'discovery', 'scenarios.json');
+const answerCorpusPath = path.resolve('benchmarks', 'discovery', 'answer-adversarial-corpus.json');
 const reportPath = path.resolve('benchmarks', 'discovery', 'latest-report.json');
 const markdownPath = path.resolve('docs', 'product', 'DISCOVERY_BENCHMARK_REPORT.md');
 const scenarios = JSON.parse(await readFile(scenarioPath, 'utf8')) as DiscoveryBenchmarkScenario[];
+const answerCorpus = JSON.parse(await readFile(answerCorpusPath, 'utf8')) as Array<{ id: string }>;
+if (answerCorpus.length < 10 || new Set(answerCorpus.map(item => item.id)).size !== answerCorpus.length) {
+  throw new Error('Serbest cevap adversarial corpus en az 10 benzersiz senaryo içermeli.');
+}
 
 let generatedAt = new Date().toISOString();
 if (checkOnly) {
@@ -46,6 +51,7 @@ Akış:
 - Ortalama kullanıcı düzeltme alanı: ${report.aggregate.averageCorrectionFields.toFixed(1)}/8
 - Otomatik kullanıcı onayı: ${report.aggregate.automaticConfirmationCount}
 - Erken teknik kesinleştirme: ${report.aggregate.prematureTechnicalDecisionCount}
+- Serbest cevap güvenlik corpus'u: ${answerCorpus.length} adversarial sınıf
 
 | Senaryo | Tür | Sonuç | Sinyal yakalama | Soru | Düzeltilen alan | İlk güven |
 |---|---|---|---:|---:|---:|---:|
@@ -57,9 +63,10 @@ Bu benchmark gerçek kullanıcı araştırması veya AI sağlayıcı üstünlü�
 
 - ham fikirde kritik belirsizliklerin görünür olduğunu,
 - sistemin yorumu kendiliğinden onaylamadığını,
-- kullanıcı düzeltmesinin canonical kapsamı kayıpsız oluşturduğunu
+- kullanıcı düzeltmesinin canonical kapsamı kayıpsız oluşturduğunu,
+- serbest cevap eşleyicinin çok alanlı, çelişkili, belirsiz, uzun ve karma dilli girdilerde onay kapısını koruduğunu
 
-kanıtlar. Serbest biçimli kullanıcı cevabından doğru structured plan çıkarma kalitesi ve PromtGen'in standart sohbet araçlarına üstünlüğü ayrı kör karşılaştırma verisi gerektirir.
+kanıtlar. Adversarial corpus gerçek kullanıcı semantik doğruluğu değildir; serbest biçimli cevaptan doğru structured plan çıkarma kalitesi ve PromtGen'in standart sohbet araçlarına üstünlüğü ayrı kör karşılaştırma verisi gerektirir.
 `;
 
 const outputs = [

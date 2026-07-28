@@ -12,11 +12,10 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await expect(app).toBeVisible();
   });
 
-  test('shows evidence-backed candidate maturity on the production start screen', async ({ page }) => {
+  test('shows the focused idea-first product promise', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Doğrulanma adayı odak')).toBeVisible();
-    await expect(page.locator('[data-capability-id="project-inventory-analyzer"] .capability-maturity-badge'))
-      .toHaveText('candidate-stable');
+    await expect(page.getByText(/Önce fikrini geliştir/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fikri geliştir' })).toBeVisible();
   });
 
   test('has no console errors on load', async ({ page }) => {
@@ -32,7 +31,8 @@ test.describe('PromtGen V4 Smoke Tests', () => {
   test('create, save, reopen and canonical export smoke flow', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel('Ne yapmak istiyorsun?').fill('Yerel çalışan bir proje planlama aracı yapmak istiyorum');
-    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await page.getByRole('button', { name: /Detaylı planla/ }).click();
     const editor = page.locator('.section-editor textarea');
     await editor.fill('Kullanıcının kısa fikrini onaylı kararlarla yaşayan plana dönüştür.');
     await page.getByRole('button', { name: 'Bölümü kaydet' }).click();
@@ -40,6 +40,7 @@ test.describe('PromtGen V4 Smoke Tests', () => {
 
     await page.reload();
     await page.locator('.portfolio-projects > button').first().click();
+    await page.getByRole('button', { name: /Detaylı planla/ }).click();
     await expect(page.locator('.section-editor textarea')).toHaveValue(/yaşayan plana dönüştür/);
 
     const download = page.waitForEvent('download');

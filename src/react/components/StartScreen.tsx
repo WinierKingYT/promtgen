@@ -6,8 +6,7 @@ import { PortfolioOverview } from './PortfolioOverview.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
 import { useI18n } from '../providers/I18nProvider.js';
-import { getProductCopy, PRODUCT_CONTRACT } from '../../v4/product/product-contract.js';
-import { getCapability } from '../../v4/capability-registry.js';
+import { getProductCopy } from '../../v4/product/product-contract.js';
 
 type Project = ProjectDocumentV5;
 
@@ -17,15 +16,12 @@ interface StartScreenProps {
   projects: Project[];
   onOpen: (id: string) => void;
   providerSettings: ProviderSettings;
-  onProviderSettings: (settings: ProviderSettings) => void;
   onOpenSettings: () => void;
 }
 
-export function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, onProviderSettings, onOpenSettings }: StartScreenProps) {
+export function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, onOpenSettings }: StartScreenProps) {
   const { locale, setLocale, t } = useI18n();
   const productCopy = getProductCopy(locale);
-  const candidateProjectTypes = PRODUCT_CONTRACT.supportedProjects.filter(project => project.support === 'candidate-stable');
-  const inventoryCapability = getCapability('project-inventory-analyzer');
   const [idea, setIdea] = useState('');
   const [language, setLanguage] = useState(locale === 'en-US' ? 'en' : 'tr');
   const [files, setFiles] = useState<File[]>([]);
@@ -61,17 +57,7 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
         <div className="eyebrow">{t('start.eyebrow')}</div>
         <h1 id="start-title">{t('start.title')}<br /><span>{t('start.titleAccent')}</span></h1>
         <p className="lead">{productCopy.promise}</p>
-        <p className="product-positioning">{productCopy.positioning}</p>
-        <div className="support-summary" aria-label={locale === 'en-US' ? 'Stable project support' : 'Kararlı proje desteği'}>
-          <b>{locale === 'en-US' ? 'Candidate-supported focus' : 'Doğrulanma adayı odak'}</b>
-          {candidateProjectTypes.map(projectType => <span key={projectType.id}>{projectType.label}</span>)}
-        </div>
-        {inventoryCapability ? (
-          <p data-capability-id="project-inventory-analyzer" className="context-note capability-summary">
-            {locale === 'en-US' ? 'Local file inventory' : 'Yerel dosya envanteri'}
-            <span className="capability-maturity-badge">{inventoryCapability.maturity}</span>
-          </p>
-        ) : null}
+        <p className="product-positioning">{locale === 'en-US' ? 'Develop the idea first. Turn it into a guide or a detailed plan only when you want.' : 'Önce fikrini geliştir. İstersen anlaşılır bir rehbere, istersen ayrıntılı plana dönüştür.'}</p>
         <label className="idea-box">
           <span>{t('start.ideaLabel')}</span>
           <textarea
@@ -96,56 +82,42 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
             </span>
           </div>
         </label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0 16px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('start.examples')}</span>
-          <button type="button" onClick={() => setIdea('Yerel çalışan, çevrimdışı destekli ve bildirimli kişisel alışkanlık takip uygulaması yapmak istiyorum.')}
-            style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#ddd6fe', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', cursor: 'pointer' }}>
-            📱 Mobil Alışkanlık Takipçisi
-          </button>
-          <button type="button" onClick={() => setIdea('KOBİ\'ler için sipariş, stok, fatura ve müşteri yönetim paneli tasarlamak istiyorum.')}
-            style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#ddd6fe', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', cursor: 'pointer' }}>
-            🌐 E-Ticaret Yönetim Paneli
-          </button>
-          <button type="button" onClick={() => setIdea('Fizik tabanlı, modüler ve eklenti destekli 2D arcade oyunu geliştirmek istiyorum.')}
-            style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#ddd6fe', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', cursor: 'pointer' }}>
-            🎮 2D Arcade Oyun Projesi
-          </button>
-        </div>
-
         <div className="start-actions">
-          <label className="file-action"><FolderOpen size={17} /> {t('start.files')}<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)} /></label>
-          {isDesktopProjectImportAvailable()
-            ? <button type="button" className="file-action" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17} /> : <FolderOpen size={17} />} Proje klasörü</button>
-            : <label className="file-action"><FolderOpen size={17} /> {t('start.folder')}<input type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as any)} onChange={event => appendFiles(event.target.files)} /></label>}
-          <button className="file-action" onClick={onOpenSettings}><Settings2 size={17} /> AI: {getProviderMeta(providerSettings.providerId).label}</button>
-          <label>{t('start.outputLanguage')}<select value={language} onChange={event => {
-            const next = event.target.value;
-            setLanguage(next);
-            setLocale(next === 'en' ? 'en-US' : 'tr-TR');
-          }}><option value="tr">{t('language.turkish')}</option><option value="en">{t('language.english')}</option></select></label>
           <button className="primary" disabled={idea.trim().length < 10 || creating} onClick={handleCreate}>
-            {creating ? <><LoaderCircle className="spin" size={18} /> {t('start.analyzing')}</> : <>{t('start.analyze')} <ArrowRight size={18} /></>}
+            {creating ? <><LoaderCircle className="spin" size={18} /> {t('start.analyzing')}</> : <>Fikri geliştir <ArrowRight size={18} /></>}
           </button>
         </div>
+        <details className="start-options">
+          <summary>Dosya, dil ve AI seçenekleri</summary>
+          <div>
+            <label className="file-action"><FolderOpen size={17} /> {t('start.files')}<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)} /></label>
+            {isDesktopProjectImportAvailable()
+              ? <button type="button" className="file-action" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17} /> : <FolderOpen size={17} />} Proje klasörü</button>
+              : <label className="file-action"><FolderOpen size={17} /> {t('start.folder')}<input type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as any)} onChange={event => appendFiles(event.target.files)} /></label>}
+            <button className="file-action" onClick={onOpenSettings}><Settings2 size={17} /> AI: {getProviderMeta(providerSettings.providerId).label}</button>
+            <label>{t('start.outputLanguage')}<select value={language} onChange={event => {
+              const next = event.target.value;
+              setLanguage(next);
+              setLocale(next === 'en' ? 'en-US' : 'tr-TR');
+            }}><option value="tr">{t('language.turkish')}</option><option value="en">{t('language.english')}</option></select></label>
+          </div>
+        </details>
 
         {files.length > 0 && (
-          <div style={{ marginTop: '12px', background: 'rgba(0,0,0,0.2)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#a78bfa', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📁 Eklenen Dosyalar ({files.length}):</span>
-              <button type="button" onClick={() => setFiles([])} style={{ background: 'none', border: 'none', color: '#fca5a5', fontSize: '10px', cursor: 'pointer' }}>Tümünü Temizle</button>
+          <div className="selected-files">
+            <div>
+              <span>Eklenen dosyalar ({files.length})</span>
+              <button type="button" onClick={() => setFiles([])}>Tümünü temizle</button>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <div>
               {files.map((file, idx) => (
-                <span key={`${file.name}-${idx}`} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#d1d5db', fontSize: '11px', padding: '2px 8px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span key={`${file.name}-${idx}`}>
                   {file.name}
-                  <button type="button" onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
-                    style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: 0, fontSize: '12px', lineHeight: 1 }}>
-                    <X size={12} />
-                  </button>
+                  <button aria-label={`${file.name} dosyasını kaldır`} type="button" onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}><X size={12}/></button>
                 </span>
               ))}
             </div>
-            <p className="context-note" style={{ margin: '6px 0 0 0' }}>{t('start.inventoryNotice')}</p>
+            <p className="context-note">{t('start.inventoryNotice')}</p>
           </div>
         )}
         {nativeInventory && <p className="context-note">{nativeInventory.rootName}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe güvenlik politikasıyla dışarıda bırakıldı.</p>}
