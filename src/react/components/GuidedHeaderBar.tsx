@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ChevronRight, Sparkles, MoreHorizontal, Layers, ShieldCheck, Compass } from 'lucide-react';
+import { ChevronRight, FlaskConical, MoreHorizontal, Layers, ShieldCheck, Compass, Gauge } from 'lucide-react';
 import { ProvenanceBadge } from './ProvenanceBadge.js';
+import { PRODUCT_CONTRACT } from '../../v4/product/product-contract.js';
 
 export interface GuidedHeaderBarProps {
   projectName: string;
@@ -10,6 +11,7 @@ export interface GuidedHeaderBarProps {
   onOpenExpertPerspectives?: () => void;
   onOpenArchitectureComparator?: () => void;
   onOpenExporter?: () => void;
+  onOpenRuntimeHealth?: () => void;
 }
 
 const PHASES = [
@@ -27,14 +29,15 @@ export const GuidedHeaderBar: React.FC<GuidedHeaderBarProps> = ({
   onOpenAdvancedTools,
   onOpenExpertPerspectives,
   onOpenArchitectureComparator,
-  onOpenExporter
+  onOpenExporter,
+  onOpenRuntimeHealth
 }) => {
   const [showAdvancedMenu, setShowAdvancedMenu] = useState(false);
 
   return (
     <header className="w-full bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-slate-200">
       {/* Project Identity & Revision */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3" data-product-surface="planner">
         <h1 className="text-sm font-semibold text-white tracking-wide truncate max-w-xs" title={projectName}>
           {projectName}
         </h1>
@@ -42,6 +45,7 @@ export const GuidedHeaderBar: React.FC<GuidedHeaderBarProps> = ({
           r{revision}
         </span>
         <ProvenanceBadge kind="canonical" />
+        <span className="product-surface-label">Planner</span>
       </div>
 
       {/* Phase Roadmap Breadcrumb */}
@@ -70,10 +74,11 @@ export const GuidedHeaderBar: React.FC<GuidedHeaderBarProps> = ({
         <button
           type="button"
           onClick={onOpenAdvancedTools}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
+          data-product-surface="labs"
         >
-          <Sparkles size={14} />
-          <span>Gelişmiş araçlar</span>
+          <FlaskConical size={14} />
+          <span>Labs</span>
         </button>
 
         {/* Overflow Menu for Advanced Tools */}
@@ -81,7 +86,7 @@ export const GuidedHeaderBar: React.FC<GuidedHeaderBarProps> = ({
           <button
             type="button"
             onClick={() => setShowAdvancedMenu(!showAdvancedMenu)}
-            aria-label="Gelişmiş Araçlar Menüsü"
+            aria-label="Labs menüsü"
             className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
           >
             <MoreHorizontal size={16} />
@@ -90,8 +95,16 @@ export const GuidedHeaderBar: React.FC<GuidedHeaderBarProps> = ({
           {showAdvancedMenu && (
             <div className="absolute right-0 mt-2 w-56 rounded-xl bg-slate-900 border border-slate-800 shadow-xl py-1 z-50 text-xs">
               <div className="px-3 py-1.5 text-slate-500 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-800">
-                Gelişmiş Denetim Araçları
+                Labs · İsteğe bağlı araçlar
               </div>
+              <button
+                type="button"
+                onClick={() => { setShowAdvancedMenu(false); onOpenRuntimeHealth?.(); }}
+                className="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 flex items-center gap-2"
+              >
+                <Gauge size={14} className="text-sky-400" />
+                <span>Sistem Durumu</span>
+              </button>
               <button
                 type="button"
                 onClick={() => { setShowAdvancedMenu(false); onOpenExpertPerspectives?.(); }}
@@ -114,8 +127,11 @@ export const GuidedHeaderBar: React.FC<GuidedHeaderBarProps> = ({
                 className="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 flex items-center gap-2"
               >
                 <ShieldCheck size={14} className="text-emerald-400" />
-                <span>Boilerplate Exporter</span>
+                <span>IDE Export Adaptörleri</span>
               </button>
+              <div className="labs-contract-note">
+                {PRODUCT_CONTRACT.labsNavigation.length} deneysel/beta araç · canonical değişiklikler onay gerektirir
+              </div>
             </div>
           )}
         </div>

@@ -34,6 +34,11 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
     setResult(null);
     credentialVault.get(settings.providerId).then((value: string | null) => setCredential(value || ''));
     requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLElement>('button, input, select')?.focus());
+    const returnTarget = returnFocusRef.current;
+    return () => {
+      returnTarget?.focus();
+      returnFocusRef.current = null;
+    };
   }, [credentialVault, open, settings]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {

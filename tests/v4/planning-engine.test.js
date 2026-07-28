@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import { analyzeIdea, applyApprovedChanges, applyIdeaExpansion, captureCurrentRevision, comparePlanRevisions, diffTextLines, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
+import { analyzeIdea, applyApprovedChanges, applyIdeaExpansion, captureCurrentRevision, comparePlanRevisions, confirmConceptSummary, diffTextLines, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
 import { generateExpansionDimensions } from '../../src/v4/ai-discovery.js';
+import { acceptRequirementDraft, createRequirementDraftsFromConcept } from '../../src/v4/application/requirement-quality-service.ts';
+import { applyCompiledTaskPlan, compileTaskPlan } from '../../src/v4/task-compiler.js';
 
 // --- Idea Expansion path (short idea < 50 chars) ---
 const shortProject = analyzeIdea('web sitesi yap');
@@ -17,7 +19,7 @@ assert.ok(expanded.proposalStore.bundles.length > 0, 'DISCOVERY fazında öneri 
 let project = analyzeIdea('Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması yapmak istiyorum.');
 assert.equal(project.lifecycle.activePhase, 'DISCOVERY', 'Uzun fikir doğrudan DISCOVERY fazını başlatmalı');
 assert.equal(project.schemaVersion, 5);
-assert.equal(project.schemaRevision, 1);
+assert.equal(project.schemaRevision, 3);
 assert.ok(project.proposalStore.bundles[0].items.length >= 3 && project.proposalStore.bundles[0].items.length <= 5);
 assert.ok(project.proposalStore.bundles[0].items.every(item => item.status === 'pending'));
 
@@ -35,7 +37,7 @@ assert.equal(applyApprovedChanges(project, bundle.id).sections.scope.items.lengt
 for (const item of bundle.items.slice(1)) project = updateSuggestionStatus(project, bundle.id, item.id, 'deferred');
 const readyPreview = previewApprovedChanges(project, bundle.id);
 assert.equal(readyPreview.canApply, true);
-assert.equal(readyPreview.nextRevision, project.revision + 1);
+assert.equal(readyPreview.nextRevision, project.canonicalRevision + 1);
 project = applyApprovedChanges(project, bundle.id);
 assert.ok(project.sections.scope.items.length > before, 'Yalnız onaylanan öneri plana uygulanmalı');
 
@@ -50,6 +52,26 @@ project = updatePlanSection(project, 'architecture', { content: 'Değişen mimar
 assert.equal(project.sections.testing.status, 'stale', 'Upstream değişiklik downstream bölümü geçersizleştirmeli');
 
 for (const [id, section] of Object.entries(project.sections)) if (section.required && !section.content && !section.items.length) project = updatePlanSection(project, id, { content: `${section.title} içeriği` });
+const blockedFinalize = finalizePlan(project);
+assert.equal(blockedFinalize.success, false, 'Yorum ve MVP kapsamı onaylanmadan plan finalleştirilememeli');
+assert.ok(blockedFinalize.blockers.some(blocker => blocker.includes('MVP')));
+project.ideaLabSession.conceptSummary.openQuestions = [];
+project = confirmConceptSummary(project);
+const requirementBlocked = finalizePlan(project);
+assert.equal(requirementBlocked.success, false, 'Kabul edilmiş gereksinim olmadan plan finalleştirilememeli');
+assert.ok(requirementBlocked.blockers.some(blocker => blocker.includes('Must gereksinimi')));
+project = createRequirementDraftsFromConcept(project);
+for (const requirement of project.requirements) project = acceptRequirementDraft(project, requirement.id);
+const taskResult = applyCompiledTaskPlan(project, compileTaskPlan(project), { approved: true });
+assert.equal(taskResult.success, true);
+project = taskResult.project;
+for (let pass = 0; pass < 3; pass += 1) {
+    for (const [id, section] of Object.entries(project.sections)) {
+        if (section.required && (section.status === 'stale' || (!section.content && !section.items.length))) {
+            project = updatePlanSection(project, id, { content: section.content || `${section.title} kullanıcı kararlarıyla doğrulandı.` });
+        }
+    }
+}
 const finalized = finalizePlan(project);
 assert.equal(finalized.success, true);
 assert.equal(finalized.project.lifecycle.status, 'finalized');
@@ -74,7 +96,7 @@ const messageCount = versioned.messages.length;
 const restored = restorePlanRevision(versioned, revisionTwo.id);
 assert.equal(restored.success, true);
 assert.equal(restored.project.sections.scope.content, 'İlk satır\nEski satır');
-assert.equal(restored.project.revision, versioned.revision + 1, 'Restore yeni revision oluşturmalı');
+assert.equal(restored.project.canonicalRevision, versioned.canonicalRevision + 1, 'Restore yeni revision oluşturmalı');
 assert.equal(restored.project.revisions.length, historyLength + 1, 'Eski revision geçmişi korunmalı');
 assert.equal(restored.project.exports.length, 1, 'Geçmiş exportlar korunmalı');
 assert.equal(restored.project.messages.length, messageCount, 'Keşif konuşması korunmalı');

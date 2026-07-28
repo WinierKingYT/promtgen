@@ -6,6 +6,7 @@ import { PortfolioOverview } from './PortfolioOverview.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
 import { useI18n } from '../providers/I18nProvider.js';
+import { getProductCopy, PRODUCT_CONTRACT } from '../../v4/product/product-contract.js';
 
 type Project = ProjectDocumentV5;
 
@@ -21,6 +22,8 @@ interface StartScreenProps {
 
 export function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, onProviderSettings, onOpenSettings }: StartScreenProps) {
   const { locale, setLocale, t } = useI18n();
+  const productCopy = getProductCopy(locale);
+  const stableProjectTypes = PRODUCT_CONTRACT.supportedProjects.filter(project => project.support === 'stable');
   const [idea, setIdea] = useState('');
   const [language, setLanguage] = useState(locale === 'en-US' ? 'en' : 'tr');
   const [files, setFiles] = useState<File[]>([]);
@@ -55,7 +58,12 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
       <section className="start-card" aria-labelledby="start-title">
         <div className="eyebrow">{t('start.eyebrow')}</div>
         <h1 id="start-title">{t('start.title')}<br /><span>{t('start.titleAccent')}</span></h1>
-        <p className="lead">{t('start.lead')}</p>
+        <p className="lead">{productCopy.promise}</p>
+        <p className="product-positioning">{productCopy.positioning}</p>
+        <div className="support-summary" aria-label={locale === 'en-US' ? 'Stable project support' : 'Kararlı proje desteği'}>
+          <b>{locale === 'en-US' ? 'Stable focus' : 'Kararlı odak'}</b>
+          {stableProjectTypes.map(projectType => <span key={projectType.id}>{projectType.label}</span>)}
+        </div>
         <label className="idea-box">
           <span>{t('start.ideaLabel')}</span>
           <textarea

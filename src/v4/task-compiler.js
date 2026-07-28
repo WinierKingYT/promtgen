@@ -1,4 +1,5 @@
 import { normalizeAgentPrompt, normalizeMilestone, normalizeTask, normalizeTestCase, normalizeTraceLink } from './canonical-entities.js';
+import { evaluateRequirementQuality } from './application/requirement-quality-service.ts';
 
 function slug(value) {
     return String(value || 'item').toLocaleLowerCase('tr-TR').normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 36) || 'item';
@@ -75,17 +76,29 @@ export function compileTaskPlan(project) {
     const used = new Set((project.tasks || []).map(task => task.id));
     const tasks = [];
     const sourceRequirements = (project.requirements || []).filter(requirement => requirement.status === 'accepted');
+    const quality = evaluateRequirementQuality(project);
     
     // Task compiler strictly uses formal accepted requirements
     if (!sourceRequirements.length) {
         return {
-            baseRevision: project.revision || 1,
+            baseRevision: project.canonicalRevision || 1,
             tasks: [],
             testCases: [],
             milestones: [],
             traceLinks: [],
             agentPrompts: [],
             warnings: ['Görev üretmek için en az bir kabul edilmiş (accepted) gereksinim bulunmalıdır.']
+        };
+    }
+    if (!quality.readyForTaskCompilation) {
+        return {
+            baseRevision: project.canonicalRevision || 1,
+            tasks: [],
+            testCases: [],
+            milestones: [],
+            traceLinks: [],
+            agentPrompts: [],
+            warnings: quality.issues
         };
     }
 
@@ -111,7 +124,7 @@ export function compileTaskPlan(project) {
         ...testCases.flatMap(testCase => testCase.requirementIds.map(requirementId => normalizeTraceLink({ id: `trace-${requirementId}-${testCase.id}`, fromType: 'requirement', fromId: requirementId, toType: 'test', toId: testCase.id, relation: 'validated_by' })))
     ];
     return {
-        baseRevision: project.revision,
+        baseRevision: project.canonicalRevision,
         tasks: orderedResult.ordered,
         testCases,
         milestones: milestone ? [milestone] : [],
@@ -128,26 +141,30 @@ export function compileTaskPlan(project) {
 export function applyCompiledTaskPlan(project, compilation, { approved = false } = {}) {
     assertValidCompilation(compilation);
     if (!approved) return { success: false, project, reason: 'Görev planı kullanıcı onayı bekliyor.' };
-    if (compilation.baseRevision !== project.revision) return { success: false, project, reason: 'Plan revision değişti; görev taslağı yeniden üretilmeli.' };
+    if (compilation.baseRevision !== project.canonicalRevision) return { success: false, project, reason: 'Plan revision değişti; görev taslağı yeniden üretilmeli.' };
     if (!compilation.tasks.length) return { success: false, project, reason: compilation.warnings[0] || 'Uygulanabilir görev üretilemedi.' };
     const next = structuredClone(project);
     next.tasks = compilation.tasks;
     next.testCases = compilation.testCases;
     next.milestones = compilation.milestones;
-    next.traceLinks = compilation.traceLinks;
+    next.traceLinks = [
+        ...next.traceLinks.filter(link => !['task', 'test'].includes(link.fromType) && !['task', 'test'].includes(link.toType)),
+        ...compilation.traceLinks
+    ];
     next.agentPrompts = compilation.agentPrompts;
-    next.revision += 1;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
     next.lifecycle.updatedAt = new Date().toISOString();
     next.sections.tasks.items = compilation.tasks.map(task => task.title);
     next.sections.tasks.status = 'draft';
-    next.sections.tasks.updatedAtRevision = next.revision;
+    next.sections.tasks.updatedAtRevision = next.canonicalRevision;
     next.sections.testing.items = compilation.testCases.map(testCase => testCase.title);
     next.sections.testing.status = 'draft';
-    next.sections.testing.updatedAtRevision = next.revision;
+    next.sections.testing.updatedAtRevision = next.canonicalRevision;
     const snapshot = structuredClone(next);
     snapshot.revisions = [];
     next.revisions.push({
-        id: `revision-${Date.now()}`, number: next.revision, createdAt: next.lifecycle.updatedAt,
+        id: `revision-${Date.now()}`, number: next.canonicalRevision, createdAt: next.lifecycle.updatedAt,
         summary: 'Onaylı görev ve ajan planı oluşturuldu', acceptedSuggestionIds: [],
         affectedSections: ['tasks', 'testing'], snapshot
     });

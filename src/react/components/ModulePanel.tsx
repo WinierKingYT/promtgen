@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Boxes, Check, CircleAlert, Download, Sparkles } from 'lucide-react';
 import { applyLocalModuleImport, applyModuleActivation, previewLocalModuleImport, previewModuleActivation, suggestModules } from '../../v4/module-registry.js';
 
-export function ModulePanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string) => void }) {
+export function ModulePanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string, commandType?: string) => void }) {
   const suggestions = useMemo(() => suggestModules(project), [project]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activation, setActivation] = useState<any>(null);
@@ -14,7 +14,7 @@ export function ModulePanel({ project, onCommit }: { project: any; onCommit: (pr
   const approve = () => {
     const result = applyModuleActivation(project, activation, { approved: true });
     if (!result.success) { setError(result.reason); return; }
-    onCommit(result.project, `${activation.moduleIds.length} planlama modülü etkinleştirildi.`);
+    onCommit(result.project, `${activation.moduleIds.length} planlama modülü etkinleştirildi.`, 'ApplyModuleActivation');
     setActivation(null); setSelected(new Set()); setError('');
   };
   const loadManifest = async (file: File) => {
@@ -24,7 +24,7 @@ export function ModulePanel({ project, onCommit }: { project: any; onCommit: (pr
   const approveImport = () => {
     const result = applyLocalModuleImport(project, localImport, { approved: true });
     if (!result.success) { setError(result.reason); return; }
-    onCommit(result.project, `${localImport.manifest.id} yerel modülü kaydedildi.`);
+    onCommit(result.project, `${localImport.manifest.id} yerel modülü kaydedildi.`, 'ApplyModuleImport');
     setLocalImport(null); setError('');
   };
 

@@ -49,7 +49,7 @@ test('Yaşayan Plan: trace graph etki önizlemesi ve atomik supersede uygulamas�
     const result = await generateImpactAnalysis(project, userRequest, { settings: { providerId: 'offline' } });
 
     assert.equal(result.project.impactAnalyses.length, 1);
-    assert.equal(result.impact.baseRevision, project.revision);
+    assert.equal(result.impact.baseCanonicalRevision, project.canonicalRevision);
     assert.ok(result.impact.changedEntityIds.includes('dec-1'));
     assert.ok(result.impact.entityEffects.some(effect => effect.targetEntityId === 'req-1'));
     assert.ok(result.impact.entityEffects.some(effect => effect.targetEntityId === 'task-1'));
@@ -60,14 +60,14 @@ test('Yaşayan Plan: trace graph etki önizlemesi ve atomik supersede uygulamas�
 
     const blocked = applyChangeImpact(result.project, result.impact.id);
     assert.equal(blocked.success, false);
-    assert.equal(blocked.project.revision, project.revision);
+    assert.equal(blocked.project.canonicalRevision, project.canonicalRevision);
     assert.match(blocked.reason, /çelişkisi çözüm bekliyor/);
 
     const resolved = resolveImpactContradiction(result.project, result.impact.id, 'dec-1', 'supersede');
-    assert.equal(resolved.revision, project.revision, 'Önizleme kararı canonical revision artırmamalı');
+    assert.equal(resolved.canonicalRevision, project.canonicalRevision, 'Önizleme kararı canonical revision artırmamalı');
     const applied = applyChangeImpact(resolved, result.impact.id);
     assert.equal(applied.success, true);
-    assert.equal(applied.project.revision, project.revision + 1);
+    assert.equal(applied.project.canonicalRevision, project.canonicalRevision + 1);
 
     const oldDec = applied.project.decisions.find(d => d.id === 'dec-1');
     assert.equal(oldDec.status, 'superseded');
@@ -84,7 +84,7 @@ test('Yaşayan Plan: trace graph etki önizlemesi ve atomik supersede uygulamas�
     assert.ok(applied.project.traceLinks.some(link => link.fromId === newRequirement.id && link.toId === newTask.id));
     assert.ok(applied.project.traceLinks.some(link => link.fromId === newRequirement.id && link.toId === newTest.id));
     assert.equal(applied.project.impactAnalyses[0].status, 'accepted');
-    assert.ok(applied.project.revisions.some(revision => revision.number === applied.project.revision));
+    assert.ok(applied.project.revisions.some(revision => revision.number === applied.project.canonicalRevision));
     assert.deepEqual(validateProjectDocument(applied.project), { valid: true, errors: [] });
 });
 
@@ -92,7 +92,8 @@ test('Yaşayan Plan: stale etki analizi uygulanmaz ve reddedilen kayıt geçmiş
     const project = createProjectDocument({ idea: 'Yerel planlama uygulamasını geliştir' });
     const proposed = await generateImpactAnalysis(project, 'Dışa aktarma akışına PDF desteği ekle');
     const changed = structuredClone(proposed.project);
-    changed.revision += 1;
+    changed.documentRevision += 1;
+    changed.canonicalRevision += 1;
     const stale = applyChangeImpact(changed, proposed.impact.id);
     assert.equal(stale.success, false);
     assert.equal(stale.project.impactAnalyses[0].status, 'stale');
@@ -101,7 +102,7 @@ test('Yaşayan Plan: stale etki analizi uygulanmaz ve reddedilen kayıt geçmiş
     const rejected = rejectChangeImpact(proposed.project, proposed.impact.id);
     assert.equal(rejected.impactAnalyses[0].status, 'rejected');
     assert.ok(rejected.impactAnalyses[0].resolvedAt);
-    assert.equal(rejected.revision, project.revision);
+    assert.equal(rejected.canonicalRevision, project.canonicalRevision);
 });
 
 test('Oyun Motoru / S&box Domain İnceleme Kuralı (GAME-NET-001)', () => {
@@ -114,11 +115,11 @@ test('Oyun Motoru / S&box Domain İnceleme Kuralı (GAME-NET-001)', () => {
 
 test('İsteğe Bağlı Genişletme Paketleri revizyon olarak eklenmesi', () => {
     const project = createProjectDocument({ idea: 'S&box at sistemi' });
-    const initialRev = project.revision;
+    const initialRev = project.canonicalRevision;
 
     const updated = applyExtensionModules(project, ['Mounted Combat', 'Racing System']);
 
-    assert.ok(updated.revision > initialRev);
+    assert.ok(updated.canonicalRevision > initialRev);
     assert.ok(updated.tasks.some(t => t.title.includes('[Modül] Mounted Combat')));
     assert.ok(updated.tasks.some(t => t.title.includes('[Modül] Racing System')));
 });

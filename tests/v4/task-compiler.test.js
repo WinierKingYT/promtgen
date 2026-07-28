@@ -28,12 +28,12 @@ assert.equal(waiting.success, false);
 assert.match(waiting.reason, /onayı/);
 assert.equal(typeof waiting.project, 'object');
 assert.equal(typeof waiting.reason, 'string');
-const stale = applyCompiledTaskPlan({ ...project, revision: 2 }, compilation, { approved: true });
+const stale = applyCompiledTaskPlan({ ...project, documentRevision: 2, canonicalRevision: 2 }, compilation, { approved: true });
 assert.equal(stale.success, false);
 assert.match(stale.reason, /revision/);
 const applied = applyCompiledTaskPlan(project, compilation, { approved: true });
 assert.equal(applied.success, true);
-assert.equal(applied.project.revision, 2);
+assert.equal(applied.project.canonicalRevision, 2);
 assert.equal(applied.project.revisions.at(-1).snapshot.tasks.length, 2);
 assert.ok(Array.isArray(applied.warnings));
 

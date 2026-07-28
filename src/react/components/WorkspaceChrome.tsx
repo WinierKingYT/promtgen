@@ -46,7 +46,7 @@ export function ProjectRail({ projects, activeId, onSelect, onNew, open, onClose
           <span className="project-dot"/>
           <span>
             <b>{item.identity?.name || 'İsimsiz Proje'}</b>
-            <small>{item.planningDepth?.selected || 'quick'} · r{item.revision} {item.readiness?.score !== undefined ? `· %${item.readiness.score}` : ''}</small>
+            <small>{item.planningDepth?.selected || 'quick'} · r{item.canonicalRevision} {item.readiness?.score !== undefined ? `· %${item.readiness.score}` : ''}</small>
           </span>
         </button>
       ))}

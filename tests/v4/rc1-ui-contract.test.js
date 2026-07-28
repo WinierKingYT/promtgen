@@ -10,11 +10,12 @@ const productionUi = `${app}\n${workspace}`;
 assert.equal(/\bconfirm\s*\(/.test(productionUi), false, 'RC1 arayüzü tarayıcı confirm penceresine bağlı olmamalı');
 assert.equal(/\balert\s*\(/.test(productionUi), false, 'RC1 arayüzü tarayıcı alert penceresine bağlı olmamalı');
 assert.match(app, /import \{ Workspace \}/);
-assert.match(workspace, /import \{ FinalizePlanDialog \}/);
+assert.match(workspace, /const FinalizePlanDialog = lazy\(\(\) => import\('\.\/components\/FinalizePlanDialog\.js'\)/);
 assert.match(workspace, /<FinalizePlanDialog/);
 assert.match(finalizeDialog, /aria-labelledby="finalize-dialog-title"/);
 assert.match(finalizeDialog, /aria-describedby="finalize-dialog-description"/);
-assert.match(finalizeDialog, /Uyarılarla finalleştir/);
+assert.match(finalizeDialog, /kritik koşul tamamlanmadı/);
+assert.doesNotMatch(finalizeDialog, /Uyarılarla finalleştir/);
 assert.match(revisionDialog, /role="alert"/);
 assert.match(revisionDialog, /role="status"/);
 

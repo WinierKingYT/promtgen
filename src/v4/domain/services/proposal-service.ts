@@ -6,7 +6,7 @@ export interface AcceptProposalParams {
   bundleId: string;
   itemId: string;
   commandId: string;
-  expectedRevision: number;
+  expectedDocumentRevision: number;
 }
 
 export interface AcceptProposalResult {
@@ -18,7 +18,7 @@ export interface AcceptProposalResult {
 }
 
 export function acceptProposalItemAtomically(params: AcceptProposalParams): AcceptProposalResult {
-  const { project, bundleId, itemId, commandId, expectedRevision } = params;
+  const { project, bundleId, itemId, commandId, expectedDocumentRevision } = params;
 
   // 1. Idempotency Check
   if (project.commandLog.some(record => record.commandId === commandId)) {
@@ -30,11 +30,11 @@ export function acceptProposalItemAtomically(params: AcceptProposalParams): Acce
   }
 
   // 2. Concurrency Control (Revision Lock)
-  if (project.revision !== expectedRevision) {
+  if (project.documentRevision !== expectedDocumentRevision) {
     return {
       success: false,
       project,
-      error: `Çakışan revizyon saptandı! Beklenen revizyon: ${expectedRevision}, Mevcut revizyon: ${project.revision}. Lütfen sayfayı yenileyip tekrar deneyin.`
+      error: `Çakışan doküman revizyonu saptandı! Beklenen: ${expectedDocumentRevision}, mevcut: ${project.documentRevision}. Lütfen sayfayı yenileyip tekrar deneyin.`
     };
   }
 
@@ -125,13 +125,16 @@ export function acceptProposalItemAtomically(params: AcceptProposalParams): Acce
   }
 
   // 5. Commit Transaction
-  nextProject.revision += 1;
+  nextProject.documentRevision += 1;
+  nextProject.canonicalRevision += 1;
   nextProject.lifecycle.updatedAt = nowIso;
   nextProject.commandLog.push({
     commandId,
     commandType: 'AcceptProposal',
-    expectedRevision,
-    committedRevision: nextProject.revision,
+    expectedDocumentRevision,
+    committedDocumentRevision: nextProject.documentRevision,
+    expectedCanonicalRevision: project.canonicalRevision,
+    committedCanonicalRevision: nextProject.canonicalRevision,
     createdAt: nowIso
   });
 

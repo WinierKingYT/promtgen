@@ -34,7 +34,7 @@ export function StorageHealthPanel({ project, onCommit }: any) {
       setHealth(nextHealth); setBackups(nextBackups); setQuarantine(nextQuarantine); setError('');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Depolama sağlığı okunamadı.'); }
   };
-  useEffect(() => { refresh(); }, [desktop, project.id, project.revision]);
+  useEffect(() => { refresh(); }, [desktop, project.id, project.documentRevision]);
 
   const restore = async (backupId: string) => {
     setBusy(true); setError('');
@@ -42,7 +42,7 @@ export function StorageHealthPanel({ project, onCommit }: any) {
       const restored = desktop
         ? await restoreDesktopProjectBackup(project, backupId)
         : await restoreWebProjectCheckpoint(project, backupId);
-      if (restored) onCommit(restored, `Yerel yedek yeni r${restored.revision} revision'ı olarak geri yüklendi.`);
+      if (restored) onCommit(restored, `Yerel yedek yeni r${restored.canonicalRevision} canonical revision'ı olarak geri yüklendi.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Yedek geri yüklenemedi.'); }
     finally { setBusy(false); }
   };

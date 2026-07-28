@@ -14,11 +14,11 @@ const ARRAY_FIELDS = [
     'objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones',
     'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings',
     'simulationRuns', 'executionSessions', 'openQuestions', 'messages', 'revisions', 'exports', 'commandLog',
-    'dismissedSuggestionFingerprints', 'impactAnalyses'
+    'dismissedSuggestionFingerprints', 'impactAnalyses', 'planningScenarios', 'sectionPatchProposals'
 ];
 
 export const LATEST_SCHEMA_VERSION = 5;
-export const LATEST_SCHEMA_REVISION = 1;
+export const LATEST_SCHEMA_REVISION = 3;
 
 export function migrateLegacyToV5(input) {
     if (!input || typeof input !== 'object') return failure(input, 'Geçersiz proje verisi.');
@@ -39,12 +39,14 @@ export function migrateLegacyToV5(input) {
     });
 
     project.id = source.id || source.projectId || input.id || project.id;
-    project.revision = Number(source.revision || project.revision);
+    const sourceRevision = Number(source.documentRevision || source.revision || project.documentRevision);
+    project.documentRevision = sourceRevision;
+    project.canonicalRevision = Number(source.canonicalRevision || source.revision || project.canonicalRevision);
     project.lifecycle = { ...project.lifecycle, ...(source.lifecycle || {}) };
     project.lifecycle.activePhase = PHASE_MAP[source.phase || source.workflowStage] || source.lifecycle?.activePhase || project.lifecycle.activePhase;
     if ((source.phase || source.workflowStage) === 'EXPORTED') {
         project.lifecycle.status = 'finalized';
-        project.exports.push({ id: `legacy-export-${Date.now()}`, format: 'legacy', revision: project.revision, createdAt: source.lifecycle?.updatedAt || new Date().toISOString() });
+        project.exports.push({ id: `legacy-export-${Date.now()}`, format: 'legacy', canonicalRevision: project.canonicalRevision, createdAt: source.lifecycle?.updatedAt || new Date().toISOString() });
     }
 
     copySection(project, 'vision', source.identity?.summary || idea, []);
@@ -100,7 +102,11 @@ export function tryMigrateOrPassthrough(input) {
             : { project: input, migrated: false, error: validation.errors.join('; '), backup: structuredClone(input) };
     }
 
-    const result = input.schemaVersion === 4 ? migrateV4toV5(input) : migrateLegacyToV5(input);
+    const result = input.schemaVersion === 4
+        ? migrateV4toV5(input)
+        : input.schemaVersion === 5
+            ? finalizeMigration(structuredClone(input), input, 5)
+            : migrateLegacyToV5(input);
     return result.success
         ? { project: result.project, migrated: true, error: null, backup: result.backup }
         : { project: input, migrated: false, error: result.error, backup: result.backup };

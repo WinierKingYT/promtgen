@@ -10,7 +10,7 @@ function rememberedProject(idea, id, depth) {
     }
     project.id = id;
     project.planningDepth.selected = depth;
-    project.modules.active = [{ id: 'software.core', version: '1.0.0', enabledAtRevision: project.revision }];
+    project.modules.active = [{ id: 'software.core', version: '1.0.0', enabledAtRevision: project.canonicalRevision }];
     project.decisions = [{ id: `decision-${id}`, title: 'Yerel veri stratejisi', decision: 'Cihazda tut', rationale: '', status: 'accepted', sourceSuggestionIds: [], affectedSectionIds: ['architecture'] }];
     project.proposalStore.bundles[0].items[0].status = 'accepted';
     project.proposalStore.bundles[0].items[1].status = 'rejected';

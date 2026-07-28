@@ -63,9 +63,9 @@ function transactionDone(tx) {
 
 function buildPersistentCheckpoint(project, digest) {
     return {
-        id: `checkpoint:${project.id}:${project.revision}:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`,
+        id: `checkpoint:${project.id}:${project.documentRevision}:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`,
         projectId: project.id,
-        revision: project.revision,
+        revision: project.documentRevision,
         createdAt: new Date().toISOString(),
         checksumAlgorithm: INTEGRITY_ALGORITHM,
         checksumHash: digest,
@@ -118,7 +118,7 @@ export class IndexedDbProjectRepository {
     async #loadStored(db, stored) {
         try {
             const checkpoints = await listProjectCheckpoints(db, stored.id);
-            const matching = checkpoints.find(item => item.revision === stored.revision);
+            const matching = checkpoints.find(item => item.revision === stored.documentRevision);
             if (matching && !(await verifySha256(stored, matching.checksumHash))) {
                 await quarantinePersistently(db, stored, 'SHA-256 integrity mismatch');
                 return null;
@@ -264,7 +264,8 @@ export function restoreCheckpointAsNewRevision(currentProject, checkpointProject
     if (current.id !== checkpoint.id) throw new Error('Checkpoint başka bir projeye ait.');
     const restoredAt = new Date().toISOString();
     const next = structuredClone(checkpoint);
-    next.revision = current.revision + 1;
+    next.documentRevision = current.documentRevision + 1;
+    next.canonicalRevision = current.canonicalRevision + 1;
     next.lifecycle.status = 'active';
     next.lifecycle.updatedAt = restoredAt;
     next.lifecycle.finalizedAt = null;
@@ -274,15 +275,15 @@ export function restoreCheckpointAsNewRevision(currentProject, checkpointProject
     next.commandLog = structuredClone(current.commandLog);
     next.metadata = {
         ...next.metadata,
-        restoredFromCheckpoint: { sourceRevision: checkpoint.revision, restoredAt }
+        restoredFromCheckpoint: { sourceRevision: checkpoint.canonicalRevision, restoredAt }
     };
     const snapshot = structuredClone(next);
     snapshot.revisions = [];
     next.revisions.push({
         id: `revision-checkpoint-${Date.now()}`,
-        number: next.revision,
+        number: next.canonicalRevision,
         createdAt: restoredAt,
-        summary: `Web checkpoint r${checkpoint.revision} yeni revision olarak geri yüklendi`,
+        summary: `Web checkpoint r${checkpoint.canonicalRevision} yeni revision olarak geri yüklendi`,
         acceptedSuggestionIds: [],
         affectedSections: Object.keys(next.sections),
         snapshot

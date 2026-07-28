@@ -1,7 +1,7 @@
 import { applyDepthSelection, createProjectDocument, getRequiredSections, PLANNING_PHASES } from './project-document.js';
 import { normalizeAssumption, normalizeDecision, normalizeObjective, normalizeRequirement, normalizeRisk, normalizeTask } from './canonical-entities.js';
-import { analyzeCanonicalTraceability } from './canonical-graph.js';
-import { getConceptAgreementGate } from './application/idea-discussion-service.ts';
+import { createInitialConceptInterpretation, getConceptAgreementGate } from './application/idea-discussion-service.ts';
+import { calculateReadiness } from './application/readiness-service.ts';
 
 const DEPTH_ORDER = ['quick', 'standard', 'advanced', 'enterprise'];
 const SECTION_PHASE = {
@@ -65,6 +65,7 @@ export function analyzeIdea(idea, options = {}) {
     if (isShortIdea) {
         project.lifecycle.activePhase = PLANNING_PHASES.IDEA_EXPANSION;
     } else {
+        project.ideaLabSession.conceptSummary = createInitialConceptInterpretation(project);
         project.proposalStore.bundles.push(proposeNextOptions(project));
     }
     return recalculateReadiness(project);
@@ -92,6 +93,7 @@ export function applyIdeaExpansion(project, { answers = {}, dimensions = [] } = 
         dimensions
     };
     next.lifecycle.activePhase = PLANNING_PHASES.DISCOVERY;
+    next.ideaLabSession.conceptSummary = createInitialConceptInterpretation(next);
     next.lifecycle.updatedAt = new Date().toISOString();
     next.proposalStore.bundles.push(proposeNextOptions(next));
     return recalculateReadiness(next);
@@ -279,7 +281,7 @@ function approvedItems(bundle) {
 
 export function previewApprovedChanges(project, bundleId) {
     const bundle = project.proposalStore.bundles.find(item => item.id === bundleId);
-    if (!bundle) return { canApply: false, reason: 'Öneri paketi bulunamadı.', acceptedCount: 0, pendingCount: 0, sections: [], records: { decisions: 0, risks: 0 }, nextRevision: project.revision };
+    if (!bundle) return { canApply: false, reason: 'Öneri paketi bulunamadı.', acceptedCount: 0, pendingCount: 0, sections: [], records: { decisions: 0, risks: 0 }, nextRevision: project.canonicalRevision };
     const accepted = approvedItems(bundle);
     const sectionChanges = new Map();
     for (const item of accepted) {
@@ -305,7 +307,7 @@ export function previewApprovedChanges(project, bundleId) {
             decisions: accepted.filter(item => item.kind === 'decision' || item.kind === 'architecture').length,
             risks: accepted.filter(item => item.kind === 'risk').length
         },
-        nextRevision: accepted.length ? project.revision + 1 : project.revision
+        nextRevision: accepted.length ? project.canonicalRevision + 1 : project.canonicalRevision
     };
 }
 
@@ -346,8 +348,9 @@ export function applyApprovedChanges(project, bundleId) {
         }));
         if (item.kind === 'feature' && item.affectedSections.includes('tasks')) next.tasks.push(normalizeTask({ id: id('task'), title: item.title, description, status: 'backlog', sourceSuggestionIds: [item.id] }));
     }
-    next.revision += 1;
-    for (const sectionId of affected) next.sections[sectionId].updatedAtRevision = next.revision;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
+    for (const sectionId of affected) next.sections[sectionId].updatedAtRevision = next.canonicalRevision;
     next.lifecycle.activePhase = inferNextPhase(next);
     next.lifecycle.updatedAt = now();
     bundle.status = 'resolved';
@@ -369,8 +372,9 @@ export function updatePlanSection(project, sectionId, { content, items } = {}) {
     if (typeof content === 'string') section.content = content.trim();
     if (Array.isArray(items)) section.items = items.map(String).map(item => item.trim()).filter(Boolean);
     section.status = section.content || section.items.length ? 'draft' : 'empty';
-    next.revision += 1;
-    section.updatedAtRevision = next.revision;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
+    section.updatedAtRevision = next.canonicalRevision;
     for (const dependentId of SECTION_DEPENDENTS[sectionId] || []) {
         const dependent = next.sections[dependentId];
         if (!dependent || (!dependent.content && !dependent.items.length)) continue;
@@ -392,45 +396,22 @@ export function overridePlanningDepth(project, selected) {
 
 export function recalculateReadiness(project) {
     const next = structuredClone(project);
-    const requiredIds = getRequiredSections(next.planningDepth.selected);
-    const requiredSections = requiredIds.map(id => next.sections[id]).filter(Boolean);
-    const filled = requiredSections.filter(section => section.content || section.items.length);
-    const completeness = requiredSections.length ? Math.round(filled.length / requiredSections.length * 100) : 100;
-    const acceptedSuggestions = next.proposalStore.bundles.flatMap(bundle => bundle.items).filter(item => ['accepted', 'edited'].includes(item.status));
-    const graphReport = analyzeCanonicalTraceability(next).report;
-    const suggestionTraceability = acceptedSuggestions.length ? Math.round(acceptedSuggestions.filter(item => item.affectedSections.length > 0).length / acceptedSuggestions.length * 100) : 0;
-    const traceability = graphReport.stats.totalNodes > 0 ? graphReport.health.score : suggestionTraceability;
-    const riskCoverage = next.planningDepth.selected === 'quick' ? 100 : Math.min(100, next.risks.length * 35 + (next.sections.risks.items.length ? 30 : 0));
-    const implementationReadiness = Math.min(100, next.sections.tasks.items.length * 15 + (next.sections.testing.items.length ? 25 : 0) + (next.sections.architecture.items.length ? 25 : 0));
-    const staleSections = Object.values(next.sections).filter(section => section.status === 'stale');
-    const reviewIsCurrent = next.metadata?.lastReview?.revision >= next.revision - 1;
-    const currentReviewFindings = reviewIsCurrent ? (next.reviewFindings || []).filter(item => item.status === 'open') : [];
-    const reviewPenalty = currentReviewFindings.reduce((total, item) => total + ({ critical: 18, high: 9, medium: 3, low: 1, info: 0 }[item.severity] || 0), 0);
-    const consistency = Math.max(20, 100 - staleSections.length * 12 - reviewPenalty);
-    const score = Math.round(completeness * 0.35 + consistency * 0.15 + traceability * 0.15 + riskCoverage * 0.15 + implementationReadiness * 0.20);
-    const blockers = requiredSections.filter(section => !section.content && !section.items.length).map(section => `${section.title} bölümü boş.`);
-    blockers.push(...currentReviewFindings.filter(item => ['critical', 'high'].includes(item.severity)).map(item => `${item.title}: ${item.recommendation}`));
-    const warnings = [];
-    if (!next.decisions.length && DEPTH_ORDER.indexOf(next.planningDepth.selected) >= 2) warnings.push('Gelişmiş planda kabul edilmiş mimari karar bulunmuyor.');
-    if (!next.tasks.length && !next.sections.tasks.items.length) warnings.push('Uygulanabilir görev listesi henüz oluşmadı.');
-    if (staleSections.length) warnings.push(`${staleSections.length} bölüm upstream değişiklikler nedeniyle yeniden doğrulanmalı.`);
-    warnings.push(...currentReviewFindings.filter(item => !['critical', 'high'].includes(item.severity)).map(item => `${item.title}: ${item.recommendation}`));
-    if (next.reviewFindings?.length && !reviewIsCurrent) warnings.push('Plan son incelemeden sonra değişti; kalite incelemesi yenilenmeli.');
-    for (const finding of graphReport.findings) warnings.push(finding.message);
-    next.metadata = { ...(next.metadata || {}), traceability: { revision: next.revision, stats: graphReport.stats, coverage: graphReport.coverage, health: graphReport.health } };
-    next.readiness = { score, dimensions: { completeness, consistency, traceability, riskCoverage, implementationReadiness }, blockers, warnings, calculatedAtRevision: next.revision };
+    const result = calculateReadiness(next);
+    next.metadata = { ...(next.metadata || {}), traceability: { revision: next.canonicalRevision, stats: result.traceability.stats, coverage: result.traceability.coverage, health: result.traceability.health } };
+    next.readiness = result.readiness;
     return next;
 }
 
-export function finalizePlan(project, force = false) {
+export function finalizePlan(project) {
     const next = recalculateReadiness(project);
-    if (!force && next.readiness.blockers.length) return { success: false, project: next, blockers: next.readiness.blockers };
+    if (next.readiness.blockers.length) return { success: false, project: next, blockers: next.readiness.blockers };
     next.lifecycle.status = 'finalized';
     next.lifecycle.activePhase = PLANNING_PHASES.READY;
     next.lifecycle.finalizedAt = now();
     next.lifecycle.updatedAt = now();
-    next.revision += 1;
-    createRevision(next, force ? 'Plan uyarılarla finalleştirildi' : 'Plan finalleştirildi', [], []);
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
+    createRevision(next, next.readiness.warnings.length ? 'Plan uyarılar değerlendirilerek finalleştirildi' : 'Plan finalleştirildi', [], []);
     return { success: true, project: next, blockers: [] };
 }
 
@@ -440,7 +421,8 @@ export function reopenPlan(project) {
     next.lifecycle.activePhase = PLANNING_PHASES.SHAPING;
     next.lifecycle.finalizedAt = null;
     next.lifecycle.updatedAt = now();
-    next.revision += 1;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
     for (const section of Object.values(next.sections)) if (section.status === 'ready') section.status = 'draft';
     createRevision(next, 'Plan yeniden geliştirmeye açıldı', [], []);
     return next;
@@ -454,7 +436,7 @@ export function addExplorationMessage(project, role, content) {
 }
 
 function resolveRevisionState(project, reference) {
-    if (reference === 'current' || reference === project.revision || reference == null) return project;
+    if (reference === 'current' || reference === project.canonicalRevision || reference == null) return project;
     const candidates = project.revisions.filter(revision => revision.id === reference || revision.number === Number(reference));
     return candidates.at(-1)?.snapshot || null;
 }
@@ -502,8 +484,8 @@ export function comparePlanRevisions(project, fromReference, toReference = 'curr
     }
     return {
         valid: true,
-        from: { revision: from.revision, label: `r${from.revision}` },
-        to: { revision: to.revision, label: `r${to.revision}` },
+        from: { revision: from.canonicalRevision, label: `r${from.canonicalRevision}` },
+        to: { revision: to.canonicalRevision, label: `r${to.canonicalRevision}` },
         sections, summary,
         metadataChanges: {
             planningDepth: from.planningDepth?.selected === to.planningDepth?.selected ? null : { before: from.planningDepth?.selected, after: to.planningDepth?.selected },
@@ -513,7 +495,7 @@ export function comparePlanRevisions(project, fromReference, toReference = 'curr
 }
 
 export function captureCurrentRevision(project, summary = 'Proje başlangıcı') {
-    if (project.revisions.some(revision => revision.number === project.revision)) return project;
+    if (project.revisions.some(revision => revision.number === project.canonicalRevision)) return project;
     const next = structuredClone(project);
     createRevision(next, summary, [], Object.keys(next.sections || {}).filter(sectionId => next.sections[sectionId].content || next.sections[sectionId].items.length));
     return next;
@@ -533,7 +515,8 @@ export function restorePlanRevision(project, reference) {
     next.risks = structuredClone(snapshot.risks || []);
     next.openQuestions = structuredClone(snapshot.openQuestions || []);
     next.ideaDiscussion = structuredClone(snapshot.ideaDiscussion || project.ideaDiscussion);
-    next.revision = project.revision + 1;
+    next.documentRevision = project.documentRevision + 1;
+    next.canonicalRevision = project.canonicalRevision + 1;
     next.lifecycle = { ...next.lifecycle, status: 'active', activePhase: snapshot.lifecycle?.activePhase || PLANNING_PHASES.SHAPING, finalizedAt: null, updatedAt: now() };
     next.exports = structuredClone(project.exports || []);
     next.revisions = structuredClone(project.revisions || []);
@@ -541,17 +524,17 @@ export function restorePlanRevision(project, reference) {
     next.proposalStore = { bundles: structuredClone(project.proposalStore?.bundles || []) };
     next.commandLog = structuredClone(project.commandLog || []);
     next.dismissedSuggestionFingerprints = structuredClone(project.dismissedSuggestionFingerprints || []);
-    next.metadata = { ...structuredClone(project.metadata || {}), restoredFromRevision: snapshot.revision };
-    for (const section of Object.values(next.sections)) if (comparison.sections.some(change => change.sectionId === section.id)) section.updatedAtRevision = next.revision;
+    next.metadata = { ...structuredClone(project.metadata || {}), restoredFromRevision: snapshot.canonicalRevision };
+    for (const section of Object.values(next.sections)) if (comparison.sections.some(change => change.sectionId === section.id)) section.updatedAtRevision = next.canonicalRevision;
     const recalculated = recalculateReadiness(next);
-    createRevision(recalculated, `r${snapshot.revision} sürümünden geri yüklendi`, [], comparison.sections.map(section => section.sectionId));
-    return { success: true, project: recalculated, reason: '', restoredFromRevision: snapshot.revision };
+    createRevision(recalculated, `r${snapshot.canonicalRevision} sürümünden geri yüklendi`, [], comparison.sections.map(section => section.sectionId));
+    return { success: true, project: recalculated, reason: '', restoredFromRevision: snapshot.canonicalRevision };
 }
 
 function createRevision(project, summary, acceptedSuggestionIds, affectedSections) {
     const snapshotSource = structuredClone(project);
     snapshotSource.revisions = [];
-    project.revisions.push({ id: id('revision'), number: project.revision, createdAt: now(), summary, acceptedSuggestionIds, affectedSections, snapshot: snapshotSource });
+    project.revisions.push({ id: id('revision'), number: project.canonicalRevision, createdAt: now(), summary, acceptedSuggestionIds, affectedSections, snapshot: snapshotSource });
 }
 
 export function confirmConceptSummary(project) {
@@ -561,7 +544,7 @@ export function confirmConceptSummary(project) {
     }
     const agreementGate = getConceptAgreementGate(next);
     if (!agreementGate.ready) {
-        throw new Error(`${agreementGate.unresolvedCount} fikir kaydı henüz tamamlanmadı.`);
+        throw new Error(`${agreementGate.unresolvedCount} yorum, kapsam veya fikir kaydı henüz tamamlanmadı.`);
     }
 
     const summary = next.ideaLabSession.conceptSummary;
@@ -571,13 +554,25 @@ export function confirmConceptSummary(project) {
 
     // Populate Canonical Entities from Concept Summary
     if (summary.summary && next.sections.vision) {
-        next.sections.vision.content = summary.summary;
+        next.sections.vision.content = [
+            summary.summary,
+            `Hedef kullanıcı: ${summary.targetUser}`,
+            `Problem: ${summary.problemStatement}`,
+            `Mevcut çözüm: ${summary.currentAlternative}`,
+            `Beklenen sonuç: ${summary.desiredOutcome}`
+        ].join('\n\n');
         next.sections.vision.status = 'draft';
     }
     if (summary.confirmedFeatures && next.sections.scope) {
         next.sections.scope.items = [...new Set([...next.sections.scope.items, ...summary.confirmedFeatures])];
+        next.sections.scope.content = [
+            `MVP hedefi: ${summary.mvpTarget}`,
+            `Kapsam dışı:\n${summary.outOfScope.map(item => `- ${item}`).join('\n')}`
+        ].join('\n\n');
         next.sections.scope.status = 'draft';
     }
+    next.identity.summary = summary.summary;
+    next.identity.desiredOutcome = summary.desiredOutcome;
     if (summary.technicalApproaches && next.sections.architecture) {
         next.sections.architecture.items = [...new Set([...next.sections.architecture.items, ...summary.technicalApproaches])];
         next.sections.architecture.status = 'draft';
@@ -626,7 +621,8 @@ export function confirmConceptSummary(project) {
 
     next.lifecycle.activePhase = PLANNING_PHASES.SHAPING;
     next.lifecycle.updatedAt = now();
-    next.revision += 1;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
 
     const recalculated = recalculateReadiness(next);
     createRevision(recalculated, 'Konsept özeti onaylandı ve canonical plan başlatıldı', [], ['vision', 'scope', 'architecture', 'risks']);
@@ -659,7 +655,8 @@ export function applyExtensionModules(project, extensionPackageNames = []) {
         next.sections.scope.status = 'draft';
     }
 
-    next.revision += 1;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
     next.lifecycle.updatedAt = now();
 
     const recalculated = recalculateReadiness(next);

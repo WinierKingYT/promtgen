@@ -26,14 +26,14 @@ export function buildComparativeAnalytics(projects = []) {
     const normalized = projects.map(normalizeProjectDocument);
     const summary = buildPortfolioSummary(projects);
     
-    const totalRevisions = normalized.reduce((total, p) => total + (p.revision || 1), 0);
+    const totalRevisions = normalized.reduce((total, p) => total + (p.canonicalRevision || 1), 0);
     const totalTasks = normalized.reduce((total, p) => total + (p.tasks?.length || 0), 0);
     const totalDecisions = normalized.reduce((total, p) => total + (p.decisions?.length || 0), 0);
     
-    const topActive = [...normalized].sort((a, b) => (b.revision || 1) - (a.revision || 1)).slice(0, 3).map(p => ({
+    const topActive = [...normalized].sort((a, b) => (b.canonicalRevision || 1) - (a.canonicalRevision || 1)).slice(0, 3).map(p => ({
         id: p.id,
         name: p.identity.name,
-        revision: p.revision,
+        canonicalRevision: p.canonicalRevision,
         score: p.readiness?.score || 0
     }));
 

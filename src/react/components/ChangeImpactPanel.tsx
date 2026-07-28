@@ -45,7 +45,7 @@ export function ChangeImpactPanel({ project, onCommit }: ChangeImpactPanelProps)
     }
     onCommit(
       result.project,
-      `Değişiklik canonical plana uygulandı; r${result.project.revision} oluşturuldu.`,
+      `Değişiklik canonical plana uygulandı; r${result.project.canonicalRevision} oluşturuldu.`,
       'ApplyChangeImpact'
     )
   }
@@ -61,7 +61,7 @@ export function ChangeImpactPanel({ project, onCommit }: ChangeImpactPanelProps)
               <div>
                 <span className="meta">CANONICAL DEĞİŞİKLİK ÖNİZLEMESİ</span>
                 <h3 id={`${impact.id}-title`}>{impact.userRequest}</h3>
-                <p>r{impact.baseRevision} → r{impact.preview.nextRevision} · Henüz plana uygulanmadı</p>
+                <p>r{impact.baseCanonicalRevision} → r{impact.preview.nextCanonicalRevision} · Henüz plana uygulanmadı</p>
               </div>
             </header>
 
@@ -144,7 +144,7 @@ export function ChangeImpactPanel({ project, onCommit }: ChangeImpactPanelProps)
               </button>
               <button type="button" className="primary" disabled={unresolved > 0} onClick={() => apply(impact)}>
                 <Check size={16} />
-                {unresolved ? `${unresolved} çelişki çözülmeli` : `Onayla ve r${impact.preview.nextRevision} oluştur`}
+                {unresolved ? `${unresolved} çelişki çözülmeli` : `Onayla ve r${impact.preview.nextCanonicalRevision} oluştur`}
                 <ArrowRight size={16} />
               </button>
             </footer>

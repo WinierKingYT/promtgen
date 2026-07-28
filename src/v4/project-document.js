@@ -67,8 +67,13 @@ export function createPlanSections(depth = 'standard', revision = 1) {
 
 export function createInitialReadiness(revision = 1) {
     return {
+        version: 2,
+        status: 'blocked',
         score: 0,
         dimensions: { completeness: 0, consistency: 100, traceability: 0, riskCoverage: 0, implementationReadiness: 0 },
+        dimensionWeights: { completeness: 20, consistency: 20, traceability: 25, riskCoverage: 15, implementationReadiness: 20 },
+        dimensionLabels: { completeness: 'Tamlık', consistency: 'Tutarlılık', traceability: 'İzlenebilirlik', riskCoverage: 'Risk kapsamı', implementationReadiness: 'Uygulamaya hazırlık' },
+        checks: [],
         blockers: ['Proje fikri henüz analiz edilmedi.'],
         warnings: [],
         calculatedAtRevision: revision
@@ -85,9 +90,10 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
     const initialIdea = String(idea || '').trim();
     const state = {
         schemaVersion: 5,
-        schemaRevision: 1,
+        schemaRevision: 3,
         id: projectId(),
-        revision: 1,
+        documentRevision: 1,
+        canonicalRevision: 1,
         lifecycle: { status: 'active', activePhase: PLANNING_PHASES.DISCOVERY, createdAt, updatedAt: createdAt, finalizedAt: null },
         identity: { name, originalIdea: initialIdea, summary: initialIdea, desiredOutcome: '', outputLanguage },
         planningDepth: depth,
@@ -100,7 +106,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
         revisions: [], exports: [], commandLog: [], executionSessions: [], dismissedSuggestionFingerprints: [],
         ideaLabSession: { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [] },
         ideaDiscussion: { mode: 'explore', records: [], updatedAt: createdAt },
-        impactAnalyses: [],
+        impactAnalyses: [], planningScenarios: [], sectionPatchProposals: [],
         modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
     };
     if (initialIdea) {
@@ -118,7 +124,8 @@ export function applyDepthSelection(state, selected, overridden = true) {
     for (const section of Object.values(next.sections)) {
         section.required = required.has(section.id);
     }
-    next.revision += 1;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
     next.lifecycle.updatedAt = now();
     return next;
 }
@@ -127,8 +134,11 @@ export function validateProjectDocument(state) {
     const errors = [];
     if (!state || typeof state !== 'object') return { valid: false, errors: ['Proje durumu nesne olmalı.'] };
     if (state.schemaVersion !== 5) errors.push('schemaVersion 5 olmalı.');
-    if (state.schemaRevision !== 1) errors.push('schemaRevision 1 olmalı.');
+    if (state.schemaRevision !== 3) errors.push('schemaRevision 3 olmalı.');
     if (!state.id || typeof state.id !== 'string') errors.push('Proje kimliği eksik.');
+    if (!Number.isInteger(state.documentRevision) || state.documentRevision < 1) errors.push('documentRevision pozitif tam sayı olmalı.');
+    if (!Number.isInteger(state.canonicalRevision) || state.canonicalRevision < 1) errors.push('canonicalRevision pozitif tam sayı olmalı.');
+    if (state.canonicalRevision > state.documentRevision) errors.push('canonicalRevision documentRevision değerini aşamaz.');
     if (!state.identity?.originalIdea) errors.push('Başlangıç fikri eksik.');
     if (!state.planningDepth?.selected || !REQUIRED_BY_DEPTH[state.planningDepth.selected]) errors.push('Planlama derinliği geçersiz.');
     if (!state.sections || typeof state.sections !== 'object') errors.push('Plan bölümleri eksik.');
@@ -138,6 +148,27 @@ export function validateProjectDocument(state) {
     if (!Array.isArray(state.proposalStore?.bundles)) errors.push('Öneri deposu geçersiz.');
     if (!Array.isArray(state.revisions)) errors.push('Sürüm geçmişi dizi olmalı.');
     if (!Array.isArray(state.commandLog)) errors.push('Command log dizi olmalı.');
+    if (state.readiness?.version !== 2) errors.push('Readiness sözleşmesi version 2 olmalı.');
+    if (!['blocked', 'needs_review', 'ready'].includes(state.readiness?.status)) errors.push('Readiness durumu geçersiz.');
+    if (!Array.isArray(state.readiness?.checks)) errors.push('Readiness kanıt kontrolleri dizi olmalı.');
+    if (state.readiness?.checks?.some(check => !check.id || !['passed', 'warning', 'blocked'].includes(check.status))) {
+        errors.push('Readiness kanıt kontrolü geçersiz.');
+    }
+    const conceptSummary = state.ideaLabSession?.conceptSummary;
+    if (conceptSummary) {
+        for (const field of ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'mvpTarget']) {
+            if (typeof conceptSummary[field] !== 'string' || !conceptSummary[field].trim()) errors.push(`Konsept yorum alanı eksik: ${field}`);
+        }
+        if (!Number.isInteger(conceptSummary.interpretationConfidence) || conceptSummary.interpretationConfidence < 0 || conceptSummary.interpretationConfidence > 100) {
+            errors.push('Konsept yorum güveni 0-100 arasında tam sayı olmalı.');
+        }
+        for (const field of ['confidenceRationale', 'confirmedFeatures', 'outOfScope', 'technicalApproaches', 'openQuestions', 'knownRisks']) {
+            if (!Array.isArray(conceptSummary[field])) errors.push(`Konsept liste alanı geçersiz: ${field}`);
+        }
+        if (conceptSummary.userConfirmed && (conceptSummary.openQuestions.length || !conceptSummary.confirmedFeatures.length || !conceptSummary.outOfScope.length)) {
+            errors.push('Onaylanmış konseptte açık soru bulunamaz; MVP içi ve kapsam dışı listeler boş olamaz.');
+        }
+    }
     if (!state.ideaDiscussion || !Array.isArray(state.ideaDiscussion.records)) {
         errors.push('Fikir tartışma kayıtları geçersiz.');
     } else {
@@ -162,9 +193,33 @@ export function validateProjectDocument(state) {
     } else {
         for (const impact of state.impactAnalyses) {
             if (!impact?.id || !impact.userRequest) errors.push('Etki analizi kimlik ve istek taşımalı.');
-            if (!Number.isInteger(impact?.baseRevision) || impact.baseRevision < 1) errors.push(`Etki analizi kaynak revision geçersiz: ${impact?.id || 'boş'}`);
+            if (!Number.isInteger(impact?.baseCanonicalRevision) || impact.baseCanonicalRevision < 1) errors.push(`Etki analizi kaynak canonical revision geçersiz: ${impact?.id || 'boş'}`);
             if (!Array.isArray(impact?.entityEffects) || !Array.isArray(impact?.changedEntityIds)) errors.push(`Etki analizi izlenebilirlik verisi geçersiz: ${impact?.id || 'boş'}`);
             if (impact?.status === 'accepted' && !impact.resolvedAt) errors.push(`Uygulanmış etki analizinin çözüm zamanı eksik: ${impact.id}`);
+        }
+    }
+    if (!Array.isArray(state.planningScenarios)) {
+        errors.push('Plan senaryoları dizi olmalı.');
+    } else {
+        const validScenarioStatuses = new Set(['draft', 'selected', 'discarded', 'merged']);
+        for (const scenario of state.planningScenarios) {
+            if (!scenario?.id || !scenario.name) errors.push('Plan senaryosu kimlik ve ad taşımalı.');
+            if (!Number.isInteger(scenario?.baseCanonicalRevision) || scenario.baseCanonicalRevision < 1) errors.push(`Senaryo kaynak revision geçersiz: ${scenario?.id || 'boş'}`);
+            if (!Array.isArray(scenario?.decisions) || scenario.decisions.length === 0) errors.push(`Senaryonun alternatif kararı eksik: ${scenario?.id || 'boş'}`);
+            if (!validScenarioStatuses.has(scenario?.status)) errors.push(`Senaryo durumu geçersiz: ${scenario?.status || 'boş'}`);
+            if (scenario?.status === 'merged' && (!scenario.mergedAt || !scenario.impactAnalysisId)) errors.push(`Birleştirilmiş senaryo kanıtı eksik: ${scenario.id}`);
+        }
+    }
+    if (!Array.isArray(state.sectionPatchProposals)) {
+        errors.push('Plan bölüm patch önerileri dizi olmalı.');
+    } else {
+        const validPatchStatuses = new Set(['pending', 'accepted', 'edited', 'deferred', 'rejected', 'stale']);
+        for (const proposal of state.sectionPatchProposals) {
+            if (!proposal?.id || !proposal.impactAnalysisId || !proposal.sectionId) errors.push('Bölüm patch önerisi kimlik, etki analizi ve bölüm taşımalı.');
+            if (!state.sections?.[proposal?.sectionId]) errors.push(`Patch hedef plan bölümü bulunamadı: ${proposal?.sectionId || 'boş'}`);
+            if (!Number.isInteger(proposal?.baseCanonicalRevision) || proposal.baseCanonicalRevision < 1) errors.push(`Patch kaynak revision geçersiz: ${proposal?.id || 'boş'}`);
+            if (!validPatchStatuses.has(proposal?.status)) errors.push(`Patch durumu geçersiz: ${proposal?.status || 'boş'}`);
+            if (!proposal?.provenance?.runId || !proposal?.provenance?.schemaId) errors.push(`Patch provenance eksik: ${proposal?.id || 'boş'}`);
         }
     }
     for (const key of ['objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones', 'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings', 'simulationRuns', 'exports']) {

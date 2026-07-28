@@ -68,23 +68,23 @@ export function previewModuleActivation(project, requestedIds) {
     const moduleIds = resolution.resolved.filter(moduleId => !active.has(moduleId));
     const conflicts = moduleIds.flatMap(moduleId => registry.get(moduleId).conflicts.filter(conflict => active.has(conflict) || moduleIds.includes(conflict)).map(conflict => `${moduleId} ↔ ${conflict}`));
     const manifests = moduleIds.map(moduleId => registry.get(moduleId));
-    return { baseRevision: project.revision, moduleIds, manifests, requiredSections: [...new Set(manifests.flatMap(item => item.contributions.requiredSections))], suggestedSections: [...new Set(manifests.flatMap(item => item.contributions.suggestedSections))], errors: [...resolution.errors, ...conflicts.map(item => `Modül çatışması: ${item}`)] };
+    return { baseRevision: project.canonicalRevision, moduleIds, manifests, requiredSections: [...new Set(manifests.flatMap(item => item.contributions.requiredSections))], suggestedSections: [...new Set(manifests.flatMap(item => item.contributions.suggestedSections))], errors: [...resolution.errors, ...conflicts.map(item => `Modül çatışması: ${item}`)] };
 }
 
 export function applyModuleActivation(project, preview, { approved = false } = {}) {
     if (!approved) return { success: false, project, reason: 'Modül aktivasyonu kullanıcı onayı bekliyor.' };
-    if (preview.baseRevision !== project.revision) return { success: false, project, reason: 'Plan revision değişti; modül önizlemesi yenilenmeli.' };
+    if (preview.baseRevision !== project.canonicalRevision) return { success: false, project, reason: 'Plan revision değişti; modül önizlemesi yenilenmeli.' };
     if (preview.errors.length) return { success: false, project, reason: preview.errors.join(' ') };
     const next = structuredClone(project);
-    for (const manifest of preview.manifests) next.modules.active.push({ id: manifest.id, version: manifest.version, enabledAtRevision: project.revision + 1, config: {} });
-    next.revision += 1; next.lifecycle.updatedAt = new Date().toISOString();
+    for (const manifest of preview.manifests) next.modules.active.push({ id: manifest.id, version: manifest.version, enabledAtRevision: project.canonicalRevision + 1, config: {} });
+    next.documentRevision += 1; next.canonicalRevision += 1; next.lifecycle.updatedAt = new Date().toISOString();
     for (const sectionId of preview.requiredSections) next.sections[sectionId].required = true;
     for (const sectionId of preview.suggestedSections) {
         const warning = 'Aktif modül bu bölümü öneriyor.';
         if (!next.sections[sectionId].warnings.includes(warning)) next.sections[sectionId].warnings.push(warning);
     }
     const snapshot = structuredClone(next); snapshot.revisions = [];
-    next.revisions.push({ id: `revision-${Date.now()}`, number: next.revision, createdAt: next.lifecycle.updatedAt, summary: `Modüller etkinleştirildi: ${preview.moduleIds.join(', ')}`, acceptedSuggestionIds: [], affectedSections: preview.requiredSections, snapshot });
+    next.revisions.push({ id: `revision-${Date.now()}`, number: next.canonicalRevision, createdAt: next.lifecycle.updatedAt, summary: `Modüller etkinleştirildi: ${preview.moduleIds.join(', ')}`, acceptedSuggestionIds: [], affectedSections: preview.requiredSections, snapshot });
     return { success: true, project: next, reason: '' };
 }
 
@@ -92,18 +92,18 @@ export function previewLocalModuleImport(project, manifest) {
     const validation = validateModuleManifest(manifest);
     const registry = createModuleRegistry(project.modules?.localManifests || []);
     const duplicate = registry.get(manifest?.id);
-    return { baseRevision: project.revision, manifest: validation.valid ? structuredClone(manifest) : manifest, errors: [...validation.errors, ...(duplicate ? ['Aynı kimlikte modül zaten kayıtlı.'] : [])] };
+    return { baseRevision: project.canonicalRevision, manifest: validation.valid ? structuredClone(manifest) : manifest, errors: [...validation.errors, ...(duplicate ? ['Aynı kimlikte modül zaten kayıtlı.'] : [])] };
 }
 
 export function applyLocalModuleImport(project, preview, { approved = false } = {}) {
     if (!approved) return { success: false, project, reason: 'Yerel modül içe aktarma kullanıcı onayı bekliyor.' };
-    if (preview.baseRevision !== project.revision) return { success: false, project, reason: 'Plan revision değişti; modül yeniden doğrulanmalı.' };
+    if (preview.baseRevision !== project.canonicalRevision) return { success: false, project, reason: 'Plan revision değişti; modül yeniden doğrulanmalı.' };
     if (preview.errors.length) return { success: false, project, reason: preview.errors.join(' ') };
     const next = structuredClone(project);
     next.modules.localManifests.push(preview.manifest);
-    next.revision += 1; next.lifecycle.updatedAt = new Date().toISOString();
+    next.documentRevision += 1; next.canonicalRevision += 1; next.lifecycle.updatedAt = new Date().toISOString();
     const snapshot = structuredClone(next); snapshot.revisions = [];
-    next.revisions.push({ id: `revision-${Date.now()}`, number: next.revision, createdAt: next.lifecycle.updatedAt, summary: `Yerel modül kaydedildi: ${preview.manifest.id}@${preview.manifest.version}`, acceptedSuggestionIds: [], affectedSections: [], snapshot });
+    next.revisions.push({ id: `revision-${Date.now()}`, number: next.canonicalRevision, createdAt: next.lifecycle.updatedAt, summary: `Yerel modül kaydedildi: ${preview.manifest.id}@${preview.manifest.version}`, acceptedSuggestionIds: [], affectedSections: [], snapshot });
     return { success: true, project: next, reason: '' };
 }
 

@@ -8,7 +8,8 @@ export interface DiagnosticReport {
   userAgent: string;
   projectSummary?: {
     id: string;
-    revision: number;
+    documentRevision: number;
+    canonicalRevision: number;
     schemaVersion: number;
     phase: string;
     requirementCount: number;
@@ -25,7 +26,8 @@ export function generateDiagnosticReport(project?: ProjectDocumentV5, recentLogs
   if (project) {
     projectSummary = {
       id: String(project.id),
-      revision: project.revision,
+      documentRevision: project.documentRevision,
+      canonicalRevision: project.canonicalRevision,
       schemaVersion: project.schemaVersion,
       phase: project.lifecycle.activePhase,
       requirementCount: (project.requirements || []).length,

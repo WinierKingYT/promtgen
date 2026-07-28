@@ -12,6 +12,7 @@ const VALID_MODES = new Set<IdeaDiscussionMode>(['explore', 'challenge', 'compar
 const VALID_STATUSES = new Set<IdeaRecordStatus>(['pending', 'accepted', 'deferred', 'rejected']);
 const MAX_RECORD_TEXT = 600;
 const MAX_DETAIL_TEXT = 2400;
+const INTERPRETATION_FIELDS = ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'mvpTarget'] as const;
 
 function ensureState(project: ProjectDocumentV5): ProjectDocumentV5 {
   const next = structuredClone(project);
@@ -138,14 +139,33 @@ export function updateIdeaRecordStatus(
 
 export function getConceptAgreementGate(project: ProjectDocumentV5) {
   const records = project.ideaDiscussion?.records || [];
+  const summary = project.ideaLabSession?.conceptSummary;
   const unansweredAcceptedQuestions = records.filter(item =>
     item.kind === 'question' && item.status === 'accepted' && !item.answer.trim()
   );
   const pending = records.filter(item => item.status === 'pending');
+  const missingInterpretationFields = summary
+    ? INTERPRETATION_FIELDS.filter(field => !summary[field]?.toString().trim())
+    : [...INTERPRETATION_FIELDS];
+  const missingScopeLists = summary
+    ? [
+        ...(summary.confirmedFeatures.length ? [] : ['confirmedFeatures']),
+        ...(summary.outOfScope.length ? [] : ['outOfScope'])
+      ]
+    : ['confirmedFeatures', 'outOfScope'];
+  const unresolvedSummaryQuestions = summary?.openQuestions || [];
+  const interpretationReady = Boolean(summary)
+    && missingInterpretationFields.length === 0
+    && missingScopeLists.length === 0
+    && unresolvedSummaryQuestions.length === 0;
   return {
-    ready: pending.length === 0 && unansweredAcceptedQuestions.length === 0,
+    ready: pending.length === 0 && unansweredAcceptedQuestions.length === 0 && interpretationReady,
+    interpretationReady,
+    missingInterpretationFields,
+    missingScopeLists,
+    unresolvedSummaryQuestions,
     pending,
-    unresolvedCount: pending.length + unansweredAcceptedQuestions.length,
+    unresolvedCount: pending.length + unansweredAcceptedQuestions.length + missingInterpretationFields.length + missingScopeLists.length + unresolvedSummaryQuestions.length,
     unansweredAcceptedQuestions,
     accepted: records.filter(item => item.status === 'accepted'),
     deferred: records.filter(item => item.status === 'deferred'),
@@ -174,7 +194,7 @@ export function buildIdeaDiscussionContext(project: ProjectDocumentV5) {
 
 export function updateConceptAgreement(
   project: ProjectDocumentV5,
-  changes: Partial<Pick<ConceptSummary, 'summary' | 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'mvpTarget'>>
+  changes: Partial<Pick<ConceptSummary, 'summary' | 'targetUser' | 'problemStatement' | 'currentAlternative' | 'desiredOutcome' | 'interpretationConfidence' | 'confidenceRationale' | 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'mvpTarget'>>
 ): ProjectDocumentV5 {
   const next = ensureState(project);
   const summary = next.ideaLabSession?.conceptSummary;
@@ -183,11 +203,67 @@ export function updateConceptAgreement(
     ? [...new Set(items.map(item => bounded(item, MAX_RECORD_TEXT)).filter(Boolean))].slice(0, 50)
     : [];
   if (changes.summary !== undefined) summary.summary = bounded(changes.summary, MAX_DETAIL_TEXT);
+  if (changes.targetUser !== undefined) summary.targetUser = bounded(changes.targetUser, MAX_RECORD_TEXT);
+  if (changes.problemStatement !== undefined) summary.problemStatement = bounded(changes.problemStatement, MAX_DETAIL_TEXT);
+  if (changes.currentAlternative !== undefined) summary.currentAlternative = bounded(changes.currentAlternative, MAX_DETAIL_TEXT);
+  if (changes.desiredOutcome !== undefined) summary.desiredOutcome = bounded(changes.desiredOutcome, MAX_DETAIL_TEXT);
+  if (changes.interpretationConfidence !== undefined) {
+    summary.interpretationConfidence = Math.max(0, Math.min(100, Math.round(Number(changes.interpretationConfidence) || 0)));
+  }
   if (changes.mvpTarget !== undefined) summary.mvpTarget = bounded(changes.mvpTarget, MAX_RECORD_TEXT);
-  for (const key of ['confirmedFeatures', 'outOfScope', 'technicalApproaches', 'knownRisks', 'openQuestions'] as const) {
+  for (const key of ['confidenceRationale', 'confirmedFeatures', 'outOfScope', 'technicalApproaches', 'knownRisks', 'openQuestions'] as const) {
     if (changes[key] !== undefined) summary[key] = normalizeList(changes[key]);
   }
-  if (!summary.summary || !summary.mvpTarget) throw new Error('Konsept özeti ve MVP hedefi boş olamaz.');
+  if (INTERPRETATION_FIELDS.some(field => !summary[field]?.toString().trim())) {
+    throw new Error('Sistem yorumu, hedef kullanıcı, problem, mevcut çözüm, beklenen sonuç ve MVP hedefi boş olamaz.');
+  }
+  summary.userConfirmed = false;
+  delete summary.confirmedAt;
   next.ideaDiscussion.updatedAt = new Date().toISOString();
   return next;
+}
+
+export function createInitialConceptInterpretation(project: ProjectDocumentV5): ConceptSummary {
+  const idea = String(project.identity.originalIdea || project.identity.summary || 'Proje fikri').trim();
+  const text = idea.toLocaleLowerCase('tr-TR');
+  const domainIds = (project.profile?.domains || []).map(domain => String(domain.name || '').toLowerCase());
+  const isGame = domainIds.some(domain => domain.includes('game') || domain.includes('oyun')) || /oyun|game|s&box|unity|unreal/.test(text);
+  const isMobile = domainIds.some(domain => domain.includes('mobile')) || /mobil|android|ios/.test(text);
+  const isWeb = domainIds.some(domain => domain.includes('web')) || /web|saas|panel|site|api/.test(text);
+  const targetUser = isGame
+    ? 'Oyunun temel döngüsünü deneyimleyecek oyuncu; kesin oyuncu profili kullanıcı tarafından doğrulanmalı.'
+    : isMobile
+      ? 'Ürünün temel işini telefonundan tamamlamak isteyen bireysel kullanıcı; kesin persona kullanıcı tarafından doğrulanmalı.'
+      : isWeb
+        ? 'Web üzerinden temel iş akışını tamamlamak isteyen bireysel kullanıcı veya küçük ekip üyesi; kesin persona kullanıcı tarafından doğrulanmalı.'
+        : 'Bu ihtiyacı düzenli yaşayan birincil kullanıcı; kesin persona kullanıcı tarafından doğrulanmalı.';
+  const confirmedFeatures = isGame
+    ? ['Temel oynanış döngüsü', 'Oyuncu etkileşimi ve durum yönetimi']
+    : isMobile
+      ? ['Temel ekran ve navigasyon akışı', 'Yerel veri saklama']
+      : isWeb
+        ? ['Temel kullanıcı arayüzü', 'Veri modeli ve ana iş akışı']
+        : ['Temel kullanıcı akışı', 'Çekirdek veri ve iş mantığı'];
+  const signals = [idea.length >= 120, /,|;| ve | ile /.test(text), domainIds.length > 0].filter(Boolean).length;
+  const confidence = 48 + signals * 10;
+  return {
+    summary: `PromtGen fikri şu şekilde yorumladı: ${idea}`,
+    targetUser,
+    problemStatement: `Kullanıcı, “${idea.slice(0, 180)}” ihtiyacını mevcut yöntemlerle tutarlı ve izlenebilir biçimde karşılamakta zorlanıyor. Bu problem tanımı kullanıcı tarafından düzeltilmelidir.`,
+    currentAlternative: 'Manuel adımlar, dağınık araçlar veya genel amaçlı çözümler; gerçek mevcut yöntem kullanıcı tarafından doğrulanmalı.',
+    desiredOutcome: project.identity.desiredOutcome || 'Kullanıcının temel ihtiyacını az adımla ve doğrulanabilir biçimde tamamlayan çalışan bir ilk sürüm.',
+    interpretationConfidence: confidence,
+    confidenceRationale: [
+      domainIds.length ? 'Proje alanı için metinsel sinyal bulundu.' : 'Proje alanı kesin değil.',
+      idea.length >= 120 ? 'Fikir işlev ve bağlam ayrıntıları içeriyor.' : 'Fikir kısa; kullanıcı ayrıntısı gerekiyor.',
+      'Bu değer doğruluk garantisi değil, eksik bağlam göstergesidir.'
+    ],
+    confirmedFeatures,
+    outOfScope: ['İleri seviye raporlama ve optimizasyon', 'Bulut senkronizasyonu ve çok kullanıcılı işbirliği'],
+    technicalApproaches: [],
+    openQuestions: ['Birincil kullanıcı ve yaşadığı ana problem doğru yorumlandı mı?'],
+    knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
+    mvpTarget: `${idea.slice(0, 120)} fikrinin tek birincil kullanıcı akışını tamamlayan doğrulanabilir ilk sürümü`,
+    userConfirmed: false
+  };
 }

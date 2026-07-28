@@ -4,7 +4,7 @@ import { beginExecutionSession, buildExecutionPrompt, getNextExecutionRole, prop
 import { cleanupExecutionWorktree, getExecutionCapabilities, getExecutionPatch, nativeExecutionAvailable, prepareExecutionWorktree, runCodexAgentStep, selectExecutionRepository } from '../../v4/desktop-execution.js';
 import { downloadBlob } from '../../v4/exporter.js';
 
-export function ExecutionPanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string) => void }) {
+export function ExecutionPanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string, commandType?: string) => void }) {
   const desktop = nativeExecutionAvailable();
   const proposal = useMemo(() => proposeExecution(project, desktop ? 'codex' : 'generic'), [project, desktop]);
   const [capabilities, setCapabilities] = useState<any>(null);
@@ -32,14 +32,14 @@ export function ExecutionPanel({ project, onCommit }: { project: any; onCommit: 
       const worktree = await prepareExecutionWorktree(repository.repositoryToken, project.id);
       const started = beginExecutionSession(project, proposal, { approved: true, force, worktreeLabel: worktree.worktreeLabel });
       if (!started.success || !started.session) throw new Error(started.reason);
-      setNativeSession(worktree); setLogicalSessionId(started.session.id); onCommit(started.project, 'İzole Codex execution session hazırlandı.');
+      setNativeSession(worktree); setLogicalSessionId(started.session.id); onCommit(started.project, 'İzole Codex execution session hazırlandı.', 'StartExecutionSession');
     } catch (value) { setError(value instanceof Error ? value.message : String(value)); }
     finally { setBusy(false); }
   };
   const startGeneric = () => {
     const started = beginExecutionSession(project, proposal, { approved: true, force });
     if (!started.success || !started.session) { setError(started.reason); return; }
-    setLogicalSessionId(started.session.id); onCommit(started.project, 'Generic ajan paketi haricî kullanım için kaydedildi.');
+    setLogicalSessionId(started.session.id); onCommit(started.project, 'Generic ajan paketi haricî kullanım için kaydedildi.', 'StartExecutionSession');
   };
   const runStep = async () => {
     if (!nativeSession || !logicalSession || !nextRole) return;
@@ -49,7 +49,7 @@ export function ExecutionPanel({ project, onCommit }: { project: any; onCommit: 
       const result: any = await runCodexAgentStep(nativeSession.sessionToken, nextRole, prompt);
       const recorded = recordExecutionResult(project, logicalSession.id, result);
       if (!recorded.success) throw new Error(recorded.reason);
-      onCommit(recorded.project, `${nextRole} ajan adımı ${result.success ? 'tamamlandı' : 'başarısız oldu'}.`);
+      onCommit(recorded.project, `${nextRole} ajan adımı ${result.success ? 'tamamlandı' : 'başarısız oldu'}.`, 'RecordExecutionResult');
     } catch (value) { setError(value instanceof Error ? value.message : String(value)); }
     finally { setBusy(false); }
   };
@@ -78,7 +78,7 @@ export function ExecutionPanel({ project, onCommit }: { project: any; onCommit: 
               const start = beginExecutionSession(project, proposal, { approved: true, force: true });
               if (start.success && start.session) {
                 const sim = simulateExecutionRun(start.project, start.session.id);
-                if (sim.success) onCommit(sim.project, 'Ajan execution adımları başarıyla simüle edildi.');
+                if (sim.success) onCommit(sim.project, 'Ajan execution adımları başarıyla simüle edildi.', 'RecordExecutionResult');
               }
             }}
           >

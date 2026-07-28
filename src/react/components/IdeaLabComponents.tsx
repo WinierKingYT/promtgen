@@ -302,7 +302,7 @@ export function ConceptSummaryPanel({ project, onCommit }: any) {
 
   const handleConfirm = () => {
     const next = confirmConceptSummary(project);
-    onCommit(next, 'Konsept özeti onaylandı. Canonical plan oluşturuldu!');
+    onCommit(next, 'Sistem yorumu ve MVP kapsamı onaylandı. Canonical plan oluşturuldu!', 'ConfirmConceptSummary');
   };
 
   return (
@@ -310,8 +310,8 @@ export function ConceptSummaryPanel({ project, onCommit }: any) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
         <CheckCircle2 size={24} color="#10b981" />
         <div>
-          <span style={{ fontSize: '11px', letterSpacing: '1px', color: '#10b981', fontWeight: 600 }}>AŞAMA 3: KONSEPTİN NETLEŞMESİ</span>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#ecfdf5' }}>Konsept Özeti & A/B Simülasyonu</h2>
+          <span style={{ fontSize: '11px', letterSpacing: '1px', color: '#10b981', fontWeight: 600 }}>YORUM → DÜZELT → ONAYLA</span>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#ecfdf5' }}>Sistem Yorumu ve MVP Kapsam Kapısı</h2>
         </div>
       </div>
 
@@ -355,8 +355,8 @@ export function ConceptSummaryPanel({ project, onCommit }: any) {
         >
           <Check size={18} />
           {agreementGate.ready
-            ? 'Konsepti Onayla ve Planı Başlat'
-            : `${agreementGate.unresolvedCount} fikir kaydı tamamlanmalı`}
+            ? 'Yorumu Onayla ve Canonical Planı Başlat'
+            : `${agreementGate.unresolvedCount} yorum/kapsam maddesi tamamlanmalı`}
         </button>
       </div>
     </section>

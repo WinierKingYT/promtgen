@@ -10,7 +10,7 @@ export function generateRepositoryBoilerplate(project) {
 ## 🚀 Proje Hakkında
 Bu proje **PromtGen Proje Mimarı (V4)** tarafından üretilen canonical plan ve kararlarla yapılandırılmıştır.
 
-- **Plan Sürümü:** r${project.revision}
+- **Plan Sürümü:** r${project.canonicalRevision}
 - **Plan Derinliği:** ${project.planningDepth?.selected?.toUpperCase()}
 - **Hazırlık Skoru:** %${project.readiness?.score || 0}
 
