@@ -1,5 +1,6 @@
 import type { ProjectDocumentV5 } from '../contracts.js';
 import { captureCurrentRevision } from '../planning-engine.js';
+import { ensureIdeaDocumentRevision } from './idea-document-revision-service.js';
 
 interface IdeaLabResult {
   project: ProjectDocumentV5;
@@ -37,7 +38,7 @@ export async function prepareInitialProject({
   const input = structuredClone(project);
   input.proposalStore.bundles = [];
   const result = await generateIdeaLab(input);
-  const target = result.project;
+  const target = ensureIdeaDocumentRevision(result.project);
   if (result.usedFallback || result.error) {
     target.messages.push({
       id: `msg-${Date.now()}`,

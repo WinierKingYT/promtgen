@@ -62,6 +62,26 @@ export interface ConceptSummary {
   }
 }
 
+export type IdeaDocumentSnapshot = Pick<
+  ConceptSummary,
+  'summary' | 'targetUser' | 'problemStatement' | 'currentAlternative' | 'desiredOutcome' |
+  'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'openQuestions' | 'knownRisks' | 'mvpTarget'
+>
+
+export interface IdeaDocumentRevision {
+  id: string
+  number: number
+  documentRevision: number
+  canonicalRevision: number
+  createdAt: string
+  summary: string
+  source: 'initial' | 'edit' | 'discovery' | 'restore'
+  status: 'draft' | 'converted' | 'superseded'
+  convertedCanonicalRevision: number | null
+  restoredFromRevision: number | null
+  snapshot: IdeaDocumentSnapshot
+}
+
 export interface IdeaLabSession {
   status: 'active' | 'concept_ready' | 'confirmed'
   approaches: DesignApproach[]
@@ -600,6 +620,7 @@ export interface ProjectDocumentV5 {
   commandLog: CommandLogRecord[]
   dismissedSuggestionFingerprints: string[]
   ideaLabSession?: IdeaLabSession
+  ideaDocumentRevisions: IdeaDocumentRevision[]
   ideaDiscussion: IdeaDiscussionState
   ideaExpansionSession?: IdeaExpansionSession
   impactAnalyses?: ImpactAnalysis[]

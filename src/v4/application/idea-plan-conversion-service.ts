@@ -3,6 +3,7 @@ import type { ProjectDocumentV5 } from '../contracts.js';
 import { confirmConceptSummary } from '../planning-engine.js';
 import { getConceptAgreementGate } from './idea-discussion-service.js';
 import { createRequirementDraftsFromConcept } from './requirement-quality-service.js';
+import { markCurrentIdeaRevisionConverted } from './idea-document-revision-service.js';
 
 export interface IdeaPlanConversionPreview {
   baseDocumentRevision: number;
@@ -60,7 +61,7 @@ function buildConversionCandidate(project: ProjectDocumentV5): ProjectDocumentV5
     }));
   }
   next = createRequirementDraftsFromConcept(next);
-  return next;
+  return markCurrentIdeaRevisionConverted(next, project.canonicalRevision + 1);
 }
 
 export function previewIdeaPlanConversion(project: ProjectDocumentV5): IdeaPlanConversionPreview {

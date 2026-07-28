@@ -1,5 +1,5 @@
 import type { ConceptSummary, ProjectDocumentV5 } from '../contracts.js';
-import { updateConceptAgreement } from './idea-discussion-service.js';
+import { updateIdeaDocumentWithRevision } from './idea-document-revision-service.js';
 
 export type DiscoveryConceptField =
   | 'targetUser'
@@ -435,7 +435,7 @@ export function applyDiscoveryAnswerDraft(
   try {
     return {
       success: true,
-      project: updateConceptAgreement(project, changes),
+      project: updateIdeaDocumentWithRevision(project, changes, 'discovery'),
       appliedFields: selected.map(patch => patch.field)
     };
   } catch (error) {

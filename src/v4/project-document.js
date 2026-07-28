@@ -105,6 +105,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
         readiness: createInitialReadiness(1),
         revisions: [], exports: [], commandLog: [], executionSessions: [], dismissedSuggestionFingerprints: [],
         ideaLabSession: { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [] },
+        ideaDocumentRevisions: [],
         ideaDiscussion: { mode: 'explore', records: [], updatedAt: createdAt },
         impactAnalyses: [], planningScenarios: [], sectionPatchProposals: [],
         modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
@@ -147,6 +148,18 @@ export function validateProjectDocument(state) {
     }
     if (!Array.isArray(state.proposalStore?.bundles)) errors.push('Öneri deposu geçersiz.');
     if (!Array.isArray(state.revisions)) errors.push('Sürüm geçmişi dizi olmalı.');
+    if (!Array.isArray(state.ideaDocumentRevisions)) {
+        errors.push('Fikir belgesi sürüm geçmişi dizi olmalı.');
+    } else {
+        const revisionNumbers = new Set();
+        for (const revision of state.ideaDocumentRevisions) {
+            if (!revision?.id || !Number.isInteger(revision.number) || revision.number < 1) errors.push('Fikir belgesi sürümü kimlik ve pozitif sıra numarası taşımalı.');
+            if (revisionNumbers.has(revision?.number)) errors.push(`Fikir belgesi sürüm numarası benzersiz değil: ${revision.number}`);
+            revisionNumbers.add(revision?.number);
+            if (!revision?.snapshot?.summary || !revision?.snapshot?.mvpTarget) errors.push(`Fikir belgesi sürüm içeriği eksik: ${revision?.id || 'boş'}`);
+            if (revision?.status === 'converted' && !Number.isInteger(revision.convertedCanonicalRevision)) errors.push(`Dönüştürülen fikir sürümünün canonical revision kanıtı eksik: ${revision.id}`);
+        }
+    }
     if (!Array.isArray(state.commandLog)) errors.push('Command log dizi olmalı.');
     if (state.readiness?.version !== 2) errors.push('Readiness sözleşmesi version 2 olmalı.');
     if (!['blocked', 'needs_review', 'ready'].includes(state.readiness?.status)) errors.push('Readiness durumu geçersiz.');

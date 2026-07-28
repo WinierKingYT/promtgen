@@ -11,6 +11,7 @@ import {
   type IdeaPlanConversionPreview
 } from '../../v4/application/idea-plan-conversion-service.js';
 import { ConceptAgreementEditor } from './ConceptAgreementEditor.js';
+import { IdeaDocumentHistoryPanel } from './IdeaDocumentHistoryPanel.js';
 
 export type IdeaOutcome = 'develop' | 'guide' | 'plan';
 
@@ -73,6 +74,7 @@ export function IdeaGuidePanel({ project, onCommit, onConvert, onOpenPlan }: {
       <div className="idea-guide-facts"><section><h3>Kim için?</h3><p>{guide.targetUser}</p></section><section><h3>Hangi problem?</h3><p>{guide.problem}</p></section></div>
       <div className="idea-guide-grid">{list('İlk sürümde', guide.mvp)}{list('Şimdilik dışında', guide.outOfScope)}{list('Riskler', guide.risks)}{list('Sıradaki adımlar', guide.nextSteps)}</div>
       {project.ideaLabSession?.conceptSummary && <ConceptAgreementEditor project={project} onCommit={onCommit}/>}
+      <IdeaDocumentHistoryPanel project={project} onCommit={onCommit}/>
       <section className="idea-conversion" aria-labelledby="idea-conversion-title">
         <div>
           <span className="meta">FİKİRDEN PLANA GEÇİŞ</span>

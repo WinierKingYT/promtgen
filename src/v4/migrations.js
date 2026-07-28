@@ -14,7 +14,7 @@ const ARRAY_FIELDS = [
     'objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones',
     'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings',
     'simulationRuns', 'executionSessions', 'openQuestions', 'messages', 'revisions', 'exports', 'commandLog',
-    'dismissedSuggestionFingerprints', 'impactAnalyses', 'planningScenarios', 'sectionPatchProposals'
+    'dismissedSuggestionFingerprints', 'impactAnalyses', 'planningScenarios', 'sectionPatchProposals', 'ideaDocumentRevisions'
 ];
 
 export const LATEST_SCHEMA_VERSION = 5;

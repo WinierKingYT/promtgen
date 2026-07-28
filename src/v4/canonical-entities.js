@@ -407,6 +407,31 @@ export function normalizeProjectDocument(project) {
     next.impactAnalyses = (next.impactAnalyses || []).map(normalizeImpactAnalysis);
     next.planningScenarios = (next.planningScenarios || []).map(normalizePlanningScenario);
     next.sectionPatchProposals = (next.sectionPatchProposals || []).map(normalizeSectionPatchProposal);
+    next.ideaDocumentRevisions = Array.isArray(next.ideaDocumentRevisions) ? next.ideaDocumentRevisions.map((revision, index) => ({
+        id: text(revision?.id, `idea-revision-${index + 1}`),
+        number: Math.max(1, Number(revision?.number || index + 1)),
+        documentRevision: Math.max(1, Number(revision?.documentRevision || next.documentRevision)),
+        canonicalRevision: Math.max(1, Number(revision?.canonicalRevision || next.canonicalRevision)),
+        createdAt: text(revision?.createdAt, next.lifecycle?.updatedAt || next.lifecycle?.createdAt),
+        summary: text(revision?.summary, `Fikir belgesi sürüm ${index + 1}`),
+        source: ['initial', 'edit', 'discovery', 'restore'].includes(revision?.source) ? revision.source : 'edit',
+        status: ['draft', 'converted', 'superseded'].includes(revision?.status) ? revision.status : 'superseded',
+        convertedCanonicalRevision: Number.isInteger(revision?.convertedCanonicalRevision) ? revision.convertedCanonicalRevision : null,
+        restoredFromRevision: Number.isInteger(revision?.restoredFromRevision) ? revision.restoredFromRevision : null,
+        snapshot: {
+            summary: text(revision?.snapshot?.summary),
+            targetUser: text(revision?.snapshot?.targetUser),
+            problemStatement: text(revision?.snapshot?.problemStatement),
+            currentAlternative: text(revision?.snapshot?.currentAlternative),
+            desiredOutcome: text(revision?.snapshot?.desiredOutcome),
+            confirmedFeatures: list(revision?.snapshot?.confirmedFeatures),
+            outOfScope: list(revision?.snapshot?.outOfScope),
+            technicalApproaches: list(revision?.snapshot?.technicalApproaches),
+            openQuestions: list(revision?.snapshot?.openQuestions),
+            knownRisks: list(revision?.snapshot?.knownRisks),
+            mvpTarget: text(revision?.snapshot?.mvpTarget)
+        }
+    })) : [];
     next.modules = {
         active: Array.isArray(next.modules?.active) ? next.modules.active.map(item => ({ id: text(item.id), version: text(item.version), enabledAtRevision: Number(item.enabledAtRevision || 0), config: item.config && typeof item.config === 'object' ? item.config : {} })).filter(item => item.id) : [],
         dismissed: list(next.modules?.dismissed),
@@ -439,6 +464,7 @@ export function normalizeProjectDocument(project) {
         delete snapshot.revision;
         snapshot.planningScenarios = Array.isArray(snapshot.planningScenarios) ? snapshot.planningScenarios : [];
         snapshot.sectionPatchProposals = Array.isArray(snapshot.sectionPatchProposals) ? snapshot.sectionPatchProposals : [];
+        snapshot.ideaDocumentRevisions = Array.isArray(snapshot.ideaDocumentRevisions) ? snapshot.ideaDocumentRevisions : [];
         return { ...revision, number: Math.max(1, Number(revision.number || snapshot.canonicalRevision)), snapshot };
     }) : [];
     next.ideaDiscussion = {

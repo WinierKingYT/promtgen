@@ -178,6 +178,36 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(completionGate.getByRole('button', { name: 'Uyarılarla finalleştir' })).toHaveCount(0);
   });
 
+  test('idea document keeps comparable revisions and restores an old version without touching the plan', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin dağınık fikirlerini yerel bir fikir belgesinde netleştiren web uygulaması yapmak istiyorum.'
+    );
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await page.getByRole('button', { name: /Rehber oluştur/ }).click();
+
+    const summary = page.getByLabel('Sistem yorumu');
+    const originalSummary = await summary.inputValue();
+    await page.getByLabel('Açık kritik sorular').fill('');
+    await summary.fill('Düzenlenen birinci fikir belgesi özeti.');
+    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+    await expect(page.locator('.idea-history>summary small')).toHaveText('2 sürüm');
+    await summary.fill('Düzenlenen ikinci fikir belgesi özeti.');
+    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+
+    const history = page.locator('.idea-history');
+    await expect(history.locator('summary small')).toHaveText('3 sürüm');
+    await history.locator('summary').click();
+    await expect(history.getByText('3 sürüm')).toBeVisible();
+    await history.locator('.idea-history-list button').filter({ hasText: 'r1' }).click();
+    await expect(history.locator('.idea-history-diff')).toContainText('Sistem yorumu');
+    await history.getByRole('button', { name: 'Bu sürümü geri yükle' }).click();
+    await expect(history.getByText(/canonical planın üzerine yazılmayacak/i)).toBeVisible();
+    await history.getByRole('button', { name: 'Geri yükle', exact: true }).click();
+
+    await expect(summary).toHaveValue(originalSummary);
+    await expect(history.getByText('4 sürüm')).toBeVisible();
+  });
+
   test('canonical plan change requires impact preview and explicit approval', async ({ page }) => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Yerel çalışan bir oyun planlama sistemi geliştirip görev ve kabul testlerini birlikte yönetmek istiyorum.'

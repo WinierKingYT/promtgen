@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Save } from 'lucide-react';
 import type { ConceptSummary, ProjectDocumentV5 } from '../../v4/contracts.js';
-import { getConceptAgreementGate, updateConceptAgreement } from '../../v4/application/idea-discussion-service.js';
+import { getConceptAgreementGate } from '../../v4/application/idea-discussion-service.js';
+import { updateIdeaDocumentWithRevision } from '../../v4/application/idea-document-revision-service.js';
 
 type EditableAgreement = Pick<
   ConceptSummary,
@@ -71,7 +72,7 @@ export function ConceptAgreementEditor({ project, onCommit }: {
       knownRisks: lines(draft.knownRisks),
       openQuestions: lines(draft.openQuestions)
     };
-    onCommit(updateConceptAgreement(project, changes), 'Konsept mutabakat özeti güncellendi.', 'UpdateConceptAgreement');
+    onCommit(updateIdeaDocumentWithRevision(project, changes), 'Fikir belgesi yeni sürüm olarak kaydedildi.', 'UpdateConceptAgreement');
   };
   const listField = (
     key: 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions',
