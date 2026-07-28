@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "guided-discovery-v1",
+  "scenarioCount": 8,
+  "passedCount": 8,
+  "passRate": 1,
+  "generatedAt": "2026-07-28T20:32:32.598Z",
+  "results": [
+    {
+      "scenarioId": "restaurant-ai-ambiguous",
+      "title": "Belirsiz restoran AI sistemi",
+      "category": "ambiguous",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "target-user"
+      ],
+      "questions": [
+        "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?"
+      ],
+      "metrics": {
+        "concernRecall": 1,
+        "initialTargetUserTermRecall": 1,
+        "questionsAsked": 1,
+        "correctionFields": 8,
+        "interpretationConfidence": 51,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    },
+    {
+      "scenarioId": "solo-team-conflict",
+      "title": "Bireysel ve ekip kapsamı çatışması",
+      "category": "adversarial",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "target-user",
+        "scope-conflict"
+      ],
+      "questions": [
+        "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
+        "Çelişen kullanım ya da veri sınırlarından hangisi MVP için zorunlu; hangisi kapsam dışında kalacak?"
+      ],
+      "metrics": {
+        "concernRecall": 0.6666666666666666,
+        "initialTargetUserTermRecall": 0,
+        "questionsAsked": 2,
+        "correctionFields": 8,
+        "interpretationConfidence": 59,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    },
+    {
+      "scenarioId": "impossible-reliability",
+      "title": "Mutlak güvenilirlik beklentisi",
+      "category": "adversarial",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "target-user",
+        "over-broad",
+        "feasibility"
+      ],
+      "questions": [
+        "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
+        "Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?",
+        "Mutlak başarı iddiası yerine hangi ölçülebilir performans, doğruluk veya güvenilirlik eşiği kabul edilebilir?"
+      ],
+      "metrics": {
+        "concernRecall": 1,
+        "initialTargetUserTermRecall": 0,
+        "questionsAsked": 3,
+        "correctionFields": 8,
+        "interpretationConfidence": 40,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    },
+    {
+      "scenarioId": "premature-stack-lock",
+      "title": "Erken teknoloji kilidi",
+      "category": "adversarial",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "target-user",
+        "over-broad",
+        "premature-tech"
+      ],
+      "questions": [
+        "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
+        "Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?",
+        "Belirtilen teknoloji zorunlu bir kısıt mı, yoksa problem ve MVP netleşince karşılaştırılabilecek bir tercih mi?"
+      ],
+      "metrics": {
+        "concernRecall": 1,
+        "initialTargetUserTermRecall": 0,
+        "questionsAsked": 3,
+        "correctionFields": 8,
+        "interpretationConfidence": 44,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    },
+    {
+      "scenarioId": "sensitive-health-data",
+      "title": "Hassas sağlık verisi",
+      "category": "adversarial",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "sensitive-data"
+      ],
+      "questions": [
+        "İlk sürüm hangi hassas verileri gerçekten işleyecek, hangilerini hiç toplamamalı ve doğrulama sorumluluğu kimde olacak?"
+      ],
+      "metrics": {
+        "concernRecall": 1,
+        "initialTargetUserTermRecall": 0.5,
+        "questionsAsked": 1,
+        "correctionFields": 8,
+        "interpretationConfidence": 60,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    },
+    {
+      "scenarioId": "multi-platform-overreach",
+      "title": "Aynı anda üç platform",
+      "category": "adversarial",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "target-user",
+        "over-broad",
+        "multi-platform"
+      ],
+      "questions": [
+        "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
+        "Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?",
+        "MVP için birincil platform hangisi; diğer platformlar hangi doğrulamadan sonra kapsama alınacak?"
+      ],
+      "metrics": {
+        "concernRecall": 1,
+        "initialTargetUserTermRecall": 0,
+        "questionsAsked": 3,
+        "correctionFields": 8,
+        "interpretationConfidence": 40,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    },
+    {
+      "scenarioId": "mvp-future-mixed",
+      "title": "MVP ve gelecek kapsamı karışımı",
+      "category": "adversarial",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "target-user",
+        "over-broad",
+        "mvp-future-mix"
+      ],
+      "questions": [
+        "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
+        "Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?",
+        "Hangi maddeler MVP içinde kalacak, hangi maddeler açıkça sonraki sürüme veya kapsam dışına taşınacak?"
+      ],
+      "metrics": {
+        "concernRecall": 1,
+        "initialTargetUserTermRecall": 0,
+        "questionsAsked": 3,
+        "correctionFields": 8,
+        "interpretationConfidence": 49,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    },
+    {
+      "scenarioId": "local-first-ai-docs",
+      "title": "Local-first AI doküman aracı",
+      "category": "ambiguous",
+      "passed": true,
+      "failures": [],
+      "detectedConcerns": [
+        "scope-conflict"
+      ],
+      "questions": [
+        "Çelişen kullanım ya da veri sınırlarından hangisi MVP için zorunlu; hangisi kapsam dışında kalacak?"
+      ],
+      "metrics": {
+        "concernRecall": 1,
+        "initialTargetUserTermRecall": 1,
+        "questionsAsked": 1,
+        "correctionFields": 8,
+        "interpretationConfidence": 60,
+        "prematureTechnicalDecisions": 0,
+        "canonicalScopeCoverage": 1,
+        "outOfScopeCoverage": 1,
+        "autoConfirmed": false,
+        "agreementReadyAfterUserCorrection": true
+      }
+    }
+  ],
+  "aggregate": {
+    "concernRecall": 0.9583333333333333,
+    "initialTargetUserTermRecall": 0.3125,
+    "averageQuestionsAsked": 2.125,
+    "averageCorrectionFields": 8,
+    "automaticConfirmationCount": 0,
+    "prematureTechnicalDecisionCount": 0
+  }
+}

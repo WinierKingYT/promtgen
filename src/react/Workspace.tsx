@@ -19,6 +19,12 @@ import type { ProjectDocumentV5 } from '../v4/contracts.js';
 import type { ProviderSettings } from '../v4/provider-settings.js';
 import type { CredentialVault } from '../v4/credential-vault.js';
 import { prepareDiscoveryTurnProject } from '../v4/application/discovery-service.js';
+import {
+  applyDiscoveryAnswerDraft,
+  createDiscoveryAnswerDraft,
+  type DiscoveryAnswerDraft
+} from '../v4/application/discovery-answer-service.js';
+import { DiscoveryAnswerReview } from './components/DiscoveryAnswerReview.js';
 
 
 type Project = ProjectDocumentV5;
@@ -187,6 +193,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const [changeImpactMode, setChangeImpactMode] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState(false);
   const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false);
+  const [discoveryAnswerDraft, setDiscoveryAnswerDraft] = useState<DiscoveryAnswerDraft | null>(null);
+  useEffect(() => setDiscoveryAnswerDraft(null), [project.id]);
 
   const [confirmingClearChat, setConfirmingClearChat] = useState(false);
 
@@ -201,10 +209,14 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const impactedSections = useMemo(() => new Set((changePreview?.sections || []).map((section: any) => section.sectionId)), [changePreview]);
   const active = project.sections[activeSection];
   useEffect(() => setDraft(active?.content || ''), [activeSection, project.id, active?.content]);
-  const commit = async (next: Project, message?: string, commandType = 'UpdateProject') => {
+  const persistCandidate = async (next: Project, message?: string, commandType = 'UpdateProject') => {
     const persisted = await onPersist(next, commandType);
-    if (!persisted) return;
+    if (!persisted) return false;
     if (message) { setNotice(message); window.setTimeout(() => setNotice(''), 2800); }
+    return true;
+  };
+  const commit = async (next: Project, message?: string, commandType = 'UpdateProject') => {
+    await persistCandidate(next, message, commandType);
   };
   const status = (suggestionId: string, nextStatus: string, edited = '') => {
     if (!currentBundle) return;
@@ -240,9 +252,14 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       const memory = providerSettings.useLocalMemory ? buildLocalPlanningMemory(projects, project.id) : null;
       const target = prepareDiscoveryTurnProject(project, currentBundle?.id);
       const result = await runConversationalDiscoveryTurn(target, { settings: providerSettings, credential, message, focusedQuestion, memory } as any);
+      const answerDraft = createDiscoveryAnswerDraft(
+        { ...result.project, documentRevision: project.documentRevision + 1 },
+        { answer: message, focusedQuestion }
+      );
       setDirection('');
       setFocusedQuestion('');
-      commit(result.project, result.usedFallback && result.error ? `AI yanıtladı (yerel motor): ${result.error}` : `${getProviderMeta(providerSettings.providerId).label} mesajını yanıtladı ve yeni kararları hazırladı.`, 'AddDiscoveryTurn');
+      const saved = await persistCandidate(result.project, result.usedFallback && result.error ? `AI yanıtladı (yerel motor): ${result.error}` : `${getProviderMeta(providerSettings.providerId).label} mesajını yanıtladı ve yeni kararları hazırladı.`, 'AddDiscoveryTurn');
+      if (saved) setDiscoveryAnswerDraft(answerDraft);
     } finally { setGenerating(false); }
   };
   const saveSection = () => {
@@ -283,7 +300,10 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const pendingCount = bundleResolved ? 0 : currentBundle?.items.filter((x: any) => x.status === 'pending').length || 0;
   const decisionComplete = !bundleResolved && pendingCount === 0;
   const bundleSource = currentBundle?.source?.type === 'ai' ? getProviderMeta(currentBundle.source.providerId).label : 'Yerel motor';
-  const openQuestions = [...new Set((project.openQuestions || []).filter(Boolean))] as string[];
+  const openQuestions = [...new Set([
+    ...(project.openQuestions || []),
+    ...(project.ideaLabSession?.conceptSummary?.openQuestions || [])
+  ].filter(Boolean))] as string[];
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
 
   return <div className="app-shell">
@@ -378,6 +398,22 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             </div>
 
             <ArchitectSmartTipsWidget project={project} />
+
+            {discoveryAnswerDraft && <DiscoveryAnswerReview
+              draft={discoveryAnswerDraft}
+              onChange={setDiscoveryAnswerDraft}
+              onDiscard={() => setDiscoveryAnswerDraft(null)}
+              onApply={() => {
+                const result = applyDiscoveryAnswerDraft(project, discoveryAnswerDraft);
+                if (!result.success) {
+                  setNotice(result.reason);
+                  window.setTimeout(() => setNotice(''), 3600);
+                  return;
+                }
+                persistCandidate(result.project, `${result.appliedFields.length} yanıt alanı sistem yorumuna uygulandı.`, 'UpdateConceptAgreement')
+                  .then(saved => { if (saved) setDiscoveryAnswerDraft(null); });
+              }}
+            />}
 
             <div className="message-log" role="log" aria-live="polite" aria-label="Keşif konuşması" style={{ maxHeight: expandedHistory ? '500px' : '260px', overflowY: 'auto' }}>
               {(expandedHistory ? project.messages : project.messages.slice(-6)).map((message: any) => (

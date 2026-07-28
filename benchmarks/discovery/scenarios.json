@@ -1,0 +1,170 @@
+[
+  {
+    "version": 1,
+    "id": "restaurant-ai-ambiguous",
+    "title": "Belirsiz restoran AI sistemi",
+    "category": "ambiguous",
+    "rawIdea": "Restoranlar için yapay zekâ destekli bir sistem yapmak istiyorum.",
+    "simulatedClarification": "Restoran sahibinin günlük stok kaybını görmesini sağlayan web aracı; ilk sürüm yalnız stok uyarısı üretecek.",
+    "expectedConcerns": ["target-user"],
+    "reference": {
+      "summary": "Restoran sahibinin kritik stok kayıplarını erken görmesini sağlayan yerel odaklı web aracı.",
+      "targetUser": "Küçük restoran sahibi veya stoktan sorumlu operasyon çalışanı",
+      "targetUserTerms": ["restoran"],
+      "problemStatement": "Stok kaybı ve kritik eksikler gün sonunda manuel sayım yapılana kadar fark edilmiyor.",
+      "currentAlternative": "Kâğıt liste ve elektronik tabloyla manuel stok takibi",
+      "desiredOutcome": "Kritik stok eşiği aşıldığında restoran sahibinin aynı gün uyarı alması",
+      "confirmedFeatures": ["Stok kalemi kaydı", "Kritik eşik uyarısı", "Günlük kayıp özeti"],
+      "outOfScope": ["Otomatik satın alma", "Müşteri öneri motoru"],
+      "mvpTarget": "Tek restoranın kritik stoklarını web arayüzünden izleyebildiği ilk sürüm"
+    },
+    "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 75 }
+  },
+  {
+    "version": 1,
+    "id": "solo-team-conflict",
+    "title": "Bireysel ve ekip kapsamı çatışması",
+    "category": "adversarial",
+    "rawIdea": "Tamamen kişisel kullanacağım basit görev uygulaması olsun ama ekip paylaşımı, roller ve gerçek zamanlı işbirliği de zorunlu.",
+    "simulatedClarification": "İlk sürüm yalnız bireysel görev takibi; ekip özellikleri sonraki sürüm.",
+    "expectedConcerns": ["target-user", "scope-conflict", "over-broad"],
+    "reference": {
+      "summary": "Bireysel geliştiricinin günlük görevlerini yerel olarak takip ettiği sade uygulama.",
+      "targetUser": "Günlük işlerini tek başına yöneten bireysel geliştirici",
+      "targetUserTerms": ["geliştirici"],
+      "problemStatement": "Kişisel görevler dağınık notlarda kayboluyor ve öncelik sırası korunamıyor.",
+      "currentAlternative": "Metin dosyaları ve genel amaçlı yapılacaklar listeleri",
+      "desiredOutcome": "Kullanıcının güncel görevini ve sıradaki işi tek ekranda görmesi",
+      "confirmedFeatures": ["Görev oluşturma", "Öncelik belirleme", "Tamamlandı işaretleme"],
+      "outOfScope": ["Ekip paylaşımı", "Rol yönetimi", "Gerçek zamanlı işbirliği"],
+      "mvpTarget": "Tek kullanıcılı yerel görev takip akışı"
+    },
+    "thresholds": { "minimumConcernRecall": 0.66, "maximumInterpretationConfidence": 65 }
+  },
+  {
+    "version": 1,
+    "id": "impossible-reliability",
+    "title": "Mutlak güvenilirlik beklentisi",
+    "category": "adversarial",
+    "rawIdea": "Milyonlarca isteği anında karşılayan, yüzde 100 hatasız, asla çökmeyen ve sıfır maliyetli bir API yapmak istiyorum.",
+    "simulatedClarification": "İlk hedef saniyede 100 istek, yüzde 99,9 erişilebilirlik ve ölçülebilir hata bütçesi.",
+    "expectedConcerns": ["target-user", "over-broad", "feasibility"],
+    "reference": {
+      "summary": "Küçük geliştirici ekipleri için ölçülebilir güvenilirlik hedefleri olan REST API.",
+      "targetUser": "API üzerinden veri işleyen küçük yazılım ekibindeki geliştirici",
+      "targetUserTerms": ["geliştirici"],
+      "problemStatement": "Mevcut servis değişken yükte gecikiyor ve hata bütçesi görünür değil.",
+      "currentAlternative": "İzleme ve kapasite hedefi olmayan tek sunucu servisi",
+      "desiredOutcome": "Saniyede 100 istekte yüzde 99,9 erişilebilirliğin ölçülmesi",
+      "confirmedFeatures": ["REST endpoint", "Hata bütçesi ölçümü", "Sağlık kontrolü"],
+      "outOfScope": ["Milyonlarca anlık istek", "Sıfır maliyet garantisi"],
+      "mvpTarget": "Ölçülebilir performans ve erişilebilirlik hedefli tek servis"
+    },
+    "thresholds": { "minimumConcernRecall": 0.66, "maximumInterpretationConfidence": 65 }
+  },
+  {
+    "version": 1,
+    "id": "premature-stack-lock",
+    "title": "Erken teknoloji kilidi",
+    "category": "adversarial",
+    "rawIdea": "Next.js, PostgreSQL, Redis, Kafka ve mikroservis kullanarak küçük bir mahalle duyuru panosu yapacağım.",
+    "simulatedClarification": "Tek mahallede duyuru yayınlama ve okuma; teknoloji ihtiyaca göre sadeleştirilebilir.",
+    "expectedConcerns": ["target-user", "over-broad", "premature-tech"],
+    "reference": {
+      "summary": "Mahalle sakinlerinin yerel duyuruları yayınlayıp okuyabildiği sade web panosu.",
+      "targetUser": "Aynı mahallede yaşayan ve yerel duyuruları takip eden sakin",
+      "targetUserTerms": ["mahalle"],
+      "problemStatement": "Yerel duyurular farklı mesaj gruplarında kayboluyor.",
+      "currentAlternative": "Dağınık mesaj grupları ve fiziksel ilan panosu",
+      "desiredOutcome": "Güncel mahalle duyurularının tek yerde bulunması",
+      "confirmedFeatures": ["Duyuru yayınlama", "Duyuru listeleme", "Süre dolumu"],
+      "outOfScope": ["Mikroservis ayrıştırması", "Gerçek zamanlı mesajlaşma"],
+      "mvpTarget": "Tek mahalle için temel web duyuru akışı"
+    },
+    "thresholds": { "minimumConcernRecall": 0.66, "maximumInterpretationConfidence": 70 }
+  },
+  {
+    "version": 1,
+    "id": "sensitive-health-data",
+    "title": "Hassas sağlık verisi",
+    "category": "adversarial",
+    "rawIdea": "Hastaların sağlık, kimlik ve konum verilerini toplayıp doktora öneri veren mobil uygulama yapmak istiyorum.",
+    "simulatedClarification": "İlk sürüm klinik öneri vermeyecek; hasta yalnız randevu öncesi kendi notunu cihazında tutacak.",
+    "expectedConcerns": ["sensitive-data"],
+    "reference": {
+      "summary": "Hastanın randevu öncesi kendi semptom notunu cihazında tuttuğu local-first mobil araç.",
+      "targetUser": "Doktor randevusuna hazırlanan yetişkin hasta",
+      "targetUserTerms": ["sağlık", "hasta"],
+      "problemStatement": "Hasta randevu öncesi gözlemlerini düzenli biçimde hatırlayamıyor.",
+      "currentAlternative": "Kâğıt not veya telefonun genel not uygulaması",
+      "desiredOutcome": "Hastanın kendi notlarını randevu öncesi düzenli görmesi",
+      "confirmedFeatures": ["Yerel semptom notu", "Tarih kaydı", "Kullanıcı kontrollü silme"],
+      "outOfScope": ["Klinik öneri", "Kimlik ve konum toplama", "Doktora otomatik veri gönderme"],
+      "mvpTarget": "Veriyi cihazdan çıkarmayan kişisel randevu hazırlık akışı"
+    },
+    "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 75 }
+  },
+  {
+    "version": 1,
+    "id": "multi-platform-overreach",
+    "title": "Aynı anda üç platform",
+    "category": "adversarial",
+    "rawIdea": "Web, mobil Android iOS ve masaüstü uygulaması aynı anda çıksın; çevrimdışı çalışsın ve her şey senkron olsun.",
+    "simulatedClarification": "Önce web PWA; mobil ve masaüstü ancak web akışı doğrulandıktan sonra.",
+    "expectedConcerns": ["target-user", "over-broad", "multi-platform"],
+    "reference": {
+      "summary": "Saha çalışanının çevrimdışı kayıt oluşturabildiği web PWA.",
+      "targetUser": "Sahada bağlantısı kesilebilen operasyon çalışanı",
+      "targetUserTerms": ["çalışan"],
+      "problemStatement": "Bağlantı kesildiğinde saha kayıtları kayboluyor veya erteleniyor.",
+      "currentAlternative": "Kâğıt form ve bağlantı gelince manuel veri girişi",
+      "desiredOutcome": "Çalışanın çevrimdışı kaydı saklayıp bağlantıda göndermesi",
+      "confirmedFeatures": ["PWA kayıt formu", "Yerel taslak", "Tek yönlü senkronizasyon"],
+      "outOfScope": ["Yerel mobil uygulama", "Masaüstü uygulaması", "Çift yönlü çakışma çözümü"],
+      "mvpTarget": "Web PWA üzerinde çevrimdışı tek kayıt akışı"
+    },
+    "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 65 }
+  },
+  {
+    "version": 1,
+    "id": "mvp-future-mixed",
+    "title": "MVP ve gelecek kapsamı karışımı",
+    "category": "adversarial",
+    "rawIdea": "Önce basit e-ticaret MVP yapalım ama gelişmiş analitik, global marketplace ve kurumsal raporlama da ilk sürümde hazır olsun.",
+    "simulatedClarification": "İlk sürüm tek mağazada ürün listeleme ve sipariş talebi; diğerleri kapsam dışı.",
+    "expectedConcerns": ["target-user", "over-broad", "mvp-future-mix"],
+    "reference": {
+      "summary": "Tek mağazanın ürünlerini gösterip sipariş talebi alabildiği e-ticaret MVP.",
+      "targetUser": "Ürünlerini çevrimiçi sunmak isteyen küçük mağaza sahibi",
+      "targetUserTerms": ["mağaza"],
+      "problemStatement": "Küçük mağaza ürünlerini çevrimiçi sergileyip sipariş talebi alamıyor.",
+      "currentAlternative": "Sosyal medya mesajı ve telefonla sipariş",
+      "desiredOutcome": "Müşterinin ürün görüp sipariş talebi bırakması",
+      "confirmedFeatures": ["Ürün listesi", "Ürün detayı", "Sipariş talebi"],
+      "outOfScope": ["Global marketplace", "Gelişmiş analitik", "Kurumsal raporlama"],
+      "mvpTarget": "Tek mağazalı sipariş talebi akışı"
+    },
+    "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 65 }
+  },
+  {
+    "version": 1,
+    "id": "local-first-ai-docs",
+    "title": "Local-first AI doküman aracı",
+    "category": "ambiguous",
+    "rawIdea": "Geliştiriciler için dokümanları analiz eden local-first AI aracı yapmak istiyorum ama bütün dosyaları buluta da gönderebilir.",
+    "simulatedClarification": "Varsayılan yerel analiz; buluta yalnız kullanıcının seçtiği filtrelenmiş özet gider.",
+    "expectedConcerns": ["scope-conflict"],
+    "reference": {
+      "summary": "Geliştiricinin seçtiği dokümanları yerelde özetleyen ve bulut gönderimini açık onaya bağlayan araç.",
+      "targetUser": "Kod ve teknik dokümanlarla çalışan bireysel geliştirici",
+      "targetUserTerms": ["geliştirici"],
+      "problemStatement": "Teknik dokümanlar arasında ilgili kararları bulmak zaman alıyor.",
+      "currentAlternative": "Manuel arama ve genel amaçlı bulut sohbeti",
+      "desiredOutcome": "İlgili doküman özetinin hassas içerik gönderilmeden bulunması",
+      "confirmedFeatures": ["Yerel dosya seçimi", "Yerel özet", "Gönderim önizlemesi"],
+      "outOfScope": ["Kontrolsüz tam dosya yükleme", "Otomatik kod değiştirme"],
+      "mvpTarget": "Tek klasörde yerel doküman özetleme akışı"
+    },
+    "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 75 }
+  }
+]

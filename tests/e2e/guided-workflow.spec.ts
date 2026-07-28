@@ -58,6 +58,32 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(questionRecord).toHaveClass(/status-accepted/);
   });
 
+  test('a focused discovery answer requires field-by-field approval before changing the interpretation', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin dağınık görevlerini yerel bir web uygulamasında düzenlemek ve ilk sürümde yalnız günlük önceliklerini göstermek istiyorum.'
+    );
+    await page.getByRole('button', { name: 'Fikri analiz et' }).click();
+
+    const question = page.locator('.open-question-list button').filter({ hasText: /kullanıcı|kim/i }).first();
+    await expect(question).toBeVisible();
+    await question.click();
+    await page.locator('#discovery-direction').fill('Her gün AI kodlama araçları kullanan bireysel geliştirici');
+    await page.getByRole('button', { name: 'Gönder', exact: true }).click();
+
+    const review = page.locator('.discovery-answer-review');
+    await expect(review.getByText('Yanıtından çıkarılan değişiklikleri incele')).toBeVisible();
+    await expect(review.getByText('Yerel alan eşleyici')).toBeVisible();
+    await expect(review.getByRole('button', { name: /alanı sistem yorumuna uygula/ })).toBeDisabled();
+
+    await review.locator('.answer-patch').first().getByRole('button', { name: 'Kabul' }).click();
+    await review.locator('.answer-patch').last().getByRole('button', { name: 'Kabul' }).click();
+    await review.getByRole('button', { name: '2 alanı sistem yorumuna uygula' }).click();
+
+    await expect(review).toBeHidden();
+    await expect(page.locator('.concept-agreement .agreement-primary textarea').nth(1)).toHaveValue('Her gün AI kodlama araçları kullanan bireysel geliştirici');
+    await expect(page.locator('.toast')).toContainText(/yanıt alanı sistem yorumuna uygulandı/i);
+  });
+
   test('system interpretation stays draft until MVP scope is completed and explicitly approved', async ({ page }) => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Bireysel geliştiricilerin dağınık fikirlerini yerel olarak MVP kapsamına ve uygulanabilir görevlere dönüştüren bir web uygulaması yapmak istiyorum.'

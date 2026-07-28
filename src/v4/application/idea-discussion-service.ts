@@ -14,6 +14,146 @@ const MAX_RECORD_TEXT = 600;
 const MAX_DETAIL_TEXT = 2400;
 const INTERPRETATION_FIELDS = ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'mvpTarget'] as const;
 
+export type DiscoveryConcernId =
+  | 'target-user'
+  | 'scope-conflict'
+  | 'over-broad'
+  | 'feasibility'
+  | 'premature-tech'
+  | 'sensitive-data'
+  | 'multi-platform'
+  | 'mvp-future-mix';
+
+export interface DiscoveryConcern {
+  id: DiscoveryConcernId;
+  severity: 'medium' | 'high';
+  evidence: string;
+  question: string;
+}
+
+export interface DiscoverySignalAnalysis {
+  concerns: DiscoveryConcern[];
+  platforms: string[];
+  featureSignals: number;
+  confidencePenalty: number;
+}
+
+function includesEitherOrder(text: string, left: RegExp, right: RegExp): boolean {
+  return (left.test(text) && right.test(text));
+}
+
+export function analyzeDiscoverySignals(project: ProjectDocumentV5): DiscoverySignalAnalysis {
+  const idea = String(project.identity.originalIdea || project.identity.summary || '').trim();
+  const text = idea.toLocaleLowerCase('tr-TR');
+  const concerns: DiscoveryConcern[] = [];
+  const add = (concern: DiscoveryConcern) => {
+    if (!concerns.some(item => item.id === concern.id)) concerns.push(concern);
+  };
+  const platformSignals = [
+    ['web', /\bweb\b|tarayıcı|browser|site|saas/],
+    ['mobile', /mobil|mobile|android|ios/],
+    ['desktop', /masaüstü|desktop|tauri|electron/]
+  ] as const;
+  const platforms = platformSignals.filter(([, pattern]) => pattern.test(text)).map(([name]) => name);
+  const featureSignals = Math.max(1, (text.match(/,|;|\bve\b|\bile\b|\bayrıca\b|\bhem\b|\bsonra\b/g) || []).length + 1);
+
+  if (!/oyuncu|geliştirici|developer|doktor|öğrenci|yönetici|çalışan|müşteri|ebeveyn|öğretmen|operatör|proje sahibi/.test(text)) {
+    add({
+      id: 'target-user',
+      severity: 'high',
+      evidence: 'Ham fikir açık bir birincil kullanıcı rolü belirtmiyor.',
+      question: 'Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?'
+    });
+  }
+  if (
+    includesEitherOrder(text, /tek kullanıcı|kişisel|bireysel|yalnız/, /ekip|takım|çok kullanıcılı|paylaşım|işbirliği/) ||
+    includesEitherOrder(text, /local.?first|yerel|cihazda/, /bulut|cloud|sunucuya gönder|yükle/)
+  ) {
+    add({
+      id: 'scope-conflict',
+      severity: 'high',
+      evidence: 'Birbiriyle çelişebilecek kullanım veya veri sınırları aynı fikirde birlikte geçiyor.',
+      question: 'Çelişen kullanım ya da veri sınırlarından hangisi MVP için zorunlu; hangisi kapsam dışında kalacak?'
+    });
+  }
+  const technologySignals = (text.match(/react|next\.?js|vue|angular|svelte|tauri|electron|flutter|postgres|mongodb|redis|kafka|microservice|mikroservis/g) || []).length;
+  if (
+    /her şey|her türlü|tüm platform|eksiksiz|devasa|uçtan uca|milyonlarca/.test(text) ||
+    featureSignals >= 7 ||
+    technologySignals >= 4 ||
+    (/mvp|ilk sürüm/.test(text) && (text.match(/analitik|marketplace|rapor|global|kurumsal/g) || []).length >= 2)
+  ) {
+    add({
+      id: 'over-broad',
+      severity: 'high',
+      evidence: `${featureSignals} ayrı özellik veya kapsam sinyali bulundu.`,
+      question: 'Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?'
+    });
+  }
+  if (/yüzde\s*100|%100|sıfır hata|hatasız|asla çök|anında|sınırsız|garanti|imkansız|imkânsız/.test(text)) {
+    add({
+      id: 'feasibility',
+      severity: 'high',
+      evidence: 'Mutlak veya teknik olarak doğrulanması zor bir başarı iddiası bulundu.',
+      question: 'Mutlak başarı iddiası yerine hangi ölçülebilir performans, doğruluk veya güvenilirlik eşiği kabul edilebilir?'
+    });
+  }
+  if (/react|next\.?js|vue|angular|svelte|tauri|electron|flutter|kotlin|swift|postgres|mongodb|sqlite|microservice|mikroservis/.test(text)) {
+    add({
+      id: 'premature-tech',
+      severity: 'medium',
+      evidence: 'İhtiyaç ve kapsam doğrulanmadan teknoloji veya mimari tercihi belirtilmiş.',
+      question: 'Belirtilen teknoloji zorunlu bir kısıt mı, yoksa problem ve MVP netleşince karşılaştırılabilecek bir tercih mi?'
+    });
+  }
+  if (/sağlık|health|hasta|klinik|ödeme|payment|kart|finans|banka|kimlik|biyometr|kişisel veri|çocuk|konum/.test(text)) {
+    add({
+      id: 'sensitive-data',
+      severity: 'high',
+      evidence: 'Hassas veya düzenlemeye tabi olabilecek veri sinyali bulundu.',
+      question: 'İlk sürüm hangi hassas verileri gerçekten işleyecek, hangilerini hiç toplamamalı ve doğrulama sorumluluğu kimde olacak?'
+    });
+  }
+  if (platforms.length >= 2) {
+    add({
+      id: 'multi-platform',
+      severity: 'high',
+      evidence: `Birden fazla platform hedefi bulundu: ${platforms.join(', ')}.`,
+      question: 'MVP için birincil platform hangisi; diğer platformlar hangi doğrulamadan sonra kapsama alınacak?'
+    });
+  }
+  if (
+    /mvp|ilk sürüm|basit|önce/.test(text) &&
+    /ileride|sonra|marketplace|gelişmiş|analitik|rapor|çok oyunculu|multi.?player|global|kurumsal/.test(text)
+  ) {
+    add({
+      id: 'mvp-future-mix',
+      severity: 'high',
+      evidence: 'MVP hedefleri ile sonraki sürüm özellikleri aynı fikir içinde karışmış.',
+      question: 'Hangi maddeler MVP içinde kalacak, hangi maddeler açıkça sonraki sürüme veya kapsam dışına taşınacak?'
+    });
+  }
+
+  return {
+    concerns,
+    platforms,
+    featureSignals,
+    confidencePenalty: concerns.reduce((total, concern) => total + (concern.severity === 'high' ? 10 : 6), 0)
+  };
+}
+
+function inferTargetUser(idea: string, domainIds: string[]): string {
+  const text = idea.toLocaleLowerCase('tr-TR');
+  if (/restoran|kafe|cafe/.test(text)) return 'Restoran sahibi veya günlük operasyonu yöneten çalışan; kesin rol kullanıcı tarafından doğrulanmalı.';
+  if (/geliştirici|developer|kodlama|cursor|codex|claude code/.test(text)) return 'AI kodlama aracı kullanan bireysel geliştirici; deneyim seviyesi kullanıcı tarafından doğrulanmalı.';
+  if (/oyun|game|s&box|unity|unreal/.test(text) || domainIds.some(domain => domain.includes('game'))) return 'Oyunun temel döngüsünü deneyimleyecek oyuncu; kesin oyuncu profili kullanıcı tarafından doğrulanmalı.';
+  if (/doktor|hasta|klinik|sağlık/.test(text)) return 'Sağlık hizmeti kullanıcısı veya çalışanı; klinik rol ve doğrulama sınırı kullanıcı tarafından kesinleştirilmeli.';
+  if (/yönetim|admin|operasyon|iç araç/.test(text)) return 'Günlük operasyonu yürüten yönetici veya çalışan; birincil rol kullanıcı tarafından doğrulanmalı.';
+  if (/mobil|android|ios/.test(text) || domainIds.some(domain => domain.includes('mobile'))) return 'Ürünün temel işini telefonundan tamamlamak isteyen bireysel kullanıcı; kesin persona kullanıcı tarafından doğrulanmalı.';
+  if (/web|saas|panel|site|api/.test(text) || domainIds.some(domain => domain.includes('web'))) return 'Web üzerinden temel iş akışını tamamlayan bireysel kullanıcı veya küçük ekip üyesi; tek persona kullanıcı tarafından seçilmeli.';
+  return 'Bu ihtiyacı düzenli yaşayan birincil kullanıcı; kesin persona kullanıcı tarafından doğrulanmalı.';
+}
+
 function ensureState(project: ProjectDocumentV5): ProjectDocumentV5 {
   const next = structuredClone(project);
   next.ideaDiscussion ||= { mode: 'explore', records: [], updatedAt: new Date().toISOString() };
@@ -227,16 +367,11 @@ export function createInitialConceptInterpretation(project: ProjectDocumentV5): 
   const idea = String(project.identity.originalIdea || project.identity.summary || 'Proje fikri').trim();
   const text = idea.toLocaleLowerCase('tr-TR');
   const domainIds = (project.profile?.domains || []).map(domain => String(domain.name || '').toLowerCase());
+  const signalAnalysis = analyzeDiscoverySignals(project);
   const isGame = domainIds.some(domain => domain.includes('game') || domain.includes('oyun')) || /oyun|game|s&box|unity|unreal/.test(text);
   const isMobile = domainIds.some(domain => domain.includes('mobile')) || /mobil|android|ios/.test(text);
   const isWeb = domainIds.some(domain => domain.includes('web')) || /web|saas|panel|site|api/.test(text);
-  const targetUser = isGame
-    ? 'Oyunun temel döngüsünü deneyimleyecek oyuncu; kesin oyuncu profili kullanıcı tarafından doğrulanmalı.'
-    : isMobile
-      ? 'Ürünün temel işini telefonundan tamamlamak isteyen bireysel kullanıcı; kesin persona kullanıcı tarafından doğrulanmalı.'
-      : isWeb
-        ? 'Web üzerinden temel iş akışını tamamlamak isteyen bireysel kullanıcı veya küçük ekip üyesi; kesin persona kullanıcı tarafından doğrulanmalı.'
-        : 'Bu ihtiyacı düzenli yaşayan birincil kullanıcı; kesin persona kullanıcı tarafından doğrulanmalı.';
+  const targetUser = inferTargetUser(idea, domainIds);
   const confirmedFeatures = isGame
     ? ['Temel oynanış döngüsü', 'Oyuncu etkileşimi ve durum yönetimi']
     : isMobile
@@ -245,7 +380,7 @@ export function createInitialConceptInterpretation(project: ProjectDocumentV5): 
         ? ['Temel kullanıcı arayüzü', 'Veri modeli ve ana iş akışı']
         : ['Temel kullanıcı akışı', 'Çekirdek veri ve iş mantığı'];
   const signals = [idea.length >= 120, /,|;| ve | ile /.test(text), domainIds.length > 0].filter(Boolean).length;
-  const confidence = 48 + signals * 10;
+  const confidence = Math.max(25, Math.min(85, 52 + signals * 9 - signalAnalysis.confidencePenalty));
   return {
     summary: `PromtGen fikri şu şekilde yorumladı: ${idea}`,
     targetUser,
@@ -261,8 +396,13 @@ export function createInitialConceptInterpretation(project: ProjectDocumentV5): 
     confirmedFeatures,
     outOfScope: ['İleri seviye raporlama ve optimizasyon', 'Bulut senkronizasyonu ve çok kullanıcılı işbirliği'],
     technicalApproaches: [],
-    openQuestions: ['Birincil kullanıcı ve yaşadığı ana problem doğru yorumlandı mı?'],
-    knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
+    openQuestions: signalAnalysis.concerns.length
+      ? signalAnalysis.concerns.slice(0, 5).map(concern => concern.question)
+      : ['Birincil kullanıcı, yaşadığı ana problem ve ilk sürüm kapsamı doğru yorumlandı mı?'],
+    knownRisks: [
+      'Kapsamın kullanıcı doğrulaması olmadan genişlemesi',
+      ...signalAnalysis.concerns.filter(concern => concern.severity === 'high').map(concern => concern.evidence)
+    ],
     mvpTarget: `${idea.slice(0, 120)} fikrinin tek birincil kullanıcı akışını tamamlayan doğrulanabilir ilk sürümü`,
     userConfirmed: false
   };
