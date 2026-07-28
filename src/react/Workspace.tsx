@@ -22,13 +22,16 @@ import {
   createDiscoveryAnswerDraft,
   type DiscoveryAnswerDraft
 } from '../v4/application/discovery-answer-service.js';
+import {
+  applyIdeaPlanConversion,
+  type IdeaPlanConversionPreview
+} from '../v4/application/idea-plan-conversion-service.js';
 import { DiscoveryAnswerReview } from './components/DiscoveryAnswerReview.js';
 
 
 type Project = ProjectDocumentV5;
 const IdeaAmplifierPanel = lazy(() => import('./components/IdeaAmplifierPanel.js').then(module => ({ default: module.IdeaAmplifierPanel })));
 const IdeaLabPanel = lazy(() => import('./components/IdeaLabComponents.js').then(module => ({ default: module.IdeaLabPanel })));
-const ConceptSummaryPanel = lazy(() => import('./components/IdeaLabComponents.js').then(module => ({ default: module.ConceptSummaryPanel })));
 const ExtensionModulesPanel = lazy(() => import('./components/IdeaLabComponents.js').then(module => ({ default: module.ExtensionModulesPanel })));
 const ChangeImpactPanel = lazy(() => import('./components/ChangeImpactPanel.js').then(module => ({ default: module.ChangeImpactPanel })));
 const ResearchPanel = lazy(() => import('./components/ResearchPanel.js').then(module => ({ default: module.ResearchPanel })));
@@ -291,20 +294,34 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     ...(project.ideaLabSession?.conceptSummary?.openQuestions || [])
   ].filter(Boolean))] as string[];
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
+  const canonicalPlanningOpen = outcome === 'plan' && Boolean(project.ideaLabSession?.conceptSummary?.userConfirmed);
+  const convertIdeaToPlan = async (preview: IdeaPlanConversionPreview) => {
+    const result = applyIdeaPlanConversion(project, preview);
+    if (!result.success) {
+      setNotice(result.reason);
+      window.setTimeout(() => setNotice(''), 3600);
+      return false;
+    }
+    return persistCandidate(
+      result.project,
+      'Fikir belgesi onaylandı; hedef ve gereksinim taslakları canonical plana dönüştürüldü.',
+      'ConfirmIdeaPlanConversion'
+    );
+  };
 
   return <div className="app-shell">
     <a className="skip-link" href="#workspace-content">Ana içeriğe geç</a>
     <ProjectRail projects={projects} activeId={project.id} onSelect={onProject} onNew={onNew} open={railOpen} onClose={() => setRailOpen(false)}/>
     <main id="workspace-content" className="workspace" tabIndex={-1}>
-      <header className="topbar"><IconButton label="Projeleri aç" onClick={() => setRailOpen(true)}><Menu size={20}/></IconButton><div className="title-block"><span>{project.identity.name}</span><small><span className="live-dot"/> {outcome === 'plan' ? `r${project.canonicalRevision} · ${project.lifecycle.status === 'finalized' ? 'Final plan' : 'Canlı plan'}` : 'Fikir çalışma alanı'}</small></div><div className="phase-strip">{PHASE_REGISTRY.map((phase: any) => <span key={phase.id} className={phase.id === project.lifecycle.activePhase ? 'active' : ''}>{phase.label}</span>)}</div><div className="top-actions"><button onClick={() => setSettingsOpen(true)}><Settings2 size={16}/> AI</button>{outcome === 'plan' && <><button onClick={exportMarkdown}><Download size={16}/> Markdown</button><button onClick={exportPackage}><Archive size={16}/> Paket</button>{project.lifecycle.status === 'finalized' ? <button className="primary compact" onClick={() => commit(reopenPlan(project), 'Yeni bir plan sürümü açıldı.', 'ReopenPlan')}><RotateCcw size={15}/> Yeniden aç</button> : <button className="primary compact" onClick={finish}><Check size={15}/> Finalleştir</button>}</>}</div></header>
-      {outcome === 'plan' && <PhaseGuide phase={project.lifecycle.activePhase}/>}
+      <header className="topbar"><IconButton label="Projeleri aç" onClick={() => setRailOpen(true)}><Menu size={20}/></IconButton><div className="title-block"><span>{project.identity.name}</span><small><span className="live-dot"/> {canonicalPlanningOpen ? `r${project.canonicalRevision} · ${project.lifecycle.status === 'finalized' ? 'Final plan' : 'Canlı plan'}` : 'Fikir çalışma alanı'}</small></div><div className="phase-strip">{PHASE_REGISTRY.map((phase: any) => <span key={phase.id} className={phase.id === project.lifecycle.activePhase ? 'active' : ''}>{phase.label}</span>)}</div><div className="top-actions"><button onClick={() => setSettingsOpen(true)}><Settings2 size={16}/> AI</button>{canonicalPlanningOpen && <><button onClick={exportMarkdown}><Download size={16}/> Markdown</button><button onClick={exportPackage}><Archive size={16}/> Paket</button>{project.lifecycle.status === 'finalized' ? <button className="primary compact" onClick={() => commit(reopenPlan(project), 'Yeni bir plan sürümü açıldı.', 'ReopenPlan')}><RotateCcw size={15}/> Yeniden aç</button> : <button className="primary compact" onClick={finish}><Check size={15}/> Finalleştir</button>}</>}</div></header>
+      {canonicalPlanningOpen && <PhaseGuide phase={project.lifecycle.activePhase}/>}
       <IdeaOutcomeBar value={outcome} onChange={setOutcome}/>
       <div className={`workspace-grid outcome-${outcome}`}>
         <section className="conversation" aria-label="Planlama sohbeti">
           <div className="idea-summary"><div className="ai-avatar"><Sparkles size={18}/></div><div><div className="meta">FİKİR ANALİZİ</div><p>{project.identity.originalIdea}</p></div></div>
-          {outcome === 'guide' && <IdeaGuidePanel project={project}/>}
-          {outcome === 'plan' && <div className="depth-panel"><div><span className="meta">ÖNERİLEN PLAN DERİNLİĞİ</span><h2>{project.planningDepth.recommended.toUpperCase()} <span>{project.planningDepth.signals.score}/100 karmaşıklık</span></h2><p>{project.planningDepth.rationale}</p></div><label>Derinliği değiştir<select value={project.planningDepth.selected} onChange={event => commit(overridePlanningDepth(project, event.target.value as Project['planningDepth']['selected']))}>{depths.map(depth => <option key={depth.id} value={depth.id}>{depth.label} — {depth.detail}</option>)}</select></label></div>}
-          {outcome !== 'guide' && <>
+          {(outcome === 'guide' || (outcome === 'plan' && !canonicalPlanningOpen)) && <IdeaGuidePanel project={project} onCommit={commit} onConvert={convertIdeaToPlan} onOpenPlan={() => setOutcome('plan')}/>}
+          {canonicalPlanningOpen && <div className="depth-panel"><div><span className="meta">ÖNERİLEN PLAN DERİNLİĞİ</span><h2>{project.planningDepth.recommended.toUpperCase()} <span>{project.planningDepth.signals.score}/100 karmaşıklık</span></h2><p>{project.planningDepth.rationale}</p></div><label>Derinliği değiştir<select value={project.planningDepth.selected} onChange={event => commit(overridePlanningDepth(project, event.target.value as Project['planningDepth']['selected']))}>{depths.map(depth => <option key={depth.id} value={depth.id}>{depth.label} — {depth.detail}</option>)}</select></label></div>}
+          {(outcome === 'develop' || canonicalPlanningOpen) && <>
           {project.lifecycle.activePhase === 'IDEA_EXPANSION' && <LazyFeatureBoundary label="Fikir büyütücü" resetKey={project.id}><IdeaAmplifierPanel project={project} onCommit={commit} /></LazyFeatureBoundary>}
           {project.lifecycle.activePhase === 'IDEA_LAB' && (
             <>
@@ -325,7 +342,6 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             </>
           )}
 
-          {['DISCOVERY', 'CONCEPT_CONFIRMATION', 'IDEA_LAB'].includes(project.lifecycle.activePhase) && project.ideaLabSession?.conceptSummary && <LazyFeatureBoundary label="Sistem yorumu ve MVP kapsamı" resetKey={project.id}><ConceptSummaryPanel project={project} onCommit={commit} /></LazyFeatureBoundary>}
           {['SHAPING', 'DESIGN', 'PLANNING', 'REVIEW', 'READY'].includes(project.lifecycle.activePhase) && project.ideaLabSession?.conceptSummary?.userConfirmed && <RequirementQualityPanel project={project} onCommit={commit}/>}
           {project.impactAnalyses?.some(impact => impact.status === 'proposed') && <LazyFeatureBoundary label="Plan etki analizi" resetKey={project.documentRevision}><ChangeImpactPanel project={project} onCommit={commit} /></LazyFeatureBoundary>}
           {['DISCOVERY', 'IDEA_LAB', 'CONCEPT_CONFIRMATION'].includes(project.lifecycle.activePhase) && <IdeaDiscussionPanel project={project} onCommit={commit} />}
@@ -439,7 +455,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           <div className="bundle-actions"><span>{bundleResolved ? 'Bu karar turu plana işlendi; yukarıdan konuşmaya devam edebilirsin.' : pendingCount ? `${pendingCount} seçenek karar bekliyor · ${accepted} kabul` : `${accepted} seçenek plana uygulanacak`}</span><button disabled={!decisionComplete} className="primary" onClick={apply}>{accepted ? 'Seçimleri plana uygula' : 'Turu tamamla'} <ArrowRight size={17}/></button></div>
           </>}
         </section>
-        {outcome === 'plan' && <aside className="plan-panel" aria-label="Yaşayan plan">
+        {canonicalPlanningOpen && <aside className="plan-panel" aria-label="Yaşayan plan">
           <div className="readiness"><div className="score-ring" style={{ '--score': `${project.readiness.score * 3.6}deg` } as any}><span>{project.readiness.score}</span></div><div><span className="meta">HAZIRLIK SKORU</span><b>{project.readiness.score >= 80 ? 'Uygulamaya yakın' : project.readiness.score >= 50 ? 'Gelişiyor' : 'Şekilleniyor'}</b><small>{project.readiness.blockers.length} eksik · {project.readiness.warnings.length} uyarı</small></div><Gauge size={19}/></div>
           <ProjectHealthRadarCard project={project}/>
 

@@ -1,9 +1,7 @@
 import { useState, useMemo } from 'react';
-import { ArrowRight, Check, CheckCircle2, Layers, Lightbulb, Sparkles, Wand2, Activity, Telescope } from 'lucide-react';
-import { confirmConceptSummary, applyExtensionModules, runConceptSimulation, applyIdeaExpansion } from '../../v4/planning-engine.js';
+import { ArrowRight, Check, Layers, Lightbulb, Sparkles, Wand2, Telescope } from 'lucide-react';
+import { applyExtensionModules, runConceptSimulation, applyIdeaExpansion } from '../../v4/planning-engine.js';
 import { generateConceptSummary, generateExpansionDimensions } from '../../v4/ai-discovery.js';
-import { getConceptAgreementGate } from '../../v4/application/idea-discussion-service.js';
-import { ConceptAgreementEditor } from './ConceptAgreementEditor.js';
 
 function MetricBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -287,76 +285,6 @@ export function IdeaLabPanel({ project, onCommit, providerSettings }: any) {
           }}
         >
           {loading ? 'Konsept & Simülasyon Çalışıyor...' : 'Seçilen Yaklaşımla Konsept Özeti Oluştur'} <ArrowRight size={16} />
-        </button>
-      </div>
-    </section>
-  );
-}
-
-export function ConceptSummaryPanel({ project, onCommit }: any) {
-  const summary = project.ideaLabSession?.conceptSummary;
-  if (!summary) return null;
-
-  const sim = summary.simulationResult;
-  const agreementGate = getConceptAgreementGate(project);
-
-  const handleConfirm = () => {
-    const next = confirmConceptSummary(project);
-    onCommit(next, 'Sistem yorumu ve MVP kapsamı onaylandı. Canonical plan oluşturuldu!', 'ConfirmConceptSummary');
-  };
-
-  return (
-    <section className="concept-summary-card" style={{ background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '12px', padding: '20px', margin: '16px 0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-        <CheckCircle2 size={24} color="#10b981" />
-        <div>
-          <span style={{ fontSize: '11px', letterSpacing: '1px', color: '#10b981', fontWeight: 600 }}>YORUM → DÜZELT → ONAYLA</span>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#ecfdf5' }}>Sistem Yorumu ve MVP Kapsam Kapısı</h2>
-        </div>
-      </div>
-
-      {/* Simulation Predictions Card */}
-      {sim && (
-        <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '12px', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#93c5fd' }}>
-            <Activity size={18} />
-            <span style={{ fontSize: '13px', fontWeight: 600 }}>A/B Simülasyon Tahmin Raporu</span>
-          </div>
-          <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#e0f2fe' }}>
-            <span>Tahmini Görev: <b>~{sim.taskEstimate} iş paketi</b></span>
-            <span>Beklenen Risk: <b>{sim.riskCount} risk kaydı</b></span>
-            <span>Plan Hazırlık: <b>%{sim.completenessScore}</b></span>
-          </div>
-        </div>
-      )}
-
-      <ConceptAgreementEditor project={project} onCommit={onCommit}/>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        <span style={{ fontSize: '12px', color: '#9ca3af' }}>İlk Sürüm Hedefi: <b>{summary.mvpTarget}</b></span>
-        <button
-          onClick={handleConfirm}
-          disabled={!agreementGate.ready}
-          title={!agreementGate.ready ? `${agreementGate.unresolvedCount} fikir kaydı tamamlanmalı.` : undefined}
-          style={{
-            background: agreementGate.ready ? '#10b981' : '#4b5563',
-            color: '#fff',
-            border: 'none',
-            padding: '10px 22px',
-            borderRadius: '8px',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: agreementGate.ready ? 'pointer' : 'not-allowed',
-            opacity: agreementGate.ready ? 1 : 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <Check size={18} />
-          {agreementGate.ready
-            ? 'Yorumu Onayla ve Canonical Planı Başlat'
-            : `${agreementGate.unresolvedCount} yorum/kapsam maddesi tamamlanmalı`}
         </button>
       </div>
     </section>

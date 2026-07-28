@@ -30,9 +30,14 @@ test.describe('PromtGen V4 Smoke Tests', () => {
 
   test('create, save, reopen and canonical export smoke flow', async ({ page }) => {
     await page.goto('/');
-    await page.getByLabel('Ne yapmak istiyorsun?').fill('Yerel çalışan bir proje planlama aracı yapmak istiyorum');
+    await page.getByLabel('Ne yapmak istiyorsun?').fill('Bireysel geliştiricilerin fikirlerini yerel olarak onaylı MVP kapsamına ve uygulanabilir görevlere dönüştüren bir web uygulaması yapmak istiyorum');
     await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await page.getByRole('button', { name: /Rehber oluştur/ }).click();
+    await page.getByLabel('Açık kritik sorular').fill('');
+    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
     await page.getByRole('button', { name: /Detaylı planla/ }).click();
+    await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+    await page.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
     const editor = page.locator('.section-editor textarea');
     await editor.fill('Kullanıcının kısa fikrini onaylı kararlarla yaşayan plana dönüştür.');
     await page.getByRole('button', { name: 'Bölümü kaydet' }).click();
