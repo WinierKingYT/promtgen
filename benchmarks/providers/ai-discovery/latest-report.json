@@ -1,0 +1,259 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "ai-discovery-provider",
+  "completed": 7,
+  "passed": 7,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "endpoint-pinning",
+      "title": "Bulut endpoint sabitleme",
+      "intent": "Kullanıcıdan gelen baseUrl bulut sağlayıcıları için yok sayılmalı; istek yalnız resmi adrese gitmeli.",
+      "passed": true,
+      "assertionCount": 4,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "OpenAI isteği sabit resmi endpointe gitti",
+          "passed": true
+        },
+        {
+          "label": "Saldırgan baseUrl hiçbir isteğe sızmadı",
+          "passed": true
+        },
+        {
+          "label": "OpenAI baseUrl normalizasyonda sabitleniyor",
+          "passed": true
+        },
+        {
+          "label": "NVIDIA baseUrl normalizasyonda sabitleniyor",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "ollama-loopback-only",
+      "title": "Ollama yalnız loopback",
+      "intent": "Yerel sağlayıcı adresi SSRF yüzeyine dönüşmemeli; metadata IP, file:// ve loopback dışı host reddedilmeli.",
+      "passed": true,
+      "assertionCount": 8,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Reddedildi — Bulut metadata IP",
+          "passed": true
+        },
+        {
+          "label": "Reddedildi — Yerel dosya şeması",
+          "passed": true
+        },
+        {
+          "label": "Reddedildi — URL içinde kimlik bilgisi",
+          "passed": true
+        },
+        {
+          "label": "Reddedildi — Loopback dışı host",
+          "passed": true
+        },
+        {
+          "label": "Reddedildi — Ek yol eki",
+          "passed": true
+        },
+        {
+          "label": "Reddedildi — Sorgu parametresi",
+          "passed": true
+        },
+        {
+          "label": "Kabul edildi — Varsayılan loopback",
+          "passed": true
+        },
+        {
+          "label": "Kabul edildi — localhost adı",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "credential-isolation",
+      "title": "Kimlik bilgisi izolasyonu",
+      "intent": "API anahtarı yalnız başlıkta taşınmalı; URL, gövde veya proje bağlamı üzerinden sızmamalı.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "OpenAI kimlik bilgisi Authorization başlığında",
+          "passed": true
+        },
+        {
+          "label": "Gemini kimlik bilgisi x-goog-api-key başlığında",
+          "passed": true
+        },
+        {
+          "label": "Kimlik bilgisi hiçbir URL içinde geçmiyor",
+          "passed": true
+        },
+        {
+          "label": "Kimlik bilgisi hiçbir istek gövdesinde geçmiyor",
+          "passed": true
+        },
+        {
+          "label": "Proje bağlamındaki sır gövdeye taşınmadı",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "schema-failure-fallback",
+      "title": "Şema dışı yanıtta fallback",
+      "intent": "Sağlayıcı geçersiz yapı döndürdüğünde yerel kural motoru devralmalı ve etiket kalıcı olmalı.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Şema dışı yanıt — fallback devreye girdi",
+          "passed": true
+        },
+        {
+          "label": "Şema dışı yanıt — kaynak yerel olarak etiketlendi",
+          "passed": true
+        },
+        {
+          "label": "Şema dışı yanıt — fallback nedeni kaydedildi",
+          "passed": true
+        },
+        {
+          "label": "Şema dışı yanıt — kullanıcıya hata mesajı verildi",
+          "passed": true
+        },
+        {
+          "label": "Şema dışı yanıt — yine de kullanılabilir öneri üretildi",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "transport-failure-fallback",
+      "title": "Taşıma hatasında fallback",
+      "intent": "Ağ hatası ve HTTP 500 aynı fallback sözleşmesini üretmeli.",
+      "passed": true,
+      "assertionCount": 10,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Ağ hatası — fallback devreye girdi",
+          "passed": true
+        },
+        {
+          "label": "Ağ hatası — kaynak yerel olarak etiketlendi",
+          "passed": true
+        },
+        {
+          "label": "Ağ hatası — fallback nedeni kaydedildi",
+          "passed": true
+        },
+        {
+          "label": "Ağ hatası — kullanıcıya hata mesajı verildi",
+          "passed": true
+        },
+        {
+          "label": "Ağ hatası — yine de kullanılabilir öneri üretildi",
+          "passed": true
+        },
+        {
+          "label": "HTTP 500 — fallback devreye girdi",
+          "passed": true
+        },
+        {
+          "label": "HTTP 500 — kaynak yerel olarak etiketlendi",
+          "passed": true
+        },
+        {
+          "label": "HTTP 500 — fallback nedeni kaydedildi",
+          "passed": true
+        },
+        {
+          "label": "HTTP 500 — kullanıcıya hata mesajı verildi",
+          "passed": true
+        },
+        {
+          "label": "HTTP 500 — yine de kullanılabilir öneri üretildi",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "connection-diagnostics",
+      "title": "Bağlantı tanılama kodları",
+      "intent": "Her başarısızlık sınıfı kullanıcının düzeltebileceği ayrı bir errorCode üretmeli.",
+      "passed": true,
+      "assertionCount": 8,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "HTTP 401 → errorCode \"authentication\"",
+          "passed": true
+        },
+        {
+          "label": "HTTP 403 → errorCode \"authentication\"",
+          "passed": true
+        },
+        {
+          "label": "HTTP 404 → errorCode \"endpoint\"",
+          "passed": true
+        },
+        {
+          "label": "HTTP 429 → errorCode \"rate_limit\"",
+          "passed": true
+        },
+        {
+          "label": "HTTP 503 → errorCode \"provider\"",
+          "passed": true
+        },
+        {
+          "label": "Ağ hatası → errorCode \"network\"",
+          "passed": true
+        },
+        {
+          "label": "Güvensiz Ollama adresi → errorCode \"configuration\"",
+          "passed": true
+        },
+        {
+          "label": "Offline sağlayıcı ağ olmadan hazır bildiriyor",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "offline-local-first",
+      "title": "Offline local-first garantisi",
+      "intent": "Offline modda ve AI kapalıyken hiçbir ağ isteği yapılmamalı.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Offline modda hiç ağ isteği yapılmadı",
+          "passed": true
+        },
+        {
+          "label": "Offline modda yerel öneri üretildi",
+          "passed": true
+        },
+        {
+          "label": "Offline fallback hata mesajı üretmiyor",
+          "passed": true
+        },
+        {
+          "label": "AI kapalıyken hiç ağ isteği yapılmadı",
+          "passed": true
+        },
+        {
+          "label": "AI kapalıyken yerel öneri üretildi",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}
