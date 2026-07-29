@@ -4,6 +4,7 @@ import { WEB_SAAS_BENCHMARK_EVIDENCE } from './product/generated-web-saas-eviden
 import { BACKEND_API_BENCHMARK_EVIDENCE } from './product/generated-backend-api-evidence.js';
 import { IMPLEMENTATION_EVIDENCE_BENCHMARK } from './product/generated-implementation-evidence.js';
 import { PLAN_CODE_ALIGNMENT_BENCHMARK } from './product/generated-plan-code-alignment-evidence.js';
+import { PROJECT_INVENTORY_BENCHMARK_EVIDENCE } from './product/generated-project-inventory-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -361,14 +362,17 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     implementationMode: 'rule-engine',
     limitations: [
       'Browser ortamında dosya içeriği sınırlı taranır',
-      'Masaüstü ortamında dosya yapısı incelenir; tam antivirüs veya SAST taraması yapılmaz'
+      'Masaüstü ortamında dosya yapısı incelenir; tam antivirüs veya SAST taraması yapılmaz',
+      'Sır tespiti kalıp tabanlıdır; bilinmeyen biçimdeki bir sır işaretlenmeyebilir',
+      'Injection tespiti diakritiksiz yazılmış Türkçe yükleri yakalamaz; dosya içeriği bağlama taşınmadığı için etki dosya adının listelenmesiyle sınırlıdır'
     ],
     evidence: [
       { testId: 'tests/v4/project-analyzer.test.js', level: 'integration-test', platforms: ['web'] },
       { testId: 'src-tauri/src/lib.rs', level: 'native-e2e', platforms: ['desktop'] }
     ],
     supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
-    promotionEvidence: baselinePromotionEvidence(null, {
+    promotionEvidence: baselinePromotionEvidence('docs/release/inventory-recovery.md', {
+      scenarios: PROJECT_INVENTORY_BENCHMARK_EVIDENCE,
       users: userEvidence('project-inventory-analyzer')
     })
   },
