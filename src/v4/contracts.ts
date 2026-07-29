@@ -82,6 +82,20 @@ export interface IdeaDocumentRevision {
   snapshot: IdeaDocumentSnapshot
 }
 
+export interface PlanAlignment {
+  status: 'aligned' | 'stale' | 'review_required'
+  sourceIdeaRevisionId: string | null
+  sourceIdeaRevisionNumber: number | null
+  currentIdeaRevisionId: string | null
+  currentIdeaRevisionNumber: number | null
+  changedFields: Array<keyof IdeaDocumentSnapshot>
+  affectedSections: string[]
+  reason: string
+  detectedAt: string | null
+  reviewedAt: string | null
+  deferredAt: string | null
+}
+
 export interface IdeaLabSession {
   status: 'active' | 'concept_ready' | 'confirmed'
   approaches: DesignApproach[]
@@ -148,6 +162,9 @@ export interface ImpactAnalysis {
   id: string
   baseCanonicalRevision: number
   sourceScenarioId?: string
+  sourceKind?: 'user_request' | 'idea_alignment'
+  sourceIdeaRevisionId?: string
+  currentIdeaRevisionId?: string
   userRequest: string
   summary: string
   affectedSections: string[]
@@ -567,7 +584,7 @@ export interface PlanRevision {
 
 export interface ProjectDocumentV5 {
   schemaVersion: 5
-  schemaRevision: 3
+  schemaRevision: 4
   id: string
   documentRevision: number
   canonicalRevision: number
@@ -621,6 +638,9 @@ export interface ProjectDocumentV5 {
   dismissedSuggestionFingerprints: string[]
   ideaLabSession?: IdeaLabSession
   ideaDocumentRevisions: IdeaDocumentRevision[]
+  sourceIdeaRevisionId: string | null
+  sourceIdeaRevisionNumber: number | null
+  planAlignment: PlanAlignment
   ideaDiscussion: IdeaDiscussionState
   ideaExpansionSession?: IdeaExpansionSession
   impactAnalyses?: ImpactAnalysis[]

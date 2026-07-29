@@ -150,6 +150,7 @@ export function calculateReadiness(project: ProjectDocumentV5): {
     ? (project.reviewFindings || []).filter(item => item.status === 'open')
     : [];
   const traceability = analyzeCanonicalTraceability(project).report;
+  const ideaPlanAligned = project.planAlignment?.status === 'aligned';
 
   const checks: ReadinessCheck[] = [
     check({ id: 'complete.concept', dimension: 'completeness', label: 'Hedef kullanıcı ve problem onaylı', passed: Boolean(summary?.userConfirmed && clean(summary.targetUser) && clean(summary.problemStatement)), points: 20, failure: 'Hedef kullanıcı, problem ve sistem yorumu kullanıcı tarafından onaylanmalı.', blocking: true }),
@@ -159,6 +160,7 @@ export function calculateReadiness(project: ProjectDocumentV5): {
     check({ id: 'complete.questions', dimension: 'completeness', label: 'Kritik açık soru yok', passed: openCriticalQuestions.length === 0, points: 15, failure: `${openCriticalQuestions.length} kritik soru cevap bekliyor.`, blocking: true }),
     check({ id: 'complete.sections', dimension: 'completeness', label: 'Zorunlu plan bölümleri dolu', passed: emptyRequired.length === 0, points: 15, failure: `${emptyRequired.map(item => item.title).join(', ')} bölümü boş.`, blocking: true, entityIds: emptyRequired.map(item => item.id) }),
 
+    check({ id: 'consistent.idea-plan', dimension: 'consistency', label: 'Fikir belgesi ve canonical plan hizalı', passed: ideaPlanAligned, points: 25, failure: 'Fikir belgesi canonical plandan farklı. Etki analizini inceleyip kabul etmeden plan hazır veya dışa aktarılabilir sayılamaz.', blocking: true }),
     check({ id: 'consistent.sections', dimension: 'consistency', label: 'Zorunlu plan bölümleri güncel', passed: staleRequiredSections.length === 0, points: 25, failure: `${staleRequiredSections.length} zorunlu plan bölümü upstream değişikliklerden sonra yeniden doğrulanmalı.`, blocking: true, entityIds: staleRequiredSections.map(item => item.id) }),
     check({ id: 'consistent.scope', dimension: 'consistency', label: 'Kapsam ve görevler çelişmiyor', passed: scopeContradictions.length === 0, points: 30, failure: `Kapsam dışı öğeler canonical planda bulundu: ${scopeContradictions.join(', ')}.`, blocking: true }),
     check({ id: 'consistent.requirements', dimension: 'consistency', label: 'Kabul edilmiş gereksinimler geçerli', passed: requirementQuality.invalidAccepted.length === 0, points: 25, failure: `${requirementQuality.invalidAccepted.length} kabul edilmiş gereksinim kalite sözleşmesini ihlal ediyor.`, blocking: true, entityIds: requirementQuality.invalidAccepted.map(item => item.requirementId) }),

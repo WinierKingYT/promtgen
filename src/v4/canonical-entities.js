@@ -1,3 +1,5 @@
+import { emptyPlanAlignment, evaluatePlanAlignment } from './domain/idea-plan-alignment.ts';
+
 const CANONICAL_MODEL_VERSION = 1;
 
 function text(value, fallback = '') {
@@ -262,6 +264,9 @@ export function normalizeImpactAnalysis(value = {}, index = 0) {
         id: entityId('impact', source, index),
         baseCanonicalRevision: Math.max(1, Number(source.baseCanonicalRevision || source.baseRevision || 1)),
         sourceScenarioId: text(source.sourceScenarioId) || undefined,
+        sourceKind: ['user_request', 'idea_alignment'].includes(source.sourceKind) ? source.sourceKind : 'user_request',
+        sourceIdeaRevisionId: text(source.sourceIdeaRevisionId) || undefined,
+        currentIdeaRevisionId: text(source.currentIdeaRevisionId) || undefined,
         userRequest: text(source.userRequest),
         summary: text(source.summary),
         affectedSections: list(source.affectedSections),
@@ -364,7 +369,7 @@ export function normalizeProjectDocument(project) {
     const next = structuredClone(project);
     const sourceSchemaRevision = Math.max(1, Number(next.schemaRevision || 1));
     next.schemaVersion = 5;
-    next.schemaRevision = 3;
+    next.schemaRevision = 4;
     next.documentRevision = Math.max(1, Number(next.documentRevision || next.revision || 1));
     next.canonicalRevision = Math.max(1, Math.min(next.documentRevision, Number(next.canonicalRevision || next.revision || 1)));
     delete next.revision;
@@ -432,6 +437,19 @@ export function normalizeProjectDocument(project) {
             mvpTarget: text(revision?.snapshot?.mvpTarget)
         }
     })) : [];
+    const convertedIdeaRevision = [...next.ideaDocumentRevisions].reverse()
+        .find(revision => revision.status === 'converted' && revision.convertedCanonicalRevision !== null);
+    next.sourceIdeaRevisionId = text(next.sourceIdeaRevisionId) || convertedIdeaRevision?.id || null;
+    next.sourceIdeaRevisionNumber = Number.isInteger(next.sourceIdeaRevisionNumber)
+        ? next.sourceIdeaRevisionNumber
+        : convertedIdeaRevision?.number || null;
+    next.planAlignment = next.sourceIdeaRevisionId
+        ? evaluatePlanAlignment(next)
+        : {
+            ...emptyPlanAlignment(text(next.planAlignment?.reason) || undefined),
+            currentIdeaRevisionId: next.ideaDocumentRevisions.at(-1)?.id || null,
+            currentIdeaRevisionNumber: next.ideaDocumentRevisions.at(-1)?.number || null
+        };
     next.modules = {
         active: Array.isArray(next.modules?.active) ? next.modules.active.map(item => ({ id: text(item.id), version: text(item.version), enabledAtRevision: Number(item.enabledAtRevision || 0), config: item.config && typeof item.config === 'object' ? item.config : {} })).filter(item => item.id) : [],
         dismissed: list(next.modules?.dismissed),
@@ -458,13 +476,16 @@ export function normalizeProjectDocument(project) {
     next.revisions = Array.isArray(next.revisions) ? next.revisions.map(revision => {
         const snapshot = revision.snapshot && typeof revision.snapshot === 'object' ? structuredClone(revision.snapshot) : {};
         snapshot.schemaVersion = 5;
-        snapshot.schemaRevision = 3;
+        snapshot.schemaRevision = 4;
         snapshot.documentRevision = Math.max(1, Number(snapshot.documentRevision || snapshot.revision || revision.number || 1));
         snapshot.canonicalRevision = Math.max(1, Number(snapshot.canonicalRevision || snapshot.revision || revision.number || 1));
         delete snapshot.revision;
         snapshot.planningScenarios = Array.isArray(snapshot.planningScenarios) ? snapshot.planningScenarios : [];
         snapshot.sectionPatchProposals = Array.isArray(snapshot.sectionPatchProposals) ? snapshot.sectionPatchProposals : [];
         snapshot.ideaDocumentRevisions = Array.isArray(snapshot.ideaDocumentRevisions) ? snapshot.ideaDocumentRevisions : [];
+        snapshot.sourceIdeaRevisionId = snapshot.sourceIdeaRevisionId || null;
+        snapshot.sourceIdeaRevisionNumber = Number.isInteger(snapshot.sourceIdeaRevisionNumber) ? snapshot.sourceIdeaRevisionNumber : null;
+        snapshot.planAlignment = snapshot.planAlignment || emptyPlanAlignment();
         return { ...revision, number: Math.max(1, Number(revision.number || snapshot.canonicalRevision)), snapshot };
     }) : [];
     next.ideaDiscussion = {

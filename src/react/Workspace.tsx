@@ -2,7 +2,7 @@ import { lazy, useEffect, useMemo, useState } from 'react';
 import { Archive, ArrowRight, Check, ChevronDown, CircleAlert, Download, Eye, Gauge, GitBranch, History, Lightbulb, LoaderCircle, Menu, MessageCircle, RotateCcw, Save, Send, Settings2, Sparkles } from 'lucide-react';
 import { applyApprovedChanges, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../v4/planning-engine.js';
 import { PHASE_REGISTRY } from '../v4/project-document.js';
-import { generateImpactAnalysis, runConversationalDiscoveryTurn } from '../v4/ai-discovery.js';
+import { generateDiscoveryAnswerExtraction, generateImpactAnalysis, runConversationalDiscoveryTurn } from '../v4/ai-discovery.js';
 import { getProviderMeta } from '../v4/provider-settings.js';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../v4/task-compiler.js';
 import { IconButton, ProjectRail, SuggestionCard } from './components/WorkspaceChrome';
@@ -19,6 +19,7 @@ import type { CredentialVault } from '../v4/credential-vault.js';
 import { prepareDiscoveryTurnProject } from '../v4/application/discovery-service.js';
 import {
   applyDiscoveryAnswerDraft,
+  compareDiscoveryAnswerWithAI,
   createDiscoveryAnswerDraft,
   type DiscoveryAnswerDraft
 } from '../v4/application/discovery-answer-service.js';
@@ -27,6 +28,7 @@ import {
   type IdeaPlanConversionPreview
 } from '../v4/application/idea-plan-conversion-service.js';
 import { DiscoveryAnswerReview } from './components/DiscoveryAnswerReview.js';
+import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 
 
 type Project = ProjectDocumentV5;
@@ -178,6 +180,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const [taskCompilation, setTaskCompilation] = useState<any>(null);
   const [direction, setDirection] = useState('');
   const [focusedQuestion, setFocusedQuestion] = useState('');
+  const [compareAnswerWithAi, setCompareAnswerWithAi] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [changeImpactMode, setChangeImpactMode] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState(false);
@@ -245,10 +248,29 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       const memory = providerSettings.useLocalMemory ? buildLocalPlanningMemory(projects, project.id) : null;
       const target = prepareDiscoveryTurnProject(project, currentBundle?.id);
       const result = await runConversationalDiscoveryTurn(target, { settings: providerSettings, credential, message, focusedQuestion, memory } as any);
-      const answerDraft = createDiscoveryAnswerDraft(
+      let answerDraft = createDiscoveryAnswerDraft(
         { ...result.project, documentRevision: project.documentRevision + 1 },
         { answer: message, focusedQuestion }
       );
+      if (answerDraft && compareAnswerWithAi) {
+        const comparison = await generateDiscoveryAnswerExtraction(result.project, {
+          settings: providerSettings,
+          credential,
+          answer: message,
+          question: focusedQuestion
+        });
+        if (comparison.extraction && comparison.provenance) {
+          answerDraft = compareDiscoveryAnswerWithAI(answerDraft, comparison.extraction, comparison.provenance);
+        } else if (comparison.error) {
+          answerDraft = {
+            ...answerDraft,
+            assessment: {
+              ...answerDraft.assessment,
+              warnings: [...answerDraft.assessment.warnings, `AI karşılaştırması yapılmadı: ${comparison.error}`]
+            }
+          };
+        }
+      }
       setDirection('');
       setFocusedQuestion('');
       const saved = await persistCandidate(result.project, result.usedFallback && result.error ? `AI yanıtladı (yerel motor): ${result.error}` : `${getProviderMeta(providerSettings.providerId).label} mesajını yanıtladı ve yeni kararları hazırladı.`, 'AddDiscoveryTurn');
@@ -294,7 +316,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     ...(project.ideaLabSession?.conceptSummary?.openQuestions || [])
   ].filter(Boolean))] as string[];
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
-  const canonicalPlanningOpen = outcome === 'plan' && Boolean(project.ideaLabSession?.conceptSummary?.userConfirmed);
+  const canonicalPlanningOpen = outcome === 'plan' && Boolean(project.sourceIdeaRevisionId || hasCanonicalPlan);
   const convertIdeaToPlan = async (preview: IdeaPlanConversionPreview) => {
     const result = applyIdeaPlanConversion(project, preview);
     if (!result.success) {
@@ -315,7 +337,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     <main id="workspace-content" className="workspace" tabIndex={-1}>
       <header className="topbar"><IconButton label="Projeleri aç" onClick={() => setRailOpen(true)}><Menu size={20}/></IconButton><div className="title-block"><span>{project.identity.name}</span><small><span className="live-dot"/> {canonicalPlanningOpen ? `r${project.canonicalRevision} · ${project.lifecycle.status === 'finalized' ? 'Final plan' : 'Canlı plan'}` : 'Fikir çalışma alanı'}</small></div><div className="phase-strip">{PHASE_REGISTRY.map((phase: any) => <span key={phase.id} className={phase.id === project.lifecycle.activePhase ? 'active' : ''}>{phase.label}</span>)}</div><div className="top-actions"><button onClick={() => setSettingsOpen(true)}><Settings2 size={16}/> AI</button>{canonicalPlanningOpen && <><button onClick={exportMarkdown}><Download size={16}/> Markdown</button><button onClick={exportPackage}><Archive size={16}/> Paket</button>{project.lifecycle.status === 'finalized' ? <button className="primary compact" onClick={() => commit(reopenPlan(project), 'Yeni bir plan sürümü açıldı.', 'ReopenPlan')}><RotateCcw size={15}/> Yeniden aç</button> : <button className="primary compact" onClick={finish}><Check size={15}/> Finalleştir</button>}</>}</div></header>
       {canonicalPlanningOpen && <PhaseGuide phase={project.lifecycle.activePhase}/>}
-      <IdeaOutcomeBar value={outcome} onChange={setOutcome}/>
+      <IdeaOutcomeBar project={project} value={outcome} onChange={setOutcome}/>
+      <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setOutcome('plan')}/>
       <div className={`workspace-grid outcome-${outcome}`}>
         <section className="conversation" aria-label="Planlama sohbeti">
           <div className="idea-summary"><div className="ai-avatar"><Sparkles size={18}/></div><div><div className="meta">FİKİR ANALİZİ</div><p>{project.identity.originalIdea}</p></div></div>
@@ -438,6 +461,15 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 </div>
               )}
               <label htmlFor="discovery-direction"><Sparkles size={16}/><span><b>{focusedQuestion || 'Soru sor, fikir ekle veya mimari kısıt belirt:'}</b><small>{focusedQuestion ? 'Seçilen soruya yanıtını yazıyorsun.' : 'Örn. Atların dayanıklılık statı olsun mu? Multiplayer senkronizasyon nasıl olmalı?'}</small></span></label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={compareAnswerWithAi}
+                  disabled={providerSettings.providerId === 'offline' || providerSettings.useAiWhenAvailable === false}
+                  onChange={event => setCompareAnswerWithAi(event.target.checked)}
+                />
+                <span><b>Yerel çıkarımı AI ile karşılaştır</b><small>İsteğe bağlı ikinci çağrı yapar; farkları gösterir, otomatik uygulamaz.</small></span>
+              </label>
               <div className="composer-row"><textarea id="discovery-direction" rows={2} value={direction} onChange={event => setDirection(event.target.value)} placeholder={focusedQuestion ? 'Bu soruya yanıtını yaz…' : 'Mesajını yaz…'}/><button className="primary" type="submit" disabled={!direction.trim() || generating}>{generating ? <LoaderCircle className="spin" size={17}/> : <Send size={17}/>}<span>{generating ? 'Yanıtla' : 'Gönder'}</span></button></div>
 
             </form>

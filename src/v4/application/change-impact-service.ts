@@ -9,6 +9,8 @@ import {
 import { analyzeCanonicalImpact } from '../canonical-graph.js'
 import { captureCurrentRevision, recalculateReadiness } from '../planning-engine.js'
 import type { ImpactAnalysis, ProjectDocumentV5 } from '../contracts.js'
+import { alignPlanToIdeaRevision } from '../domain/idea-plan-alignment.js'
+import { createRequirementDraftsFromConcept } from './requirement-quality-service.js'
 
 const STOP_WORDS = new Set([
   'artık', 'icin', 'için', 'olan', 'olarak', 'bunu', 'buna', 'bunun', 'daha',
@@ -176,6 +178,42 @@ export function createChangeImpactAnalysis(
   return { project: next, impact }
 }
 
+export function createIdeaAlignmentImpactAnalysis(project: ProjectDocumentV5) {
+  const alignment = project.planAlignment
+  if (!alignment || alignment.status === 'aligned') {
+    throw new Error('Canonical plan ile fikir belgesi zaten hizalı.')
+  }
+  if (!alignment.currentIdeaRevisionId) {
+    throw new Error('İncelenecek güncel fikir sürümü bulunamadı.')
+  }
+  const existing = (project.impactAnalyses || []).find(impact =>
+    impact.status === 'proposed'
+    && impact.sourceKind === 'idea_alignment'
+    && impact.currentIdeaRevisionId === alignment.currentIdeaRevisionId
+  )
+  if (existing) return { project, impact: existing }
+
+  const request = `Fikir belgesi r${alignment.currentIdeaRevisionNumber} değişikliklerini canonical plana yansıt`
+  const result = createChangeImpactAnalysis(project, request)
+  result.impact.sourceKind = 'idea_alignment'
+  result.impact.sourceIdeaRevisionId = alignment.sourceIdeaRevisionId || undefined
+  result.impact.currentIdeaRevisionId = alignment.currentIdeaRevisionId
+  result.impact.affectedSections = [...alignment.affectedSections]
+  result.impact.summary = `${alignment.changedFields.length} fikir alanı değişti: ${alignment.changedFields.join(', ')}. Canonical plan yalnız açık onaydan sonra güncellenecek.`
+  result.impact.architectureImpact = alignment.affectedSections.includes('architecture')
+    ? 'Teknik yaklaşım değiştiği için mimari ve bağlı görevler yeniden doğrulanacak.'
+    : 'Mimari yalnız etkilenen plan bağlantıları gerektiriyorsa güncellenecek.'
+  result.impact.preview = {
+    nextCanonicalRevision: project.canonicalRevision + 1,
+    requirementCount: alignment.changedFields.includes('confirmedFeatures') ? 1 : 0,
+    taskCount: 0,
+    testCount: 0,
+    riskCount: alignment.changedFields.includes('knownRisks') ? 1 : 0,
+    traceLinkCount: 0
+  }
+  return result
+}
+
 export function resolveImpactContradiction(
   project: ProjectDocumentV5,
   impactId: string,
@@ -221,6 +259,10 @@ export function applyChangeImpact(
   const unresolved = effectiveDetails.filter(detail => !detail.resolution)
   if (unresolved.length) {
     return { success: false, project, reason: `${unresolved.length} karar çelişkisi çözüm bekliyor.` }
+  }
+
+  if (sourceImpact.sourceKind === 'idea_alignment') {
+    return applyIdeaAlignmentImpact(project, sourceImpact, effectiveDetails)
   }
 
   const next = structuredClone(project)
@@ -364,6 +406,95 @@ export function applyChangeImpact(
   const versioned = captureCurrentRevision(
     recalculated,
     `Etki analizi uygulandı: ${impact.userRequest}`
+  )
+  return { success: true, project: versioned, reason: '' }
+}
+
+function applyIdeaAlignmentImpact(
+  project: ProjectDocumentV5,
+  sourceImpact: ImpactAnalysis,
+  effectiveDetails: ImpactAnalysis['contradictionDetails']
+) {
+  const alignment = project.planAlignment
+  if (
+    alignment.status === 'aligned'
+    || !alignment.currentIdeaRevisionId
+    || sourceImpact.currentIdeaRevisionId !== alignment.currentIdeaRevisionId
+  ) {
+    return { success: false, project, reason: 'Fikir belgesi etki önizlemesinden sonra değişti; analiz yenilenmeli.' }
+  }
+  const currentRevision = project.ideaDocumentRevisions.find(item => item.id === alignment.currentIdeaRevisionId)
+  const summary = project.ideaLabSession?.conceptSummary
+  if (!currentRevision || !summary) {
+    return { success: false, project, reason: 'Canonical plana uygulanacak fikir sürümü bulunamadı.' }
+  }
+
+  let next = structuredClone(project)
+  const impact = next.impactAnalyses!.find(item => item.id === sourceImpact.id)!
+  const nextSummary = next.ideaLabSession!.conceptSummary!
+  nextSummary.userConfirmed = true
+  nextSummary.confirmedAt = now()
+  next.ideaLabSession!.status = 'confirmed'
+  impact.contradictionDetails = effectiveDetails
+  impact.status = 'accepted'
+  impact.resolvedAt = now()
+
+  next.identity.summary = nextSummary.summary
+  next.identity.desiredOutcome = nextSummary.desiredOutcome
+  next.sections.vision.content = [
+    nextSummary.summary,
+    `Hedef kullanıcı: ${nextSummary.targetUser}`,
+    `Problem: ${nextSummary.problemStatement}`,
+    `Mevcut çözüm: ${nextSummary.currentAlternative}`,
+    `Beklenen sonuç: ${nextSummary.desiredOutcome}`
+  ].join('\n\n')
+  next.sections.scope.items = [...nextSummary.confirmedFeatures]
+  next.sections.scope.content = [
+    `MVP hedefi: ${nextSummary.mvpTarget}`,
+    `Kapsam dışı:\n${nextSummary.outOfScope.map(item => `- ${item}`).join('\n')}`
+  ].join('\n\n')
+  next.sections.architecture.items = [...nextSummary.technicalApproaches]
+  next.sections.risks.items = [...nextSummary.knownRisks]
+
+  const acceptedObjective = next.objectives.find(item => item.status === 'accepted')
+  if (acceptedObjective) {
+    acceptedObjective.title = nextSummary.mvpTarget
+    acceptedObjective.description = nextSummary.desiredOutcome
+  }
+  next.requirements = next.requirements.filter(requirement =>
+    requirement.status !== 'draft'
+    || nextSummary.confirmedFeatures.some(feature => requirement.title === feature)
+  )
+  for (const riskTitle of nextSummary.knownRisks) {
+    if (!next.risks.some(risk => risk.title === riskTitle)) {
+      next.risks.push(normalizeRisk({
+        id: id('risk'),
+        title: riskTitle,
+        description: 'Fikir belgesi hizalama incelemesinde kabul edildi.',
+        status: 'open'
+      }))
+    }
+  }
+  next = createRequirementDraftsFromConcept(next)
+  next.documentRevision += 1
+  next.canonicalRevision += 1
+  next.lifecycle.status = 'active'
+  next.lifecycle.updatedAt = now()
+  for (const sectionId of alignment.affectedSections) {
+    const section = next.sections[sectionId]
+    if (!section) continue
+    section.updatedAtRevision = next.canonicalRevision
+    section.status = ['tasks', 'testing'].includes(sectionId) ? 'stale' : 'draft'
+    const warning = `Fikir belgesi r${currentRevision.number} değişikliği sonrası yeniden doğrulanmalı.`
+    section.warnings = ['tasks', 'testing'].includes(sectionId)
+      ? [...new Set([...section.warnings, warning])]
+      : section.warnings.filter(item => !item.includes('Fikir belgesi'))
+  }
+  next = alignPlanToIdeaRevision(next, currentRevision)
+  const recalculated = recalculateReadiness(next)
+  const versioned = captureCurrentRevision(
+    recalculated,
+    `Canonical plan fikir belgesi r${currentRevision.number} ile hizalandı`
   )
   return { success: true, project: versioned, reason: '' }
 }

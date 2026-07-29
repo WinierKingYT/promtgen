@@ -12,6 +12,7 @@ import {
 } from '../../v4/application/idea-plan-conversion-service.js';
 import { ConceptAgreementEditor } from './ConceptAgreementEditor.js';
 import { IdeaDocumentHistoryPanel } from './IdeaDocumentHistoryPanel.js';
+import { assessIdeaMaturity } from '../../v4/application/idea-maturity-service.js';
 
 export type IdeaOutcome = 'develop' | 'guide' | 'plan';
 
@@ -30,14 +31,19 @@ const downloadText = (content: string, filename: string, type: string) => {
   URL.revokeObjectURL(url);
 };
 
-export function IdeaOutcomeBar({ value, onChange }: { value: IdeaOutcome; onChange: (value: IdeaOutcome) => void }) {
+export function IdeaOutcomeBar({ project, value, onChange }: { project: ProjectDocumentV5; value: IdeaOutcome; onChange: (value: IdeaOutcome) => void }) {
+  const maturity = useMemo(() => assessIdeaMaturity(project), [project]);
+  const orderedOutcomes = [
+    outcomes.find(item => item.id === maturity.recommended)!,
+    ...outcomes.filter(item => item.id !== maturity.recommended)
+  ];
   return (
     <nav className="idea-outcomes" aria-label="Fikrinle ne yapmak istiyorsun?">
-      <div><span className="meta">ÇIKIŞINI SEÇ</span><b>Fikrinle şimdi ne yapmak istiyorsun?</b></div>
+      <div><span className="meta">ÖNERİLEN SONRAKİ ADIM · %{maturity.score}</span><b>{maturity.label}</b><small>{maturity.reason}</small></div>
       <div className="idea-outcome-options">
-        {outcomes.map(({ id, title, detail, icon: Icon }) => (
-          <button key={id} type="button" className={value === id ? 'active' : ''} aria-current={value === id ? 'step' : undefined} onClick={() => onChange(id)}>
-            <Icon size={18}/><span><b>{title}</b><small>{detail}</small></span><ArrowRight size={15}/>
+        {orderedOutcomes.map(({ id, title, detail, icon: Icon }) => (
+          <button key={id} type="button" className={`${value === id ? 'active' : ''} ${maturity.recommended === id ? 'recommended' : ''}`} aria-current={value === id ? 'step' : undefined} onClick={() => onChange(id)}>
+            <Icon size={18}/><span><b>{title}{maturity.recommended === id ? ' · Önerilen' : ''}</b><small>{detail}</small></span><ArrowRight size={15}/>
           </button>
         ))}
       </div>

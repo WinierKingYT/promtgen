@@ -10,6 +10,7 @@ import { createChangeImpactAnalysis } from './application/change-impact-service.
 
 const discoveryTask = getTaskDefinition('discovery');
 const ideaLabTask = getTaskDefinition('idea-lab');
+const discoveryAnswerExtractionTask = getTaskDefinition('discovery-answer-extraction');
 
 const VALID_SECTIONS = new Set(['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment', 'operations']);
 const VALID_KINDS = new Set(['feature', 'decision', 'risk', 'question', 'architecture']);
@@ -214,6 +215,42 @@ export async function generateDiscoveryBundle(project, { settings, credential = 
     } catch (error) {
         const message = error instanceof Error ? error.message : 'AI çağrısı başarısız.';
         return { bundle: contextualFallback(project, direction, message), usedFallback: true, error: message };
+    }
+}
+
+export async function generateDiscoveryAnswerExtraction(project, {
+    settings,
+    credential = '',
+    answer = '',
+    question = '',
+    signal
+} = {}) {
+    if (!settings || settings.providerId === 'offline' || settings.useAiWhenAvailable === false) {
+        return { extraction: null, provenance: null, error: 'AI karşılaştırması için etkin bir sağlayıcı gerekli.' };
+    }
+    try {
+        const safeSettings = normalizeProviderSettings(settings, { defaultModel: settings.model });
+        const provider = createProvider(safeSettings.providerId, {
+            model: safeSettings.model,
+            baseUrl: safeSettings.baseUrl,
+            credential
+        });
+        const run = await runAITask({
+            task: discoveryAnswerExtractionTask,
+            project,
+            input: { answer, question },
+            provider,
+            providerId: safeSettings.providerId,
+            model: safeSettings.model,
+            signal
+        });
+        return { extraction: run.output, provenance: run.provenance, error: null };
+    } catch (error) {
+        return {
+            extraction: null,
+            provenance: null,
+            error: error instanceof Error ? error.message : 'AI alan karşılaştırması başarısız.'
+        };
     }
 }
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyDiscoveryAnswerDraft,
+  compareDiscoveryAnswerWithAI,
   createDiscoveryAnswerDraft,
   updateDiscoveryAnswerPatch
 } from '../../src/v4/application/discovery-answer-service.js';
@@ -109,5 +110,40 @@ describe('discovery answer proposal service', () => {
     assert.equal(draft.assessment.quality, 'ambiguous');
     assert.equal(draft.assessment.canCloseQuestion, false);
     assert.deepEqual(draft.patches, []);
+  });
+
+  it('AI ve kural sonucunu karşılaştırır fakat hiçbir öneriyi otomatik kabul etmez', () => {
+    const project = projectWithQuestion();
+    const risksBefore = structuredClone(project.ideaLabSession!.conceptSummary!.knownRisks);
+    const draft = createDiscoveryAnswerDraft(project, {
+      focusedQuestion: project.ideaLabSession!.conceptSummary!.openQuestions[0],
+      answer: 'Bireysel geliştirici'
+    }, options)!;
+    const compared = compareDiscoveryAnswerWithAI(draft, {
+      fields: [
+        { field: 'targetUser', value: 'Küçük ajans ekibi', confidence: 78, rationale: 'Yanıtta ekip sinyali bulundu.' },
+        { field: 'knownRisks', value: ['Kapsam belirsizliği'], confidence: 64, rationale: 'Belirsizlik açıkça belirtildi.' }
+      ],
+      warnings: []
+    }, {
+      runId: 'run-1',
+      mode: 'cloud-ai',
+      providerId: 'openai',
+      model: 'test-model',
+      promptVersion: '1.0.0',
+      schemaId: 'discovery-answer-extraction-v1',
+      schemaVersion: 1,
+      requestedAt: '2026-07-28T12:00:00.000Z',
+      completedAt: '2026-07-28T12:00:01.000Z',
+      latencyMs: 1000,
+      retryCount: 0,
+      fallbackReason: null,
+      inputHash: 'hash'
+    });
+
+    assert.equal(compared.comparison?.disagreements.length, 1);
+    assert.equal(compared.comparison?.aiOnly.length, 1);
+    assert.ok(compared.patches.every(patch => patch.status === 'pending'));
+    assert.deepEqual(project.ideaLabSession!.conceptSummary!.knownRisks, risksBefore);
   });
 });

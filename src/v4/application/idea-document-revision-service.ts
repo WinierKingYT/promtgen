@@ -5,6 +5,10 @@ import type {
   ProjectDocumentV5
 } from '../contracts.js';
 import { updateConceptAgreement } from './idea-discussion-service.js';
+import {
+  alignPlanToIdeaRevision,
+  refreshPlanAlignment
+} from '../domain/idea-plan-alignment.js';
 
 type EditableIdeaDocument = Pick<
   ConceptSummary,
@@ -114,7 +118,7 @@ export function updateIdeaDocumentWithRevision(
   const previousSnapshot = snapshotIdeaDocument(baseline);
   const updatedSnapshot = snapshotIdeaDocument(updated);
   if (sameSnapshot(previousSnapshot, updatedSnapshot)) return project;
-  return appendRevision(updated, updatedSnapshot, source, revisionSummary);
+  return refreshPlanAlignment(appendRevision(updated, updatedSnapshot, source, revisionSummary));
 }
 
 export function compareIdeaDocumentRevisions(
@@ -144,13 +148,13 @@ export function restoreIdeaDocumentRevision(project: ProjectDocumentV5, revision
     return { success: false as const, project, reason: 'Seçilen sürüm zaten güncel fikir belgesi.' };
   }
   const updated = updateConceptAgreement(project, sourceRevision.snapshot);
-  const next = appendRevision(
+  const next = refreshPlanAlignment(appendRevision(
     updated,
     snapshotIdeaDocument(updated),
     'restore',
     `Fikir belgesi r${sourceRevision.number} sürümünden geri yüklendi`,
     sourceRevision.number
-  );
+  ));
   return {
     success: true as const,
     project: next,
@@ -164,5 +168,5 @@ export function markCurrentIdeaRevisionConverted(project: ProjectDocumentV5, can
   if (!latest) return next;
   latest.status = 'converted';
   latest.convertedCanonicalRevision = canonicalRevision;
-  return next;
+  return alignPlanToIdeaRevision(next, latest);
 }

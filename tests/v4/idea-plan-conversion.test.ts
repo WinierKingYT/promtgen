@@ -62,6 +62,9 @@ describe('Idea to canonical plan conversion', () => {
     assert.ok(result.project.requirements.every(item => item.status === 'draft'));
     assert.ok(result.project.requirements.every(item => item.sourceObjectiveIds.length === 1));
     assert.equal(result.project.canonicalRevision, project.canonicalRevision + 1);
+    assert.equal(result.project.sourceIdeaRevisionId, result.project.ideaDocumentRevisions.at(-1)?.id);
+    assert.equal(result.project.sourceIdeaRevisionNumber, 1);
+    assert.equal(result.project.planAlignment.status, 'aligned');
     assert.equal(validateProjectDocument(result.project).valid, true);
   });
 

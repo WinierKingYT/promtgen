@@ -32,6 +32,7 @@ test.describe('PromtGen guided production workflow', () => {
     await page.getByRole('button', { name: 'Fikri geliştir' }).click();
 
     await expect(page.getByRole('heading', { name: 'Fikri konuşarak geliştir' })).toBeVisible();
+    await expect(page.getByText(/ÖNERİLEN SONRAKİ ADIM/)).toBeVisible();
     await page.getByRole('button', { name: /Rehber oluştur/ }).click();
     await expect(page.getByRole('heading', { name: /Bireysel geliştiricilerin/ })).toBeVisible();
     await expect(page.getByText(/YAŞAYAN FİKİR BELGESİ/)).toBeVisible();
@@ -48,6 +49,16 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(page.getByText('ÖNERİLEN PLAN DERİNLİĞİ')).toBeVisible();
     await expect(page.getByLabel('Yaşayan plan')).toBeVisible();
     await expect(page.locator('.requirement-card')).toHaveCount(2);
+
+    await page.getByRole('button', { name: /Rehber oluştur/ }).click();
+    await page.locator('.concept-agreement .agreement-primary textarea').nth(1).fill('Bağımsız teknik kurucular');
+    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+    const alignment = page.locator('.plan-alignment-notice');
+    await expect(alignment).toContainText(/PLAN GÜNCEL DEĞİL/);
+    await alignment.getByRole('button', { name: 'Etkiyi incele' }).click();
+    await expect(page.locator('.change-impact-card')).toContainText(/Fikir belgesi r\d+ değişiklikleri/);
+    await page.locator('.change-impact-card').getByRole('button', { name: /Onayla ve r\d+ oluştur/ }).click();
+    await expect(alignment).toBeHidden();
   });
 
   test('AI settings button opens the real provider dialog', async ({ page }) => {
@@ -98,7 +109,7 @@ test.describe('PromtGen guided production workflow', () => {
 
     const review = page.locator('.discovery-answer-review');
     await expect(review.getByText('Yanıtından çıkarılan değişiklikleri incele')).toBeVisible();
-    await expect(review.getByText('Yerel alan eşleyici')).toBeVisible();
+    await expect(review.getByText('Yerel kural tabanlı alan çıkarımı')).toBeVisible();
     await expect(review.getByRole('button', { name: /alanı sistem yorumuna uygula/ })).toBeDisabled();
 
     await review.locator('.answer-patch').first().getByRole('button', { name: 'Kabul' }).click();

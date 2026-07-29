@@ -90,7 +90,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
     const initialIdea = String(idea || '').trim();
     const state = {
         schemaVersion: 5,
-        schemaRevision: 3,
+        schemaRevision: 4,
         id: projectId(),
         documentRevision: 1,
         canonicalRevision: 1,
@@ -106,6 +106,21 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
         revisions: [], exports: [], commandLog: [], executionSessions: [], dismissedSuggestionFingerprints: [],
         ideaLabSession: { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [] },
         ideaDocumentRevisions: [],
+        sourceIdeaRevisionId: null,
+        sourceIdeaRevisionNumber: null,
+        planAlignment: {
+            status: 'aligned',
+            sourceIdeaRevisionId: null,
+            sourceIdeaRevisionNumber: null,
+            currentIdeaRevisionId: null,
+            currentIdeaRevisionNumber: null,
+            changedFields: [],
+            affectedSections: [],
+            reason: 'Canonical plan henüz fikir belgesinden üretilmedi.',
+            detectedAt: null,
+            reviewedAt: null,
+            deferredAt: null
+        },
         ideaDiscussion: { mode: 'explore', records: [], updatedAt: createdAt },
         impactAnalyses: [], planningScenarios: [], sectionPatchProposals: [],
         modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
@@ -135,7 +150,7 @@ export function validateProjectDocument(state) {
     const errors = [];
     if (!state || typeof state !== 'object') return { valid: false, errors: ['Proje durumu nesne olmalı.'] };
     if (state.schemaVersion !== 5) errors.push('schemaVersion 5 olmalı.');
-    if (state.schemaRevision !== 3) errors.push('schemaRevision 3 olmalı.');
+    if (state.schemaRevision !== 4) errors.push('schemaRevision 4 olmalı.');
     if (!state.id || typeof state.id !== 'string') errors.push('Proje kimliği eksik.');
     if (!Number.isInteger(state.documentRevision) || state.documentRevision < 1) errors.push('documentRevision pozitif tam sayı olmalı.');
     if (!Number.isInteger(state.canonicalRevision) || state.canonicalRevision < 1) errors.push('canonicalRevision pozitif tam sayı olmalı.');
@@ -158,6 +173,23 @@ export function validateProjectDocument(state) {
             revisionNumbers.add(revision?.number);
             if (!revision?.snapshot?.summary || !revision?.snapshot?.mvpTarget) errors.push(`Fikir belgesi sürüm içeriği eksik: ${revision?.id || 'boş'}`);
             if (revision?.status === 'converted' && !Number.isInteger(revision.convertedCanonicalRevision)) errors.push(`Dönüştürülen fikir sürümünün canonical revision kanıtı eksik: ${revision.id}`);
+        }
+    }
+    const alignment = state.planAlignment;
+    if (!alignment || !['aligned', 'stale', 'review_required'].includes(alignment.status)) {
+        errors.push('Fikir-plan hizalama durumu geçersiz.');
+    } else {
+        if (!Array.isArray(alignment.changedFields) || !Array.isArray(alignment.affectedSections)) {
+            errors.push('Fikir-plan hizalama etki alanları dizi olmalı.');
+        }
+        if (state.sourceIdeaRevisionId !== alignment.sourceIdeaRevisionId || state.sourceIdeaRevisionNumber !== alignment.sourceIdeaRevisionNumber) {
+            errors.push('Canonical plan kaynak fikir sürümü ile hizalama kaydı uyuşmuyor.');
+        }
+        if (alignment.sourceIdeaRevisionId && !state.ideaDocumentRevisions.some(revision => revision.id === alignment.sourceIdeaRevisionId)) {
+            errors.push('Canonical planın kaynak fikir sürümü bulunamadı.');
+        }
+        if (alignment.status !== 'aligned' && (!alignment.changedFields.length || !alignment.affectedSections.length || !alignment.detectedAt)) {
+            errors.push('Güncelliğini yitirmiş planın değişiklik ve etki kanıtı eksik.');
         }
     }
     if (!Array.isArray(state.commandLog)) errors.push('Command log dizi olmalı.');

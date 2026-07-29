@@ -1,6 +1,7 @@
-import type { ExpansionDimension, ImpactAnalysis, ProjectDocumentV5 } from './contracts.js';
+import type { ExpansionDimension, GenerationProvenance, ImpactAnalysis, ProjectDocumentV5 } from './contracts.js';
 import type { ProviderSettings } from './provider-settings.js';
 import type { LocalPlanningMemory } from './planning-memory.js';
+import type { DiscoveryAIExtraction } from './application/discovery-answer-service.js';
 
 export interface GenerationTurnResult {
   project: ProjectDocumentV5;
@@ -21,6 +22,11 @@ export function generateExpansionDimensions(idea: string): ExpansionDimension[];
 export function buildDiscoverySystemPrompt(project: ProjectDocumentV5): string;
 export function generateDiscoveryBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; direction?: string; memory?: LocalPlanningMemory | null; signal?: AbortSignal }): Promise<GenerationTurnResult>;
 export function runConversationalDiscoveryTurn(project: ProjectDocumentV5, options: { message: string; focusedQuestion?: string; settings: ProviderSettings; credential?: string; memory?: LocalPlanningMemory | null; signal?: AbortSignal }): Promise<GenerationTurnResult>;
+export function generateDiscoveryAnswerExtraction(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; answer: string; question?: string; signal?: AbortSignal }): Promise<{
+  extraction: DiscoveryAIExtraction | null;
+  provenance: GenerationProvenance | null;
+  error: string | null;
+}>;
 export function localFallbackIdeaLab(project: ProjectDocumentV5): GenerationTurnResult;
 export function generateIdeaLabBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; ideaText?: string; signal?: AbortSignal }): Promise<GenerationTurnResult>;
 export function generateConceptSummary(project: ProjectDocumentV5, options?: { selectedApproachId?: string }): Promise<ProjectDocumentV5>;

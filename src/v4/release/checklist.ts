@@ -21,14 +21,14 @@ export function verifyProjectReadiness(project: ProjectDocumentV5): ReleaseReadi
   const checks: ReleaseCheckItem[] = [];
 
   // 1. Schema Version Check
-  const isSchemaV5 = project.schemaVersion === 5 && project.schemaRevision === 3;
+  const isSchemaV5 = project.schemaVersion === 5 && project.schemaRevision === 4;
   checks.push({
     id: 'check-schema-v5',
     category: 'domain',
     title: 'Schema Version 5 Doğrulaması',
     passed: isSchemaV5,
     blocker: true,
-    message: isSchemaV5 ? 'Schema 5.1 (Canonical)' : `Beklenen schema: 5.1, Mevcut: ${project.schemaVersion}.${project.schemaRevision}`
+    message: isSchemaV5 ? 'Schema 5.4 (Canonical)' : `Beklenen schema: 5.4, Mevcut: ${project.schemaVersion}.${project.schemaRevision}`
   });
 
   // 2. Identity Verification

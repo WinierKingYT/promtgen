@@ -20,6 +20,7 @@ const DOCUMENT_ONLY_COMMANDS = new Set([
   'GenerateSectionPatches', 'UpdateSectionPatchStatus', 'MarkSectionPatchesStale', 'UpdateIdeaDiscussion',
   'UpdateConceptAgreement', 'GenerateRequirementDrafts', 'UpdateRequirementDraft', 'RemoveRequirementDraft',
   'RestoreIdeaDocumentRevision',
+  'ProposeIdeaAlignmentImpact', 'DeferPlanAlignment', 'RestoreAlignedIdeaRevision',
   'StartExecutionSession', 'RecordExecutionResult', 'RecordExport', 'UpdateProject'
 ]);
 

@@ -1,4 +1,4 @@
-import type { ConceptSummary, ProjectDocumentV5 } from '../contracts.js';
+import type { ConceptSummary, GenerationProvenance, ProjectDocumentV5 } from '../contracts.js';
 import { updateIdeaDocumentWithRevision } from './idea-document-revision-service.js';
 
 export type DiscoveryConceptField =
@@ -46,10 +46,42 @@ export interface DiscoveryAnswerDraft {
   createdAt: string;
   provenance: {
     mode: 'rule-engine';
-    label: 'Yerel alan eşleyici';
+    label: 'Yerel kural tabanlı alan çıkarımı';
   };
+  comparison?: DiscoveryAnswerComparison;
   assessment: DiscoveryAnswerAssessment;
   patches: DiscoveryAnswerPatch[];
+}
+
+export interface DiscoveryAIExtraction {
+  fields: Array<{
+    field: Exclude<DiscoveryConceptField, 'openQuestions'>;
+    value: DiscoveryAnswerPatchValue;
+    confidence: number;
+    rationale: string;
+  }>;
+  warnings: string[];
+}
+
+export interface DiscoveryAnswerComparison {
+  mode: 'ai-vs-rule';
+  provenance: GenerationProvenance;
+  agreements: DiscoveryConceptField[];
+  disagreements: Array<{
+    field: DiscoveryConceptField;
+    label: string;
+    ruleValue: DiscoveryAnswerPatchValue;
+    aiValue: DiscoveryAnswerPatchValue;
+    rationale: string;
+  }>;
+  aiOnly: Array<{
+    field: DiscoveryConceptField;
+    label: string;
+    value: DiscoveryAnswerPatchValue;
+    confidence: number;
+    rationale: string;
+  }>;
+  warnings: string[];
 }
 
 type DraftOptions = {
@@ -147,7 +179,7 @@ function stripLabel(clause: string): string {
   return clause.trim();
 }
 
-function semanticFields(clause: string): DiscoveryConceptField[] {
+function ruleSignalFields(clause: string): DiscoveryConceptField[] {
   const text = clause.toLocaleLowerCase('tr-TR');
   const fields: DiscoveryConceptField[] = [];
   const add = (field: DiscoveryConceptField, pattern: RegExp) => {
@@ -199,7 +231,7 @@ function confidenceFor(input: {
   field: DiscoveryConceptField;
   questionFields: DiscoveryConceptField[];
   explicit: boolean;
-  semantic: boolean;
+  ruleSignal: boolean;
   value: string;
   currentValue: DiscoveryAnswerPatchValue;
   ambiguous: boolean;
@@ -209,7 +241,7 @@ function confidenceFor(input: {
 }): number {
   let score = 42;
   if (input.explicit) score += 28;
-  if (input.semantic) score += 18;
+  if (input.ruleSignal) score += 18;
   if (input.questionFields.includes(input.field)) score += 12;
   if (input.value.split(/\s+/).length >= 4) score += 6;
   if (input.ambiguous) score -= 28;
@@ -232,7 +264,7 @@ function makePatch(
   context: {
     questionFields: DiscoveryConceptField[];
     explicitFields: Set<DiscoveryConceptField>;
-    semanticFields: Set<DiscoveryConceptField>;
+    ruleSignalFields: Set<DiscoveryConceptField>;
     ambiguous: boolean;
     conflicting: boolean;
     longAnswer: boolean;
@@ -246,12 +278,12 @@ function makePatch(
     ? mergeUnique(currentValue as string[], values.flatMap(value => answerItems(stripLabel(value))))
     : normalizedText(joinedValue);
   const explicit = context.explicitFields.has(field);
-  const semantic = context.semanticFields.has(field);
+  const ruleSignal = context.ruleSignalFields.has(field);
   const confidence = confidenceFor({
     field,
     questionFields: context.questionFields,
     explicit,
-    semantic,
+    ruleSignal,
     value: joinedValue,
     currentValue,
     ambiguous: context.ambiguous,
@@ -261,7 +293,7 @@ function makePatch(
   });
   const evidence = [
     ...(explicit ? ['Alan etiketi'] : []),
-    ...(semantic ? ['Anlam sinyali'] : []),
+    ...(ruleSignal ? ['Kural/kelime sinyali'] : []),
     ...(context.questionFields.includes(field) ? ['Soru eşleşmesi'] : [])
   ];
   return {
@@ -317,12 +349,12 @@ export function createDiscoveryAnswerDraft(
         addValue(explicit, clause);
         continue;
       }
-      const semantic = semanticFields(clause);
-      for (const field of semantic) {
+      const ruleSignals = ruleSignalFields(clause);
+      for (const field of ruleSignals) {
         detectedSemanticFields.add(field);
         addValue(field, clause);
       }
-      if (semantic.length === 0 && questionFields.length === 1) addValue(questionFields[0], clause);
+      if (ruleSignals.length === 0 && questionFields.length === 1) addValue(questionFields[0], clause);
     }
   }
 
@@ -334,7 +366,7 @@ export function createDiscoveryAnswerDraft(
   const context = {
     questionFields,
     explicitFields,
-    semanticFields: detectedSemanticFields,
+    ruleSignalFields: detectedSemanticFields,
     ambiguous,
     conflicting,
     longAnswer,
@@ -380,7 +412,7 @@ export function createDiscoveryAnswerDraft(
     sourceQuestion: question,
     sourceAnswer: answer,
     createdAt: (options.now || (() => new Date().toISOString()))(),
-    provenance: { mode: 'rule-engine', label: 'Yerel alan eşleyici' },
+    provenance: { mode: 'rule-engine', label: 'Yerel kural tabanlı alan çıkarımı' },
     assessment: {
       quality,
       warnings,
@@ -388,6 +420,63 @@ export function createDiscoveryAnswerDraft(
       canCloseQuestion
     },
     patches
+  };
+}
+
+export function compareDiscoveryAnswerWithAI(
+  draft: DiscoveryAnswerDraft,
+  extraction: DiscoveryAIExtraction,
+  provenance: GenerationProvenance
+): DiscoveryAnswerDraft {
+  const patchByField = new Map(draft.patches.map(patch => [patch.field, patch]));
+  const agreements: DiscoveryConceptField[] = [];
+  const disagreements: DiscoveryAnswerComparison['disagreements'] = [];
+  const aiOnly: DiscoveryAnswerComparison['aiOnly'] = [];
+
+  for (const candidate of extraction.fields) {
+    const rulePatch = patchByField.get(candidate.field);
+    if (!rulePatch) {
+      aiOnly.push({
+        field: candidate.field,
+        label: FIELD_META[candidate.field].label,
+        value: structuredClone(candidate.value),
+        confidence: candidate.confidence,
+        rationale: candidate.rationale
+      });
+      continue;
+    }
+    if (normalizeComparison(rulePatch.proposedValue) === normalizeComparison(candidate.value)) {
+      agreements.push(candidate.field);
+      continue;
+    }
+    disagreements.push({
+      field: candidate.field,
+      label: FIELD_META[candidate.field].label,
+      ruleValue: structuredClone(rulePatch.proposedValue),
+      aiValue: structuredClone(candidate.value),
+      rationale: candidate.rationale
+    });
+  }
+
+  const comparisonWarnings = [
+    ...extraction.warnings,
+    ...(disagreements.length ? [`AI ile yerel kural motoru ${disagreements.length} alanda farklı sonuç üretti; otomatik seçim yapılmadı.`] : []),
+    ...(aiOnly.length ? [`AI, yerel motorun bulmadığı ${aiOnly.length} alan önerdi; bunlar yalnız karşılaştırma amacıyla gösteriliyor.`] : [])
+  ];
+  return {
+    ...draft,
+    comparison: {
+      mode: 'ai-vs-rule',
+      provenance,
+      agreements,
+      disagreements,
+      aiOnly,
+      warnings: comparisonWarnings
+    },
+    assessment: {
+      ...draft.assessment,
+      warnings: [...new Set([...draft.assessment.warnings, ...comparisonWarnings])]
+    }
   };
 }
 

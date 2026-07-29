@@ -39,6 +39,8 @@ export function canonicalHashPayload(project) {
         schemaVersion: source.schemaVersion,
         schemaRevision: source.schemaRevision,
         canonicalRevision: source.canonicalRevision,
+        sourceIdeaRevisionId: source.sourceIdeaRevisionId,
+        sourceIdeaRevisionNumber: source.sourceIdeaRevisionNumber,
         identity: source.identity,
         planningDepth: source.planningDepth,
         profile: source.profile,
@@ -66,6 +68,11 @@ export function canonicalHashPayload(project) {
         modules: source.modules,
         readiness: source.readiness
     };
+}
+
+function assertIdeaPlanAlignment(source) {
+    if (source.planAlignment?.status === 'aligned') return;
+    throw new Error('Fikir belgesi canonical plandan farklı. Güncel planı dışa aktarmadan önce etki analizini inceleyip onaylayın.');
 }
 
 async function sha256(value) {
@@ -101,6 +108,7 @@ export function resolveCanonicalRevision(project, reference = 'current') {
 
 export function exportCanonicalMarkdown(project, revision = 'current') {
     const source = resolveCanonicalRevision(project, revision);
+    assertIdeaPlanAlignment(source);
     const visible = Object.values(source.sections).filter(section => section.required || section.content || section.items.length);
     const archDiagram = generateArchitectureDiagram(source);
     return [
@@ -371,6 +379,7 @@ export async function createIdeWorkspacePackage(project, options = {}) {
 
 export async function createExportBundle(project, { revision = 'current', adapters = DEFAULT_ADAPTERS, format = 'promtgen' } = {}) {
     const source = resolveCanonicalRevision(project, revision);
+    assertIdeaPlanAlignment(source);
     const validation = validateProjectDocument(source);
     if (!validation.valid) throw new Error(`Geçersiz proje: ${validation.errors.join(' ')}`);
     const documents = createDocumentSet(source, { adapters });
@@ -387,7 +396,7 @@ export async function createPromtgenPackage(project, options = {}) {
     const bundle = await createExportBundle(project, options);
     const zip = new JSZip();
     const manifest = {
-        format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 3, projectId: project.id,
+        format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 4, projectId: project.id,
         revision: bundle.source.canonicalRevision, canonicalRevision: bundle.source.canonicalRevision, canonicalHash: bundle.canonicalHash,
         createdAt: bundle.record.createdAt, files: options.includeExports === false ? [] : Object.keys(bundle.documents), adapters: bundle.record.adapterIds
     };
