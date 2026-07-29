@@ -2,6 +2,19 @@ import { glob } from "glob";
 import { readFileSync } from "fs";
 import { resolve, relative, dirname, basename } from "path";
 
+function isTransparentTypeScriptCompatibilityAdapter(file: string, targetBasename: string): boolean {
+  if (!file.endsWith(".js")) {
+    return false;
+  }
+
+  const source = readFileSync(file, "utf8").trim();
+  const escapedTarget = targetBasename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const reExportPattern = new RegExp(
+    `^export\\s+\\{[^}]+\\}\\s+from\\s+['"]\\./${escapedTarget}\\.ts['"];?$`
+  );
+  return reExportPattern.test(source);
+}
+
 async function checkDuplicateModules() {
   const projectRoot = process.cwd();
   const srcDir = resolve(projectRoot, "src");
@@ -37,6 +50,12 @@ async function checkDuplicateModules() {
         const tsFiles = files.filter(f => f.endsWith(".ts"));
         const jsFiles = files.filter(f => f.endsWith(".js"));
         if (tsFiles.length > 0 && jsFiles.length > 0) {
+          const adaptersOnly = jsFiles.every(file =>
+            isTransparentTypeScriptCompatibilityAdapter(file, name)
+          );
+          if (adaptersOnly) {
+            continue;
+          }
           hasErrors = true;
           const relFiles = files.map(f => relative(projectRoot, f));
           errors.push(`Duplicate module: ${name}\n  ${relFiles.join("\n  ")}`);
