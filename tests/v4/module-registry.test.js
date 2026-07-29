@@ -13,11 +13,15 @@ assert.ok(suggestions.some(item => item.module.id === 'software.desktop-local'))
 const preview = previewModuleActivation(project, ['software.web', 'software.desktop-local']);
 assert.deepEqual(preview.moduleIds, ['software.core', 'software.web', 'software.desktop-local']);
 assert.equal(preview.errors.length, 0);
+assert.ok(preview.domainQuestions.length >= 2);
+assert.ok(preview.limitations.length > 0);
 assert.equal(applyModuleActivation(project, preview).success, false);
 const applied = applyModuleActivation(project, preview, { approved: true });
 assert.equal(applied.success, true);
 assert.equal(applied.project.modules.active.length, 4);
+assert.equal(applied.project.modules.active.find(item => item.id === 'software.web').version, '2.0.0');
 assert.equal(applied.project.sections.security.required, true);
+assert.ok(applied.project.sections.deployment.warnings.some(item => item.startsWith('Alan sorusu:')));
 assert.ok(createDocumentSet(applied.project)['documents/modules.md'].includes('software.web'));
 
 const nonSoftwareCases = [

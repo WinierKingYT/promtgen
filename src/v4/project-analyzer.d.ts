@@ -8,7 +8,16 @@ export interface ProjectInventoryReport {
   manifests: string[];
   scriptNames: string[];
   security: { secretFiles: string[]; injectionFiles: string[] };
-  inventory: Array<Record<string, unknown>>;
+  inventory: Array<{
+    path: string;
+    name?: string;
+    extension?: string;
+    size?: number;
+    kind?: string;
+    secretDetected?: boolean;
+    injectionDetected?: boolean;
+    lineCount?: number | null;
+  }>;
   excluded: Array<{ path: string; reason: string }>;
 }
 

@@ -1,0 +1,289 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "web-saas-domain-pack",
+  "completed": 5,
+  "passed": 5,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "small-saas-workspaces",
+      "title": "Çalışma alanlı küçük SaaS",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk stable değil",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.account-boundary",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.data-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.tenant-isolation",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.authorization",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.data-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.tenant-isolation",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "web.core-flow",
+        "web.account-boundary",
+        "web.data-lifecycle",
+        "web.tenant-isolation",
+        "web.delivery"
+      ],
+      "detectedChecks": [
+        "web.core-flow",
+        "web.accessibility",
+        "web.delivery",
+        "web.authorization",
+        "web.data-lifecycle",
+        "web.tenant-isolation"
+      ]
+    },
+    {
+      "id": "admin-panel",
+      "title": "Rol tabanlı yönetim paneli",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk stable değil",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.account-boundary",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.data-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.authorization",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.data-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Koşulsuz kontrol yok: web.tenant-isolation",
+          "passed": true
+        },
+        {
+          "label": "Koşulsuz kontrol yok: web.payment-safety",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "web.core-flow",
+        "web.account-boundary",
+        "web.data-lifecycle",
+        "web.delivery"
+      ],
+      "detectedChecks": [
+        "web.core-flow",
+        "web.accessibility",
+        "web.delivery",
+        "web.authorization",
+        "web.data-lifecycle"
+      ]
+    },
+    {
+      "id": "backend-api",
+      "title": "Veri saklayan backend API",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk stable değil",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.account-boundary",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.data-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.authorization",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.data-lifecycle",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "web.core-flow",
+        "web.account-boundary",
+        "web.data-lifecycle",
+        "web.delivery"
+      ],
+      "detectedChecks": [
+        "web.core-flow",
+        "web.accessibility",
+        "web.delivery",
+        "web.authorization",
+        "web.data-lifecycle"
+      ]
+    },
+    {
+      "id": "subscription-payments",
+      "title": "Abonelik ödemeli SaaS",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk stable değil",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.account-boundary",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.data-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.payment-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.authorization",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.data-lifecycle",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.payment-safety",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "web.core-flow",
+        "web.account-boundary",
+        "web.data-lifecycle",
+        "web.payment-lifecycle",
+        "web.delivery"
+      ],
+      "detectedChecks": [
+        "web.core-flow",
+        "web.accessibility",
+        "web.delivery",
+        "web.authorization",
+        "web.data-lifecycle",
+        "web.payment-safety"
+      ]
+    },
+    {
+      "id": "public-web-tool",
+      "title": "Hesapsız web aracı",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk stable değil",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.core-flow",
+          "passed": true
+        },
+        {
+          "label": "Soru var: web.delivery",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.core-flow",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.accessibility",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: web.delivery",
+          "passed": true
+        },
+        {
+          "label": "Koşulsuz kontrol yok: web.authorization",
+          "passed": true
+        },
+        {
+          "label": "Koşulsuz kontrol yok: web.tenant-isolation",
+          "passed": true
+        },
+        {
+          "label": "Koşulsuz kontrol yok: web.payment-safety",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "web.core-flow",
+        "web.delivery"
+      ],
+      "detectedChecks": [
+        "web.core-flow",
+        "web.accessibility",
+        "web.delivery"
+      ]
+    }
+  ]
+}

@@ -329,6 +329,26 @@ export interface Risk {
   sourceSuggestionId: string
 }
 
+export interface TaskContractV2 {
+  version: 2
+  objective: string
+  inScope: string[]
+  outOfScope: string[]
+  filePolicy: {
+    status: 'requires_inventory' | 'inferred' | 'confirmed'
+    allowedPaths: string[]
+    forbiddenPaths: string[]
+  }
+  verification: {
+    testCaseIds: string[]
+    commands: string[]
+    requiresCommandDiscovery: boolean
+  }
+  expectedOutputs: string[]
+  completionEvidence: string[]
+  rollbackPlan: string
+}
+
 export interface Task {
   id: string
   title: string
@@ -340,6 +360,41 @@ export interface Task {
   requirementIds: string[]
   acceptanceCriteria: string[]
   verificationIds: string[]
+  contract: TaskContractV2
+}
+
+export interface ImplementationEvidencePackage {
+  id: string
+  taskId: string
+  baseCanonicalRevision: number
+  source: 'manual' | 'codex' | 'cursor' | 'claude-code' | 'other'
+  summary: string
+  changedFiles: Array<{
+    path: string
+    changeType: 'added' | 'modified' | 'deleted'
+    note: string
+  }>
+  testRuns: Array<{
+    command: string
+    status: 'passed' | 'failed' | 'not_run'
+    outputSummary: string
+  }>
+  acceptanceEvidence: Array<{
+    criterion: string
+    status: 'met' | 'not_met' | 'unclear'
+    evidence: string
+  }>
+  remainingIssues: string[]
+  rollbackNotes: string
+  review: {
+    outcome: 'ready_for_approval' | 'needs_changes' | 'blocked'
+    findings: string[]
+    reviewedAt: string
+    reviewerNote: string
+  }
+  status: 'review_required' | 'accepted' | 'rejected' | 'stale'
+  createdAt: string
+  resolvedAt: string | null
 }
 
 export interface TestCase {
@@ -541,6 +596,22 @@ export interface ReadinessCheck {
   message: string
   blocking: boolean
   entityIds: string[]
+  sectionId?: string
+  actionLabel?: string
+  evidence?: {
+    satisfied: number
+    total: number
+  }
+}
+
+export interface ReadinessAction {
+  checkId: string
+  label: string
+  message: string
+  priority: 'critical' | 'recommended'
+  sectionId?: string
+  entityIds: string[]
+  scoreImpact: number
 }
 
 export interface ReadinessResult {
@@ -557,6 +628,7 @@ export interface ReadinessResult {
   dimensionWeights: Record<ReadinessDimension, number>
   dimensionLabels: Record<ReadinessDimension, string>
   checks: ReadinessCheck[]
+  nextActions: ReadinessAction[]
   blockers: string[]
   warnings: string[]
   calculatedAtRevision: number
@@ -584,7 +656,7 @@ export interface PlanRevision {
 
 export interface ProjectDocumentV5 {
   schemaVersion: 5
-  schemaRevision: 4
+  schemaRevision: 5
   id: string
   documentRevision: number
   canonicalRevision: number
@@ -646,6 +718,7 @@ export interface ProjectDocumentV5 {
   impactAnalyses?: ImpactAnalysis[]
   planningScenarios: PlanningScenario[]
   sectionPatchProposals: SectionPatchProposal[]
+  implementationEvidencePackages: ImplementationEvidencePackage[]
   modules: {
     active: Array<{ id: string; version: string; enabledAtRevision: number; config: Record<string, unknown> }>
     dismissed: string[]
@@ -659,11 +732,49 @@ export interface ModuleManifest {
   version: string
   name: string
   description: string
-  category: 'core' | 'software' | 'quality' | 'research' | 'business' | 'content'
+  category: 'core' | 'software' | 'quality' | 'research' | 'business' | 'content' | 'operations' | 'event'
   dependencies: string[]
   conflicts: string[]
   triggers: string[]
-  contributions: { requiredSections: string[]; suggestedSections: string[]; reviewerRuleIds: string[]; exportDocumentIds: string[] }
+  contributions: {
+    requiredSections: string[]
+    suggestedSections: string[]
+    reviewerRuleIds: string[]
+    exportDocumentIds: string[]
+    domainPack?: DomainPackContribution
+  }
+}
+
+export interface DomainPackDiscoveryQuestion {
+  id: string
+  prompt: string
+  rationale: string
+  affectedSectionId: string
+  appliesWhen: 'always' | 'accounts' | 'multi_tenant' | 'payments' | 'stored_data'
+}
+
+export interface DomainPackContribution {
+  id: string
+  maturity: 'candidate-stable' | 'stable' | 'beta' | 'experimental'
+  projectTypes: string[]
+  limitations: string[]
+  discoveryQuestions: DomainPackDiscoveryQuestion[]
+  requirementGuidance: Array<{
+    id: string
+    label: string
+    keywords: string[]
+    acceptanceExamples: string[]
+  }>
+  riskGuidance: Array<{
+    id: string
+    title: string
+    appliesWhen: DomainPackDiscoveryQuestion['appliesWhen']
+    mitigationPrompt: string
+  }>
+  taskContractGuidance: {
+    expectedOutputs: string[]
+    completionEvidence: string[]
+  }
 }
 
 export interface ProjectRepository {

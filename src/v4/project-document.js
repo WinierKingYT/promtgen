@@ -74,6 +74,7 @@ export function createInitialReadiness(revision = 1) {
         dimensionWeights: { completeness: 20, consistency: 20, traceability: 25, riskCoverage: 15, implementationReadiness: 20 },
         dimensionLabels: { completeness: 'Tamlık', consistency: 'Tutarlılık', traceability: 'İzlenebilirlik', riskCoverage: 'Risk kapsamı', implementationReadiness: 'Uygulamaya hazırlık' },
         checks: [],
+        nextActions: [],
         blockers: ['Proje fikri henüz analiz edilmedi.'],
         warnings: [],
         calculatedAtRevision: revision
@@ -90,7 +91,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
     const initialIdea = String(idea || '').trim();
     const state = {
         schemaVersion: 5,
-        schemaRevision: 4,
+        schemaRevision: 5,
         id: projectId(),
         documentRevision: 1,
         canonicalRevision: 1,
@@ -122,7 +123,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
             deferredAt: null
         },
         ideaDiscussion: { mode: 'explore', records: [], updatedAt: createdAt },
-        impactAnalyses: [], planningScenarios: [], sectionPatchProposals: [],
+        impactAnalyses: [], planningScenarios: [], sectionPatchProposals: [], implementationEvidencePackages: [],
         modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
     };
     if (initialIdea) {
@@ -150,7 +151,7 @@ export function validateProjectDocument(state) {
     const errors = [];
     if (!state || typeof state !== 'object') return { valid: false, errors: ['Proje durumu nesne olmalı.'] };
     if (state.schemaVersion !== 5) errors.push('schemaVersion 5 olmalı.');
-    if (state.schemaRevision !== 4) errors.push('schemaRevision 4 olmalı.');
+    if (state.schemaRevision !== 5) errors.push('schemaRevision 5 olmalı.');
     if (!state.id || typeof state.id !== 'string') errors.push('Proje kimliği eksik.');
     if (!Number.isInteger(state.documentRevision) || state.documentRevision < 1) errors.push('documentRevision pozitif tam sayı olmalı.');
     if (!Number.isInteger(state.canonicalRevision) || state.canonicalRevision < 1) errors.push('canonicalRevision pozitif tam sayı olmalı.');
@@ -198,6 +199,10 @@ export function validateProjectDocument(state) {
     if (!Array.isArray(state.readiness?.checks)) errors.push('Readiness kanıt kontrolleri dizi olmalı.');
     if (state.readiness?.checks?.some(check => !check.id || !['passed', 'warning', 'blocked'].includes(check.status))) {
         errors.push('Readiness kanıt kontrolü geçersiz.');
+    }
+    if (!Array.isArray(state.readiness?.nextActions)) errors.push('Readiness sonraki eylemleri dizi olmalı.');
+    if (state.readiness?.nextActions?.some(action => !action.checkId || !['critical', 'recommended'].includes(action.priority))) {
+        errors.push('Readiness sonraki eylemi geçersiz.');
     }
     const conceptSummary = state.ideaLabSession?.conceptSummary;
     if (conceptSummary) {
@@ -267,6 +272,19 @@ export function validateProjectDocument(state) {
             if (!proposal?.provenance?.runId || !proposal?.provenance?.schemaId) errors.push(`Patch provenance eksik: ${proposal?.id || 'boş'}`);
         }
     }
+    if (!Array.isArray(state.implementationEvidencePackages)) {
+        errors.push('Uygulama kanıt paketleri dizi olmalı.');
+    } else {
+        const validEvidenceStatuses = new Set(['review_required', 'accepted', 'rejected', 'stale']);
+        for (const evidencePackage of state.implementationEvidencePackages) {
+            if (!evidencePackage?.id || !evidencePackage.taskId || !evidencePackage.summary) errors.push('Uygulama kanıt paketi kimlik, görev ve özet taşımalı.');
+            if (!state.tasks?.some(task => task.id === evidencePackage?.taskId)) errors.push(`Kanıt paketinin görevi bulunamadı: ${evidencePackage?.taskId || 'boş'}`);
+            if (!Number.isInteger(evidencePackage?.baseCanonicalRevision) || evidencePackage.baseCanonicalRevision < 1) errors.push(`Kanıt paketi kaynak revision geçersiz: ${evidencePackage?.id || 'boş'}`);
+            if (!Array.isArray(evidencePackage?.changedFiles) || !Array.isArray(evidencePackage?.testRuns) || !Array.isArray(evidencePackage?.acceptanceEvidence)) errors.push(`Kanıt paketi uygulama verisi geçersiz: ${evidencePackage?.id || 'boş'}`);
+            if (!validEvidenceStatuses.has(evidencePackage?.status)) errors.push(`Kanıt paketi durumu geçersiz: ${evidencePackage?.status || 'boş'}`);
+            if (!evidencePackage?.review?.outcome || !Array.isArray(evidencePackage?.review?.findings)) errors.push(`Kanıt paketi inceleme sonucu eksik: ${evidencePackage?.id || 'boş'}`);
+        }
+    }
     for (const key of ['objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones', 'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings', 'simulationRuns', 'exports']) {
         if (!Array.isArray(state[key])) errors.push(`${key} dizi olmalı.`);
     }
@@ -303,6 +321,24 @@ function validateEntityInvariants(state, errors) {
         }
     }
     for (const task of state.tasks || []) {
+        const contract = task.contract;
+        if (contract?.version !== 2 || !String(contract?.objective || '').trim()) {
+            errors.push(`Görev sözleşmesi V2 eksik: ${task.id}`);
+        } else {
+            if (!Array.isArray(contract.inScope) || contract.inScope.length === 0) errors.push(`Görev kapsamı eksik: ${task.id}`);
+            if (!Array.isArray(contract.outOfScope) || contract.outOfScope.length === 0) errors.push(`Görev kapsam dışı listesi eksik: ${task.id}`);
+            if (!['requires_inventory', 'inferred', 'confirmed'].includes(contract.filePolicy?.status)) errors.push(`Görev dosya politikası geçersiz: ${task.id}`);
+            if (!Array.isArray(contract.filePolicy?.forbiddenPaths) || contract.filePolicy.forbiddenPaths.length === 0) errors.push(`Görev yasak dosya yolları eksik: ${task.id}`);
+            if (!Array.isArray(contract.verification?.testCaseIds) || !Array.isArray(contract.verification?.commands)) errors.push(`Görev doğrulama sözleşmesi geçersiz: ${task.id}`);
+            if (contract.filePolicy?.status === 'confirmed' && contract.filePolicy.allowedPaths.length === 0) errors.push(`Onaylı görev dosya kapsamı boş: ${task.id}`);
+            if (contract.verification?.requiresCommandDiscovery === false && contract.verification.commands.length === 0) errors.push(`Görev doğrulama komutu eksik: ${task.id}`);
+            for (const testCaseId of contract.verification?.testCaseIds || []) {
+                if (!idsByType.get('testCases')?.has(testCaseId)) errors.push(`Görev sözleşmesi var olmayan teste bağlı: ${task.id} → ${testCaseId}`);
+            }
+            if (!Array.isArray(contract.expectedOutputs) || contract.expectedOutputs.length === 0) errors.push(`Görev beklenen çıktıları eksik: ${task.id}`);
+            if (!Array.isArray(contract.completionEvidence) || contract.completionEvidence.length === 0) errors.push(`Görev tamamlanma kanıtı eksik: ${task.id}`);
+            if (!String(contract.rollbackPlan || '').trim()) errors.push(`Görev geri alma planı eksik: ${task.id}`);
+        }
         for (const requirementId of task.requirementIds || []) {
             const requirement = (state.requirements || []).find(item => item.id === requirementId);
             if (!requirement || requirement.status !== 'accepted') {

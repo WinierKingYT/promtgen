@@ -168,7 +168,7 @@ describe('Living idea document revision history', () => {
     delete legacy.planAlignment;
 
     const normalized = normalizeProjectDocument(legacy);
-    assert.equal(normalized.schemaRevision, 4);
+    assert.equal(normalized.schemaRevision, 5);
     assert.equal(normalized.ideaDocumentRevisions.length, changed.ideaDocumentRevisions.length);
     assert.equal(normalized.sourceIdeaRevisionId, converted.project.ideaDocumentRevisions.at(-1)?.id);
     assert.equal(normalized.planAlignment.status, 'stale');

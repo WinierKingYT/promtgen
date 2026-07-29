@@ -83,7 +83,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
-      - run: npm run performance:budget
+      - run: npm run performance:report
       - run: npm run check:version
 
   tauri-check:

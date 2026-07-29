@@ -9,14 +9,20 @@ const DIMENSION_ORDER: ReadinessDimension[] = [
   'implementationReadiness'
 ];
 
-export function ProjectHealthRadarCard({ project }: { project: ProjectDocumentV5 }) {
+export function ProjectHealthRadarCard({
+  project,
+  onSection
+}: {
+  project: ProjectDocumentV5;
+  onSection?: (sectionId: string) => void;
+}) {
   const readiness = project.readiness;
-  const unresolved = readiness.checks.filter(item => item.status !== 'passed');
+  const actions = readiness.nextActions || [];
 
   return (
     <details className="readiness-breakdown">
       <summary>
-        <span><Gauge size={14} /> READINESS 2.0</span>
+        <span><Gauge size={14} /> READINESS 2.1</span>
         <b>{readiness.status === 'ready' ? 'Hazır' : readiness.status === 'needs_review' ? 'İnceleme gerekli' : 'Kapı kapalı'}</b>
       </summary>
       <p className="readiness-explanation">Skor kayıt sayısına değil; onay, tutarlılık, izlenebilir bağlantılar, risk sahipliği ve doğrulanabilir görevlere dayanır.</p>
@@ -32,15 +38,38 @@ export function ProjectHealthRadarCard({ project }: { project: ProjectDocumentV5
           );
         })}
       </div>
-      {unresolved.length > 0 && (
-        <ul className="readiness-checks">
-          {unresolved.slice(0, 6).map(item => (
-            <li className={item.status} key={item.id}>
-              {item.status === 'blocked' ? <XCircle size={13} /> : <CircleAlert size={13} />}
-              <span><b>{item.label}</b><small>{item.message}</small></span>
+      {actions.length > 0 && (
+        <ul className="readiness-checks" aria-label="Önerilen sonraki hazırlık eylemleri">
+          {actions.map(action => {
+            const evidence = readiness.checks.find(item => item.id === action.checkId)?.evidence;
+            const canOpen = Boolean(action.sectionId && onSection);
+            const open = () => {
+              if (action.sectionId) onSection?.(action.sectionId);
+            };
+            return (
+            <li
+              className={action.priority === 'critical' ? 'blocked' : 'warning'}
+              key={action.checkId}
+              role={canOpen ? 'button' : undefined}
+              tabIndex={canOpen ? 0 : undefined}
+              aria-label={canOpen ? `${action.label}: ilgili plan bölümünü aç` : undefined}
+              onClick={canOpen ? open : undefined}
+              onKeyDown={canOpen ? event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  open();
+                }
+              } : undefined}
+            >
+              {action.priority === 'critical' ? <XCircle size={13} /> : <CircleAlert size={13} />}
+              <span>
+                <b>{action.label}</b>
+                <small>{action.message}</small>
+                <small>{evidence ? `${evidence.satisfied}/${evidence.total} kanıt tamamlandı · ` : ''}yaklaşık +{action.scoreImpact} puan{canOpen ? ' · bölümü aç' : ''}</small>
+              </span>
             </li>
-          ))}
-          {unresolved.length > 6 && <li className="more"><CheckCircle2 size={13} /> +{unresolved.length - 6} ek kontrol</li>}
+          )})}
+          {readiness.checks.filter(item => item.status !== 'passed').length > actions.length && <li className="more"><CheckCircle2 size={13} /> Öncelik sırasına göre ilk {actions.length} eylem gösteriliyor</li>}
         </ul>
       )}
     </details>

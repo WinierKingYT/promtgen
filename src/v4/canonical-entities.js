@@ -87,6 +87,18 @@ export function normalizeRisk(value = {}, index = 0) {
 
 export function normalizeTask(value = {}, index = 0) {
     const source = typeof value === 'string' ? { title: value } : value;
+    const contract = source.contract && typeof source.contract === 'object' ? source.contract : {};
+    const filePolicy = contract.filePolicy && typeof contract.filePolicy === 'object' ? contract.filePolicy : {};
+    const verification = contract.verification && typeof contract.verification === 'object' ? contract.verification : {};
+    const objective = text(contract.objective || source.description || source.title, `Görev ${index + 1}`);
+    const inScope = list(contract.inScope);
+    const outOfScope = list(contract.outOfScope);
+    const allowedPaths = list(filePolicy.allowedPaths);
+    const forbiddenPaths = list(filePolicy.forbiddenPaths);
+    const testCaseIds = list(verification.testCaseIds || source.verificationIds);
+    const commands = list(verification.commands);
+    const expectedOutputs = list(contract.expectedOutputs);
+    const completionEvidence = list(contract.completionEvidence);
     return {
         id: entityId('task', source, index),
         title: text(source.title || source.description, `Görev ${index + 1}`),
@@ -97,7 +109,36 @@ export function normalizeTask(value = {}, index = 0) {
         dependencies: list(source.dependencies),
         requirementIds: list(source.requirementIds),
         acceptanceCriteria: list(source.acceptanceCriteria),
-        verificationIds: list(source.verificationIds)
+        verificationIds: list(source.verificationIds),
+        contract: {
+            version: /** @type {2} */ (2),
+            objective,
+            inScope: inScope.length ? inScope : [objective],
+            outOfScope: outOfScope.length ? outOfScope : ['Canonical görev kapsamı dışındaki değişiklikler'],
+            filePolicy: {
+                status: ['requires_inventory', 'inferred', 'confirmed'].includes(filePolicy.status)
+                    ? filePolicy.status
+                    : (allowedPaths.length ? 'inferred' : 'requires_inventory'),
+                allowedPaths,
+                forbiddenPaths: forbiddenPaths.length
+                    ? forbiddenPaths
+                    : ['.git/**', '.env*', '**/*.pem', '**/*secret*', 'node_modules/**', 'dist/**', 'target/**']
+            },
+            verification: {
+                testCaseIds,
+                commands,
+                requiresCommandDiscovery: typeof verification.requiresCommandDiscovery === 'boolean'
+                    ? verification.requiresCommandDiscovery
+                    : commands.length === 0
+            },
+            expectedOutputs: expectedOutputs.length
+                ? expectedOutputs
+                : ['Değiştirilen dosyaların listesi', 'Kabul kriteri ve test kanıtı', 'Kalan riskler'],
+            completionEvidence: completionEvidence.length
+                ? completionEvidence
+                : ['Değişiklik özeti', 'Doğrulama çıktısı'],
+            rollbackPlan: text(contract.rollbackPlan, 'Değişiklikleri görev bazlı patch olarak tut; doğrulama başarısızsa yalnız bu görevin patchini geri al.')
+        }
     };
 }
 
@@ -364,12 +405,50 @@ export function normalizeSectionPatchProposal(value = {}, index = 0) {
     };
 }
 
+export function normalizeImplementationEvidencePackage(value = {}, index = 0) {
+    const source = value && typeof value === 'object' ? value : {};
+    const createdAt = text(source.createdAt, new Date().toISOString());
+    return {
+        id: entityId('implementation-evidence', source, index),
+        taskId: text(source.taskId),
+        baseCanonicalRevision: Math.max(1, Number(source.baseCanonicalRevision || 1)),
+        source: ['manual', 'codex', 'cursor', 'claude-code', 'other'].includes(source.source) ? source.source : 'manual',
+        summary: text(source.summary, `Uygulama kanıt paketi ${index + 1}`),
+        changedFiles: Array.isArray(source.changedFiles) ? source.changedFiles.map(item => ({
+            path: text(item?.path).replaceAll('\\', '/').replace(/^\.\//, ''),
+            changeType: ['added', 'modified', 'deleted'].includes(item?.changeType) ? item.changeType : 'modified',
+            note: text(item?.note)
+        })).filter(item => item.path) : [],
+        testRuns: Array.isArray(source.testRuns) ? source.testRuns.map(item => ({
+            command: text(item?.command),
+            status: ['passed', 'failed', 'not_run'].includes(item?.status) ? item.status : 'not_run',
+            outputSummary: text(item?.outputSummary)
+        })).filter(item => item.command) : [],
+        acceptanceEvidence: Array.isArray(source.acceptanceEvidence) ? source.acceptanceEvidence.map(item => ({
+            criterion: text(item?.criterion),
+            status: ['met', 'not_met', 'unclear'].includes(item?.status) ? item.status : 'unclear',
+            evidence: text(item?.evidence)
+        })).filter(item => item.criterion) : [],
+        remainingIssues: list(source.remainingIssues),
+        rollbackNotes: text(source.rollbackNotes),
+        review: {
+            outcome: ['ready_for_approval', 'needs_changes', 'blocked'].includes(source.review?.outcome) ? source.review.outcome : 'needs_changes',
+            findings: list(source.review?.findings),
+            reviewedAt: text(source.review?.reviewedAt, createdAt),
+            reviewerNote: text(source.review?.reviewerNote)
+        },
+        status: ['review_required', 'accepted', 'rejected', 'stale'].includes(source.status) ? source.status : 'review_required',
+        createdAt,
+        resolvedAt: text(source.resolvedAt) || null
+    };
+}
+
 export function normalizeProjectDocument(project) {
     if (!project || typeof project !== 'object') return project;
     const next = structuredClone(project);
     const sourceSchemaRevision = Math.max(1, Number(next.schemaRevision || 1));
     next.schemaVersion = 5;
-    next.schemaRevision = 4;
+    next.schemaRevision = 5;
     next.documentRevision = Math.max(1, Number(next.documentRevision || next.revision || 1));
     next.canonicalRevision = Math.max(1, Math.min(next.documentRevision, Number(next.canonicalRevision || next.revision || 1)));
     delete next.revision;
@@ -390,6 +469,7 @@ export function normalizeProjectDocument(project) {
         dimensionWeights: { completeness: 20, consistency: 20, traceability: 25, riskCoverage: 15, implementationReadiness: 20 },
         dimensionLabels: { completeness: 'Tamlık', consistency: 'Tutarlılık', traceability: 'İzlenebilirlik', riskCoverage: 'Risk kapsamı', implementationReadiness: 'Uygulamaya hazırlık' },
         checks: Array.isArray(previousReadiness.checks) ? previousReadiness.checks : [],
+        nextActions: Array.isArray(previousReadiness.nextActions) ? previousReadiness.nextActions : [],
         blockers: list(previousReadiness.blockers),
         warnings: list(previousReadiness.warnings),
         calculatedAtRevision: Math.max(1, Number(previousReadiness.calculatedAtRevision || next.canonicalRevision))
@@ -412,6 +492,7 @@ export function normalizeProjectDocument(project) {
     next.impactAnalyses = (next.impactAnalyses || []).map(normalizeImpactAnalysis);
     next.planningScenarios = (next.planningScenarios || []).map(normalizePlanningScenario);
     next.sectionPatchProposals = (next.sectionPatchProposals || []).map(normalizeSectionPatchProposal);
+    next.implementationEvidencePackages = (next.implementationEvidencePackages || []).map(normalizeImplementationEvidencePackage);
     next.ideaDocumentRevisions = Array.isArray(next.ideaDocumentRevisions) ? next.ideaDocumentRevisions.map((revision, index) => ({
         id: text(revision?.id, `idea-revision-${index + 1}`),
         number: Math.max(1, Number(revision?.number || index + 1)),
@@ -476,12 +557,13 @@ export function normalizeProjectDocument(project) {
     next.revisions = Array.isArray(next.revisions) ? next.revisions.map(revision => {
         const snapshot = revision.snapshot && typeof revision.snapshot === 'object' ? structuredClone(revision.snapshot) : {};
         snapshot.schemaVersion = 5;
-        snapshot.schemaRevision = 4;
+        snapshot.schemaRevision = 5;
         snapshot.documentRevision = Math.max(1, Number(snapshot.documentRevision || snapshot.revision || revision.number || 1));
         snapshot.canonicalRevision = Math.max(1, Number(snapshot.canonicalRevision || snapshot.revision || revision.number || 1));
         delete snapshot.revision;
         snapshot.planningScenarios = Array.isArray(snapshot.planningScenarios) ? snapshot.planningScenarios : [];
         snapshot.sectionPatchProposals = Array.isArray(snapshot.sectionPatchProposals) ? snapshot.sectionPatchProposals : [];
+        snapshot.implementationEvidencePackages = Array.isArray(snapshot.implementationEvidencePackages) ? snapshot.implementationEvidencePackages : [];
         snapshot.ideaDocumentRevisions = Array.isArray(snapshot.ideaDocumentRevisions) ? snapshot.ideaDocumentRevisions : [];
         snapshot.sourceIdeaRevisionId = snapshot.sourceIdeaRevisionId || null;
         snapshot.sourceIdeaRevisionNumber = Number.isInteger(snapshot.sourceIdeaRevisionNumber) ? snapshot.sourceIdeaRevisionNumber : null;

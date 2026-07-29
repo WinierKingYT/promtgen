@@ -1,5 +1,6 @@
 import { PLANNER_BENCHMARK_EVIDENCE } from './product/generated-benchmark-evidence.js';
 import { COMPARISON_EVIDENCE } from './product/generated-comparison-evidence.js';
+import { WEB_SAAS_BENCHMARK_EVIDENCE } from './product/generated-web-saas-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -130,6 +131,29 @@ const userEvidence = (capabilityId: string): CapabilityPromotionEvidence['users'
 
 export const CAPABILITY_REGISTRY: ProductCapability[] = [
   {
+    id: 'web-saas-domain-pack',
+    publicName: 'Web/SaaS Planlama Paketi',
+    description: 'Web uygulaması, küçük SaaS, panel ve API planlarında koşullu alan soruları, kalite kapıları ve görev doğrulama rehberi.',
+    maturity: 'candidate-stable',
+    platforms: ['web', 'desktop'],
+    platformMaturity: { web: 'candidate-stable', desktop: 'candidate-stable' },
+    implementationMode: 'rule-engine',
+    limitations: [
+      'Büyük dağıtık altyapı ve kritik finans/sağlık sistemleri destek kapsamında değildir',
+      'Framework veya sağlayıcı seçmez; güvenlik garantisi ya da penetrasyon testi sunmaz',
+      'Stable yükseltmesi için gerçek kullanıcı ve alan benchmark kanıtı henüz tamamlanmamıştır'
+    ],
+    evidence: [
+      { testId: 'tests/v4/web-saas-domain-pack.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] },
+      { testId: 'tests/e2e/guided-workflow.spec.ts', level: 'browser-e2e', platforms: ['web'] }
+    ],
+    supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
+    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: WEB_SAAS_BENCHMARK_EVIDENCE,
+      users: userEvidence('web-saas-domain-pack')
+    })
+  },
+  {
     id: 'canonical-planning',
     publicName: 'Canonical Yaşayan Plan ve Revizyon Yönetimi',
     description: 'Proje durumunun JSON formatında saklanması, sürüm takibi ve geri alma.',
@@ -146,6 +170,28 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
       scenarios: benchmarkScenarios('canonical-planning'),
       users: userEvidence('canonical-planning')
+    })
+  },
+  {
+    id: 'implementation-evidence-review',
+    publicName: 'Görev Teslim Kanıtı',
+    description: 'Dışarıda yapılan kod değişikliklerini TaskContract dosya kapsamı, doğrulama komutları ve kabul kriterlerine göre kullanıcı onayından önce inceleme.',
+    maturity: 'beta',
+    platforms: ['web', 'desktop'],
+    platformMaturity: { web: 'beta', desktop: 'beta' },
+    implementationMode: 'rule-engine',
+    limitations: [
+      'PromtGen kod yazmaz ve kanıtın doğruluğunu bağımsız olarak garanti etmez',
+      'Test çıktı özeti kullanıcı veya dış araç tarafından sağlanır',
+      'Görev durumu yalnız açık kullanıcı onayından sonra güncellenir'
+    ],
+    evidence: [
+      { testId: 'tests/v4/implementation-evidence.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] },
+      { testId: 'tests/e2e/smoke.spec.ts', level: 'browser-e2e', platforms: ['web'] }
+    ],
+    supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
+    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      users: userEvidence('implementation-evidence-review')
     })
   },
   {

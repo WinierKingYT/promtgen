@@ -26,7 +26,7 @@ function readyProject(): ProjectDocumentV5 {
   return recalculateReadiness(project);
 }
 
-describe('Readiness Score 2.0 and completion gate', () => {
+describe('Readiness Score 2.1 and completion gate', () => {
   it('uses the documented five dimensions and evidence checks instead of entity counts', () => {
     const project = readyProject();
     assert.deepEqual(project.readiness.dimensionWeights, {
@@ -98,5 +98,58 @@ describe('Readiness Score 2.0 and completion gate', () => {
       status: 'draft'
     }));
     assert.equal(finalizePlan(blocked).success, true, 'Taslak kayıt tek başına canonical tamamlanma kapısını kapatmamalı.');
+  });
+
+  it('reports proportional evidence and ordered actions instead of only a percentage', () => {
+    const project = readyProject();
+    assert.ok(project.tasks.length > 0);
+    project.tasks[0].acceptanceCriteria = [];
+
+    const result = recalculateReadiness(project);
+    const taskCheck = result.readiness.checks.find(item => item.id === 'implementation.tasks');
+    const taskAction = result.readiness.nextActions.find(item => item.checkId === 'implementation.tasks');
+
+    assert.equal(taskCheck?.status, 'blocked');
+    assert.deepEqual(taskCheck?.evidence, {
+      satisfied: project.tasks.length - 1,
+      total: project.tasks.length
+    });
+    assert.equal(taskAction?.priority, 'critical');
+    assert.equal(taskAction?.sectionId, 'tasks');
+    assert.ok((taskAction?.scoreImpact || 0) > 0);
+    assert.ok(result.readiness.nextActions.length <= 5);
+  });
+
+  it('blocks invalid task sources and weak test contracts', () => {
+    const project = readyProject();
+    project.tasks[0].requirementIds = ['req-not-accepted'];
+    project.testCases[0].requirementIds = ['req-not-accepted'];
+    project.testCases[0].steps = [];
+    project.testCases[0].expectedResult = '';
+    project.tasks[0].contract.completionEvidence = [];
+
+    const result = recalculateReadiness(project);
+
+    assert.equal(result.readiness.checks.find(item => item.id === 'implementation.links')?.status, 'blocked');
+    assert.equal(result.readiness.checks.find(item => item.id === 'implementation.test-quality')?.status, 'blocked');
+    assert.equal(result.readiness.checks.find(item => item.id === 'implementation.contracts')?.status, 'blocked');
+    assert.equal(finalizePlan(result).success, false);
+  });
+
+  it('detects reordered scope leakage and warns about oversized tasks', () => {
+    const project = readyProject();
+    project.ideaLabSession.conceptSummary!.outOfScope = ['Bulut senkronizasyonu ve çok kullanıcılı işbirliği'];
+    project.tasks[0].description = 'Çok kullanıcılı çalışma için bulut tabanlı senkronizasyonu uygula.';
+    project.tasks[0].effort = 'high';
+    project.tasks[0].requirementIds = [
+      project.requirements[0].id,
+      project.requirements[1]?.id || project.requirements[0].id,
+      project.requirements[2]?.id || project.requirements[0].id
+    ];
+
+    const result = recalculateReadiness(project);
+
+    assert.equal(result.readiness.checks.find(item => item.id === 'consistent.scope')?.status, 'blocked');
+    assert.equal(result.readiness.checks.find(item => item.id === 'implementation.size')?.status, 'warning');
   });
 });

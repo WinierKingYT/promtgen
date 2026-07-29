@@ -49,6 +49,12 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(page.getByText('ÖNERİLEN PLAN DERİNLİĞİ')).toBeVisible();
     await expect(page.getByLabel('Yaşayan plan')).toBeVisible();
     await expect(page.locator('.requirement-card')).toHaveCount(2);
+    await expect(page.getByLabel(/Mevcut aşama/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Finalleştir' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Markdown' })).toBeHidden();
+    await page.getByLabel('Çalışma alanı araçları').click();
+    await expect(page.getByRole('button', { name: 'Markdown' })).toBeVisible();
+    await page.getByLabel('Çalışma alanı araçları').click();
 
     await page.getByRole('button', { name: /Rehber oluştur/ }).click();
     await page.locator('.concept-agreement .agreement-primary textarea').nth(1).fill('Bağımsız teknik kurucular');
@@ -170,17 +176,50 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(requirementGate.getByText('Görev üretimine hazır')).toBeVisible();
 
     await page.getByRole('button', { name: /Detaylı planla/ }).click();
+    const quality = page.locator('.plan-quality');
+    await expect(quality).toContainText('Plan kalitesi');
+    await quality.locator('summary').first().click();
+    const domainPack = quality.locator('.domain-pack-card');
+    await expect(domainPack.getByText('Web/SaaS Planlama Paketi')).toBeVisible();
+    await expect(domainPack.getByText('KARARLI ADAYI · KURAL PAKETİ')).toBeVisible();
+    await domainPack.getByRole('button', { name: 'Paket katkılarını incele' }).click();
+    const domainPreview = domainPack.getByRole('region', { name: 'Web SaaS paket aktivasyon önizlemesi' });
+    await expect(domainPreview).toContainText('alan sorusu');
+    await expect(domainPreview).toContainText('framework veya sağlayıcıyı otomatik seçmez');
+    await domainPreview.getByRole('button', { name: 'Paketi onayla' }).click();
+    await expect(domainPack).toContainText('readiness, plan incelemesi, görev sözleşmeleri');
+    await expect(domainPack.getByRole('button', { name: /Ana web kullanıcı akışı doğrulanmış/ })).toBeVisible();
+
     await page.getByRole('button', { name: /Görevler ve Yol Haritası/ }).click();
     await page.getByRole('button', { name: 'Gereksinimlerden görev taslağı üret' }).click();
-    await expect(page.getByRole('region', { name: 'Görev planı önizlemesi' })).toContainText('1 görev');
-    await page.getByRole('button', { name: 'Taslağı onayla' }).click();
+    const taskPreview = page.getByRole('region', { name: 'Görev planı önizlemesi' });
+    await expect(taskPreview).toContainText('1 görev');
+    await expect(taskPreview).toContainText('TaskContract V2');
+    await expect(taskPreview).toContainText('dosya envanteri gerekli');
+    await page.getByRole('button', { name: 'Taslağı onayla; dosya kapsamını sonra belirle' }).click();
+    const approvedContracts = page.getByRole('region', { name: 'Onaylı görev sözleşmeleri' });
+    await expect(approvedContracts).toContainText('1 onaylı TaskContract V2');
+    await approvedContracts.locator('summary').first().click();
+    await expect(approvedContracts).toContainText('Geri alma');
     await expect(requirementGate.getByText(/Must gereksinimlerin görev ve test bağlantıları tamamlandı/)).toBeVisible();
+    await page.getByLabel('Çalışma alanı araçları').click();
+    await page.getByRole('button', { name: 'Labs araçları' }).click();
+    const alignmentPanel = page.locator('.plan-code-alignment');
+    await expect(alignmentPanel).toContainText('Plan–kod uyumluluk kontrolü');
+    await alignmentPanel.locator('summary').first().click();
+    await expect(alignmentPanel).toContainText(/PromtGen burada kod yazmaz veya dosya değiştirmez/);
+    await expect(alignmentPanel).toContainText('Mevcut proje envanteri bulunamadı');
 
     const readiness = page.locator('.readiness-breakdown');
-    await expect(readiness.getByText('READINESS 2.0')).toBeVisible();
+    await expect(readiness.getByText('READINESS 2.1')).toBeVisible();
     await readiness.locator('summary').click();
     await expect(readiness.getByLabel(/Tamlık \d+\/100/)).toBeVisible();
     await expect(readiness.getByText(/Skor kayıt sayısına değil/)).toBeVisible();
+    await expect(readiness.getByRole('list', { name: 'Önerilen sonraki hazırlık eylemleri' })).toBeVisible();
+    await expect(readiness.getByRole('button', { name: /ilgili plan bölümünü aç/ }).first()).toBeVisible();
+    await page.setViewportSize({ width: 320, height: 900 });
+    const workspaceWidth = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+    expect(workspaceWidth.scroll).toBeLessThanOrEqual(workspaceWidth.client);
 
     await page.getByRole('button', { name: 'Finalleştir' }).click();
     const completionGate = page.getByRole('dialog');

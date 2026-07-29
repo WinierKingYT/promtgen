@@ -1,5 +1,5 @@
 // Type declarations for src/v4/task-compiler.js
-import { ProjectDocumentV5 } from './contracts.js';
+import { ProjectDocumentV5, TaskContractV2 } from './contracts.js';
 
 export interface CompiledTask {
   id: string;
@@ -12,6 +12,7 @@ export interface CompiledTask {
   acceptanceCriteria: string[];
   verificationIds: string[];
   dependencies: string[];
+  contract: TaskContractV2;
 }
 
 export interface CompiledTestCase {

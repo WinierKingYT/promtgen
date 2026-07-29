@@ -14,11 +14,12 @@ const ARRAY_FIELDS = [
     'objectives', 'requirements', 'decisions', 'assumptions', 'risks', 'tasks', 'testCases', 'milestones',
     'traceLinks', 'agentPrompts', 'researchQuestions', 'sources', 'evidence', 'reviewFindings',
     'simulationRuns', 'executionSessions', 'openQuestions', 'messages', 'revisions', 'exports', 'commandLog',
-    'dismissedSuggestionFingerprints', 'impactAnalyses', 'planningScenarios', 'sectionPatchProposals', 'ideaDocumentRevisions'
+    'dismissedSuggestionFingerprints', 'impactAnalyses', 'planningScenarios', 'sectionPatchProposals', 'ideaDocumentRevisions',
+    'implementationEvidencePackages'
 ];
 
 export const LATEST_SCHEMA_VERSION = 5;
-export const LATEST_SCHEMA_REVISION = 4;
+export const LATEST_SCHEMA_REVISION = 5;
 
 export function migrateLegacyToV5(input) {
     if (!input || typeof input !== 'object') return failure(input, 'Geçersiz proje verisi.');

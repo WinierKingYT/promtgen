@@ -6,6 +6,8 @@ import { createProjectDocument } from '../../src/v4/project-document.js';
 
 const v4Project = createLegacyProjectStateV4({ idea: 'Test projesi için migration' });
 v4Project.sections.vision.items.push('Korunacak plan girdisi');
+v4Project.requirements.push({ id: 'req-legacy', title: 'Legacy kayıt', statement: 'Legacy veri korunmalı.', kind: 'functional', priority: 'must', acceptanceCriteria: ['Kayıt korunur.'], sourceObjectiveIds: [], sourceSuggestionIds: [], status: 'accepted' });
+v4Project.tasks.push({ id: 'task-legacy', title: 'Legacy görevi', description: 'Legacy veriyi koru.', status: 'ready', priority: 'must', effort: 'low', dependencies: [], requirementIds: ['req-legacy'], acceptanceCriteria: ['Kayıt korunur.'], verificationIds: ['test-legacy'] });
 v4Project.testCases.push({ id: 'test-legacy', title: 'Legacy test', kind: 'acceptance', preconditions: [], steps: [], expectedResult: 'Başarılı', requirementIds: [], status: 'draft' });
 v4Project.traceLinks = [];
 v4Project.agentPrompts.push({ id: 'prompt-legacy', role: 'implementer', title: 'Legacy prompt', instructions: 'Uygula', taskIds: [], dependsOnPromptIds: [], expectedOutputs: [], status: 'draft' });
@@ -16,12 +18,15 @@ v4Project.revisions.push({ id: 'revision-legacy', number: 1, createdAt: new Date
 const v5Result = migrateV4toV5(v4Project);
 assert.equal(v5Result.success, true, 'V4→V5 migration succeeds');
 assert.equal(v5Result.project.schemaVersion, 5);
-assert.equal(v5Result.project.schemaRevision, 4);
+assert.equal(v5Result.project.schemaRevision, 5);
 assert.deepEqual(v5Result.backup, v4Project, 'Original V4 document is backed up without mutation');
 assert.equal(v5Result.project.suggestionBundles, undefined);
 assert.ok(Array.isArray(v5Result.project.proposalStore.bundles));
 assert.equal(v5Result.project.sections.vision.items[0], 'Korunacak plan girdisi');
 assert.equal(v5Result.project.testCases[0].id, 'test-legacy');
+assert.equal(v5Result.project.tasks[0].contract.version, 2);
+assert.equal(v5Result.project.tasks[0].contract.filePolicy.status, 'requires_inventory');
+assert.ok(v5Result.project.tasks[0].contract.rollbackPlan);
 assert.equal(v5Result.project.agentPrompts[0].id, 'prompt-legacy');
 assert.equal(v5Result.project.executionSessions[0].id, 'execution-legacy');
 assert.equal(v5Result.project.exports[0].id, 'export-legacy');
@@ -39,7 +44,7 @@ const repository = new MemoryProjectRepository();
 repository.projects.set(v4Project.id, structuredClone(v4Project));
 const migratedOnRead = await repository.get(v4Project.id);
 assert.equal(migratedOnRead.schemaVersion, 5, 'Repository read upgrades legacy data');
-assert.equal(repository.projects.get(v4Project.id).schemaRevision, 4, 'Migration is persisted after validation');
+assert.equal(repository.projects.get(v4Project.id).schemaRevision, 5, 'Migration is persisted after validation');
 assert.equal(repository.migrationBackups.get(v4Project.id).projectSnapshot.schemaVersion, 4, 'Original record is backed up before migration commit');
 
 const legacyV3 = { id: 'legacy-3', schemaVersion: 3, name: 'Eski V3', stepDepth: 5, workflowStage: 'DISCOVERY', draftDescription: 'Test', tasks: [] };
@@ -58,7 +63,7 @@ assert.deepEqual(corruptResult.backup, corruptV4);
 assert.equal(migrateV4toV5(null).success, false);
 assert.equal(migrateV4toV5({ schemaVersion: 3 }).success, false);
 assert.equal(LATEST_SCHEMA_VERSION, 5);
-assert.equal(LATEST_SCHEMA_REVISION, 4);
+assert.equal(LATEST_SCHEMA_REVISION, 5);
 const revisionOne = createProjectDocument({ idea: 'Eski revision alanı migration testi' });
 const legacyRevisionValue = 7;
 const revisionOnePayload = {
@@ -93,6 +98,16 @@ assert.equal(migratedConcept.project.ideaLabSession.conceptSummary.summary, 'Kor
 assert.equal(migratedConcept.project.ideaLabSession.conceptSummary.userConfirmed, false);
 assert.ok(migratedConcept.project.ideaLabSession.conceptSummary.targetUser);
 assert.match(migratedConcept.project.ideaLabSession.conceptSummary.openQuestions.join(' '), /migration sonrası doğrulanmalı/i);
+
+const schema54Project = createProjectDocument({ idea: 'Schema 5.4 görev sözleşmesi migration testi' });
+schema54Project.schemaRevision = 4;
+schema54Project.requirements.push({ id: 'req-54', title: 'Eski görev kaynağı', statement: 'Eski görev korunmalı.', kind: 'functional', priority: 'must', acceptanceCriteria: ['Görev korunur.'], sourceObjectiveIds: [], sourceSuggestionIds: [], status: 'accepted' });
+schema54Project.tasks.push({ id: 'task-54', title: 'Eski görev', description: 'Eski görevi uygula.', status: 'ready', priority: 'must', effort: 'low', dependencies: [], requirementIds: ['req-54'], acceptanceCriteria: ['Görev korunur.'], verificationIds: [] });
+const migratedSchema54 = tryMigrateOrPassthrough(schema54Project);
+assert.equal(migratedSchema54.migrated, true);
+assert.equal(migratedSchema54.project.schemaRevision, 5);
+assert.equal(migratedSchema54.project.tasks[0].contract.version, 2);
+assert.equal(migratedSchema54.project.tasks[0].contract.filePolicy.status, 'requires_inventory');
 assert.equal(tryMigrateOrPassthrough(null).migrated, false);
 
 console.log('✓ lossless V4→V5 migration, passthrough and rollback');

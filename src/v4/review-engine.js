@@ -1,5 +1,6 @@
 import { analyzeCanonicalTraceability } from './canonical-graph.js';
 import { normalizeReviewFinding, normalizeSimulationRun } from './canonical-entities.js';
+import { assessWebSaasPack } from './domain-packs/web-saas.ts';
 import { getRequiredSections } from './project-document.js';
 
 const SEVERITY_WEIGHT = { info: 0, low: 3, medium: 8, high: 18, critical: 35 };
@@ -55,11 +56,19 @@ export function runPlanReview(project, { profile = 'deep' } = {}) {
             findings.push(finding('GAME-NET-001', 'architecture', 'medium', 'Oyun Ağ & Prediction Stratejisi Belirsiz', 'Multiplayer/S&box projelerinde Server Authority vs Client Prediction kararı açıkça belirtilmeli.', 'Network yetkisi ve tick rate senkronizasyon kararı ekle.', ['architecture', 'decisions']));
         }
     }
-    const isSaasDomain = /web|saas|e-ticaret|site|dashboard|portal|api|backend/i.test(project.identity.originalIdea || '');
-    if (isSaasDomain) {
-        const hasAuthDecision = project.decisions.some(d => /auth|kimlik|yetki|jwt|session|rol/i.test(`${d.title} ${d.decision}`));
-        if (!hasAuthDecision) {
-            findings.push(finding('SAAS-AUTH-001', 'security', 'medium', 'SaaS/Web Kimlik Doğrulama & Yetki Belirsiz', 'Web ve SaaS projelerinde kimlik doğrulama (JWT/Session) ve rol yetkilendirme modeli belirlenmelidir.', 'Auth sağlayıcısı ve rol yetkilendirme kararı ekle.', ['security', 'decisions']));
+    const webSaasAssessment = assessWebSaasPack(project);
+    if (webSaasAssessment.active) {
+        for (const item of webSaasAssessment.checks.filter(check => !check.passed)) {
+            findings.push(finding(
+                item.id.toUpperCase(),
+                item.sectionId === 'security' ? 'security' : item.sectionId === 'deployment' ? 'deployment' : 'domain',
+                item.blocking ? 'high' : 'medium',
+                item.label,
+                item.message,
+                `Web/SaaS alan sorusunu yanıtla: ${webSaasAssessment.discoveryQuestions.find(question => question.id === item.id)?.prompt || 'İlgili canonical plan bölümünü tamamla.'}`,
+                [item.sectionId],
+                item.entityIds
+            ));
         }
     }
     const isMobileDomain = /mobil|mobile|ios|android|flutter|react native|app/i.test(project.identity.originalIdea || '');

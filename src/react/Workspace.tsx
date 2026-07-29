@@ -1,13 +1,13 @@
 import { lazy, useEffect, useMemo, useState } from 'react';
-import { Archive, ArrowRight, Check, ChevronDown, CircleAlert, Download, Eye, Gauge, GitBranch, History, Lightbulb, LoaderCircle, Menu, MessageCircle, RotateCcw, Save, Send, Settings2, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, CircleAlert, Eye, FlaskConical, Gauge, GitBranch, Lightbulb, LoaderCircle, MessageCircle, Save, Send, Sparkles } from 'lucide-react';
 import { applyApprovedChanges, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../v4/planning-engine.js';
-import { PHASE_REGISTRY } from '../v4/project-document.js';
 import { generateDiscoveryAnswerExtraction, generateImpactAnalysis, runConversationalDiscoveryTurn } from '../v4/ai-discovery.js';
 import { getProviderMeta } from '../v4/provider-settings.js';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../v4/task-compiler.js';
-import { IconButton, ProjectRail, SuggestionCard } from './components/WorkspaceChrome';
+import { ProjectRail, SuggestionCard } from './components/WorkspaceChrome';
 import { buildLocalPlanningMemory } from '../v4/planning-memory.js';
 import { ProjectHealthRadarCard } from './components/ProjectHealthRadarCard.js';
+import { DomainPackCard } from './components/DomainPackCard.js';
 import { LiveAnnouncer } from './components/LiveAnnouncer.js';
 import { IdeaDiscussionPanel } from './components/IdeaDiscussionPanel.js';
 import { RequirementQualityPanel } from './components/RequirementQualityPanel.js';
@@ -29,6 +29,8 @@ import {
 } from '../v4/application/idea-plan-conversion-service.js';
 import { DiscoveryAnswerReview } from './components/DiscoveryAnswerReview.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
+import { TaskContractSummary } from './components/TaskContractSummary.js';
+import { GuidedHeaderBar } from './components/GuidedHeaderBar.js';
 
 
 type Project = ProjectDocumentV5;
@@ -44,6 +46,8 @@ const StorageHealthPanel = lazy(() => import('./components/StorageHealthPanel.js
 const TraceabilityMap = lazy(() => import('./components/TraceabilityMap.js').then(module => ({ default: module.TraceabilityMap })));
 const PlanningScenarioPanel = lazy(() => import('./components/PlanningScenarioPanel.js').then(module => ({ default: module.PlanningScenarioPanel })));
 const SectionRegenerationPanel = lazy(() => import('./components/SectionRegenerationPanel.js').then(module => ({ default: module.SectionRegenerationPanel })));
+const PlanCodeAlignmentPanel = lazy(() => import('./components/PlanCodeAlignmentPanel.js').then(module => ({ default: module.PlanCodeAlignmentPanel })));
+const ImplementationEvidencePanel = lazy(() => import('./components/ImplementationEvidencePanel.js').then(module => ({ default: module.ImplementationEvidencePanel })));
 const ProviderSettingsDialog = lazy(() => import('./components/ProviderSettingsDialog.js').then(module => ({ default: module.ProviderSettingsDialog })));
 const RevisionHistoryDialog = lazy(() => import('./components/RevisionHistoryDialog.js').then(module => ({ default: module.RevisionHistoryDialog })));
 const DecisionTimelineModal = lazy(() => import('./components/DecisionTimelineModal.js').then(module => ({ default: module.DecisionTimelineModal })));
@@ -54,108 +58,6 @@ const depths = [
   { id: 'advanced', label: 'Advanced', detail: 'Güvenlik ve dağıtım dahil' },
   { id: 'enterprise', label: 'Enterprise', detail: 'Tam operasyonel mimari' }
 ];
-
-function PhaseGuide({ phase }: { phase: string }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const phaseOrder = ['IDEA_EXPANSION', 'DISCOVERY', 'IDEA_LAB', 'CONCEPT_CONFIRMATION', 'SHAPING', 'DESIGN', 'PLANNING', 'READY'];
-  const stepIndex = Math.max(1, phaseOrder.indexOf(phase) + 1);
-  const totalSteps = phaseOrder.length;
-
-  const guideMap: Record<string, { step: string; action: string; next: string; bg: string; border: string }> = {
-    IDEA_EXPANSION: {
-      step: 'AŞAMA 1: FİKİR BÜYÜTÜCÜ',
-      action: 'Kısa fikriniz algılandı. Seçeneklerle genişleterek daha büyük ve net bir fikre dönüştürebilirsiniz.',
-      next: 'Her boyuttan bir seçenek seçin veya kendiniz yazın → "Bu Fikirle Planlamaya Geçelim" butonuna basın.',
-      bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.4)'
-    },
-    DISCOVERY: {
-      step: 'AŞAMA 1: FİKİR ANALİZİ TAMAMLANDI',
-      action: '✅ Fikrin karmaşıklık skoru hesaplandı ve mimari seçenekler hazırlandı.',
-      next: '💬 Aşağıdaki sohbet kutusundan direkt yazmaya başlayabilirsin — ya da Fikir Lab mimari kartlarını inceleyebilirsin (isteğe bağlı).',
-      bg: 'rgba(139, 92, 246, 0.08)', border: 'rgba(139, 92, 246, 0.3)'
-    },
-    IDEA_LAB: {
-      step: 'AŞAMA 2: FİKİR LAB (İSTEĞE BAĞLI)',
-      action: '3 mimari seçenek hazır. Birini seçip Konsept Özeti oluşturabilir ya da doğrudan aşağıdaki sohbetten devam edebilirsin.',
-      next: 'Sohbet kutusuna yaz → Gönder. Veya bir mimari seç → "Konsept Özeti Oluştur" butonuna bas.',
-      bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.4)'
-    },
-    CONCEPT_CONFIRMATION: {
-      step: 'AŞAMA 3: KONSEPTİN NETLEŞMESİ (Onay Kapısı)',
-      action: 'Seçtiğin mimariye dayalı Konsept Özeti ve A/B Simülasyon tahmini hazırlandı.',
-      next: 'Özeti kontrol et ve "Konsepti Onayla ve Planı Başlat" butonuna basarak canonical planı üret.',
-      bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.4)'
-    },
-    SHAPING: {
-      step: 'AŞAMA 4: CANLI PLAN & KARAR TURLARI',
-      action: 'AI tarafından sunulan seçenekleri inceleyip "Plana Ekle" veya "İstemiyorum" kararı veriyorsun.',
-      next: 'Kararlarını verdikten sonra "Seçimleri Plana Uygula" butonuna basarak rN+1 revizyonu oluştur.',
-      bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)'
-    },
-    DESIGN: {
-      step: 'AŞAMA 5: MİMARİ & TEKNİK TASARIM',
-      action: 'Projenin mimari, güvenlik ve veri senkronizasyon kararları netleştiriliyor.',
-      next: 'Tasarım seçeneklerini kabul ettikçe sağ paneldeki Mimari ve Güvenlik bölümleri dolacak.',
-      bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)'
-    },
-    PLANNING: {
-      step: 'AŞAMA 6: GÖREV & TEST PLANI OLUŞTURMA',
-      action: 'Gereksinimlerden uygulanabilir görev listesi ve kabul testleri türetiliyor.',
-      next: 'Görevleri onaylayıp IDE butonundan Codex / Cursor ajan paketini indirebilirsin.',
-      bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)'
-    },
-    READY: {
-      step: 'AŞAMA 7-8: FİNALİZE EDİLMİŞ YAŞAYAN PLAN',
-      action: 'Planın tamamlandı ve doğrulamalardan geçti. İstediğin zaman yeni istek girerek etki analizi yaptırabilirsin.',
-      next: 'IDE butonundan çalışma paketini indir veya "Yeniden Aç" ile geliştirmeye devam et.',
-      bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.4)'
-    }
-  };
-
-  const current = guideMap[phase] || guideMap.SHAPING;
-
-  if (collapsed) {
-    return (
-      <div style={{ background: current.bg, border: `1px solid ${current.border}`, borderRadius: '8px', padding: '6px 16px', margin: '14px 20px 0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af' }}>
-        <span><b>{current.step}</b> ({stepIndex}/{totalSteps}) · {current.action.slice(0, 60)}…</span>
-        <button type="button" onClick={() => setCollapsed(false)} style={{ background: 'none', border: 'none', color: '#a78bfa', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          Rehberi Aç <ChevronDown size={14}/>
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ background: current.bg, border: `1px solid ${current.border}`, borderRadius: '10px', padding: '12px 18px', margin: '14px 20px 0 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px', color: '#fff' }}>
-            {current.step} <span style={{ opacity: 0.7 }}>({stepIndex}/{totalSteps})</span>
-          </div>
-          <div style={{ fontSize: '13px', color: '#e5e7eb' }}>
-            <b>Şu an ne yapıyorsun? </b> {current.action}
-          </div>
-        </div>
-        <button type="button" onClick={() => setCollapsed(true)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '2px 6px', fontSize: '11px', borderRadius: '4px' }} title="Rehberi Daralt">
-          ✕
-        </button>
-      </div>
-
-      {/* Progress Bar & Next Step */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: '11px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '240px' }}>
-          <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(stepIndex / totalSteps) * 100}%`, height: '100%', background: '#a78bfa', transition: 'width 0.3s' }} />
-          </div>
-          <span style={{ fontSize: '10px', color: '#9ca3af' }}>{Math.round((stepIndex / totalSteps) * 100)}%</span>
-        </div>
-        <div style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'right' }}>
-          <strong style={{ color: '#a78bfa' }}>👉 Sonraki Adım: </strong> {current.next}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 interface WorkspaceProps {
   project: Project;
@@ -335,8 +237,28 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     <a className="skip-link" href="#workspace-content">Ana içeriğe geç</a>
     <ProjectRail projects={projects} activeId={project.id} onSelect={onProject} onNew={onNew} open={railOpen} onClose={() => setRailOpen(false)}/>
     <main id="workspace-content" className="workspace" tabIndex={-1}>
-      <header className="topbar"><IconButton label="Projeleri aç" onClick={() => setRailOpen(true)}><Menu size={20}/></IconButton><div className="title-block"><span>{project.identity.name}</span><small><span className="live-dot"/> {canonicalPlanningOpen ? `r${project.canonicalRevision} · ${project.lifecycle.status === 'finalized' ? 'Final plan' : 'Canlı plan'}` : 'Fikir çalışma alanı'}</small></div><div className="phase-strip">{PHASE_REGISTRY.map((phase: any) => <span key={phase.id} className={phase.id === project.lifecycle.activePhase ? 'active' : ''}>{phase.label}</span>)}</div><div className="top-actions"><button onClick={() => setSettingsOpen(true)}><Settings2 size={16}/> AI</button>{canonicalPlanningOpen && <><button onClick={exportMarkdown}><Download size={16}/> Markdown</button><button onClick={exportPackage}><Archive size={16}/> Paket</button>{project.lifecycle.status === 'finalized' ? <button className="primary compact" onClick={() => commit(reopenPlan(project), 'Yeni bir plan sürümü açıldı.', 'ReopenPlan')}><RotateCcw size={15}/> Yeniden aç</button> : <button className="primary compact" onClick={finish}><Check size={15}/> Finalleştir</button>}</>}</div></header>
-      {canonicalPlanningOpen && <PhaseGuide phase={project.lifecycle.activePhase}/>}
+      <GuidedHeaderBar
+        projectName={project.identity.name}
+        activePhase={project.lifecycle.activePhase}
+        revision={project.canonicalRevision}
+        canonical={canonicalPlanningOpen}
+        finalized={project.lifecycle.status === 'finalized'}
+        onOpenProjects={() => setRailOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onExportMarkdown={exportMarkdown}
+        onExportPackage={exportPackage}
+        onOpenHistory={() => setHistoryOpen(true)}
+        onOpenTimeline={() => setTimelineOpen(true)}
+        onOpenAdvancedTools={() => {
+          setAdvancedToolsOpen(true);
+          window.requestAnimationFrame(() => document.getElementById('labs-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        }}
+        onPrimaryAction={canonicalPlanningOpen
+          ? project.lifecycle.status === 'finalized'
+            ? () => commit(reopenPlan(project), 'Yeni bir plan sürümü açıldı.', 'ReopenPlan')
+            : finish
+          : undefined}
+      />
       <IdeaOutcomeBar project={project} value={outcome} onChange={setOutcome}/>
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setOutcome('plan')}/>
       <div className={`workspace-grid outcome-${outcome}`}>
@@ -488,14 +410,23 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           </>}
         </section>
         {canonicalPlanningOpen && <aside className="plan-panel" aria-label="Yaşayan plan">
-          <div className="readiness"><div className="score-ring" style={{ '--score': `${project.readiness.score * 3.6}deg` } as any}><span>{project.readiness.score}</span></div><div><span className="meta">HAZIRLIK SKORU</span><b>{project.readiness.score >= 80 ? 'Uygulamaya yakın' : project.readiness.score >= 50 ? 'Gelişiyor' : 'Şekilleniyor'}</b><small>{project.readiness.blockers.length} eksik · {project.readiness.warnings.length} uyarı</small></div><Gauge size={19}/></div>
-          <ProjectHealthRadarCard project={project}/>
+          <details className="plan-quality">
+            <summary>
+              <Gauge size={17}/>
+              <span><b>Plan kalitesi</b><small>{project.readiness.blockers.length} eksik · {project.readiness.warnings.length} uyarı</small></span>
+              <strong>{project.readiness.score}/100</strong>
+            </summary>
+            <div>
+              <DomainPackCard project={project} onCommit={commit} onSection={setActiveSection}/>
+              <ProjectHealthRadarCard project={project} onSection={setActiveSection}/>
+            </div>
+          </details>
 
           <div className="section-tabs">{Object.values(project.sections).filter((section: any) => section.required || section.content || section.items.length || impactedSections.has(section.id)).map((section: any) => <button key={section.id} aria-current={activeSection === section.id ? 'true' : undefined} className={`${activeSection === section.id ? 'active' : ''} ${impactedSections.has(section.id) ? 'impacted' : ''}`} onClick={() => setActiveSection(section.id)}><span className={`section-state ${section.status}`}/><span>{section.title}<small>{impactedSections.has(section.id) ? 'Uygulanınca değişecek' : section.items.length ? `${section.items.length} karar/öğe` : section.required ? 'Gerekli' : 'İsteğe bağlı'}</small></span></button>)}</div>
-          {active && <div className="section-editor"><div className="editor-head"><div><span className="meta">PLAN BÖLÜMÜ</span><h2>{active.title}</h2></div><span>r{active.updatedAtRevision}</span></div><p className="section-description">{active.description}</p><textarea aria-label={`${active.title} canonical içeriği`} value={draft} onChange={event => setDraft(event.target.value)} rows={8} placeholder="Bu bölümün canonical içeriğini yaz..."/>{active.items.length > 0 && <ul>{active.items.map((item: string) => <li key={item}>{item}</li>)}</ul>}<button type="button" className="save-button" disabled={draft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{activeSection === 'tasks' && <div className="task-compiler"><button type="button" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button>{taskCompilation && <div className="task-compilation" role="region" aria-label="Görev planı önizlemesi"><b>{taskCompilation.tasks.length} görev · {taskCompilation.testCases.length} test · {taskCompilation.agentPrompts.length} ajan adımı</b>{taskCompilation.tasks.slice(0, 5).map((task: any) => <span key={task.id}>{task.title}<small>{task.priority} · {task.status}</small></span>)}{taskCompilation.warnings.map((warning: string) => <p key={warning}><CircleAlert size={13}/>{warning}</p>)}<div><button type="button" onClick={() => setTaskCompilation(null)}>Vazgeç</button><button type="button" className="primary" disabled={!taskCompilation.tasks.length} onClick={approveTaskPlan}><Check size={14}/> Taslağı onayla</button></div></div>}</div>}</div>}
-          <details open={advancedToolsOpen} onToggle={event => setAdvancedToolsOpen(event.currentTarget.open)} className="labs-panel">
-            <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '12px', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              🧪 Labs · İsteğe bağlı analiz ve yürütme araçları
+          {active && <div className="section-editor"><div className="editor-head"><div><span className="meta">PLAN BÖLÜMÜ</span><h2>{active.title}</h2></div><span>r{active.updatedAtRevision}</span></div><p className="section-description">{active.description}</p><textarea aria-label={`${active.title} canonical içeriği`} value={draft} onChange={event => setDraft(event.target.value)} rows={8} placeholder="Bu bölümün canonical içeriğini yaz..."/>{active.items.length > 0 && <ul>{active.items.map((item: string) => <li key={item}>{item}</li>)}</ul>}<button type="button" className="save-button" disabled={draft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{activeSection === 'tasks' && <TaskContractSummary tasks={project.tasks}/>} {activeSection === 'tasks' && <div className="task-compiler"><button type="button" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button>{taskCompilation && <div className="task-compilation" role="region" aria-label="Görev planı önizlemesi"><b>{taskCompilation.tasks.length} görev · {taskCompilation.testCases.length} test · {taskCompilation.agentPrompts.length} ajan adımı · TaskContract V2</b>{taskCompilation.tasks.slice(0, 5).map((task: any) => <span key={task.id}>{task.title}<small>{task.priority} · {task.status} · {task.contract.filePolicy.status === 'requires_inventory' ? 'dosya envanteri gerekli' : `${task.contract.filePolicy.allowedPaths.length} izinli yol`} · {task.contract.verification.commands.length || 'komut keşfi'} doğrulama</small></span>)}{taskCompilation.warnings.map((warning: string) => <p key={warning}><CircleAlert size={13}/>{warning}</p>)}<div><button type="button" onClick={() => setTaskCompilation(null)}>Vazgeç</button><button type="button" className="primary" disabled={!taskCompilation.tasks.length} onClick={approveTaskPlan}><Check size={14}/> {taskCompilation.tasks.every((task: any) => task.contract.filePolicy.status === 'inferred') ? 'Taslağı ve dosya kapsamını onayla' : 'Taslağı onayla; dosya kapsamını sonra belirle'}</button></div></div>}</div>}</div>}
+          <details id="labs-panel" open={advancedToolsOpen} onToggle={event => setAdvancedToolsOpen(event.currentTarget.open)} className="labs-panel">
+            <summary>
+              <FlaskConical size={15}/> Labs · İsteğe bağlı analiz ve yürütme
             </summary>
             {advancedToolsOpen && <LazyFeatureBoundary label="Gelişmiş araçlar" resetKey={project.documentRevision}>
               <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -506,17 +437,13 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 <StorageHealthPanel project={project} onCommit={commit}/>
                 <ResearchPanel project={project} onCommit={commit}/>
                 <TraceabilityMap project={project}/>
+                <PlanCodeAlignmentPanel project={project}/>
+                <ImplementationEvidencePanel project={project} onCommit={commit}/>
                 <PlanningScenarioPanel project={project} onCommit={commit}/>
                 <SectionRegenerationPanel project={project} onCommit={commit} providerSettings={providerSettings} credentialVault={credentialVault}/>
               </div>
             </LazyFeatureBoundary>}
           </details>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
-            <button className="history-line" onClick={() => setHistoryOpen(true)}><History size={15}/><span>{project.revisions.length} kayıtlı değişiklik · r{project.canonicalRevision}</span><ArrowRight size={14}/></button>
-            <button type="button" onClick={() => setTimelineOpen(true)} style={{ background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#ddd6fe', padding: '0 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }} title="Etkileşimli Karar Zaman Çizelgesi">
-              📅 Çizelge
-            </button>
-          </div>
         </aside>}
       </div>
     </main>

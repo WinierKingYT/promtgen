@@ -15,7 +15,7 @@ export interface MaturityPolicy {
 
 export interface ProductContract {
   id: 'promtgen-focused-planner';
-  version: 1;
+  version: 2;
   positioning: Record<ProductLocale, string>;
   primaryUser: Record<ProductLocale, string>;
   promise: Record<ProductLocale, string>;
@@ -25,13 +25,14 @@ export interface ProductContract {
   coreExports: string[];
   supportedProjects: SupportedProjectType[];
   nonGoals: string[];
+  codePolicy: string[];
   maturityPolicies: Record<Exclude<SupportLevel, 'unsupported'>, MaturityPolicy>;
   successMetrics: Array<{ id: string; target: string; evidenceRequired: boolean }>;
 }
 
 export const PRODUCT_CONTRACT = Object.freeze({
   id: 'promtgen-focused-planner',
-  version: 1,
+  version: 2,
   positioning: {
     'tr-TR': 'PromtGen, AI kodlama araçlarıyla çalışan bireysel geliştiricilerin dağınık proje fikirlerini; onaylanmış MVP kapsamına, izlenebilir gereksinimlere ve uygulanabilir görev paketlerine dönüştüren local-first proje planlama aracıdır.',
     'en-US': 'PromtGen is a local-first project planning tool that turns an individual AI-assisted developer’s rough idea into an approved MVP scope, traceable requirements, and actionable task packages.'
@@ -51,7 +52,7 @@ export const PRODUCT_CONTRACT = Object.freeze({
     'AI kodlama araçlarına çelişkili veya eksik görev bağlamı vermek.'
   ],
   coreNavigation: ['Projeler', 'Yeni Plan', 'Yaşayan Plan', 'Revizyonlar', 'Export'],
-  labsNavigation: ['Proje Analizörü', 'Codex Yürütmesi', 'Mimari Karşılaştırma', 'Uzman Perspektifleri'],
+  labsNavigation: ['Görev Teslim Kanıtı', 'Proje Analizörü', 'Codex Yürütmesi', 'Mimari Karşılaştırma', 'Uzman Perspektifleri'],
   coreExports: ['PROJECT_BRIEF.md', 'REQUIREMENTS.md', 'DECISIONS.md', 'TASKS.md', 'AGENTS.md', 'project.promtgen'],
   supportedProjects: [
     { id: 'web-app', label: 'Web uygulaması', support: 'candidate-stable', limitations: ['Benchmark ve gerçek kullanıcı kanıtı henüz tamamlanmadı.'] },
@@ -73,9 +74,16 @@ export const PRODUCT_CONTRACT = Object.freeze({
   nonGoals: [
     'Canonical planı kullanıcı onayı olmadan değiştirmek.',
     'Her proje alanında uzman veya üretime hazır sonuç iddia etmek.',
+    'Kaynak kodu doğrudan yazmayı veya değiştirmeyi ana ürün akışına dönüştürmek.',
     'Planner doğrulanmadan otomatik kod yürütmeyi ana ürün haline getirmek.',
     'Bulut senkronizasyonu, hesap veya çok kullanıcılı işbirliği sunmak.',
     'Antivirüs, SAST, hukuki, finansal veya klinik doğrulama sağlamak.'
+  ],
+  codePolicy: [
+    'PromtGen’in varsayılan çıktısı kod değil; onaylanmış plan, görev sözleşmesi ve doğrulama kanıtıdır.',
+    'Plan–kod uyumluluk kontrolü salt okunurdur ve kaynak dosyaları değiştirmez.',
+    'Kod üretimi veya yürütmesi yalnız kullanıcı açıkça istediğinde, Labs içinde ve görev kapsamı onaylandıktan sonra kullanılabilir.',
+    'Hiçbir kod değişikliği canonical planı veya tamamlanma kanıtını kullanıcı onayı olmadan güncelleyemez.'
   ],
   maturityPolicies: {
     'candidate-stable': {

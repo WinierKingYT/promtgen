@@ -1,6 +1,6 @@
 # Ürün Sözleşmesi
 
-Sözleşme kimliği: `promtgen-focused-planner` · sürüm: `1`
+Sözleşme kimliği: `promtgen-focused-planner` · sürüm: `2`
 
 ## Çekirdek navigasyon
 
@@ -10,8 +10,16 @@ Sözleşme kimliği: `promtgen-focused-planner` · sürüm: `1`
 - Revizyonlar
 - Export
 
+## Kod üretimi sınırı
+
+- PromtGen’in varsayılan çıktısı kod değil; onaylanmış plan, görev sözleşmesi ve doğrulama kanıtıdır.
+- Plan–kod uyumluluk kontrolü salt okunurdur ve kaynak dosyaları değiştirmez.
+- Kod üretimi veya yürütmesi yalnız kullanıcı açıkça istediğinde, Labs içinde ve görev kapsamı onaylandıktan sonra kullanılabilir.
+- Hiçbir kod değişikliği canonical planı veya tamamlanma kanıtını kullanıcı onayı olmadan güncelleyemez.
+
 ## Labs
 
+- Görev Teslim Kanıtı
 - Proje Analizörü
 - Codex Yürütmesi
 - Mimari Karşılaştırma

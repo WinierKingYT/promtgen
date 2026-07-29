@@ -1,10 +1,12 @@
+import { WEB_SAAS_MODULE, getWebSaasDiscoveryQuestions } from './domain-packs/web-saas.ts';
+
 const CATEGORIES = ['core', 'software', 'quality', 'research', 'business', 'content', 'operations', 'event'];
 const SECTION_IDS = ['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment', 'operations'];
 
 const BUILTIN_MODULES = [
     { id: 'core.planning', version: '1.0.0', name: 'Canonical Planlama', description: 'Yaşayan plan, revision ve kullanıcı onayı çekirdeği.', category: 'core', dependencies: [], conflicts: [], triggers: [], contributions: { requiredSections: ['vision', 'scope', 'tasks'], suggestedSections: ['objectives', 'requirements'], reviewerRuleIds: ['PLAN-001'], exportDocumentIds: ['master-plan', 'tasks'] } },
     { id: 'software.core', version: '1.0.0', name: 'Yazılım Mimarisi', description: 'Yazılım gereksinimleri, mimari, görev ve test planlaması.', category: 'software', dependencies: ['core.planning'], conflicts: [], triggers: ['software', 'code', 'api', 'uygulama'], contributions: { requiredSections: ['requirements', 'architecture', 'testing'], suggestedSections: ['decisions', 'deployment'], reviewerRuleIds: ['REQ-001', 'TASK-001'], exportDocumentIds: ['requirements', 'architecture', 'test-strategy'] } },
-    { id: 'software.web', version: '1.0.0', name: 'Web Uygulaması', description: 'Web istemcisi, API, erişilebilirlik ve dağıtım kararları.', category: 'software', dependencies: ['software.core'], conflicts: [], triggers: ['web', 'react', 'vue', 'svelte', 'next', 'vite', 'html'], contributions: { requiredSections: ['deployment'], suggestedSections: ['security', 'operations'], reviewerRuleIds: ['WEB-ACCESSIBILITY'], exportDocumentIds: ['deployment'] } },
+    WEB_SAAS_MODULE,
     { id: 'software.desktop-local', version: '1.0.0', name: 'Local-first Masaüstü', description: 'Yerel veri, masaüstü paketleme, offline çalışma ve güncelleme sınırları.', category: 'software', dependencies: ['software.core'], conflicts: [], triggers: ['desktop', 'tauri', 'electron', 'offline', 'local-first', 'yerel'], contributions: { requiredSections: ['security', 'deployment'], suggestedSections: ['operations'], reviewerRuleIds: ['LOCAL-DATA'], exportDocumentIds: ['security', 'deployment'] } },
     { id: 'quality.security', version: '1.0.0', name: 'Güvenlik ve Gizlilik', description: 'Tehdit, veri sınıfı, secret ve güvenlik test planlaması.', category: 'quality', dependencies: ['core.planning'], conflicts: [], triggers: ['security', 'güvenlik', 'auth', 'kimlik', 'ödeme', 'kişisel veri'], contributions: { requiredSections: ['security', 'risks', 'testing'], suggestedSections: ['operations'], reviewerRuleIds: ['RISK-001', 'SECURITY-CONTROLS'], exportDocumentIds: ['security', 'risks'] } },
     { id: 'research.evidence', version: '1.1.0', name: 'Araştırma ve Kanıt', description: 'Araştırma sorusu, yöntem, birincil kaynak ve kanıt defteri.', category: 'research', dependencies: ['core.planning'], conflicts: [], triggers: ['research', 'araştırma', 'kanıt', 'tez', 'makale', 'literatür', 'deney'], contributions: { requiredSections: ['objectives', 'requirements'], suggestedSections: ['decisions', 'risks', 'testing'], reviewerRuleIds: ['RESEARCH-METHOD', 'EVIDENCE-COVERAGE'], exportDocumentIds: ['research-protocol'] } },
@@ -41,11 +43,16 @@ export function createModuleRegistry(localManifests = []) {
 
 export function suggestModules(project) {
     const registry = createModuleRegistry(project.modules?.localManifests || []);
-    const active = new Set((project.modules?.active || []).map(item => item.id));
+    const active = new Map((project.modules?.active || []).map(item => [item.id, item.version]));
     const signals = [project.identity.originalIdea, ...(project.profile?.domains || []).map(item => item.name), ...(project.profile?.projectInventory?.frameworks || []), ...(project.profile?.projectInventory?.manifests || [])].join(' ').toLocaleLowerCase('tr-TR');
-    return registry.list().filter(module => !active.has(module.id) && !project.modules?.dismissed?.includes(module.id)).map(module => {
+    return registry.list().filter(module => active.get(module.id) !== module.version && !project.modules?.dismissed?.includes(module.id)).map(module => {
         const matchedTriggers = module.triggers.filter(trigger => signals.includes(trigger.toLocaleLowerCase('tr-TR')));
-        return { module, matchedTriggers, score: matchedTriggers.length * 25 + (module.category === 'software' && project.profile?.domains?.some(item => item.name === 'software') ? 20 : 0) };
+        return {
+            module,
+            matchedTriggers,
+            upgradeFromVersion: active.get(module.id) || null,
+            score: matchedTriggers.length * 25 + (module.category === 'software' && project.profile?.domains?.some(item => item.name === 'software') ? 20 : 0)
+        };
     }).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
 }
 
@@ -64,11 +71,24 @@ function resolveDependencies(registry, requestedIds) {
 export function previewModuleActivation(project, requestedIds) {
     const registry = createModuleRegistry(project.modules?.localManifests || []);
     const resolution = resolveDependencies(registry, requestedIds);
-    const active = new Set((project.modules?.active || []).map(item => item.id));
-    const moduleIds = resolution.resolved.filter(moduleId => !active.has(moduleId));
+    const active = new Map((project.modules?.active || []).map(item => [item.id, item.version]));
+    const moduleIds = resolution.resolved.filter(moduleId => active.get(moduleId) !== registry.get(moduleId)?.version);
     const conflicts = moduleIds.flatMap(moduleId => registry.get(moduleId).conflicts.filter(conflict => active.has(conflict) || moduleIds.includes(conflict)).map(conflict => `${moduleId} ↔ ${conflict}`));
     const manifests = moduleIds.map(moduleId => registry.get(moduleId));
-    return { baseRevision: project.canonicalRevision, moduleIds, manifests, requiredSections: [...new Set(manifests.flatMap(item => item.contributions.requiredSections))], suggestedSections: [...new Set(manifests.flatMap(item => item.contributions.suggestedSections))], errors: [...resolution.errors, ...conflicts.map(item => `Modül çatışması: ${item}`)] };
+    const domainQuestions = manifests.some(item => item.id === WEB_SAAS_MODULE.id)
+        ? getWebSaasDiscoveryQuestions(project)
+        : [];
+    return {
+        baseRevision: project.canonicalRevision,
+        moduleIds,
+        manifests,
+        upgrades: manifests.filter(item => active.has(item.id)).map(item => ({ id: item.id, fromVersion: active.get(item.id), toVersion: item.version })),
+        requiredSections: [...new Set(manifests.flatMap(item => item.contributions.requiredSections))],
+        suggestedSections: [...new Set(manifests.flatMap(item => item.contributions.suggestedSections))],
+        domainQuestions,
+        limitations: [...new Set(manifests.flatMap(item => item.contributions.domainPack?.limitations || []))],
+        errors: [...resolution.errors, ...conflicts.map(item => `Modül çatışması: ${item}`)]
+    };
 }
 
 export function applyModuleActivation(project, preview, { approved = false } = {}) {
@@ -76,12 +96,24 @@ export function applyModuleActivation(project, preview, { approved = false } = {
     if (preview.baseRevision !== project.canonicalRevision) return { success: false, project, reason: 'Plan revision değişti; modül önizlemesi yenilenmeli.' };
     if (preview.errors.length) return { success: false, project, reason: preview.errors.join(' ') };
     const next = structuredClone(project);
-    for (const manifest of preview.manifests) next.modules.active.push({ id: manifest.id, version: manifest.version, enabledAtRevision: project.canonicalRevision + 1, config: {} });
+    for (const manifest of preview.manifests) {
+        const current = next.modules.active.find(item => item.id === manifest.id);
+        if (current) {
+            current.version = manifest.version;
+            current.enabledAtRevision = project.canonicalRevision + 1;
+        } else {
+            next.modules.active.push({ id: manifest.id, version: manifest.version, enabledAtRevision: project.canonicalRevision + 1, config: {} });
+        }
+    }
     next.documentRevision += 1; next.canonicalRevision += 1; next.lifecycle.updatedAt = new Date().toISOString();
     for (const sectionId of preview.requiredSections) next.sections[sectionId].required = true;
     for (const sectionId of preview.suggestedSections) {
         const warning = 'Aktif modül bu bölümü öneriyor.';
         if (!next.sections[sectionId].warnings.includes(warning)) next.sections[sectionId].warnings.push(warning);
+    }
+    for (const question of preview.domainQuestions || []) {
+        const warning = `Alan sorusu: ${question.prompt}`;
+        if (!next.sections[question.affectedSectionId].warnings.includes(warning)) next.sections[question.affectedSectionId].warnings.push(warning);
     }
     const snapshot = structuredClone(next); snapshot.revisions = [];
     next.revisions.push({ id: `revision-${Date.now()}`, number: next.canonicalRevision, createdAt: next.lifecycle.updatedAt, summary: `Modüller etkinleştirildi: ${preview.moduleIds.join(', ')}`, acceptedSuggestionIds: [], affectedSections: preview.requiredSections, snapshot });
