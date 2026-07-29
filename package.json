@@ -37,7 +37,9 @@
     "check:discovery-benchmark": "tsx scripts/discovery-benchmark.ts --check",
     "comparison:benchmark": "tsx scripts/comparison-benchmark.ts",
     "check:comparison": "tsx scripts/comparison-benchmark.ts --check",
-    "comparison:publish-gate": "tsx scripts/comparison-benchmark.ts --publish-gate"
+    "comparison:publish-gate": "tsx scripts/comparison-benchmark.ts --publish-gate",
+    "study:import": "tsx scripts/study-import.ts",
+    "study:validate": "tsx scripts/study-import.ts --check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
