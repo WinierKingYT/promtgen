@@ -61,4 +61,3 @@ body:
       label: Rollback planı
     validations:
       required: true
-

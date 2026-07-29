@@ -4,11 +4,11 @@
 
 ## Değişiklik
 
-- 
+- _Açıklayın._
 
 ## Kapsam dışı
 
-- 
+- _Açıklayın._
 
 ## Canonical ve migration etkisi
 
@@ -34,4 +34,4 @@
 
 ## Kalan sınırlamalar
 
-- 
+- _Açıklayın._

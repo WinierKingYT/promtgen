@@ -22,4 +22,3 @@ test('V4 test discovery recursively finds JS and TS tests in nested folders', ()
     rmSync(root, { recursive: true, force: true });
   }
 });
-
