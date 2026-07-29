@@ -25,7 +25,7 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 | Local-First Depolama ve Yedekleme | candidate-stable | integration-test: tests/v4/storage-durability.test.ts<br>native-e2e: tests/v4/desktop-storage.test.js | 0/0 | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Uzman Perspektifleri | experimental | unit-test: tests/v4/review-engine.test.js | 0/0 | 0 | Belgelenmedi | 2acd7ba | Bloklu |
 | Mimari Karşılaştırma Şablonu | beta | unit-test: tests/v4/idea-lab.test.js | 0/0 | 0 | Belgelenmedi | 2acd7ba | Bloklu |
-| AI Sağlayıcı Entegrasyonu | beta | unit-test: tests/v4/provider-orchestrator.test.ts<br>integration-test: tests/v4/provider-integration.test.js | 0/0 | 0 | Belgelenmedi | 2acd7ba | Bloklu |
+| AI Sağlayıcı Entegrasyonu | beta | unit-test: tests/v4/provider-orchestrator.test.ts<br>integration-test: tests/v4/provider-integration.test.js | 7/7 (100%) | 0 | docs/release/provider-recovery.md | 2acd7ba | Bloklu |
 | İzole Codex Worktree Yürütmesi | beta | native-e2e: src-tauri/src/execution.rs | 0/0 | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Dosya Envanteri ve Güvenlik Filtresi | candidate-stable | integration-test: tests/v4/project-analyzer.test.js<br>native-e2e: src-tauri/src/lib.rs | 6/6 (100%) | 0 | docs/release/inventory-recovery.md | 2acd7ba | Bloklu |
 | Gelişmiş Dışa Aktarım | candidate-stable | integration-test: tests/v4/migration-export.test.js | 10/10 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
@@ -80,9 +80,6 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 
 ### AI Sağlayıcı Entegrasyonu
 
-- En az 5 benchmark senaryosu gerekli.
-- Benchmark başarı oranı en az %90 olmalı.
-- Kurtarma veya geri alma yolu belgelenmeli.
 - En az 5 kullanıcıdan kanıt gerekli.
 
 ### İzole Codex Worktree Yürütmesi

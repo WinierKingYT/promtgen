@@ -5,6 +5,7 @@ import { BACKEND_API_BENCHMARK_EVIDENCE } from './product/generated-backend-api-
 import { IMPLEMENTATION_EVIDENCE_BENCHMARK } from './product/generated-implementation-evidence.js';
 import { PLAN_CODE_ALIGNMENT_BENCHMARK } from './product/generated-plan-code-alignment-evidence.js';
 import { PROJECT_INVENTORY_BENCHMARK_EVIDENCE } from './product/generated-project-inventory-evidence.js';
+import { PROVIDER_INTEGRATION_BENCHMARK_EVIDENCE } from './product/generated-provider-integration-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -327,14 +328,19 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     implementationMode: 'ai-generated',
     limitations: [
       'AI çağrısı başarısız olduğunda Yerel Kural Motoru fallback olarak devreye girer',
-      'Ollama performansı kullanıcı donanımına bağlıdır'
+      'Ollama performansı kullanıcı donanımına bağlıdır',
+      'Benchmark sağlayıcı sözleşmesini stub taşıma üzerinden ölçer; sağlayıcının yanıt kalitesini ölçmez',
+      'Sağlayıcıya gönderilmiş istek geri çağrılamaz; bulut sağlayıcısının saklama politikası kapsam dışıdır'
     ],
     evidence: [
       { testId: 'tests/v4/provider-orchestrator.test.ts', level: 'unit-test', platforms: ['web', 'desktop'] },
       { testId: 'tests/v4/provider-integration.test.js', level: 'integration-test', platforms: ['web', 'desktop'] }
     ],
     supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
-    promotionEvidence: baselinePromotionEvidence(null)
+    promotionEvidence: baselinePromotionEvidence('docs/release/provider-recovery.md', {
+      scenarios: PROVIDER_INTEGRATION_BENCHMARK_EVIDENCE,
+      users: userEvidence('ai-discovery-provider')
+    })
   },
   {
     id: 'native-codex-execution',
