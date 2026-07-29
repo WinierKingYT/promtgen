@@ -7,3 +7,8 @@ Thumbs.db
 *.local
 *.log
 .gemini/
+
+# Üretilen test ve yayın artefaktları — CI bunları artifact olarak yükler
+test-results/
+playwright-report/
+release-evidence.json

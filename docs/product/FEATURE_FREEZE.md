@@ -1,7 +1,7 @@
 # PromtGen Geçici Özellik Dondurma Kararı
 
-Durum: Etkin  
-Başlangıç: 2026-07-29  
+Durum: Etkin
+Başlangıç: 2026-07-29
 Kapsam: Alpha öncesi mimari birleştirme ve kanıt dönemi
 
 ## Amaç
@@ -40,4 +40,3 @@ Dondurma dışı bir iş ancak aşağıdakilerin tümü yazılıysa değerlendir
 5. Planner odağını genişletmediğine dair ürün sözleşmesi kontrolü.
 
 Bu koşullar karşılanmadığında iş backlog’a alınır; üretime eklenmez.
-

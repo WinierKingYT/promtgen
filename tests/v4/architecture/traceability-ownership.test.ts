@@ -41,4 +41,3 @@ test('compatibility files contain no second traceability implementation', () => 
     );
   }
 });
-

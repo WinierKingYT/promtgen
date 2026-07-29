@@ -1,6 +1,6 @@
 # Canonical Traceability Parity ve Sahiplik Kararı
 
-Tarih: 2026-07-29  
+Tarih: 2026-07-29
 Karar: `src/v4/traceability` tek üretim implementasyonudur.
 
 ## Taşınan davranışlar
@@ -35,4 +35,3 @@ Compatibility adapter’ları şu koşullardan sonra kaldırılabilir:
 ## Rollback
 
 Davranış değişikliği yapılmadı; dosyalar aynı kodla v4 sahipliğine taşındı. Regresyonda canonical importlar geçici olarak compatibility yoluna döndürülebilir, ancak iki implementasyon paralel tutulmamalıdır.
-
