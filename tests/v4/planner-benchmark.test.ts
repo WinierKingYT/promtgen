@@ -25,6 +25,8 @@ describe('Planner core benchmark evidence', () => {
     assert.ok(report.results.every(result => result.metrics.scopeContradictions === 0));
     assert.deepEqual(report.capabilities['canonical-planning'], { completed: 10, passed: 10 });
     assert.deepEqual(report.capabilities['canonical-export'], { completed: 10, passed: 10 });
+    assert.deepEqual(report.capabilities['readiness-quality-gate'], { completed: 10, passed: 10 });
+    assert.ok(report.results.every(result => result.capabilityResults['readiness-quality-gate']));
   });
 
   it('fails a scenario when its measurable quality threshold is not met', () => {
@@ -41,6 +43,7 @@ describe('Planner core benchmark evidence', () => {
       /yinelenen benchmark/
     );
     assert.equal(PLANNER_BENCHMARK_EVIDENCE.capabilities['canonical-planning'].passed, 10);
+    assert.equal(PLANNER_BENCHMARK_EVIDENCE.capabilities['readiness-quality-gate'].passed, 10);
     assert.equal(PLANNER_BENCHMARK_EVIDENCE.reportPath, 'benchmarks/planner/latest-report.json');
   });
 });

@@ -120,8 +120,8 @@
       ]
     },
     {
-      "id": "backend-api",
-      "title": "Veri saklayan backend API",
+      "id": "internal-web-tool",
+      "title": "Veri saklayan iç web aracı",
       "passed": true,
       "assertions": [
         {

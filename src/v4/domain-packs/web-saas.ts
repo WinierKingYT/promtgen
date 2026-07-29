@@ -12,12 +12,12 @@ const ACCOUNT_PATTERN = /hesap|hesab|account|login|giriş|auth|kimlik|rol|role|y
 const MULTI_TENANT_PATTERN = /multi[\s-]?tenant|çok kiracılı|tenant|workspace|çalışma alanı|takım|team|ekip|organizasyon|organization/i;
 const PAYMENT_PATTERN = /ödeme|payment|stripe|abonelik|subscription|fatura|billing|ücret/i;
 const STORED_DATA_PATTERN = /veri|data|kayıt|record|database|veritabanı|sakla|store|dosya|file/i;
-const WEB_PATTERN = /web|saas|site|portal|dashboard|panel|browser|tarayıcı|frontend|backend|api|react|next|vue|svelte|html/i;
+const WEB_PATTERN = /web|saas|site|portal|dashboard|panel|browser|tarayıcı|frontend|react|next|vue|svelte|html/i;
 
 const DOMAIN_PACK: DomainPackContribution = {
   id: 'web-saas',
   maturity: 'candidate-stable',
-  projectTypes: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
+  projectTypes: ['web-app', 'small-saas', 'admin-panel', 'internal-tool'],
   limitations: [
     'Büyük dağıtık altyapı ve kritik finans/sağlık sistemleri bu paketin destek kapsamı dışındadır.',
     'Teknoloji seçimi kullanıcı kararıdır; paket framework veya sağlayıcıyı otomatik seçmez.',
@@ -135,11 +135,11 @@ export const WEB_SAAS_MODULE: ModuleManifest = {
   id: 'software.web',
   version: '2.0.0',
   name: 'Web/SaaS Planlama Paketi',
-  description: 'Web uygulaması, küçük SaaS, panel ve API projeleri için kapsam, güvenlik, erişilebilirlik ve teslim kuralları.',
+  description: 'Web uygulaması, küçük SaaS ve panel projeleri için kapsam, güvenlik, erişilebilirlik ve teslim kuralları.',
   category: 'software',
   dependencies: ['software.core'],
   conflicts: [],
-  triggers: ['web', 'saas', 'react', 'vue', 'svelte', 'next', 'vite', 'html', 'dashboard', 'portal', 'panel', 'api'],
+  triggers: ['web', 'saas', 'react', 'vue', 'svelte', 'next', 'vite', 'html', 'dashboard', 'portal', 'panel'],
   contributions: {
     requiredSections: ['requirements', 'architecture', 'testing', 'deployment'],
     suggestedSections: ['security', 'risks', 'operations'],

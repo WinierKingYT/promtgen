@@ -206,12 +206,17 @@ test.describe('PromtGen guided production workflow', () => {
     await page.getByRole('button', { name: 'Labs araçları' }).click();
     const alignmentPanel = page.locator('.plan-code-alignment');
     await expect(alignmentPanel).toContainText('Plan–kod uyumluluk kontrolü');
+    await expect(alignmentPanel).toContainText('V2 · tavsiye sistemi');
     await alignmentPanel.locator('summary').first().click();
     await expect(alignmentPanel).toContainText(/PromtGen burada kod yazmaz veya dosya değiştirmez/);
     await expect(alignmentPanel).toContainText('Mevcut proje envanteri bulunamadı');
+    await alignmentPanel.locator('.alignment-task summary').first().click();
+    await expect(alignmentPanel.getByRole('button', { name: /Plan değişikliği öner/ })).toBeVisible();
+    await alignmentPanel.getByRole('button', { name: /Plan değişikliği öner/ }).click();
+    await expect(page.locator('.toast')).toContainText(/canonical plan değiştirilmedi/);
 
     const readiness = page.locator('.readiness-breakdown');
-    await expect(readiness.getByText('READINESS 2.1')).toBeVisible();
+    await expect(readiness.getByText('READINESS 3.0')).toBeVisible();
     await readiness.locator('summary').click();
     await expect(readiness.getByLabel(/Tamlık \d+\/100/)).toBeVisible();
     await expect(readiness.getByText(/Skor kayıt sayısına değil/)).toBeVisible();
@@ -226,6 +231,32 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(completionGate.getByText('Plan henüz finalleştirilemez')).toBeVisible();
     await expect(completionGate.getByText(/kritik koşul tamamlanmadı/)).toBeVisible();
     await expect(completionGate.getByRole('button', { name: 'Uyarılarla finalleştir' })).toHaveCount(0);
+  });
+
+  test('Backend/API domain pack previews bounded contributions and activates only after approval', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Harici istemcilerin token ile sipariş yazdığı, veritabanı ve webhook kullanan bir REST backend API planlamak istiyorum.'
+    );
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await page.getByRole('button', { name: /Rehber oluştur/ }).click();
+    await page.getByLabel('Açık kritik sorular').fill('');
+    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+    await page.getByRole('button', { name: /Detaylı planla/ }).click();
+    await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+    await page.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
+
+    const quality = page.locator('.plan-quality');
+    await quality.locator('summary').first().click();
+    const backendPack = quality.locator('.domain-pack-card').filter({ hasText: 'Backend/API Planlama Paketi' });
+    await expect(backendPack.getByText('BETA · KURAL PAKETİ')).toBeVisible();
+    await expect(backendPack).toContainText('teknoloji seçmez');
+    await backendPack.getByRole('button', { name: 'Paket katkılarını incele' }).click();
+    const preview = backendPack.getByRole('region', { name: 'Backend API paket aktivasyon önizlemesi' });
+    await expect(preview).toContainText('API tüketicileri kim');
+    await expect(preview).toContainText(/framework, veritabanı veya bulut sağlayıcısı seçmez/i);
+    await preview.getByRole('button', { name: 'Paketi onayla' }).click();
+    await expect(page.locator('.toast')).toContainText('Backend/API planlama paketi');
+    await expect(backendPack).toContainText('readiness, plan incelemesi, görev sözleşmeleri');
   });
 
   test('idea document keeps comparable revisions and restores an old version without touching the plan', async ({ page }) => {

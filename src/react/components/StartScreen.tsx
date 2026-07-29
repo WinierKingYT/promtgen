@@ -3,15 +3,18 @@ import { ArrowRight, FolderOpen, LoaderCircle, Settings2, Sparkles, X } from 'lu
 import { getProviderMeta } from '../../v4/provider-settings.js';
 import { isDesktopProjectImportAvailable, selectDesktopProjectFolder } from '../../v4/desktop-project-import.js';
 import { PortfolioOverview } from './PortfolioOverview.js';
+import { ProjectInventoryModal } from './ProjectInventoryModal.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
+import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
 import { useI18n } from '../providers/I18nProvider.js';
 import { getProductCopy } from '../../v4/product/product-contract.js';
 
 type Project = ProjectDocumentV5;
+type OutputLanguage = ProjectDocumentV5['identity']['outputLanguage'];
 
 interface StartScreenProps {
-  onCreate: (idea: string, language: string, files: File[], nativeInventory?: any) => Promise<void>;
+  onCreate: (idea: string, language: OutputLanguage, files: File[], nativeInventory?: ProjectInventoryReport) => Promise<void>;
   onImport: (file: File) => void;
   projects: Project[];
   onOpen: (id: string) => void;
@@ -23,9 +26,10 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
   const { locale, setLocale, t } = useI18n();
   const productCopy = getProductCopy(locale);
   const [idea, setIdea] = useState('');
-  const [language, setLanguage] = useState(locale === 'en-US' ? 'en' : 'tr');
+  const [language, setLanguage] = useState<OutputLanguage>(locale === 'en-US' ? 'en' : 'tr');
   const [files, setFiles] = useState<File[]>([]);
-  const [nativeInventory, setNativeInventory] = useState<any>(null);
+  const [nativeInventory, setNativeInventory] = useState<ProjectInventoryReport | null>(null);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const [selectingFolder, setSelectingFolder] = useState(false);
   const [creating, setCreating] = useState(false);
   const packageRef = useRef<HTMLInputElement>(null);
@@ -45,7 +49,7 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
 
   const handleCreate = async () => {
     setCreating(true);
-    try { await onCreate(idea, language, files, nativeInventory); }
+    try { await onCreate(idea, language, files, nativeInventory ?? undefined); }
     finally { setCreating(false); }
   };
 
@@ -93,10 +97,20 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
             <label className="file-action"><FolderOpen size={17} /> {t('start.files')}<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)} /></label>
             {isDesktopProjectImportAvailable()
               ? <button type="button" className="file-action" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17} /> : <FolderOpen size={17} />} Proje klasörü</button>
-              : <label className="file-action"><FolderOpen size={17} /> {t('start.folder')}<input type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as any)} onChange={event => appendFiles(event.target.files)} /></label>}
+              : <label className="file-action"><FolderOpen size={17} /> {t('start.folder')}<input
+                  ref={element => {
+                    if (!element) return;
+                    element.setAttribute('webkitdirectory', '');
+                    element.setAttribute('directory', '');
+                  }}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={event => appendFiles(event.target.files)}
+                /></label>}
             <button className="file-action" onClick={onOpenSettings}><Settings2 size={17} /> AI: {getProviderMeta(providerSettings.providerId).label}</button>
             <label>{t('start.outputLanguage')}<select value={language} onChange={event => {
-              const next = event.target.value;
+              const next = event.target.value as OutputLanguage;
               setLanguage(next);
               setLocale(next === 'en' ? 'en-US' : 'tr-TR');
             }}><option value="tr">{t('language.turkish')}</option><option value="en">{t('language.english')}</option></select></label>
@@ -120,10 +134,11 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
             <p className="context-note">{t('start.inventoryNotice')}</p>
           </div>
         )}
-        {nativeInventory && <p className="context-note">{nativeInventory.rootName}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe güvenlik politikasıyla dışarıda bırakıldı.</p>}
+        {nativeInventory && <div className="context-note">{nativeInventory.rootName || 'Seçilen proje'}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe hassas içerik politikasıyla dışarıda bırakıldı. <button type="button" className="text-button" onClick={() => setInventoryOpen(true)}>Envanteri incele</button></div>}
         <div className="import-row"><span>{t('start.previous')}</span><button className="text-button" onClick={() => packageRef.current?.click()}><Sparkles size={16} /> {t('start.openPackage')}</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => event.target.files?.[0] && onImport(event.target.files[0])} /></div>
         <PortfolioOverview projects={projects} onOpen={onOpen} />
       </section>
+      <ProjectInventoryModal open={inventoryOpen} nativeInventory={nativeInventory} onClose={() => setInventoryOpen(false)} />
       <footer>
         {['offline', 'ollama'].includes(providerSettings.providerId)
           ? 'Hesap yok · Plan cihazında · Bulut AI bağlantısı yok'

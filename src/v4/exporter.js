@@ -4,6 +4,10 @@ import { normalizeProjectDocument } from './canonical-entities.js';
 import { tryMigrateOrPassthrough } from './migrations.js';
 import { createModuleRegistry } from './module-registry.js';
 import { generateArchitectureDiagram, generateDataFlowDiagram } from './diagram-generator.js';
+import {
+    buildImplementationEvidenceInstructions,
+    buildImplementationEvidenceTemplate
+} from './application/implementation-evidence-format.ts';
 
 const MAX_PACKAGE_BYTES = 25 * 1024 * 1024;
 const MAX_ENTRY_BYTES = 5 * 1024 * 1024;
@@ -270,6 +274,7 @@ export function buildAgentPrompt(project, adapter = 'generic', revision = 'curre
         adapter === 'codex' ? 'Değişiklikleri workspace içinde uygula; test sonuçlarını ve kalan riskleri özetle.' : '',
         adapter === 'cursor' ? 'Planı uygulanabilir görevler halinde ele al ve ilgili dosyaları bağlama ekle.' : '',
         adapter === 'claude' ? 'Önce plan ile mevcut sistem arasındaki farkları çıkar, sonra bağımlılık sırasıyla uygula.' : '',
+        'Her görev tesliminde `.promtgen/evidence/templates/` altındaki sürümlü JSON şablonunu gerçek dosya, test ve kabul kriteri kanıtlarıyla doldur. PromtGen bu paketi kullanıcıya önizletir; sen canonical görev durumunu doğrudan değiştiremezsin.',
         taskDocument(source),
         exportCanonicalMarkdown(source)
     ].filter(Boolean).join('\n\n');
@@ -369,8 +374,28 @@ export function createIdeWorkspaceFiles(project, { revision = 'current', adapter
             milestones: source.milestones,
             traceLinks: source.traceLinks,
             agentPrompts: source.agentPrompts
-        }, null, 2)
+        }, null, 2),
+        '.promtgen/evidence/README.md': [
+            '# PromtGen Görev Teslim Kanıtları',
+            '',
+            'Bu klasördeki şablonlar kodlama aracının yaptığı işi TaskContract’a göre raporlaması içindir.',
+            'Şablonu doldurup PromtGen Görev Teslim Merkezi’ne aktar. Paket hiçbir görevi otomatik tamamlamaz; kullanıcı incelemesi ve açık onay gerekir.',
+            '',
+            '- Secret, token, kişisel veri ve tam log ekleme.',
+            '- Yalnız gerçekten değişen dosyaları ve gerçekten çalıştırılan testleri bildir.',
+            '- `baseCanonicalRevision` değiştiyse yeni şablon dışa aktar.',
+            '- Paket formatı: `promtgen-implementation-evidence`, sürüm: 2.'
+        ].join('\n')
     };
+    for (const task of source.tasks) {
+        files[`.promtgen/evidence/templates/${safeName(task.id)}.json`] = JSON.stringify(
+            buildImplementationEvidenceTemplate(source, task.id, 'other'),
+            null,
+            2
+        );
+        files[`.promtgen/evidence/instructions/${safeName(task.id)}.md`] =
+            buildImplementationEvidenceInstructions(source, task.id, selected[0] || 'generic');
+    }
     for (const adapter of selected) {
         const definition = IDE_ADAPTERS.find(item => item.id === adapter);
         files[definition.path] = adapterInstruction(source, adapter);

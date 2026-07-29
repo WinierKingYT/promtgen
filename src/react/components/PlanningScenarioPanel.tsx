@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, GitCompareArrows, Plus, Trash2 } from 'lucide-react';
-import { generateImpactAnalysis } from '../../v4/ai-discovery.js';
+import { generateImpactAnalysis } from '../../v4/application/idea-planning-api.js';
 import {
   createPlanningScenario,
   discardPlanningScenario,

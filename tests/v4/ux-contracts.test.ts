@@ -32,9 +32,10 @@ describe('Category 6: UX & Information Architecture Contracts', () => {
     assert.ok(guidance.step > 0 && guidance.total >= guidance.step);
   });
 
-  it('exposes plan–code alignment as a read-only production component', () => {
-    const element = React.createElement(PlanCodeAlignmentPanel, { project: {} as never });
+  it('exposes plan–code alignment through the controlled production commit boundary', () => {
+    const onCommit = () => {};
+    const element = React.createElement(PlanCodeAlignmentPanel, { project: {} as never, onCommit });
     assert.equal(element.type, PlanCodeAlignmentPanel);
-    assert.ok(!('onCommit' in element.props), 'Alignment panel cannot mutate the project');
+    assert.equal(element.props.onCommit, onCommit, 'Alignment suggestions use the application commit boundary');
   });
 });

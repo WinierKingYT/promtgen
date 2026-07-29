@@ -1,6 +1,9 @@
 import { PLANNER_BENCHMARK_EVIDENCE } from './product/generated-benchmark-evidence.js';
 import { COMPARISON_EVIDENCE } from './product/generated-comparison-evidence.js';
 import { WEB_SAAS_BENCHMARK_EVIDENCE } from './product/generated-web-saas-evidence.js';
+import { BACKEND_API_BENCHMARK_EVIDENCE } from './product/generated-backend-api-evidence.js';
+import { IMPLEMENTATION_EVIDENCE_BENCHMARK } from './product/generated-implementation-evidence.js';
+import { PLAN_CODE_ALIGNMENT_BENCHMARK } from './product/generated-plan-code-alignment-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -131,9 +134,32 @@ const userEvidence = (capabilityId: string): CapabilityPromotionEvidence['users'
 
 export const CAPABILITY_REGISTRY: ProductCapability[] = [
   {
+    id: 'readiness-quality-gate',
+    publicName: 'Açıklanabilir Plan Kalite Kapısı',
+    description: 'Canonical planın tamlık, tutarlılık, izlenebilirlik, risk kapsamı ve uygulanabilirlik kanıtlarını ölçer; kritik koşullar çözülmeden hazır durumunu önermez.',
+    maturity: 'candidate-stable',
+    platforms: ['web', 'desktop'],
+    platformMaturity: { web: 'candidate-stable', desktop: 'candidate-stable' },
+    implementationMode: 'rule-engine',
+    limitations: [
+      'Skor proje sonucunu veya dış kodlama aracının başarıyla kod yazacağını garanti etmez',
+      'Kanıt parmak izi deterministik değişiklik tespiti içindir; kriptografik imza değildir',
+      'Stable yükseltmesi için gerçek kullanıcı sonuç kanıtı gereklidir'
+    ],
+    evidence: [
+      { testId: 'tests/v4/readiness-service.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] },
+      { testId: 'tests/e2e/smoke.spec.ts', level: 'browser-e2e', platforms: ['web'] }
+    ],
+    supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
+    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: benchmarkScenarios('readiness-quality-gate'),
+      users: userEvidence('readiness-quality-gate')
+    })
+  },
+  {
     id: 'web-saas-domain-pack',
     publicName: 'Web/SaaS Planlama Paketi',
-    description: 'Web uygulaması, küçük SaaS, panel ve API planlarında koşullu alan soruları, kalite kapıları ve görev doğrulama rehberi.',
+    description: 'Web uygulaması, küçük SaaS ve panel planlarında koşullu alan soruları, kalite kapıları ve görev doğrulama rehberi.',
     maturity: 'candidate-stable',
     platforms: ['web', 'desktop'],
     platformMaturity: { web: 'candidate-stable', desktop: 'candidate-stable' },
@@ -147,10 +173,33 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
       { testId: 'tests/v4/web-saas-domain-pack.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] },
       { testId: 'tests/e2e/guided-workflow.spec.ts', level: 'browser-e2e', platforms: ['web'] }
     ],
-    supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
+    supportedDomains: ['web-app', 'small-saas', 'admin-panel', 'internal-tool'],
     promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
       scenarios: WEB_SAAS_BENCHMARK_EVIDENCE,
       users: userEvidence('web-saas-domain-pack')
+    })
+  },
+  {
+    id: 'backend-api-domain-pack',
+    publicName: 'Backend/API Planlama Paketi',
+    description: 'Backend ve API planlarında sözleşme, hata modeli, yetki, veri bütünlüğü, idempotency ve işletim için koşullu kalite rehberi.',
+    maturity: 'beta',
+    platforms: ['web', 'desktop'],
+    platformMaturity: { web: 'beta', desktop: 'beta' },
+    implementationMode: 'rule-engine',
+    limitations: [
+      'Büyük dağıtık altyapı ve kritik finans/sağlık sistemleri destek kapsamında değildir',
+      'Dil, framework, veritabanı veya bulut sağlayıcısı seçmez',
+      'Güvenlik, yük veya kaos testi garantisi sunmaz; gerçek kullanıcı kanıtı henüz yoktur'
+    ],
+    evidence: [
+      { testId: 'tests/v4/backend-api-domain-pack.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] },
+      { testId: 'tests/e2e/guided-workflow.spec.ts', level: 'browser-e2e', platforms: ['web'] }
+    ],
+    supportedDomains: ['backend-api', 'internal-api', 'integration-service'],
+    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: BACKEND_API_BENCHMARK_EVIDENCE,
+      users: userEvidence('backend-api-domain-pack')
     })
   },
   {
@@ -191,7 +240,31 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     ],
     supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
     promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: IMPLEMENTATION_EVIDENCE_BENCHMARK,
       users: userEvidence('implementation-evidence-review')
+    })
+  },
+  {
+    id: 'plan-code-alignment',
+    publicName: 'Plan–Kod Hizalama',
+    description: 'Canonical görev sözleşmelerini güvenli dosya envanteri ve kullanıcıca sağlanan teslim kanıtıyla karşılaştıran açıklanabilir karar desteği.',
+    maturity: 'beta',
+    platforms: ['web', 'desktop'],
+    platformMaturity: { web: 'beta', desktop: 'beta' },
+    implementationMode: 'rule-engine',
+    limitations: [
+      'PromtGen kodu veya dosyaları doğrudan değiştirmez',
+      'Dosya envanteri bir dosyanın gerçekten değiştiğini kanıtlamaz',
+      'Değişen dosya bilgisi kullanıcı veya dış araç tarafından sağlanan kanıt paketine dayanır'
+    ],
+    evidence: [
+      { testId: 'tests/v4/plan-code-alignment.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] },
+      { testId: 'tests/e2e/guided-workflow.spec.ts', level: 'browser-e2e', platforms: ['web'] }
+    ],
+    supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
+    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: PLAN_CODE_ALIGNMENT_BENCHMARK,
+      users: userEvidence('plan-code-alignment')
     })
   },
   {

@@ -1,6 +1,6 @@
-import { createProvider } from '../ai-context.js';
-import { runAITask } from '../ai/orchestrator.js';
-import { regenerateAffectedSectionsTask } from '../ai/tasks/regenerate-affected-sections.js';
+import { getTaskDefinition } from '../ai/registry.js';
+import { runRegisteredAITask } from '../ai/runtime.js';
+import type { StructuredProvider } from '../ai/provider-adapters.js';
 import { normalizeSectionPatchProposal } from '../canonical-entities.js';
 import type {
   GenerationProvenance,
@@ -9,6 +9,8 @@ import type {
 } from '../contracts.js';
 import { captureCurrentRevision, recalculateReadiness } from '../planning-engine.js';
 import type { ProviderSettings } from '../provider-settings.js';
+
+const regenerateAffectedSectionsTask = getTaskDefinition('regenerate-affected-sections');
 
 function now() {
   return new Date().toISOString();
@@ -108,6 +110,7 @@ export async function generateSectionPatchProposals(project: ProjectDocumentV5, 
   settings: ProviderSettings;
   credential?: string;
   signal?: AbortSignal;
+  provider?: StructuredProvider;
 }) {
   const settings = options.settings;
   if (!settings || settings.providerId === 'offline' || settings.useAiWhenAvailable === false) {
@@ -115,19 +118,13 @@ export async function generateSectionPatchProposals(project: ProjectDocumentV5, 
     return { ...appendProposals(project, impactId, localOutput(project, impactId), provenance), usedFallback: true, error: null };
   }
   try {
-    const provider = createProvider(settings.providerId, {
-      model: settings.model,
-      baseUrl: settings.baseUrl,
-      credential: options.credential || ''
-    });
-    const run = await runAITask<{ summary: string; patches: Array<{ sectionId: string; proposedContent: string; rationale: string; warnings: string[] }> }>({
-      task: regenerateAffectedSectionsTask,
+    const run = await runRegisteredAITask<{ summary: string; patches: Array<{ sectionId: string; proposedContent: string; rationale: string; warnings: string[] }> }>('regenerate-affected-sections', {
       project,
+      settings,
+      credential: options.credential,
       input: { impactId },
-      provider,
-      providerId: settings.providerId,
-      model: settings.model,
-      signal: options.signal
+      signal: options.signal,
+      provider: options.provider
     });
     return { ...appendProposals(project, impactId, run.output, run.provenance), usedFallback: false, error: null };
   } catch (caught) {

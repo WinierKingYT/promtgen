@@ -1,7 +1,15 @@
-import { useState, useMemo } from 'react';
-import { ArrowRight, Check, Layers, Lightbulb, Sparkles, Wand2, Telescope } from 'lucide-react';
-import { applyExtensionModules, runConceptSimulation, applyIdeaExpansion } from '../../v4/planning-engine.js';
-import { generateConceptSummary, generateExpansionDimensions } from '../../v4/ai-discovery.js';
+import { useState } from 'react';
+import { ArrowRight, Layers, Lightbulb, Sparkles } from 'lucide-react';
+import { applyExtensionModules, runConceptSimulation } from '../../v4/planning-engine.js';
+import { generateConceptSummary } from '../../v4/application/idea-planning-api.js';
+import type { DesignApproach, ProjectDocumentV5 } from '../../v4/contracts.js';
+
+type ProjectCommit = (project: ProjectDocumentV5, message: string) => void | Promise<void>;
+
+interface IdeaLabPanelProps {
+  project: ProjectDocumentV5;
+  onCommit: ProjectCommit;
+}
 
 function MetricBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -17,22 +25,22 @@ function MetricBar({ label, value, color }: { label: string; value: number; colo
   );
 }
 
-export function IdeaLabPanel({ project, onCommit, providerSettings }: any) {
+export function IdeaLabPanel({ project, onCommit }: IdeaLabPanelProps) {
   const session = project.ideaLabSession;
   const approaches = session?.approaches || [];
-  const [selectedId, setSelectedId] = useState(session?.selectedApproachId || approaches.find((a: any) => a.recommended)?.id || approaches[0]?.id || '');
+  const [selectedId, setSelectedId] = useState(session?.selectedApproachId || approaches.find(approach => approach.recommended)?.id || approaches[0]?.id || '');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [customChips, setCustomChips] = useState<Record<string, string[]>>({});
   const [chipInputs, setChipInputs] = useState<Record<string, string>>({});
 
-  const selectedApproach = approaches.find((a: any) => a.id === selectedId) || approaches[0];
+  const selectedApproach = approaches.find(approach => approach.id === selectedId) || approaches[0];
   const sim = selectedApproach ? runConceptSimulation(project, selectedApproach.id) : null;
 
   const handleGenerateConcept = async () => {
     setLoading(true);
     try {
-      const next = await generateConceptSummary(project, { selectedApproachId: selectedId, settings: providerSettings } as any);
+      const next = await generateConceptSummary(project, { selectedApproachId: selectedId });
       if (sim && next.ideaLabSession?.conceptSummary) {
         next.ideaLabSession.conceptSummary.simulationResult = sim;
       }
@@ -45,6 +53,7 @@ export function IdeaLabPanel({ project, onCommit, providerSettings }: any) {
   const handlePresetClick = (presetText: string) => {
     const cleanText = presetText.replace(/^\[|\]$/g, '');
     const next = structuredClone(project);
+    if (!next.ideaLabSession) return;
     if (!next.ideaLabSession.ideaNotes) next.ideaLabSession.ideaNotes = [];
     if (!next.ideaLabSession.ideaNotes.includes(cleanText)) {
       next.ideaLabSession.ideaNotes.push(`Seçilen tercih: ${cleanText}`);
@@ -118,7 +127,7 @@ export function IdeaLabPanel({ project, onCommit, providerSettings }: any) {
 
       {viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-          {approaches.map((app: any) => {
+          {approaches.map((app: DesignApproach) => {
             const isSelected = selectedId === app.id;
             const m = app.metrics || { effortScore: 3, networkLoad: 2, fpsImpact: 2, maintainability: 4 };
             const allChips = [...(app.presetAnswers || []), ...(customChips[app.id] || [])];
@@ -225,7 +234,7 @@ export function IdeaLabPanel({ project, onCommit, providerSettings }: any) {
             <thead>
               <tr style={{ background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid rgba(139, 92, 246, 0.3)' }}>
                 <th style={{ padding: '12px', textAlign: 'left', width: '180px' }}>Metrik / Özellik</th>
-                {approaches.map((app: any) => (
+                {approaches.map((app: DesignApproach) => (
                   <th key={app.id} style={{ padding: '12px', textAlign: 'left', background: selectedId === app.id ? 'rgba(139, 92, 246, 0.2)' : 'transparent' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <input type="radio" checked={selectedId === app.id} onChange={() => setSelectedId(app.id)} style={{ accentColor: '#8b5cf6' }} />
@@ -239,27 +248,27 @@ export function IdeaLabPanel({ project, onCommit, providerSettings }: any) {
             <tbody>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '10px', color: '#a78bfa', fontWeight: 600 }}>Açıklama</td>
-                {approaches.map((app: any) => <td key={app.id} style={{ padding: '10px', color: '#9ca3af', fontSize: '12px' }}>{app.description}</td>)}
+                {approaches.map((app: DesignApproach) => <td key={app.id} style={{ padding: '10px', color: '#9ca3af', fontSize: '12px' }}>{app.description}</td>)}
               </tr>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '10px', color: '#f59e0b', fontWeight: 600 }}>Geliştirme Eforu</td>
-                {approaches.map((app: any) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.effortScore || 3} color="#f59e0b" /></td>)}
+                {approaches.map((app: DesignApproach) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.effortScore || 3} color="#f59e0b" /></td>)}
               </tr>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '10px', color: '#3b82f6', fontWeight: 600 }}>Network / Ağ Yükü</td>
-                {approaches.map((app: any) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.networkLoad || 2} color="#3b82f6" /></td>)}
+                {approaches.map((app: DesignApproach) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.networkLoad || 2} color="#3b82f6" /></td>)}
               </tr>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '10px', color: '#ef4444', fontWeight: 600 }}>Fizik / FPS Etkisi</td>
-                {approaches.map((app: any) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.fpsImpact || 2} color="#ef4444" /></td>)}
+                {approaches.map((app: DesignApproach) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.fpsImpact || 2} color="#ef4444" /></td>)}
               </tr>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '10px', color: '#10b981', fontWeight: 600 }}>Bakım Kolaylığı</td>
-                {approaches.map((app: any) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.maintainability || 4} color="#10b981" /></td>)}
+                {approaches.map((app: DesignApproach) => <td key={app.id} style={{ padding: '10px' }}><MetricBar label="" value={app.metrics?.maintainability || 4} color="#10b981" /></td>)}
               </tr>
               <tr>
                 <td style={{ padding: '10px', color: '#10b981', fontWeight: 600 }}>Avantajlar</td>
-                {approaches.map((app: any) => <td key={app.id} style={{ padding: '10px', fontSize: '11px', color: '#9ca3af' }}>{app.pros?.join(', ')}</td>)}
+                {approaches.map((app: DesignApproach) => <td key={app.id} style={{ padding: '10px', fontSize: '11px', color: '#9ca3af' }}>{app.pros.join(', ')}</td>)}
               </tr>
             </tbody>
           </table>
@@ -291,7 +300,7 @@ export function IdeaLabPanel({ project, onCommit, providerSettings }: any) {
   );
 }
 
-export function ExtensionModulesPanel({ project, onCommit }: any) {
+export function ExtensionModulesPanel({ project, onCommit }: { project: ProjectDocumentV5; onCommit: ProjectCommit }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
 

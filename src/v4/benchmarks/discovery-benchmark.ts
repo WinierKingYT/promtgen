@@ -11,7 +11,7 @@ import {
   applyIdeaExpansion,
   confirmConceptSummary
 } from '../planning-engine.js';
-import { generateExpansionDimensions } from '../ai-discovery.js';
+import { generateExpansionDimensions } from '../application/deterministic-idea-planning.js';
 
 export interface DiscoveryBenchmarkReference {
   summary: string;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Bot, Check, CircleAlert, Code2, Download, FolderGit2, LoaderCircle, Play, ShieldCheck, Trash2 } from 'lucide-react';
 import { beginExecutionSession, buildExecutionPrompt, getNextExecutionRole, proposeExecution, recordExecutionResult, simulateExecutionRun } from '../../v4/execution-orchestrator.js';
 import { cleanupExecutionWorktree, getExecutionCapabilities, getExecutionPatch, nativeExecutionAvailable, prepareExecutionWorktree, runCodexAgentStep, selectExecutionRepository } from '../../v4/desktop-execution.js';
-import { downloadBlob } from '../../v4/exporter.js';
+import { downloadBlob } from '../utils/download.js';
 
 export function ExecutionPanel({ project, onCommit }: { project: any; onCommit: (project: any, message: string, commandType?: string) => void }) {
   const desktop = nativeExecutionAvailable();

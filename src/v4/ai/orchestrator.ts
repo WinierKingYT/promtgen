@@ -1,6 +1,6 @@
 import type { GenerationProvenance, ProjectDocumentV5 } from '../contracts.js';
 
-interface StructuredProvider {
+export interface StructuredProvider {
   model?: string;
   structured(input: {
     system: string;
@@ -10,12 +10,13 @@ interface StructuredProvider {
   }): Promise<unknown>;
 }
 
-interface AITaskDefinition {
+export interface AITaskDefinition {
   id: string;
   promptVersion: string;
   schemaId: string;
   schemaVersion: number;
   schema: { parse(value: unknown): unknown };
+  outputFields: readonly string[];
   timeoutMs: number;
   maxRepairAttempts: number;
   buildPrompt(project: ProjectDocumentV5, input?: Record<string, unknown>): string;

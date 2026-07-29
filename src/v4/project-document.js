@@ -67,16 +67,33 @@ export function createPlanSections(depth = 'standard', revision = 1) {
 
 export function createInitialReadiness(revision = 1) {
     return {
-        version: 2,
+        version: 3,
+        calculationProfile: 'legacy-unverified',
         status: 'blocked',
         score: 0,
         dimensions: { completeness: 0, consistency: 100, traceability: 0, riskCoverage: 0, implementationReadiness: 0 },
         dimensionWeights: { completeness: 20, consistency: 20, traceability: 25, riskCoverage: 15, implementationReadiness: 20 },
         dimensionLabels: { completeness: 'Tamlık', consistency: 'Tutarlılık', traceability: 'İzlenebilirlik', riskCoverage: 'Risk kapsamı', implementationReadiness: 'Uygulamaya hazırlık' },
+        dimensionEvidence: Object.fromEntries(
+            ['completeness', 'consistency', 'traceability', 'riskCoverage', 'implementationReadiness']
+                .map(dimension => [dimension, { earned: 0, possible: 0, passed: 0, warning: 0, blocked: 0 }])
+        ),
         checks: [],
         nextActions: [],
+        qualityGate: {
+            passed: false,
+            blockingCheckIds: ['legacy.unverified'],
+            conditions: [{
+                id: 'readiness-calculation',
+                label: 'Readiness kanıtı güncel',
+                passed: false,
+                message: 'Canonical plan için Readiness 3.0 henüz hesaplanmadı.',
+                checkIds: []
+            }]
+        },
         blockers: ['Proje fikri henüz analiz edilmedi.'],
         warnings: [],
+        evidenceHash: 'legacy-unverified',
         calculatedAtRevision: revision
     };
 }
@@ -194,8 +211,16 @@ export function validateProjectDocument(state) {
         }
     }
     if (!Array.isArray(state.commandLog)) errors.push('Command log dizi olmalı.');
-    if (state.readiness?.version !== 2) errors.push('Readiness sözleşmesi version 2 olmalı.');
+    if (state.readiness?.version !== 3) errors.push('Readiness sözleşmesi version 3 olmalı.');
+    if (!['readiness-3.0', 'legacy-unverified'].includes(state.readiness?.calculationProfile)) errors.push('Readiness hesaplama profili geçersiz.');
     if (!['blocked', 'needs_review', 'ready'].includes(state.readiness?.status)) errors.push('Readiness durumu geçersiz.');
+    if (typeof state.readiness?.evidenceHash !== 'string' || !state.readiness.evidenceHash) errors.push('Readiness kanıt parmak izi eksik.');
+    if (!state.readiness?.qualityGate || typeof state.readiness.qualityGate.passed !== 'boolean' || !Array.isArray(state.readiness.qualityGate.conditions)) {
+        errors.push('Readiness kalite kapısı geçersiz.');
+    }
+    if (!state.readiness?.dimensionEvidence || Object.values(state.readiness.dimensionEvidence).some(item => !item || item.earned < 0 || item.possible < 0)) {
+        errors.push('Readiness boyut kanıtı geçersiz.');
+    }
     if (!Array.isArray(state.readiness?.checks)) errors.push('Readiness kanıt kontrolleri dizi olmalı.');
     if (state.readiness?.checks?.some(check => !check.id || !['passed', 'warning', 'blocked'].includes(check.status))) {
         errors.push('Readiness kanıt kontrolü geçersiz.');

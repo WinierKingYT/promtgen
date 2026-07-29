@@ -1,4 +1,5 @@
 import type { ExpansionDimension, GenerationProvenance, ImpactAnalysis, ProjectDocumentV5 } from './contracts.js';
+import type { IdeaLabOutput } from './ai/schemas/schemas.js';
 import type { ProviderSettings } from './provider-settings.js';
 import type { LocalPlanningMemory } from './planning-memory.js';
 import type { DiscoveryAIExtraction } from './application/discovery-answer-service.js';
@@ -14,7 +15,8 @@ export interface ProviderConnectionResult {
   message: string;
   providerId: string;
   latencyMs: number;
-  errorCode?: string;
+  errorCode: string | null;
+  checkedAt: string;
 }
 
 export function getSeenSuggestionFingerprints(project: ProjectDocumentV5): Set<string>;
@@ -27,7 +29,7 @@ export function generateDiscoveryAnswerExtraction(project: ProjectDocumentV5, op
   provenance: GenerationProvenance | null;
   error: string | null;
 }>;
-export function localFallbackIdeaLab(project: ProjectDocumentV5): GenerationTurnResult;
+export function localFallbackIdeaLab(project: ProjectDocumentV5): IdeaLabOutput;
 export function generateIdeaLabBundle(project: ProjectDocumentV5, options: { settings: ProviderSettings; credential?: string; ideaText?: string; signal?: AbortSignal }): Promise<GenerationTurnResult>;
 export function generateConceptSummary(project: ProjectDocumentV5, options?: { selectedApproachId?: string }): Promise<ProjectDocumentV5>;
 export function generateImpactAnalysis(project: ProjectDocumentV5, userRequest: string, options?: { pendingCommit?: boolean }): Promise<{ project: ProjectDocumentV5; impact: ImpactAnalysis }>;

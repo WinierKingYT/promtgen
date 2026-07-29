@@ -16,9 +16,12 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 
 | Yetenek | İlan | Otomatik kanıt | Senaryo | Kullanıcı | Kurtarma | Son commit | Stable kapısı |
 |---|---|---|---|---:|---|---|---|
+| Açıklanabilir Plan Kalite Kapısı | candidate-stable | integration-test: tests/v4/readiness-service.test.ts<br>browser-e2e: tests/e2e/smoke.spec.ts | 10/10 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Web/SaaS Planlama Paketi | candidate-stable | integration-test: tests/v4/web-saas-domain-pack.test.ts<br>browser-e2e: tests/e2e/guided-workflow.spec.ts | 5/5 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
+| Backend/API Planlama Paketi | beta | integration-test: tests/v4/backend-api-domain-pack.test.ts<br>browser-e2e: tests/e2e/guided-workflow.spec.ts | 5/5 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Canonical Yaşayan Plan ve Revizyon Yönetimi | candidate-stable | integration-test: tests/v4/acceptance-flow.test.js<br>browser-e2e: tests/e2e/guided-workflow.spec.ts | 10/10 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
-| Görev Teslim Kanıtı | beta | integration-test: tests/v4/implementation-evidence.test.ts<br>browser-e2e: tests/e2e/smoke.spec.ts | 0/0 | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
+| Görev Teslim Kanıtı | beta | integration-test: tests/v4/implementation-evidence.test.ts<br>browser-e2e: tests/e2e/smoke.spec.ts | 5/5 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
+| Plan–Kod Hizalama | beta | integration-test: tests/v4/plan-code-alignment.test.ts<br>browser-e2e: tests/e2e/guided-workflow.spec.ts | 5/5 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Local-First Depolama ve Yedekleme | candidate-stable | integration-test: tests/v4/storage-durability.test.ts<br>native-e2e: tests/v4/desktop-storage.test.js | 0/0 | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Uzman Perspektifleri | experimental | unit-test: tests/v4/review-engine.test.js | 0/0 | 0 | Belgelenmedi | 2acd7ba | Bloklu |
 | Mimari Karşılaştırma Şablonu | beta | unit-test: tests/v4/idea-lab.test.js | 0/0 | 0 | Belgelenmedi | 2acd7ba | Bloklu |
@@ -29,7 +32,15 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 
 ## Açık terfi engelleri
 
+### Açıklanabilir Plan Kalite Kapısı
+
+- En az 5 kullanıcıdan kanıt gerekli.
+
 ### Web/SaaS Planlama Paketi
+
+- En az 5 kullanıcıdan kanıt gerekli.
+
+### Backend/API Planlama Paketi
 
 - En az 5 kullanıcıdan kanıt gerekli.
 
@@ -39,8 +50,10 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 
 ### Görev Teslim Kanıtı
 
-- En az 5 benchmark senaryosu gerekli.
-- Benchmark başarı oranı en az %90 olmalı.
+- En az 5 kullanıcıdan kanıt gerekli.
+
+### Plan–Kod Hizalama
+
 - En az 5 kullanıcıdan kanıt gerekli.
 
 ### Local-First Depolama ve Yedekleme

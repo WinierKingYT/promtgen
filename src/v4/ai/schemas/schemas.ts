@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
 const shortText = z.string().trim().min(1).max(500);
-const planSectionSchema = z.enum(['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment', 'operations']);
+export const PLAN_SECTION_IDS = ['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment', 'operations'] as const;
+export const planSectionSchema = z.enum(PLAN_SECTION_IDS);
 
-// 1. Discovery Bundle Schema
 export const DISCOVERY_SCHEMA_ID = 'discovery-v1';
 export const discoverySchema = z.object({
+  reply: z.string().trim().min(1).max(4000).default(''),
+  analysisNote: z.string().trim().min(1).max(2000).default(''),
   summary: z.string().trim().min(1).max(1200),
   options: z.array(z.object({
     kind: z.enum(['feature', 'decision', 'risk', 'question', 'architecture']).default('feature'),
@@ -21,7 +23,27 @@ export const discoverySchema = z.object({
   openQuestions: z.array(shortText).max(12).default([])
 }).strict();
 
-// 2. Idea Lab Schema (Dedicated for Fikir Laboratuvarı)
+export const DISCOVERY_ANSWER_EXTRACTION_SCHEMA_ID = 'discovery-answer-extraction-v1';
+export const discoveryAnswerExtractionSchema = z.object({
+  fields: z.array(z.object({
+    field: z.enum([
+      'targetUser',
+      'problemStatement',
+      'currentAlternative',
+      'desiredOutcome',
+      'confirmedFeatures',
+      'outOfScope',
+      'technicalApproaches',
+      'knownRisks',
+      'mvpTarget'
+    ]),
+    value: z.union([shortText, z.array(shortText).min(1).max(12)]),
+    confidence: z.number().int().min(0).max(100),
+    rationale: shortText
+  }).strict()).max(10),
+  warnings: z.array(shortText).max(8).default([])
+}).strict();
+
 export const IDEA_LAB_SCHEMA_ID = 'idea-lab-v1';
 export const ideaLabSchema = z.object({
   approaches: z.array(z.object({
@@ -47,7 +69,6 @@ export const ideaLabSchema = z.object({
   candidateRisks: z.array(shortText).max(10).default([])
 });
 
-// 3. Architecture Review Schema
 export const ARCHITECTURE_REVIEW_SCHEMA_ID = 'architecture-review-v1';
 export const architectureReviewSchema = z.object({
   findings: z.array(z.object({
@@ -71,3 +92,9 @@ export const sectionRegenerationSchema = z.object({
     warnings: z.array(shortText).max(8).default([])
   }).strict()).min(1).max(12)
 }).strict();
+
+export type DiscoveryOutput = z.infer<typeof discoverySchema>;
+export type DiscoveryAnswerExtractionOutput = z.infer<typeof discoveryAnswerExtractionSchema>;
+export type IdeaLabOutput = z.infer<typeof ideaLabSchema>;
+export type ArchitectureReviewOutput = z.infer<typeof architectureReviewSchema>;
+export type SectionRegenerationOutput = z.infer<typeof sectionRegenerationSchema>;

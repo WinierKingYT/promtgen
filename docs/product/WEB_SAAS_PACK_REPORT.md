@@ -6,7 +6,7 @@ Sonuç: **5/5** senaryo geçti.
 |---|---:|---:|---:|
 | Çalışma alanlı küçük SaaS | Geçti | 5 | 6 |
 | Rol tabanlı yönetim paneli | Geçti | 4 | 5 |
-| Veri saklayan backend API | Geçti | 4 | 5 |
+| Veri saklayan iç web aracı | Geçti | 4 | 5 |
 | Abonelik ödemeli SaaS | Geçti | 5 | 6 |
 | Hesapsız web aracı | Geçti | 2 | 3 |
 

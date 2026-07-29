@@ -1,13 +1,62 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Check, CircleAlert, Database, FolderSearch, Gauge, GitBranch, Info, LoaderCircle, RefreshCw, RotateCcw, Terminal, Wifi, X } from 'lucide-react';
+import { Bot, Check, CircleAlert, Database, FolderSearch, Gauge, GitBranch, Info, LoaderCircle, RefreshCw, RotateCcw, Terminal, Wifi, X, type LucideIcon } from 'lucide-react';
 import { buildRuntimeHealthReport } from '../../v4/runtime-health.js';
-import { testProviderConnection } from '../../v4/ai-discovery.js';
+import { testProviderConnection } from '../../v4/ai/provider-connection.js';
 import { getProviderMeta } from '../../v4/provider-settings.js';
 import { getDesktopStorageHealth, isDesktopStorageAvailable } from '../../v4/tauri-storage.js';
 import { clearCodexCli, getExecutionCapabilities, nativeExecutionAvailable, selectCodexCli } from '../../v4/desktop-execution.js';
+import type { ProviderConnectionResult } from '../../v4/ai/provider-connection.js';
+import type { ProviderSettings } from '../../v4/provider-settings.js';
 import { IconButton } from './WorkspaceChrome';
 
-const icons: Record<string, any> = { storage: Database, git: GitBranch, codex: Terminal, ollama: Wifi, provider: Bot, desktop: Info };
+type RuntimeCheckStatus = 'ok' | 'error' | 'warning' | 'info';
+
+interface RuntimeCheck {
+  id: string;
+  label: string;
+  status: RuntimeCheckStatus;
+  detail: string;
+  recommendation: string;
+}
+
+interface RuntimeHealthReport {
+  checkedAt: string;
+  checks: RuntimeCheck[];
+  summary: {
+    errors: number;
+    warnings: number;
+    ok: number;
+    readyForPlanning: boolean;
+    readyForNativeExecution: boolean;
+  };
+}
+
+interface ExecutionCapabilities {
+  gitAvailable: boolean;
+  gitVersion: string;
+  codexAvailable: boolean;
+  codexVersion: string;
+  codexSource: string;
+  codexPath: string;
+  codexError: string;
+  customCodexConfigured: boolean;
+}
+
+interface DesktopStorageHealth {
+  ok?: boolean;
+  projectCount?: number;
+  backupCount?: number;
+  quickCheck?: string;
+}
+
+interface RuntimeHealthDialogProps {
+  open: boolean;
+  settings: ProviderSettings;
+  credential: string;
+  onClose: () => void;
+}
+
+const icons: Record<string, LucideIcon> = { storage: Database, git: GitBranch, codex: Terminal, ollama: Wifi, provider: Bot, desktop: Info };
 
 async function probeOllama() {
   const controller = new AbortController();
@@ -17,24 +66,24 @@ async function probeOllama() {
   } finally { window.clearTimeout(timeout); }
 }
 
-export function RuntimeHealthDialog({ open, settings, credential, onClose }: any) {
+export function RuntimeHealthDialog({ open, settings, credential, onClose }: RuntimeHealthDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<RuntimeHealthReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [testingProvider, setTestingProvider] = useState(false);
-  const [executionCapabilities, setExecutionCapabilities] = useState<any>(null);
+  const [executionCapabilities, setExecutionCapabilities] = useState<ExecutionCapabilities | null>(null);
   const [nativeError, setNativeError] = useState('');
   const desktop = nativeExecutionAvailable();
   const provider = getProviderMeta(settings.providerId);
 
-  const scan = async (providerConnection: any = null) => {
+  const scan = async (providerConnection: ProviderConnectionResult | null = null) => {
     setBusy(true);
     try {
       const [storage, execution, ollama] = await Promise.all([
         isDesktopStorageAvailable() ? getDesktopStorageHealth().catch(() => null) : Promise.resolve(null),
         desktop ? getExecutionCapabilities().catch(() => null) : Promise.resolve(null),
         probeOllama().catch(() => null)
-      ]);
+      ]) as [DesktopStorageHealth | null, ExecutionCapabilities | null, ProviderConnectionResult | null];
       setExecutionCapabilities(execution);
       setReport(buildRuntimeHealthReport({
         desktop,
@@ -44,8 +93,8 @@ export function RuntimeHealthDialog({ open, settings, credential, onClose }: any
         ollama,
         providerSettings: settings,
         hasProviderCredential: Boolean(credential),
-        providerConnection: providerConnection as any
-      }));
+        providerConnection
+      }) as RuntimeHealthReport);
     } finally { setBusy(false); }
   };
 
@@ -88,7 +137,7 @@ export function RuntimeHealthDialog({ open, settings, credential, onClose }: any
     <div className="runtime-health-summary" aria-live="polite">
       {busy && !report ? <><LoaderCircle className="spin" size={20}/><span><b>Sistem kontrol ediliyor</b><small>Yerel servisler ve depolama okunuyor…</small></span></> : report && <><span className={report.summary.readyForPlanning ? 'ready' : 'blocked'}>{report.summary.readyForPlanning ? <Check size={20}/> : <CircleAlert size={20}/>}</span><span><b>{report.summary.readyForPlanning ? 'Planlama için hazır' : 'Müdahale gereken alanlar var'}</b><small>{report.summary.errors} hata · {report.summary.warnings} uyarı · Native ajan {report.summary.readyForNativeExecution ? 'hazır' : 'opsiyonel/kapalı'}</small></span></>}
     </div>
-    <div className="runtime-health-list">{report?.checks.map((item: any) => {
+    <div className="runtime-health-list">{report?.checks.map(item => {
       const Icon = icons[item.id] || Info;
       return <article key={item.id} className={`runtime-check ${item.status}`}><span className="runtime-check-icon"><Icon size={17}/></span><span><b>{item.label}</b><small>{item.detail}</small>{item.recommendation && <em>{item.recommendation}</em>}</span><i>{item.status === 'ok' ? <Check size={15}/> : item.status === 'error' || item.status === 'warning' ? <CircleAlert size={15}/> : <Info size={15}/>}</i></article>;
     })}</div>

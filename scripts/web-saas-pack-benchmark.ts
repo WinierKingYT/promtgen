@@ -30,9 +30,9 @@ const scenarios: Scenario[] = [
     absentChecks: ['web.tenant-isolation', 'web.payment-safety']
   },
   {
-    id: 'backend-api',
-    title: 'Veri saklayan backend API',
-    idea: 'API anahtarıyla yetkilendirilen istemcilerin veritabanında sipariş kaydı tuttuğu backend API.',
+    id: 'internal-web-tool',
+    title: 'Veri saklayan iç web aracı',
+    idea: 'Çalışanların giriş yapıp veritabanında envanter kaydı tuttuğu bir internal web tool.',
     expectedQuestions: ['web.account-boundary', 'web.data-lifecycle'],
     expectedChecks: ['web.authorization', 'web.data-lifecycle']
   },

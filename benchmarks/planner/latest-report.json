@@ -4,7 +4,7 @@
   "scenarioCount": 10,
   "passedCount": 10,
   "passRate": 1,
-  "generatedAt": "2026-07-29T06:38:41.743Z",
+  "generatedAt": "2026-07-29T17:11:27.927Z",
   "results": [
     {
       "scenarioId": "landing-page",
@@ -22,7 +22,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -41,7 +42,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -60,7 +62,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -79,7 +82,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -98,7 +102,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -117,7 +122,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -136,7 +142,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -155,7 +162,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -174,7 +182,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     },
     {
@@ -193,7 +202,8 @@
       },
       "capabilityResults": {
         "canonical-planning": true,
-        "canonical-export": true
+        "canonical-export": true,
+        "readiness-quality-gate": true
       }
     }
   ],
@@ -203,6 +213,10 @@
       "passed": 10
     },
     "canonical-export": {
+      "completed": 10,
+      "passed": 10
+    },
+    "readiness-quality-gate": {
       "completed": 10,
       "passed": 10
     }

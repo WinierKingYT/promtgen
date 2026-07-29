@@ -1,7 +1,15 @@
-import type { ProjectDocumentV5, ReadinessAction, ReadinessCheck, ReadinessDimension, ReadinessResult } from '../contracts.js';
+import type {
+  ProjectDocumentV5,
+  ReadinessAction,
+  ReadinessCheck,
+  ReadinessDimension,
+  ReadinessDimensionEvidence,
+  ReadinessGateCondition,
+  ReadinessResult
+} from '../contracts.js';
 import { analyzeCanonicalTraceability } from '../canonical-graph.js';
 import { getRequiredSections } from '../project-document.js';
-import { assessWebSaasPack } from '../domain-packs/web-saas.js';
+import { DOMAIN_PACK_REGISTRY } from '../domain-packs/registry.js';
 import { evaluateRequirementQuality } from './requirement-quality-service.js';
 
 const DIMENSION_WEIGHTS: Record<ReadinessDimension, number> = {
@@ -170,6 +178,132 @@ function buildNextActions(checks: ReadinessCheck[]): ReadinessAction[] {
     .slice(0, 5);
 }
 
+function buildDimensionEvidence(checks: ReadinessCheck[]): Record<ReadinessDimension, ReadinessDimensionEvidence> {
+  return Object.fromEntries(
+    (Object.keys(DIMENSION_WEIGHTS) as ReadinessDimension[]).map(dimension => {
+      const relevant = checks.filter(item => item.dimension === dimension);
+      return [dimension, {
+        earned: relevant.reduce((total, item) => total + item.earned, 0),
+        possible: relevant.reduce((total, item) => total + item.possible, 0),
+        passed: relevant.filter(item => item.status === 'passed').length,
+        warning: relevant.filter(item => item.status === 'warning').length,
+        blocked: relevant.filter(item => item.status === 'blocked').length
+      }];
+    })
+  ) as Record<ReadinessDimension, ReadinessDimensionEvidence>;
+}
+
+function buildQualityGate(checks: ReadinessCheck[]): ReadinessResult['qualityGate'] {
+  const groups: Array<{ id: string; label: string; checkIds: string[] }> = [
+    {
+      id: 'idea-and-scope',
+      label: 'Ürün yorumu ve MVP kapsamı onaylı',
+      checkIds: ['complete.concept', 'complete.mvp-in', 'complete.mvp-out', 'complete.questions']
+    },
+    {
+      id: 'canonical-consistency',
+      label: 'Canonical plan güncel ve kapsamla tutarlı',
+      checkIds: ['consistent.idea-plan', 'consistent.sections', 'consistent.scope', 'consistent.requirements', 'consistent.review']
+    },
+    {
+      id: 'must-traceability',
+      label: 'Must gereksinimleri görev ve doğrulamaya bağlı',
+      checkIds: ['trace.must-tasks', 'trace.must-tests']
+    },
+    {
+      id: 'critical-risk-coverage',
+      label: 'Kritik riskler sahipli ve doğrulanabilir',
+      checkIds: ['risk.mitigation', 'risk.owner', 'risk.security-tests']
+    },
+    {
+      id: 'executable-task-contracts',
+      label: 'Görevler uygulanabilir ve döngüsüz',
+      checkIds: [
+        'implementation.requirements',
+        'implementation.tasks',
+        'implementation.links',
+        'implementation.verification',
+        'implementation.test-quality',
+        'implementation.contracts',
+        'implementation.dependencies'
+      ]
+    }
+  ];
+  const assigned = new Set(groups.flatMap(group => group.checkIds));
+  const additionalBlocking = checks
+    .filter(item => item.blocking && !assigned.has(item.id))
+    .map(item => item.id);
+  if (additionalBlocking.length) {
+    groups.push({
+      id: 'domain-and-extension-rules',
+      label: 'Etkin alan paketlerinin zorunlu kuralları karşılanıyor',
+      checkIds: additionalBlocking
+    });
+  }
+  const conditions: ReadinessGateCondition[] = groups.map(group => {
+    const relevant = group.checkIds
+      .map(id => checks.find(item => item.id === id))
+      .filter((item): item is ReadinessCheck => Boolean(item));
+    const failed = relevant.filter(item => item.status === 'blocked');
+    return {
+      id: group.id,
+      label: group.label,
+      passed: relevant.length > 0 && failed.length === 0,
+      message: failed.length
+        ? failed.map(item => item.message).join(' ')
+        : `${group.label} koşulu doğrulandı.`,
+      checkIds: relevant.map(item => item.id)
+    };
+  });
+  const blockingCheckIds = checks.filter(item => item.status === 'blocked').map(item => item.id).sort();
+  return {
+    passed: blockingCheckIds.length === 0 && conditions.every(item => item.passed),
+    blockingCheckIds,
+    conditions
+  };
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function fnv1a32(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function readinessEvidenceHash(readiness: Omit<ReadinessResult, 'evidenceHash'>): string {
+  const payload = {
+    version: readiness.version,
+    profile: readiness.calculationProfile,
+    revision: readiness.calculatedAtRevision,
+    status: readiness.status,
+    score: readiness.score,
+    dimensions: readiness.dimensions,
+    checks: readiness.checks.map(item => ({
+      id: item.id,
+      status: item.status,
+      earned: item.earned,
+      possible: item.possible,
+      entityIds: [...item.entityIds].sort(),
+      evidence: item.evidence || null
+    })).sort((left, right) => left.id.localeCompare(right.id)),
+    qualityGate: readiness.qualityGate
+  };
+  return `readiness-fnv1a32-${fnv1a32(stableJson(payload))}`;
+}
+
 export function calculateReadiness(project: ProjectDocumentV5): {
   readiness: ReadinessResult;
   traceability: ReturnType<typeof analyzeCanonicalTraceability>['report'];
@@ -254,22 +388,20 @@ export function calculateReadiness(project: ProjectDocumentV5): {
     : [];
   const traceability = analyzeCanonicalTraceability(project).report;
   const ideaPlanAligned = project.planAlignment?.status === 'aligned';
-  const webSaasAssessment = assessWebSaasPack(project);
-  const webSaasChecks: ReadinessCheck[] = webSaasAssessment.active
-    ? webSaasAssessment.checks.map(item => check({
-        id: `domain.${item.id}`,
-        dimension: item.id.includes('delivery') ? 'implementationReadiness' : item.id.includes('accessibility') || item.id.includes('core-flow') ? 'completeness' : 'riskCoverage',
-        label: item.label,
-        passed: item.passed,
-        points: item.blocking ? 12 : 7,
-        failure: item.message,
-        blocking: item.blocking,
-        warning: !item.blocking,
-        entityIds: item.entityIds,
-        sectionId: item.sectionId,
-        actionLabel: item.label
-      }))
-    : [];
+  const domainPackChecks: ReadinessCheck[] = DOMAIN_PACK_REGISTRY.active(project)
+    .flatMap(runtime => runtime.assess(project).checks.map(item => check({
+      id: `domain.${item.id}`,
+      dimension: runtime.readinessDimension(item),
+      label: item.label,
+      passed: item.passed,
+      points: item.blocking ? 12 : 7,
+      failure: item.message,
+      blocking: item.blocking,
+      warning: !item.blocking,
+      entityIds: item.entityIds,
+      sectionId: item.sectionId,
+      actionLabel: item.label
+    })));
 
   const checks: ReadinessCheck[] = [
     check({ id: 'complete.concept', dimension: 'completeness', label: 'Hedef kullanıcı ve problem onaylı', passed: Boolean(summary?.userConfirmed && clean(summary.targetUser) && clean(summary.problemStatement)), points: 20, failure: 'Hedef kullanıcı, problem ve sistem yorumu kullanıcı tarafından onaylanmalı.', blocking: true, sectionId: 'vision', actionLabel: 'Ürün yorumunu netleştir' }),
@@ -309,7 +441,7 @@ export function calculateReadiness(project: ProjectDocumentV5): {
     check({ id: 'implementation.dependencies', dimension: 'implementationReadiness', label: 'Görev bağımlılıkları geçerli ve döngüsüz', passed: invalidDependencies.length === 0 && !dependencyCycle, points: 20, failure: dependencyCycle ? 'Görev bağımlılıklarında döngü bulundu.' : 'Bazı görev bağımlılıkları var olmayan görevlere gidiyor.', blocking: true }),
     check({ id: 'implementation.detail', dimension: 'implementationReadiness', label: 'Görevler uygulanabilir ayrıntı taşıyor', passed: project.tasks.length > 0 && tasksWithDetail === project.tasks.length, points: 15, failure: 'Bazı görevlerin uygulanabilir açıklaması eksik.', warning: true, entityIds: project.tasks.filter(item => clean(item.description).length < 8).map(item => item.id), sectionId: 'tasks', actionLabel: 'Görev açıklamalarını netleştir', partialCredit: ratio(tasksWithDetail, project.tasks.length), evidence: { satisfied: tasksWithDetail, total: project.tasks.length } }),
     check({ id: 'implementation.size', dimension: 'implementationReadiness', label: 'Görevler makul büyüklükte', passed: broadTasks.length === 0, points: 10, failure: `${broadTasks.length} yüksek eforlu görev birden fazla davranışı birlikte taşıyor; daha küçük görevlere ayrılmalı.`, warning: true, entityIds: broadTasks.map(item => item.id), sectionId: 'tasks', actionLabel: 'Büyük görevleri parçala' }),
-    ...webSaasChecks
+    ...domainPackChecks
   ];
 
   const dimensions = {
@@ -333,20 +465,29 @@ export function calculateReadiness(project: ProjectDocumentV5): {
     ...traceability.findings.map(item => item.message)
   ])];
   const nextActions = buildNextActions(checks);
+  const dimensionEvidence = buildDimensionEvidence(checks);
+  const qualityGate = buildQualityGate(checks);
+  const readinessWithoutHash: Omit<ReadinessResult, 'evidenceHash'> = {
+    version: 3,
+    calculationProfile: 'readiness-3.0',
+    status: blockers.length ? 'blocked' : warnings.length ? 'needs_review' : 'ready',
+    score,
+    dimensions,
+    dimensionWeights: DIMENSION_WEIGHTS,
+    dimensionLabels: DIMENSION_LABELS,
+    dimensionEvidence,
+    checks,
+    nextActions,
+    qualityGate,
+    blockers,
+    warnings,
+    calculatedAtRevision: project.canonicalRevision
+  };
 
   return {
     readiness: {
-      version: 2,
-      status: blockers.length ? 'blocked' : warnings.length ? 'needs_review' : 'ready',
-      score,
-      dimensions,
-      dimensionWeights: DIMENSION_WEIGHTS,
-      dimensionLabels: DIMENSION_LABELS,
-      checks,
-      nextActions,
-      blockers,
-      warnings,
-      calculatedAtRevision: project.canonicalRevision
+      ...readinessWithoutHash,
+      evidenceHash: readinessEvidenceHash(readinessWithoutHash)
     },
     traceability
   };

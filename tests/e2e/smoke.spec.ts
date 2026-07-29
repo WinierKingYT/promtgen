@@ -38,10 +38,15 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await page.getByRole('button', { name: /Detaylı planla/ }).click();
     await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
     await page.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
+    await page.getByText('Plan kalitesi', { exact: true }).click();
+    await page.locator('.readiness-breakdown summary').click();
+    await expect(page.getByRole('region', { name: 'Plan hazırlık kalite kapısı' })).toBeVisible();
+    await expect(page.getByText('READINESS 3.0')).toBeVisible();
     await page.getByText(/Labs · İsteğe bağlı analiz/).click();
     await expect(page.getByText('Görev teslim kanıtı')).toBeVisible();
     await page.getByText('Görev teslim kanıtı').click();
     await expect(page.getByText(/PromtGen kod yazmaz/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Görev teslim durumları' })).toBeVisible();
     const editor = page.locator('.section-editor textarea');
     await editor.fill('Kullanıcının kısa fikrini onaylı kararlarla yaşayan plana dönüştür.');
     await page.getByRole('button', { name: 'Bölümü kaydet' }).click();

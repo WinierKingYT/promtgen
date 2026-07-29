@@ -1,5 +1,5 @@
 import type { ProjectDocumentV5 } from '../../contracts.js';
-import { discoverySchema, DISCOVERY_SCHEMA_ID } from '../../ai-schemas.js';
+import { discoverySchema, DISCOVERY_SCHEMA_ID } from '../schemas/schemas.js';
 import { buildBudgetedContext } from '../context/context-builder.js';
 import { classifyProjectDomain, projectDomainLabel } from '../domain-classifier.js';
 import { isolateImportedProjectContext } from '../../security/context-isolation.js';
@@ -10,6 +10,7 @@ export const discoveryTask = {
   schemaId: DISCOVERY_SCHEMA_ID,
   schemaVersion: 1,
   schema: discoverySchema,
+  outputFields: ['reply', 'analysisNote', 'summary', 'options', 'openQuestions'] as const,
   timeoutMs: 30_000,
   maxRepairAttempts: 1,
   fallbackPolicy: 'local-rule-engine' as const,

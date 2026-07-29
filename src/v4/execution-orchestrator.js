@@ -1,6 +1,6 @@
 import { normalizeExecutionSession } from './canonical-entities.js';
 import { buildAgentPrompt } from './exporter.js';
-import { redactSensitiveText } from './ai-context.js';
+import { redactSensitiveText } from './ai/provider-adapters.ts';
 
 export const EXECUTION_ROLES = Object.freeze(['planner', 'implementer', 'reviewer', 'verifier']);
 export const ROLE_RISK = Object.freeze({ planner: 'low', implementer: 'high', reviewer: 'low', verifier: 'medium' });

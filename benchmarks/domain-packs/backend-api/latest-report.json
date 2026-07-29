@@ -1,0 +1,340 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "backend-api-domain-pack",
+  "completed": 5,
+  "passed": 5,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "rest-auth-data",
+      "title": "Yetkili ve veri saklayan REST API",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk beta",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.authentication",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.data-consistency",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.operations",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.authentication",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.data-consistency",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.operations",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "api.contract",
+        "api.error-model",
+        "api.authentication",
+        "api.data-consistency",
+        "api.operations"
+      ],
+      "detectedChecks": [
+        "api.contract",
+        "api.error-model",
+        "api.operations",
+        "api.authentication",
+        "api.data-consistency"
+      ]
+    },
+    {
+      "id": "public-read-api",
+      "title": "Hesapsız salt okunur API",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk beta",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.operations",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.operations",
+          "passed": true
+        },
+        {
+          "label": "Koşulsuz kontrol yok: api.authentication",
+          "passed": true
+        },
+        {
+          "label": "Koşulsuz kontrol yok: api.idempotency",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "api.contract",
+        "api.error-model",
+        "api.data-consistency",
+        "api.operations"
+      ],
+      "detectedChecks": [
+        "api.contract",
+        "api.error-model",
+        "api.operations",
+        "api.data-consistency"
+      ]
+    },
+    {
+      "id": "webhook-worker",
+      "title": "Webhook ve kuyruk işleyicisi",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk beta",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.idempotency",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.operations",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.idempotency",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.operations",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "api.contract",
+        "api.error-model",
+        "api.data-consistency",
+        "api.idempotency",
+        "api.operations"
+      ],
+      "detectedChecks": [
+        "api.contract",
+        "api.error-model",
+        "api.operations",
+        "api.data-consistency",
+        "api.idempotency"
+      ]
+    },
+    {
+      "id": "graphql-clients",
+      "title": "Harici istemcili GraphQL API",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk beta",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.authentication",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.operations",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.authentication",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.operations",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "api.contract",
+        "api.error-model",
+        "api.authentication",
+        "api.data-consistency",
+        "api.operations"
+      ],
+      "detectedChecks": [
+        "api.contract",
+        "api.error-model",
+        "api.operations",
+        "api.authentication",
+        "api.data-consistency"
+      ]
+    },
+    {
+      "id": "rate-sensitive-api",
+      "title": "Kapasite sınırı olan API",
+      "passed": true,
+      "assertions": [
+        {
+          "label": "Paket uygulanabilir",
+          "passed": true
+        },
+        {
+          "label": "Paket kullanıcı onayıyla aktif",
+          "passed": true
+        },
+        {
+          "label": "Olgunluk beta",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.rate-boundary",
+          "passed": true
+        },
+        {
+          "label": "Soru var: api.operations",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.contract",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.error-model",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.rate-boundary",
+          "passed": true
+        },
+        {
+          "label": "Kontrol var: api.operations",
+          "passed": true
+        }
+      ],
+      "detectedQuestions": [
+        "api.contract",
+        "api.error-model",
+        "api.data-consistency",
+        "api.operations",
+        "api.rate-boundary"
+      ],
+      "detectedChecks": [
+        "api.contract",
+        "api.error-model",
+        "api.operations",
+        "api.data-consistency",
+        "api.rate-boundary"
+      ]
+    }
+  ]
+}

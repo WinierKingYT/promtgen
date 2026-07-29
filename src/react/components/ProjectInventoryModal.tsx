@@ -1,8 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { FolderCheck, ShieldAlert, FileText, X, HardDrive } from 'lucide-react';
 import { IconButton } from './WorkspaceChrome.js';
+import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
 
-export function ProjectInventoryModal({ open, nativeInventory, onClose }: { open: boolean; nativeInventory: any; onClose: () => void }) {
+interface ProjectInventoryModalProps {
+  open: boolean;
+  nativeInventory: ProjectInventoryReport | null;
+  onClose: () => void;
+}
+
+export function ProjectInventoryModal({ open, nativeInventory, onClose }: ProjectInventoryModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -12,11 +19,19 @@ export function ProjectInventoryModal({ open, nativeInventory, onClose }: { open
 
   if (!open || !nativeInventory) return null;
 
-  const totals = nativeInventory.totals || { included: 0, excluded: 0 };
-  const items = nativeInventory.items || [];
+  const { totals, inventory } = nativeInventory;
 
   return (
-    <dialog ref={dialogRef} open className="inventory-dialog" style={{ width: '90%', maxWidth: '750px', background: '#18181b', border: '1px solid rgba(139, 92, 246, 0.4)', borderRadius: '14px', color: '#f3f4f6', padding: '24px' }}>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="inventory-dialog-title"
+      className="inventory-dialog"
+      onCancel={event => {
+        event.preventDefault();
+        onClose();
+      }}
+      style={{ width: '90%', maxWidth: '750px', background: '#18181b', border: '1px solid rgba(139, 92, 246, 0.4)', borderRadius: '14px', color: '#f3f4f6', padding: '24px' }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ background: 'rgba(139, 92, 246, 0.2)', padding: '8px', borderRadius: '8px', color: '#a78bfa' }}>
@@ -24,7 +39,7 @@ export function ProjectInventoryModal({ open, nativeInventory, onClose }: { open
           </div>
           <div>
             <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.5px' }}>DOSYA ENVANTERİ</span>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>📂 Proje Dizin Envanteri & Güvenlik Filtresi</h2>
+            <h2 id="inventory-dialog-title" style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>📂 Proje Envanteri ve Hassas İçerik Filtresi</h2>
           </div>
         </div>
         <IconButton label="Pencereyi kapat" onClick={onClose}><X size={18}/></IconButton>
@@ -58,10 +73,10 @@ export function ProjectInventoryModal({ open, nativeInventory, onClose }: { open
           TARANAN ÖRNEK DOSYALAR VE UZANTILAR
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {items.slice(0, 30).map((file: any, idx: number) => (
-            <div key={file.path || idx} style={{ fontSize: '11px', color: '#d1d5db', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {inventory.slice(0, 30).map(file => (
+            <div key={file.path} style={{ fontSize: '11px', color: '#d1d5db', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <FileText size={12} style={{ color: '#8b5cf6' }} />
-              <span style={{ fontFamily: 'monospace' }}>{file.path || file}</span>
+              <span style={{ fontFamily: 'monospace' }}>{file.path}</span>
             </div>
           ))}
         </div>

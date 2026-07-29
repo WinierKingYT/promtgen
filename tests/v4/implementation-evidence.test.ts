@@ -6,6 +6,11 @@ import {
   decideImplementationEvidence,
   type ImplementationEvidenceInput
 } from '../../src/v4/application/implementation-evidence-service.js';
+import {
+  buildImplementationEvidenceTemplate,
+  parseImplementationEvidenceText
+} from '../../src/v4/application/implementation-evidence-format.js';
+import { createIdeWorkspaceFiles } from '../../src/v4/exporter.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 function fixture(): ProjectDocumentV5 {
@@ -114,5 +119,52 @@ describe('Implementation evidence packages', () => {
     assert.equal(rejected.project.canonicalRevision, project.canonicalRevision);
     assert.equal(rejected.project.tasks[0].status, 'ready');
     assert.equal(rejected.project.implementationEvidencePackages[0].status, 'rejected');
+  });
+
+  it('imports the strict V2 JSON envelope as preview without mutating the project', () => {
+    const project = fixture();
+    const template = buildImplementationEvidenceTemplate(project, 'task-1', 'codex', '2026-07-29T12:00:00.000Z');
+    template.summary = validInput().summary;
+    template.changedFiles = validInput().changedFiles;
+    template.testRuns = validInput().testRuns;
+    template.acceptanceEvidence = validInput().acceptanceEvidence;
+    const before = structuredClone(project);
+    const parsed = parseImplementationEvidenceText(project, JSON.stringify(template));
+
+    assert.equal(parsed.success, true);
+    assert.deepEqual(project, before);
+    if (!parsed.success) return;
+    assert.equal(parsed.envelope.formatVersion, 2);
+    assert.equal(parsed.review.review.outcome, 'ready_for_approval');
+    assert.equal(parsed.review.status, 'review_required');
+  });
+
+  it('rejects unknown fields, foreign projects and secret-bearing JSON', () => {
+    const project = fixture();
+    const template = buildImplementationEvidenceTemplate(project, 'task-1');
+    const unknown = parseImplementationEvidenceText(project, JSON.stringify({ ...template, unexpected: true }));
+    assert.equal(unknown.success, false);
+    if (!unknown.success) assert.match(unknown.errors.join(' '), /Unrecognized key|unexpected/i);
+
+    const foreign = parseImplementationEvidenceText(project, JSON.stringify({ ...template, projectId: 'other-project' }));
+    assert.equal(foreign.success, false);
+    if (!foreign.success) assert.match(foreign.errors.join(' '), /başka bir projeye/);
+
+    const secret = parseImplementationEvidenceText(project, JSON.stringify({ ...template, summary: `Token sk-${'a'.repeat(24)}` }));
+    assert.equal(secret.success, false);
+    if (!secret.success) assert.match(secret.errors.join(' '), /secret/);
+  });
+
+  it('exports agent-ready evidence templates without claiming automatic completion', () => {
+    const project = fixture();
+    const workspace = createIdeWorkspaceFiles(project, { adapters: ['codex', 'cursor', 'claude'] });
+    const templatePath = '.promtgen/evidence/templates/task-1.json';
+    assert.ok(workspace.files[templatePath]);
+    const template = JSON.parse(workspace.files[templatePath]);
+    assert.equal(template.format, 'promtgen-implementation-evidence');
+    assert.equal(template.formatVersion, 2);
+    assert.equal(template.testRuns[0].status, 'not_run');
+    assert.match(workspace.files['AGENTS.md'], /canonical görev durumunu doğrudan değiştiremezsin/);
+    assert.match(workspace.files['.promtgen/evidence/README.md'], /açık onay/);
   });
 });

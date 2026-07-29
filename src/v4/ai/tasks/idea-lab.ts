@@ -1,5 +1,5 @@
 import type { ProjectDocumentV5 } from '../../contracts.js';
-import { ideaLabSchema, IDEA_LAB_SCHEMA_ID } from '../../ai-schemas.js';
+import { ideaLabSchema, IDEA_LAB_SCHEMA_ID } from '../schemas/schemas.js';
 import { buildBudgetedContext } from '../context/context-builder.js';
 
 export const ideaLabTask = {
@@ -8,6 +8,7 @@ export const ideaLabTask = {
   schemaId: IDEA_LAB_SCHEMA_ID,
   schemaVersion: 1,
   schema: ideaLabSchema,
+  outputFields: ['approaches', 'ideaNotes', 'candidateDecisions', 'candidateRisks'] as const,
   timeoutMs: 30_000,
   maxRepairAttempts: 1,
   fallbackPolicy: 'local-rule-engine' as const,

@@ -2,6 +2,7 @@ export interface ProjectInventoryReport {
   version: number;
   analyzedAt: string;
   source: string;
+  rootName?: string;
   totals: { selected: number; included: number; excluded: number; bytes: number };
   languages: Array<{ name: string; files: number }>;
   frameworks: string[];

@@ -7,6 +7,7 @@ export const regenerateAffectedSectionsTask = {
   schemaId: SECTION_REGENERATION_SCHEMA_ID,
   schemaVersion: 1,
   schema: sectionRegenerationSchema,
+  outputFields: ['summary', 'patches'] as const,
   timeoutMs: 30_000,
   maxRepairAttempts: 1,
   fallbackPolicy: 'local-rule-engine' as const,

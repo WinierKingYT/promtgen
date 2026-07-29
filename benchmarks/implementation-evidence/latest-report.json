@@ -1,0 +1,57 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "implementation-evidence-review",
+  "completed": 5,
+  "passed": 5,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "complete-evidence",
+      "title": "Eksiksiz teslim kanıtı",
+      "expected": "ready_for_approval",
+      "actual": "ready_for_approval",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "id": "out-of-scope-file",
+      "title": "TaskContract dışı dosya",
+      "expected": "blocked",
+      "actual": "blocked",
+      "passed": true,
+      "findings": [
+        "TaskContract kapsamı dışında dosya değişikliği: package.json"
+      ]
+    },
+    {
+      "id": "failed-required-test",
+      "title": "Başarısız zorunlu test",
+      "expected": "blocked",
+      "actual": "blocked",
+      "passed": true,
+      "findings": [
+        "Doğrulama komutu başarılı değil: npm test (failed)"
+      ]
+    },
+    {
+      "id": "missing-acceptance-proof",
+      "title": "Eksik kabul kriteri kanıtı",
+      "expected": "needs_changes",
+      "actual": "needs_changes",
+      "passed": true,
+      "findings": [
+        "Kabul kriteri için kanıt yok: Geçerli form görevi kaydeder."
+      ]
+    },
+    {
+      "id": "stale-canonical-revision",
+      "title": "Eski canonical revision",
+      "expected": "blocked",
+      "actual": "blocked",
+      "passed": true,
+      "findings": [
+        "Kanıt paketi r2 planına ait; güncel canonical plan r1."
+      ]
+    }
+  ]
+}

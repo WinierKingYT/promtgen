@@ -2,7 +2,7 @@ import type { ProjectDocumentV5 } from '../../contracts.js';
 import {
   discoveryAnswerExtractionSchema,
   DISCOVERY_ANSWER_EXTRACTION_SCHEMA_ID
-} from '../../ai-schemas.js';
+} from '../schemas/schemas.js';
 
 export const discoveryAnswerExtractionTask = {
   id: 'discovery-answer-extraction',
@@ -10,6 +10,7 @@ export const discoveryAnswerExtractionTask = {
   schemaId: DISCOVERY_ANSWER_EXTRACTION_SCHEMA_ID,
   schemaVersion: 1,
   schema: discoveryAnswerExtractionSchema,
+  outputFields: ['fields', 'warnings'] as const,
   timeoutMs: 20_000,
   maxRepairAttempts: 1,
   fallbackPolicy: 'no-ai-comparison' as const,

@@ -2,15 +2,18 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Bot, Check, CircleAlert, Eye, EyeOff, KeyRound, LoaderCircle, Save, ShieldCheck, Wifi, X } from 'lucide-react';
 import { getProviderMeta, PROVIDER_CATALOG, saveProviderSettings } from '../../v4/provider-settings.js';
 import { validateProviderSettings } from '../../v4/provider-url-policy.js';
-import { testProviderConnection } from '../../v4/ai-discovery.js';
+import { testProviderConnection } from '../../v4/ai/provider-connection.js';
+import type { ProviderConnectionResult } from '../../v4/ai/provider-connection.js';
+import type { ProviderSettings } from '../../v4/provider-settings.js';
+import type { CredentialVault } from '../../v4/credential-vault.js';
 import { IconButton } from './WorkspaceChrome.js';
 
 interface ProviderSettingsDialogProps {
   open: boolean;
-  settings: any;
-  onSave: (settings: any) => void;
+  settings: ProviderSettings;
+  onSave: (settings: ProviderSettings) => void;
   onClose: () => void;
-  credentialVault: any;
+  credentialVault: CredentialVault;
 }
 
 export function ProviderSettingsDialog({ open, settings, onSave, onClose, credentialVault }: ProviderSettingsDialogProps) {
@@ -20,7 +23,7 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
   const [credential, setCredential] = useState('');
   const [showCredential, setShowCredential] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ProviderConnectionResult | null>(null);
   const provider = getProviderMeta(draftSettings.providerId);
 
   useEffect(() => {
@@ -65,15 +68,18 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
 
   const chooseProvider = async (providerId: string) => {
     const meta = getProviderMeta(providerId);
-    setDraftSettings((current: any) => ({ ...current, providerId, model: meta.defaultModel, baseUrl: meta.defaultBaseUrl || '' }));
+    setDraftSettings(current => ({ ...current, providerId, model: meta.defaultModel, baseUrl: meta.defaultBaseUrl || '' }));
     setCredential(await credentialVault.get(providerId) || '');
     setResult(null);
   };
 
   const test = async () => {
-    if (provider.credentialRequired && !credential.trim()) { setResult({ ok: false, message: 'Bu sağlayıcı için API anahtarı gerekli.' }); return; }
+    if (provider.credentialRequired && !credential.trim()) {
+      setResult({ ok: false, message: 'Bu sağlayıcı için API anahtarı gerekli.', providerId: draftSettings.providerId, latencyMs: 0, errorCode: 'credential', checkedAt: new Date().toISOString() });
+      return;
+    }
     const validation = validateProviderSettings(draftSettings, provider);
-    if (!validation.valid) { setResult({ ok: false, message: validation.error, providerId: draftSettings.providerId, latencyMs: 0, errorCode: 'configuration' }); return; }
+    if (!validation.valid) { setResult({ ok: false, message: validation.error, providerId: draftSettings.providerId, latencyMs: 0, errorCode: 'configuration', checkedAt: new Date().toISOString() }); return; }
     setTesting(true); setResult(null);
     try { setResult(await testProviderConnection(draftSettings, credential.trim())); }
     finally { setTesting(false); }
@@ -81,7 +87,7 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
 
   const save = async () => {
     const validation = validateProviderSettings(draftSettings, provider);
-    if (!validation.valid) { setResult({ ok: false, message: validation.error, providerId: draftSettings.providerId, latencyMs: 0, errorCode: 'configuration' }); return; }
+    if (!validation.valid) { setResult({ ok: false, message: validation.error, providerId: draftSettings.providerId, latencyMs: 0, errorCode: 'configuration', checkedAt: new Date().toISOString() }); return; }
     if (credential.trim()) await credentialVault.set(draftSettings.providerId, credential.trim());
     else await credentialVault.remove(draftSettings.providerId);
     onSave(saveProviderSettings(draftSettings));

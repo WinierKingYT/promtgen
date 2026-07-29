@@ -19,7 +19,10 @@ function walk(file) {
     if (visited.has(file) || !/\.(js|ts|tsx)$/.test(file)) return;
     visited.add(file);
     const source = readFileSync(file, 'utf8');
-    const imports = [...source.matchAll(/(?:import|export)\s+(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]/g)].map(match => match[1]);
+    const imports = [
+        ...source.matchAll(/(?:import|export)\s+(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]/g),
+        ...source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)
+    ].map(match => match[1]);
     for (const specifier of imports) {
         const target = resolveImport(file, specifier);
         if (target) walk(target);

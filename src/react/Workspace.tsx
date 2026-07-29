@@ -1,7 +1,11 @@
 import { lazy, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, CircleAlert, Eye, FlaskConical, Gauge, GitBranch, Lightbulb, LoaderCircle, MessageCircle, Save, Send, Sparkles } from 'lucide-react';
 import { applyApprovedChanges, finalizePlan, overridePlanningDepth, previewApprovedChanges, reopenPlan, restorePlanRevision, updatePlanSection, updateSuggestionStatus } from '../v4/planning-engine.js';
-import { generateDiscoveryAnswerExtraction, generateImpactAnalysis, runConversationalDiscoveryTurn } from '../v4/ai-discovery.js';
+import {
+  generateDiscoveryAnswerExtraction,
+  generateImpactAnalysis,
+  runConversationalDiscoveryTurn
+} from '../v4/application/idea-planning-api.js';
 import { getProviderMeta } from '../v4/provider-settings.js';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../v4/task-compiler.js';
 import { ProjectRail, SuggestionCard } from './components/WorkspaceChrome';
@@ -13,9 +17,10 @@ import { IdeaDiscussionPanel } from './components/IdeaDiscussionPanel.js';
 import { RequirementQualityPanel } from './components/RequirementQualityPanel.js';
 import { LazyFeatureBoundary } from './components/LazyFeatureBoundary.js';
 import { IdeaGuidePanel, IdeaOutcomeBar, type IdeaOutcome } from './components/IdeaOutcomeBar.js';
-import type { ProjectDocumentV5 } from '../v4/contracts.js';
+import type { ProjectDocumentV5, SuggestionStatus } from '../v4/contracts.js';
 import type { ProviderSettings } from '../v4/provider-settings.js';
 import type { CredentialVault } from '../v4/credential-vault.js';
+import type { TaskCompilationResult } from '../v4/task-compiler.js';
 import { prepareDiscoveryTurnProject } from '../v4/application/discovery-service.js';
 import {
   applyDiscoveryAnswerDraft,
@@ -79,7 +84,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const [historyOpen, setHistoryOpen] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [finalizationBlockers, setFinalizationBlockers] = useState<string[]>([]);
-  const [taskCompilation, setTaskCompilation] = useState<any>(null);
+  const [taskCompilation, setTaskCompilation] = useState<TaskCompilationResult | null>(null);
   const [direction, setDirection] = useState('');
   const [focusedQuestion, setFocusedQuestion] = useState('');
   const [compareAnswerWithAi, setCompareAnswerWithAi] = useState(false);
@@ -102,9 +107,9 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     commit(next, 'Sohbet geçmişi temizlendi.');
     setConfirmingClearChat(false);
   };
-  const currentBundle = [...project.proposalStore.bundles].reverse().find((bundle: any) => bundle.status === 'open') || project.proposalStore.bundles.at(-1);
+  const currentBundle = [...project.proposalStore.bundles].reverse().find(bundle => bundle.status === 'open') || project.proposalStore.bundles.at(-1);
   const changePreview = useMemo(() => currentBundle ? previewApprovedChanges(project, currentBundle.id) : null, [project, currentBundle?.id]);
-  const impactedSections = useMemo(() => new Set((changePreview?.sections || []).map((section: any) => section.sectionId)), [changePreview]);
+  const impactedSections = useMemo(() => new Set((changePreview?.sections || []).map(section => section.sectionId)), [changePreview]);
   const active = project.sections[activeSection];
   useEffect(() => setDraft(active?.content || ''), [activeSection, project.id, active?.content]);
   const persistCandidate = async (next: Project, message?: string, commandType = 'UpdateProject') => {
@@ -116,14 +121,14 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const commit = async (next: Project, message?: string, commandType = 'UpdateProject') => {
     await persistCandidate(next, message, commandType);
   };
-  const status = (suggestionId: string, nextStatus: string, edited = '') => {
+  const status = (suggestionId: string, nextStatus: SuggestionStatus, edited = '') => {
     if (!currentBundle) return;
     commit(updateSuggestionStatus(project, currentBundle.id, suggestionId, nextStatus, edited), undefined, 'UpdateSuggestionStatus');
   };
   const apply = () => {
     if (!currentBundle) return;
     const target = structuredClone(project);
-    const bundle = target.proposalStore.bundles.find((b: any) => b.id === currentBundle.id);
+    const bundle = target.proposalStore.bundles.find(candidate => candidate.id === currentBundle.id);
     if (bundle) {
       for (const item of bundle.items) {
         if (item.status === 'pending') item.status = 'deferred';
@@ -149,7 +154,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       const credential = await credentialVault.get(providerSettings.providerId) || '';
       const memory = providerSettings.useLocalMemory ? buildLocalPlanningMemory(projects, project.id) : null;
       const target = prepareDiscoveryTurnProject(project, currentBundle?.id);
-      const result = await runConversationalDiscoveryTurn(target, { settings: providerSettings, credential, message, focusedQuestion, memory } as any);
+      const result = await runConversationalDiscoveryTurn(target, { settings: providerSettings, credential, message, focusedQuestion, memory });
       let answerDraft = createDiscoveryAnswerDraft(
         { ...result.project, documentRevision: project.documentRevision + 1 },
         { answer: message, focusedQuestion }
@@ -201,16 +206,24 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     if (result.success) commit(result.project, 'Plan finalleştirildi.', 'FinalizePlan');
     else setFinalizationBlockers(result.blockers);
   };
-  const restoreRevision = (reference: string) => { const result = restorePlanRevision(project, reference); if (result.success) commit(result.project, `r${result.restoredFromRevision} planı yeni revision olarak geri yüklendi.`, 'RestoreRevision'); else setNotice(result.reason); };
+  const restoreRevision = async (reference: string) => {
+    const result = restorePlanRevision(project, reference);
+    if (!result.success) {
+      setNotice(result.reason);
+      return false;
+    }
+    return persistCandidate(result.project, `r${result.restoredFromRevision} planı yeni revision olarak geri yüklendi.`, 'RestoreRevision');
+  };
   const approveTaskPlan = () => {
+    if (!taskCompilation) return;
     const result = applyCompiledTaskPlan(project, taskCompilation, { approved: true });
     if (!result.success) { setNotice(result.reason); setTaskCompilation(null); return; }
     commit(result.project, `${result.project.tasks.length} görev ve ajan zinciri plana uygulandı.`, 'ApplyTaskPlan');
     setTaskCompilation(null);
   };
   const bundleResolved = currentBundle?.status === 'resolved';
-  const accepted = bundleResolved ? 0 : currentBundle?.items.filter((x: any) => ['accepted', 'edited'].includes(x.status)).length || 0;
-  const pendingCount = bundleResolved ? 0 : currentBundle?.items.filter((x: any) => x.status === 'pending').length || 0;
+  const accepted = bundleResolved ? 0 : currentBundle?.items.filter(item => ['accepted', 'edited'].includes(item.status)).length || 0;
+  const pendingCount = bundleResolved ? 0 : currentBundle?.items.filter(item => item.status === 'pending').length || 0;
   const decisionComplete = !bundleResolved && pendingCount === 0;
   const bundleSource = currentBundle?.source?.type === 'ai' ? getProviderMeta(currentBundle.source.providerId).label : 'Yerel motor';
   const openQuestions = [...new Set([
@@ -283,7 +296,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                   Fikir Lab'ı Atla →
                 </button>
               </div>
-              <LazyFeatureBoundary label="Fikir laboratuvarı" resetKey={project.id}><IdeaLabPanel project={project} onCommit={commit} providerSettings={providerSettings} /></LazyFeatureBoundary>
+              <LazyFeatureBoundary label="Fikir laboratuvarı" resetKey={project.id}><IdeaLabPanel project={project} onCommit={commit} /></LazyFeatureBoundary>
             </>
           )}
 
@@ -336,7 +349,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             />}
 
             <div className="message-log" role="log" aria-live="polite" aria-label="Keşif konuşması" style={{ maxHeight: expandedHistory ? '500px' : '260px', overflowY: 'auto' }}>
-              {(expandedHistory ? project.messages : project.messages.slice(-6)).map((message: any) => (
+              {(expandedHistory ? project.messages : project.messages.slice(-6)).map(message => (
                 <div key={message.id} className={`chat-message ${message.role}`} style={{ marginBottom: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                     <span style={{ fontWeight: 700, fontSize: '12px', color: message.role === 'user' ? '#a78bfa' : '#10b981' }}>
@@ -399,11 +412,11 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           </>}
           {outcome === 'plan' && <>
           <div className="conversation-heading"><div><span className="meta">KARAR TURU · {bundleSource.toUpperCase()}</span><h2>{currentBundle?.title || 'Planı geliştir'}</h2><p>Yalnızca kabul ettiğin değişiklikler yaşayan plana uygulanır.</p></div><Lightbulb size={23}/></div>
-          <div className="suggestions">{currentBundle?.items.map((item: any) => <SuggestionCard key={item.id} item={item} provenance={currentBundle.provenance} onSection={setActiveSection} onStatus={(nextStatus: string, edited = '') => status(item.id, nextStatus, edited)}/>)}</div>
+          <div className="suggestions">{currentBundle?.items.map(item => <SuggestionCard key={item.id} item={item} provenance={currentBundle.provenance} onStatus={(nextStatus, edited = '') => status(item.id, nextStatus, edited)}/>)}</div>
           {!bundleResolved && changePreview && changePreview.acceptedCount > 0 && <section className="change-preview" aria-labelledby="change-preview-title" aria-live="polite">
             <div className="preview-head"><div className="preview-icon"><Eye size={17}/></div><div><span className="meta">UYGULAMA ÖNCESİ ÖNİZLEME</span><h3 id="change-preview-title">r{project.canonicalRevision} → r{changePreview.nextRevision}</h3></div><div className="preview-count"><b>{changePreview.acceptedCount}</b><span>kabul</span></div></div>
             <p>{changePreview.canApply ? 'Uyguladığında aşağıdaki canonical plan bölümleri güncellenecek.' : changePreview.reason}</p>
-            <div className="preview-sections">{changePreview.sections.map((section: any) => <button type="button" key={section.sectionId} onClick={() => setActiveSection(section.sectionId)}><span><b>{section.title}</b><small>{section.additions.length} yeni öğe{section.unchanged.length ? ` · ${section.unchanged.length} zaten mevcut` : ''}</small></span><ArrowRight size={15}/></button>)}</div>
+            <div className="preview-sections">{changePreview.sections.map(section => <button type="button" key={section.sectionId} onClick={() => setActiveSection(section.sectionId)}><span><b>{section.title}</b><small>{section.additions.length} yeni öğe{section.unchanged.length ? ` · ${section.unchanged.length} zaten mevcut` : ''}</small></span><ArrowRight size={15}/></button>)}</div>
             {(changePreview.records.decisions > 0 || changePreview.records.risks > 0) && <div className="preview-records">{changePreview.records.decisions > 0 && <span>+{changePreview.records.decisions} karar kaydı</span>}{changePreview.records.risks > 0 && <span>+{changePreview.records.risks} risk kaydı</span>}</div>}
           </section>}
           <div className="bundle-actions"><span>{bundleResolved ? 'Bu karar turu plana işlendi; yukarıdan konuşmaya devam edebilirsin.' : pendingCount ? `${pendingCount} seçenek karar bekliyor · ${accepted} kabul` : `${accepted} seçenek plana uygulanacak`}</span><button disabled={!decisionComplete} className="primary" onClick={apply}>{accepted ? 'Seçimleri plana uygula' : 'Turu tamamla'} <ArrowRight size={17}/></button></div>
@@ -422,8 +435,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             </div>
           </details>
 
-          <div className="section-tabs">{Object.values(project.sections).filter((section: any) => section.required || section.content || section.items.length || impactedSections.has(section.id)).map((section: any) => <button key={section.id} aria-current={activeSection === section.id ? 'true' : undefined} className={`${activeSection === section.id ? 'active' : ''} ${impactedSections.has(section.id) ? 'impacted' : ''}`} onClick={() => setActiveSection(section.id)}><span className={`section-state ${section.status}`}/><span>{section.title}<small>{impactedSections.has(section.id) ? 'Uygulanınca değişecek' : section.items.length ? `${section.items.length} karar/öğe` : section.required ? 'Gerekli' : 'İsteğe bağlı'}</small></span></button>)}</div>
-          {active && <div className="section-editor"><div className="editor-head"><div><span className="meta">PLAN BÖLÜMÜ</span><h2>{active.title}</h2></div><span>r{active.updatedAtRevision}</span></div><p className="section-description">{active.description}</p><textarea aria-label={`${active.title} canonical içeriği`} value={draft} onChange={event => setDraft(event.target.value)} rows={8} placeholder="Bu bölümün canonical içeriğini yaz..."/>{active.items.length > 0 && <ul>{active.items.map((item: string) => <li key={item}>{item}</li>)}</ul>}<button type="button" className="save-button" disabled={draft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{activeSection === 'tasks' && <TaskContractSummary tasks={project.tasks}/>} {activeSection === 'tasks' && <div className="task-compiler"><button type="button" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button>{taskCompilation && <div className="task-compilation" role="region" aria-label="Görev planı önizlemesi"><b>{taskCompilation.tasks.length} görev · {taskCompilation.testCases.length} test · {taskCompilation.agentPrompts.length} ajan adımı · TaskContract V2</b>{taskCompilation.tasks.slice(0, 5).map((task: any) => <span key={task.id}>{task.title}<small>{task.priority} · {task.status} · {task.contract.filePolicy.status === 'requires_inventory' ? 'dosya envanteri gerekli' : `${task.contract.filePolicy.allowedPaths.length} izinli yol`} · {task.contract.verification.commands.length || 'komut keşfi'} doğrulama</small></span>)}{taskCompilation.warnings.map((warning: string) => <p key={warning}><CircleAlert size={13}/>{warning}</p>)}<div><button type="button" onClick={() => setTaskCompilation(null)}>Vazgeç</button><button type="button" className="primary" disabled={!taskCompilation.tasks.length} onClick={approveTaskPlan}><Check size={14}/> {taskCompilation.tasks.every((task: any) => task.contract.filePolicy.status === 'inferred') ? 'Taslağı ve dosya kapsamını onayla' : 'Taslağı onayla; dosya kapsamını sonra belirle'}</button></div></div>}</div>}</div>}
+          <div className="section-tabs">{Object.values(project.sections).filter(section => section.required || section.content || section.items.length || impactedSections.has(section.id)).map(section => <button key={section.id} aria-current={activeSection === section.id ? 'true' : undefined} className={`${activeSection === section.id ? 'active' : ''} ${impactedSections.has(section.id) ? 'impacted' : ''}`} onClick={() => setActiveSection(section.id)}><span className={`section-state ${section.status}`}/><span>{section.title}<small>{impactedSections.has(section.id) ? 'Uygulanınca değişecek' : section.items.length ? `${section.items.length} karar/öğe` : section.required ? 'Gerekli' : 'İsteğe bağlı'}</small></span></button>)}</div>
+          {active && <div className="section-editor"><div className="editor-head"><div><span className="meta">PLAN BÖLÜMÜ</span><h2>{active.title}</h2></div><span>r{active.updatedAtRevision}</span></div><p className="section-description">{active.description}</p><textarea aria-label={`${active.title} canonical içeriği`} value={draft} onChange={event => setDraft(event.target.value)} rows={8} placeholder="Bu bölümün canonical içeriğini yaz..."/>{active.items.length > 0 && <ul>{active.items.map(item => <li key={item}>{item}</li>)}</ul>}<button type="button" className="save-button" disabled={draft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{activeSection === 'tasks' && <TaskContractSummary tasks={project.tasks}/>} {activeSection === 'tasks' && <div className="task-compiler"><button type="button" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button>{taskCompilation && <div className="task-compilation" role="region" aria-label="Görev planı önizlemesi"><b>{taskCompilation.tasks.length} görev · {taskCompilation.testCases.length} test · {taskCompilation.agentPrompts.length} ajan adımı · TaskContract V2</b>{taskCompilation.tasks.slice(0, 5).map(task => <span key={task.id}>{task.title}<small>{task.priority} · {task.status} · {task.contract.filePolicy.status === 'requires_inventory' ? 'dosya envanteri gerekli' : `${task.contract.filePolicy.allowedPaths.length} izinli yol`} · {task.contract.verification.commands.length || 'komut keşfi'} doğrulama</small></span>)}{taskCompilation.warnings.map(warning => <p key={warning}><CircleAlert size={13}/>{warning}</p>)}<div><button type="button" onClick={() => setTaskCompilation(null)}>Vazgeç</button><button type="button" className="primary" disabled={!taskCompilation.tasks.length} onClick={approveTaskPlan}><Check size={14}/> {taskCompilation.tasks.every(task => task.contract.filePolicy.status === 'inferred') ? 'Taslağı ve dosya kapsamını onayla' : 'Taslağı onayla; dosya kapsamını sonra belirle'}</button></div></div>}</div>}</div>}
           <details id="labs-panel" open={advancedToolsOpen} onToggle={event => setAdvancedToolsOpen(event.currentTarget.open)} className="labs-panel">
             <summary>
               <FlaskConical size={15}/> Labs · İsteğe bağlı analiz ve yürütme
@@ -437,7 +450,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 <StorageHealthPanel project={project} onCommit={commit}/>
                 <ResearchPanel project={project} onCommit={commit}/>
                 <TraceabilityMap project={project}/>
-                <PlanCodeAlignmentPanel project={project}/>
+                <PlanCodeAlignmentPanel project={project} onCommit={commit}/>
                 <ImplementationEvidencePanel project={project} onCommit={commit}/>
                 <PlanningScenarioPanel project={project} onCommit={commit}/>
                 <SectionRegenerationPanel project={project} onCommit={commit} providerSettings={providerSettings} credentialVault={credentialVault}/>

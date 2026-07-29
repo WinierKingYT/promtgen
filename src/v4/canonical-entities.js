@@ -453,11 +453,15 @@ export function normalizeProjectDocument(project) {
     next.canonicalRevision = Math.max(1, Math.min(next.documentRevision, Number(next.canonicalRevision || next.revision || 1)));
     delete next.revision;
     const previousReadiness = next.readiness || {};
+    const readinessDimensions = ['completeness', 'consistency', 'traceability', 'riskCoverage', 'implementationReadiness'];
+    const previousChecks = Array.isArray(previousReadiness.checks) ? previousReadiness.checks : [];
+    const readinessIsVerified = previousReadiness.version === 3 && previousReadiness.calculationProfile === 'readiness-3.0';
     next.readiness = {
-        version: 2,
-        status: ['blocked', 'needs_review', 'ready'].includes(previousReadiness.status)
+        version: 3,
+        calculationProfile: readinessIsVerified ? 'readiness-3.0' : 'legacy-unverified',
+        status: readinessIsVerified && ['blocked', 'needs_review', 'ready'].includes(previousReadiness.status)
             ? previousReadiness.status
-            : (previousReadiness.blockers?.length ? 'blocked' : previousReadiness.warnings?.length ? 'needs_review' : 'ready'),
+            : 'blocked',
         score: Math.max(0, Math.min(100, Number(previousReadiness.score || 0))),
         dimensions: {
             completeness: Number(previousReadiness.dimensions?.completeness || 0),
@@ -468,10 +472,39 @@ export function normalizeProjectDocument(project) {
         },
         dimensionWeights: { completeness: 20, consistency: 20, traceability: 25, riskCoverage: 15, implementationReadiness: 20 },
         dimensionLabels: { completeness: 'Tamlık', consistency: 'Tutarlılık', traceability: 'İzlenebilirlik', riskCoverage: 'Risk kapsamı', implementationReadiness: 'Uygulamaya hazırlık' },
-        checks: Array.isArray(previousReadiness.checks) ? previousReadiness.checks : [],
+        dimensionEvidence: Object.fromEntries(readinessDimensions.map(dimension => {
+            const relevant = previousChecks.filter(item => item.dimension === dimension);
+            const stored = previousReadiness.dimensionEvidence?.[dimension];
+            return [dimension, stored || {
+                earned: relevant.reduce((total, item) => total + Number(item.earned || 0), 0),
+                possible: relevant.reduce((total, item) => total + Number(item.possible || 0), 0),
+                passed: relevant.filter(item => item.status === 'passed').length,
+                warning: relevant.filter(item => item.status === 'warning').length,
+                blocked: relevant.filter(item => item.status === 'blocked').length
+            }];
+        })),
+        checks: previousChecks,
         nextActions: Array.isArray(previousReadiness.nextActions) ? previousReadiness.nextActions : [],
-        blockers: list(previousReadiness.blockers),
+        qualityGate: readinessIsVerified && previousReadiness.qualityGate
+            ? previousReadiness.qualityGate
+            : {
+                passed: false,
+                blockingCheckIds: previousChecks.filter(item => item.status === 'blocked').map(item => item.id),
+                conditions: [{
+                    id: 'readiness-calculation',
+                    label: 'Readiness kanıtı güncel',
+                    passed: false,
+                    message: 'Eski readiness kaydı Readiness 3.0 ile yeniden hesaplanmalı.',
+                    checkIds: []
+                }]
+            },
+        blockers: readinessIsVerified
+            ? list(previousReadiness.blockers)
+            : ['Canonical plan için Readiness 3.0 yeniden hesaplanmalı.'],
         warnings: list(previousReadiness.warnings),
+        evidenceHash: readinessIsVerified && text(previousReadiness.evidenceHash)
+            ? text(previousReadiness.evidenceHash)
+            : 'legacy-unverified',
         calculatedAtRevision: Math.max(1, Number(previousReadiness.calculatedAtRevision || next.canonicalRevision))
     };
     next.objectives = (next.objectives || []).map(normalizeObjective);

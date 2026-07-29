@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { normalizeRequirement, normalizeRisk } from '../../src/v4/canonical-entities.js';
+import { normalizeProjectDocument, normalizeRequirement, normalizeRisk } from '../../src/v4/canonical-entities.js';
 import { acceptRequirementDraft, createRequirementDraftsFromConcept } from '../../src/v4/application/requirement-quality-service.js';
 import { calculateReadiness } from '../../src/v4/application/readiness-service.js';
 import { analyzeIdea, confirmConceptSummary, finalizePlan, recalculateReadiness, updatePlanSection } from '../../src/v4/planning-engine.js';
@@ -26,7 +26,7 @@ function readyProject(): ProjectDocumentV5 {
   return recalculateReadiness(project);
 }
 
-describe('Readiness Score 2.1 and completion gate', () => {
+describe('Readiness Score 3.0 and explainable quality gate', () => {
   it('uses the documented five dimensions and evidence checks instead of entity counts', () => {
     const project = readyProject();
     assert.deepEqual(project.readiness.dimensionWeights, {
@@ -36,7 +36,9 @@ describe('Readiness Score 2.1 and completion gate', () => {
       riskCoverage: 15,
       implementationReadiness: 20
     });
-    assert.equal(project.readiness.version, 2);
+    assert.equal(project.readiness.version, 3);
+    assert.equal(project.readiness.calculationProfile, 'readiness-3.0');
+    assert.match(project.readiness.evidenceHash, /^readiness-fnv1a32-[a-f0-9]{8}$/);
     assert.ok(project.readiness.checks.length >= 20);
     assert.ok(project.readiness.checks.every(item => item.possible > 0 && item.message));
 
@@ -98,6 +100,62 @@ describe('Readiness Score 2.1 and completion gate', () => {
       status: 'draft'
     }));
     assert.equal(finalizePlan(blocked).success, true, 'Taslak kayıt tek başına canonical tamamlanma kapısını kapatmamalı.');
+  });
+
+  it('produces a deterministic evidence fingerprint and dimension proof for the same canonical revision', () => {
+    const project = readyProject();
+    const first = calculateReadiness(project).readiness;
+    const second = calculateReadiness(structuredClone(project)).readiness;
+
+    assert.equal(first.evidenceHash, second.evidenceHash);
+    assert.deepEqual(first.dimensionEvidence, second.dimensionEvidence);
+    for (const dimension of Object.keys(first.dimensionEvidence) as Array<keyof typeof first.dimensionEvidence>) {
+      const evidence = first.dimensionEvidence[dimension];
+      assert.ok(evidence.possible >= evidence.earned);
+      assert.equal(
+        evidence.passed + evidence.warning + evidence.blocked,
+        first.checks.filter(item => item.dimension === dimension).length
+      );
+    }
+
+    const nextRevision = structuredClone(project);
+    nextRevision.canonicalRevision += 1;
+    assert.notEqual(calculateReadiness(nextRevision).readiness.evidenceHash, first.evidenceHash);
+  });
+
+  it('exposes every hard blocker through named quality-gate conditions', () => {
+    const project = readyProject();
+    project.tasks[0].acceptanceCriteria = [];
+    const readiness = calculateReadiness(project).readiness;
+
+    assert.equal(readiness.qualityGate.passed, false);
+    assert.ok(readiness.qualityGate.blockingCheckIds.includes('implementation.tasks'));
+    const taskCondition = readiness.qualityGate.conditions.find(item => item.id === 'executable-task-contracts');
+    assert.equal(taskCondition?.passed, false);
+    assert.match(taskCondition?.message || '', /kabul kriteri/i);
+    assert.deepEqual(
+      [...readiness.qualityGate.blockingCheckIds].sort(),
+      readiness.checks.filter(item => item.status === 'blocked').map(item => item.id).sort()
+    );
+  });
+
+  it('migrates a V2 score as unverified until canonical readiness is recalculated', () => {
+    const project = readyProject();
+    const legacy = structuredClone(project) as ProjectDocumentV5 & { readiness: ProjectDocumentV5['readiness'] & { version: number } };
+    legacy.readiness.version = 2;
+    delete (legacy.readiness as Partial<ProjectDocumentV5['readiness']>).qualityGate;
+    delete (legacy.readiness as Partial<ProjectDocumentV5['readiness']>).dimensionEvidence;
+    delete (legacy.readiness as Partial<ProjectDocumentV5['readiness']>).evidenceHash;
+
+    const migrated = normalizeProjectDocument(legacy) as ProjectDocumentV5;
+    assert.equal(migrated.readiness.version, 3);
+    assert.equal(migrated.readiness.calculationProfile, 'legacy-unverified');
+    assert.equal(migrated.readiness.status, 'blocked');
+    assert.equal(migrated.readiness.qualityGate.passed, false);
+
+    const recalculated = recalculateReadiness(migrated);
+    assert.equal(recalculated.readiness.calculationProfile, 'readiness-3.0');
+    assert.notEqual(recalculated.readiness.evidenceHash, 'legacy-unverified');
   });
 
   it('reports proportional evidence and ordered actions instead of only a percentage', () => {

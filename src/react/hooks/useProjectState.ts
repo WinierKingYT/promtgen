@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { analyzeIdea } from '../../v4/planning-engine.js';
 import { createPlatformRepository } from '../../v4/tauri-storage.js';
-import { generateIdeaLabBundle } from '../../v4/ai-discovery.js';
+import { generateIdeaLabBundle } from '../../v4/application/idea-planning-api.js';
 import { loadProviderSettings } from '../../v4/provider-settings.js';
 import { createCredentialVault } from '../../v4/credential-vault.js';
 import { analyzeSelectedFiles, projectInventoryContext } from '../../v4/project-analyzer.js';
-import { readPromtgenPackage } from '../../v4/exporter.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
 import { prepareInitialProject } from '../../v4/application/project-creation-service.js';
 import { commitProjectCandidate, saveInitialProject } from '../../v4/application/command-transaction.js';
 
@@ -21,6 +21,7 @@ const DOCUMENT_ONLY_COMMANDS = new Set([
   'UpdateConceptAgreement', 'GenerateRequirementDrafts', 'UpdateRequirementDraft', 'RemoveRequirementDraft',
   'RestoreIdeaDocumentRevision',
   'ProposeIdeaAlignmentImpact', 'DeferPlanAlignment', 'RestoreAlignedIdeaRevision',
+  'CreatePlanCodeAlignmentSuggestion',
   'StartExecutionSession', 'RecordExecutionResult', 'RecordExport', 'UpdateProject'
 ]);
 
@@ -67,11 +68,11 @@ export function useProjectState() {
     return true;
   };
 
-  const create = async (idea: string, outputLanguage: string, files: File[], nativeInventory?: any) => {
+  const create = async (idea: string, outputLanguage: ProjectDocumentV5['identity']['outputLanguage'], files: File[], nativeInventory?: ProjectInventoryReport) => {
     const inventory = nativeInventory || await analyzeSelectedFiles(files);
     const importedContext = projectInventoryContext(inventory);
     const project = analyzeIdea(idea, { outputLanguage, importedContext });
-    project.profile.projectInventory = inventory;
+    project.profile.projectInventory = inventory as unknown as Record<string, unknown>;
     project.metadata.projectAnalysis = {
       version: inventory.version,
       analyzedAt: inventory.analyzedAt,
@@ -85,13 +86,14 @@ export function useProjectState() {
         settings: providerSettings,
         credential,
         ideaText: idea,
-      } as any)
+      })
     });
     await persist(prepared.project);
   };
 
   const importPackage = async (file: File) => {
     try {
+      const { readPromtgenPackage } = await import('../../v4/exporter.js');
       await persist(await readPromtgenPackage(file));
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Paket açılamadı.');

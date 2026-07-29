@@ -54,7 +54,7 @@ export interface PlannerBenchmarkScenarioResult {
     scopeContradictions: number;
     exportFiles: number;
   };
-  capabilityResults: Record<'canonical-planning' | 'canonical-export', boolean>;
+  capabilityResults: Record<'canonical-planning' | 'canonical-export' | 'readiness-quality-gate', boolean>;
 }
 
 export interface PlannerBenchmarkReport {
@@ -201,6 +201,12 @@ export function runPlannerBenchmarkScenario(scenario: PlannerBenchmarkScenario):
     taskAcceptanceCoverage >= scenario.thresholds.minimumTaskAcceptanceCoverage &&
     scopeContradictions === 0 &&
     project.readiness.blockers.length === 0;
+  const readinessGatePassed =
+    project.readiness.version === 3 &&
+    project.readiness.calculationProfile === 'readiness-3.0' &&
+    project.readiness.qualityGate.passed &&
+    /^readiness-fnv1a32-[a-f0-9]{8}$/.test(project.readiness.evidenceHash) &&
+    Object.values(project.readiness.dimensionEvidence).every(item => item.possible > 0);
   const failures = [
     ...(project.readiness.score >= scenario.thresholds.minimumReadiness ? [] : [`Readiness ${project.readiness.score}/${scenario.thresholds.minimumReadiness}`]),
     ...(mustTaskCoverage >= scenario.thresholds.minimumMustTaskCoverage ? [] : ['Must gereksinim-görev kapsamı düşük.']),
@@ -226,7 +232,8 @@ export function runPlannerBenchmarkScenario(scenario: PlannerBenchmarkScenario):
     },
     capabilityResults: {
       'canonical-planning': planningPassed,
-      'canonical-export': exportComplete
+      'canonical-export': exportComplete,
+      'readiness-quality-gate': readinessGatePassed
     }
   };
 }
@@ -243,7 +250,7 @@ export function runPlannerBenchmark(
     ids.add(scenario.id);
   }
   const results = scenarios.map(runPlannerBenchmarkScenario);
-  const capabilityIds = ['canonical-planning', 'canonical-export'] as const;
+  const capabilityIds = ['canonical-planning', 'canonical-export', 'readiness-quality-gate'] as const;
   const capabilities = Object.fromEntries(capabilityIds.map(capabilityId => [
     capabilityId,
     {

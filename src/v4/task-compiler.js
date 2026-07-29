@@ -1,6 +1,6 @@
 import { normalizeAgentPrompt, normalizeMilestone, normalizeTask, normalizeTestCase, normalizeTraceLink } from './canonical-entities.js';
 import { evaluateRequirementQuality } from './application/requirement-quality-service.ts';
-import { assessWebSaasPack, enrichWebSaasTaskContract, webSaasTestKind } from './domain-packs/web-saas.ts';
+import { DOMAIN_PACK_REGISTRY } from './domain-packs/registry.ts';
 
 function slug(value) {
     return String(value || 'item').toLocaleLowerCase('tr-TR').normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 36) || 'item';
@@ -60,7 +60,7 @@ function taskContract(project, requirement, taskId) {
     const allowedPaths = inventoryAllowedPaths(project);
     const commands = inventoryTestCommands(project);
     const testCaseId = `test-${taskId.replace(/^task-/, '')}`;
-    return enrichWebSaasTaskContract(project, requirement, {
+    const baseContract = {
         version: 2,
         objective: requirement.statement,
         inScope: [requirement.title, ...requirement.acceptanceCriteria],
@@ -90,7 +90,8 @@ function taskContract(project, requirement, taskId) {
             'Çalıştırılan komutların çıktısı veya komut keşfi açıklaması'
         ],
         rollbackPlan: 'Değişiklikleri görev bazlı patch/commit olarak tut; doğrulama başarısızsa yalnız bu görevin değişikliklerini geri al ve canonical planı değiştirme.'
-    });
+    };
+    return DOMAIN_PACK_REGISTRY.enrichTaskContract(project, requirement, baseContract);
 }
 
 export function assertValidCompilation(result) {
@@ -137,10 +138,9 @@ function buildPromptChain(project, tasks) {
     const taskIds = tasks.map(task => task.id);
     const projName = project.identity?.name || project.identity?.originalIdea || 'Proje';
     const decisionsSummary = (project.decisions || []).slice(0, 3).map(d => d.title).join(', ') || 'Temel mimari kararlar';
-    const webSaasActive = assessWebSaasPack(project).active;
-    const domainInstruction = webSaasActive
-        ? ' Web/SaaS paketi aktiftir: ana kullanıcı akışı, hata durumları, erişilebilirlik, sunucu yetkisi, veri yaşam döngüsü ve güvenli yayın sınırlarını ilgili olduklarında doğrula.'
-        : '';
+    const domainInstruction = DOMAIN_PACK_REGISTRY.active(project)
+        .map(runtime => runtime.promptInstruction)
+        .join('');
 
     const planner = normalizeAgentPrompt({
         id: 'prompt-planner', role: 'planner', title: `"${projName}" Uygulama Sırasını Doğrula`, taskIds,
@@ -170,8 +170,6 @@ export function compileTaskPlan(project) {
     const tasks = [];
     const sourceRequirements = (project.requirements || []).filter(requirement => requirement.status === 'accepted');
     const quality = evaluateRequirementQuality(project);
-    const webSaasActive = assessWebSaasPack(project).active;
-    
     // Task compiler strictly uses formal accepted requirements
     if (!sourceRequirements.length) {
         return {
@@ -207,12 +205,15 @@ export function compileTaskPlan(project) {
         }));
     }
     const requirementById = new Map(sourceRequirements.map(requirement => [requirement.id, requirement]));
-    const testCases = tasks.map(task => normalizeTestCase({
-        id: `test-${task.id.replace(/^task-/, '')}`, title: `${task.title} kabul testi`, kind: 'acceptance',
-        ...(webSaasActive ? { kind: webSaasTestKind(requirementById.get(task.requirementIds[0])) } : {}),
-        steps: task.acceptanceCriteria, expectedResult: task.acceptanceCriteria.join('; ') || 'Gereksinim davranışı doğrulanır.',
-        requirementIds: task.requirementIds, status: task.acceptanceCriteria.length ? 'ready' : 'draft'
-    }));
+    const testCases = tasks.map(task => {
+        const requirement = requirementById.get(task.requirementIds[0]);
+        const kind = DOMAIN_PACK_REGISTRY.selectTestKind(project, requirement);
+        return normalizeTestCase({
+            id: `test-${task.id.replace(/^task-/, '')}`, title: `${task.title} kabul testi`, kind,
+            steps: task.acceptanceCriteria, expectedResult: task.acceptanceCriteria.join('; ') || 'Gereksinim davranışı doğrulanır.',
+            requirementIds: task.requirementIds, status: task.acceptanceCriteria.length ? 'ready' : 'draft'
+        });
+    });
     for (let index = 0; index < tasks.length; index += 1) tasks[index].verificationIds = [testCases[index].id];
     const orderedResult = topologicalOrder(tasks);
     const milestone = tasks.length ? normalizeMilestone({ id: 'milestone-initial', title: 'İlk uygulanabilir teslim', outcome: project.identity.desiredOutcome || project.identity.summary, taskIds: orderedResult.ordered.map(task => task.id), status: 'planned' }) : null;

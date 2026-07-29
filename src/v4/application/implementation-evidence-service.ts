@@ -93,16 +93,21 @@ function reviewInput(project: ProjectDocumentV5, task: Task, input: Implementati
 export function createImplementationEvidenceReview(
   project: ProjectDocumentV5,
   input: ImplementationEvidenceInput,
-  options: { id?: string; now?: string } = {}
+  options: { id?: string; now?: string; baseCanonicalRevision?: number } = {}
 ): ImplementationEvidencePackage {
   const task = project.tasks.find(item => item.id === input.taskId);
   if (!task) throw new Error('Kanıt paketi için canonical görev bulunamadı.');
   const reviewedAt = options.now || new Date().toISOString();
   const review = reviewInput(project, task, input);
+  const baseCanonicalRevision = options.baseCanonicalRevision || project.canonicalRevision;
+  if (baseCanonicalRevision !== project.canonicalRevision) {
+    review.findings.unshift(`Kanıt paketi r${baseCanonicalRevision} planına ait; güncel canonical plan r${project.canonicalRevision}.`);
+    review.outcome = 'blocked';
+  }
   return normalizeImplementationEvidencePackage({
     ...input,
     id: options.id || `implementation-evidence-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    baseCanonicalRevision: project.canonicalRevision,
+    baseCanonicalRevision,
     review: { ...review, reviewedAt, reviewerNote: '' },
     status: 'review_required',
     createdAt: reviewedAt,

@@ -1,21 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { Check, ChevronDown, Pencil, Plus, Sparkles, X } from 'lucide-react';
 import { ProvenanceBadge } from './ProvenanceBadge.js';
-import type { GenerationProvenance } from '../../v4/contracts.js';
-
-type ProjectSummary = {
-  id: string;
-  revision: number;
-  identity: { name: string };
-  planningDepth: { selected: string };
-};
+import type { GenerationProvenance, ProjectDocumentV5, SuggestionItem, SuggestionStatus } from '../../v4/contracts.js';
 
 export function IconButton({ label, children, onClick }: { label: string; children: ReactNode; onClick: () => void }) {
   return <button className="icon-button" type="button" aria-label={label} title={label} onClick={onClick}>{children}</button>;
 }
 
 export function ProjectRail({ projects, activeId, onSelect, onNew, open, onClose }: {
-  projects: any[];
+  projects: ProjectDocumentV5[];
   activeId: string;
   onSelect: (id: string) => void;
   onNew: () => void;
@@ -55,11 +48,10 @@ export function ProjectRail({ projects, activeId, onSelect, onNew, open, onClose
   </aside>;
 }
 
-export function SuggestionCard({ item, provenance, onStatus, onSection }: {
-  item: any;
+export function SuggestionCard({ item, provenance, onStatus }: {
+  item: SuggestionItem;
   provenance?: GenerationProvenance;
-  onStatus: (status: string, editedDescription?: string) => void;
-  onSection: (sectionId: string) => void;
+  onStatus: (status: SuggestionStatus, editedDescription?: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.editedDescription || item.description);

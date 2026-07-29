@@ -1,6 +1,6 @@
-import { GraphStore } from '../core/traceability/graph-store.js';
-import { TraceabilityEngine } from '../core/traceability/traceability-engine.js';
-import { EDGE_TYPES, NODE_TYPES } from '../core/traceability/traceability-types.js';
+import { GraphStore } from './traceability/graph-store.js';
+import { TraceabilityEngine } from './traceability/traceability-engine.js';
+import { EDGE_TYPES, NODE_TYPES } from './traceability/traceability-types.js';
 import { normalizeProjectDocument } from './canonical-entities.js';
 
 const ENTITY_TYPES = [

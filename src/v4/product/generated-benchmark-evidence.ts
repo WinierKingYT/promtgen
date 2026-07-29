@@ -7,13 +7,17 @@ export const PLANNER_BENCHMARK_EVIDENCE: {
 } = Object.freeze({
   "suiteId": "planner-core-v1",
   "reportPath": "benchmarks/planner/latest-report.json",
-  "generatedAt": "2026-07-29T06:38:41.743Z",
+  "generatedAt": "2026-07-29T17:11:27.927Z",
   "capabilities": {
     "canonical-planning": {
       "completed": 10,
       "passed": 10
     },
     "canonical-export": {
+      "completed": 10,
+      "passed": 10
+    },
+    "readiness-quality-gate": {
       "completed": 10,
       "passed": 10
     }

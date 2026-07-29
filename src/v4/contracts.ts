@@ -614,8 +614,25 @@ export interface ReadinessAction {
   scoreImpact: number
 }
 
+export interface ReadinessDimensionEvidence {
+  earned: number
+  possible: number
+  passed: number
+  warning: number
+  blocked: number
+}
+
+export interface ReadinessGateCondition {
+  id: string
+  label: string
+  passed: boolean
+  message: string
+  checkIds: string[]
+}
+
 export interface ReadinessResult {
-  version: 2
+  version: 3
+  calculationProfile: 'readiness-3.0' | 'legacy-unverified'
   status: 'blocked' | 'needs_review' | 'ready'
   score: number
   dimensions: {
@@ -627,10 +644,17 @@ export interface ReadinessResult {
   }
   dimensionWeights: Record<ReadinessDimension, number>
   dimensionLabels: Record<ReadinessDimension, string>
+  dimensionEvidence: Record<ReadinessDimension, ReadinessDimensionEvidence>
   checks: ReadinessCheck[]
   nextActions: ReadinessAction[]
+  qualityGate: {
+    passed: boolean
+    blockingCheckIds: string[]
+    conditions: ReadinessGateCondition[]
+  }
   blockers: string[]
   warnings: string[]
+  evidenceHash: string
   calculatedAtRevision: number
 }
 
@@ -750,7 +774,16 @@ export interface DomainPackDiscoveryQuestion {
   prompt: string
   rationale: string
   affectedSectionId: string
-  appliesWhen: 'always' | 'accounts' | 'multi_tenant' | 'payments' | 'stored_data'
+  appliesWhen:
+    | 'always'
+    | 'accounts'
+    | 'multi_tenant'
+    | 'payments'
+    | 'stored_data'
+    | 'authentication'
+    | 'external_clients'
+    | 'async_operations'
+    | 'rate_sensitive'
 }
 
 export interface DomainPackContribution {

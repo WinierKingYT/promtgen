@@ -1,0 +1,44 @@
+{
+  "benchmarkVersion": "2.0.0",
+  "capabilityId": "plan-code-alignment",
+  "completed": 5,
+  "passed": 5,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "inventory-missing",
+      "title": "Envanter ve kanıt yok",
+      "expected": "not_analyzed",
+      "actual": "not_analyzed",
+      "passed": true
+    },
+    {
+      "id": "inventory-only",
+      "title": "Yalnız güvenli envanter eşleşmesi",
+      "expected": "partially_evidenced",
+      "actual": "partially_evidenced",
+      "passed": true
+    },
+    {
+      "id": "accepted-evidence",
+      "title": "Güncel ve kapsam içi kabul edilmiş kanıt",
+      "expected": "aligned",
+      "actual": "aligned",
+      "passed": true
+    },
+    {
+      "id": "out-of-scope-change",
+      "title": "TaskContract dışı değişen dosya",
+      "expected": "out_of_scope",
+      "actual": "out_of_scope",
+      "passed": true
+    },
+    {
+      "id": "stale-evidence",
+      "title": "Eski canonical revision kanıtı",
+      "expected": "suspicious",
+      "actual": "suspicious",
+      "passed": true
+    }
+  ]
+}

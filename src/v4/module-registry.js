@@ -1,4 +1,4 @@
-import { WEB_SAAS_MODULE, getWebSaasDiscoveryQuestions } from './domain-packs/web-saas.ts';
+import { DOMAIN_PACK_MODULES, DOMAIN_PACK_REGISTRY } from './domain-packs/registry.ts';
 
 const CATEGORIES = ['core', 'software', 'quality', 'research', 'business', 'content', 'operations', 'event'];
 const SECTION_IDS = ['vision', 'objectives', 'scope', 'requirements', 'decisions', 'architecture', 'security', 'tasks', 'risks', 'testing', 'deployment', 'operations'];
@@ -6,7 +6,7 @@ const SECTION_IDS = ['vision', 'objectives', 'scope', 'requirements', 'decisions
 const BUILTIN_MODULES = [
     { id: 'core.planning', version: '1.0.0', name: 'Canonical Planlama', description: 'Yaşayan plan, revision ve kullanıcı onayı çekirdeği.', category: 'core', dependencies: [], conflicts: [], triggers: [], contributions: { requiredSections: ['vision', 'scope', 'tasks'], suggestedSections: ['objectives', 'requirements'], reviewerRuleIds: ['PLAN-001'], exportDocumentIds: ['master-plan', 'tasks'] } },
     { id: 'software.core', version: '1.0.0', name: 'Yazılım Mimarisi', description: 'Yazılım gereksinimleri, mimari, görev ve test planlaması.', category: 'software', dependencies: ['core.planning'], conflicts: [], triggers: ['software', 'code', 'api', 'uygulama'], contributions: { requiredSections: ['requirements', 'architecture', 'testing'], suggestedSections: ['decisions', 'deployment'], reviewerRuleIds: ['REQ-001', 'TASK-001'], exportDocumentIds: ['requirements', 'architecture', 'test-strategy'] } },
-    WEB_SAAS_MODULE,
+    ...DOMAIN_PACK_MODULES,
     { id: 'software.desktop-local', version: '1.0.0', name: 'Local-first Masaüstü', description: 'Yerel veri, masaüstü paketleme, offline çalışma ve güncelleme sınırları.', category: 'software', dependencies: ['software.core'], conflicts: [], triggers: ['desktop', 'tauri', 'electron', 'offline', 'local-first', 'yerel'], contributions: { requiredSections: ['security', 'deployment'], suggestedSections: ['operations'], reviewerRuleIds: ['LOCAL-DATA'], exportDocumentIds: ['security', 'deployment'] } },
     { id: 'quality.security', version: '1.0.0', name: 'Güvenlik ve Gizlilik', description: 'Tehdit, veri sınıfı, secret ve güvenlik test planlaması.', category: 'quality', dependencies: ['core.planning'], conflicts: [], triggers: ['security', 'güvenlik', 'auth', 'kimlik', 'ödeme', 'kişisel veri'], contributions: { requiredSections: ['security', 'risks', 'testing'], suggestedSections: ['operations'], reviewerRuleIds: ['RISK-001', 'SECURITY-CONTROLS'], exportDocumentIds: ['security', 'risks'] } },
     { id: 'research.evidence', version: '1.1.0', name: 'Araştırma ve Kanıt', description: 'Araştırma sorusu, yöntem, birincil kaynak ve kanıt defteri.', category: 'research', dependencies: ['core.planning'], conflicts: [], triggers: ['research', 'araştırma', 'kanıt', 'tez', 'makale', 'literatür', 'deney'], contributions: { requiredSections: ['objectives', 'requirements'], suggestedSections: ['decisions', 'risks', 'testing'], reviewerRuleIds: ['RESEARCH-METHOD', 'EVIDENCE-COVERAGE'], exportDocumentIds: ['research-protocol'] } },
@@ -75,9 +75,7 @@ export function previewModuleActivation(project, requestedIds) {
     const moduleIds = resolution.resolved.filter(moduleId => active.get(moduleId) !== registry.get(moduleId)?.version);
     const conflicts = moduleIds.flatMap(moduleId => registry.get(moduleId).conflicts.filter(conflict => active.has(conflict) || moduleIds.includes(conflict)).map(conflict => `${moduleId} ↔ ${conflict}`));
     const manifests = moduleIds.map(moduleId => registry.get(moduleId));
-    const domainQuestions = manifests.some(item => item.id === WEB_SAAS_MODULE.id)
-        ? getWebSaasDiscoveryQuestions(project)
-        : [];
+    const domainQuestions = DOMAIN_PACK_REGISTRY.collectDiscoveryQuestions(project, moduleIds);
     return {
         baseRevision: project.canonicalRevision,
         moduleIds,

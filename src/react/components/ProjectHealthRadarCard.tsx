@@ -22,18 +22,35 @@ export function ProjectHealthRadarCard({
   return (
     <details className="readiness-breakdown">
       <summary>
-        <span><Gauge size={14} /> READINESS 2.1</span>
+        <span><Gauge size={14} /> READINESS 3.0</span>
         <b>{readiness.status === 'ready' ? 'Hazır' : readiness.status === 'needs_review' ? 'İnceleme gerekli' : 'Kapı kapalı'}</b>
       </summary>
-      <p className="readiness-explanation">Skor kayıt sayısına değil; onay, tutarlılık, izlenebilir bağlantılar, risk sahipliği ve doğrulanabilir görevlere dayanır.</p>
+      <p className="readiness-explanation">Skor kayıt sayısına değil; onay, tutarlılık, izlenebilir bağlantılar, risk sahipliği ve doğrulanabilir görevlere dayanır. Kalite kapısı kritik koşulların tamamını ayrıca denetler.</p>
+      <div className={`readiness-gate ${readiness.qualityGate.passed ? 'passed' : 'blocked'}`} role="region" aria-label="Plan hazırlık kalite kapısı">
+        <span>
+          {readiness.qualityGate.passed ? <CheckCircle2 size={15}/> : <XCircle size={15}/>}
+          <b>{readiness.qualityGate.passed ? 'Kalite kapısı açık' : 'Kalite kapısı kapalı'}</b>
+        </span>
+        <small>Canonical r{readiness.calculatedAtRevision} · {readiness.evidenceHash}</small>
+        <ul>
+          {readiness.qualityGate.conditions.map(condition => (
+            <li key={condition.id} className={condition.passed ? 'passed' : 'blocked'}>
+              {condition.passed ? <CheckCircle2 size={12}/> : <CircleAlert size={12}/>}
+              <span><b>{condition.label}</b>{!condition.passed && <small>{condition.message}</small>}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
       <div className="readiness-dimensions">
         {DIMENSION_ORDER.map(dimension => {
           const value = readiness.dimensions[dimension];
+          const evidence = readiness.dimensionEvidence[dimension];
           return (
             <div className="readiness-dimension" key={dimension}>
               <span>{readiness.dimensionLabels[dimension]} <small>%{readiness.dimensionWeights[dimension]}</small></span>
               <b>{value}</b>
               <progress max="100" value={value} aria-label={`${readiness.dimensionLabels[dimension]} ${value}/100`} />
+              <small>{evidence.earned}/{evidence.possible} puan · {evidence.passed} geçti · {evidence.blocked} blok</small>
             </div>
           );
         })}

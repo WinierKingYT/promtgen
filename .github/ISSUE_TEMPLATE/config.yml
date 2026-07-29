@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ürün kapsamı ve non-goals
+    url: https://github.com/WinierKingYT/promtgen/blob/main/docs/product/PRODUCT_CONTRACT.md
+    about: Issue açmadan önce PRODUCT_CONTRACT ve FEATURE_FREEZE belgelerini inceleyin.

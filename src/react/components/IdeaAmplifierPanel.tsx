@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { ArrowRight, Check, Sparkles, Telescope } from 'lucide-react';
 import { applyIdeaExpansion } from '../../v4/planning-engine.js';
-import { generateExpansionDimensions } from '../../v4/ai-discovery.js';
+import { generateExpansionDimensions } from '../../v4/application/idea-planning-api.js';
+import type { ExpansionDimension, ProjectDocumentV5 } from '../../v4/contracts.js';
 
-export function IdeaAmplifierPanel({ project, onCommit }: any) {
+type ProjectCommit = (project: ProjectDocumentV5, message: string) => void | Promise<void>;
+
+export function IdeaAmplifierPanel({ project, onCommit }: { project: ProjectDocumentV5; onCommit: ProjectCommit }) {
   const originalIdea = String(project.identity?.originalIdea || '').trim();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dimensions = useMemo(() => generateExpansionDimensions(originalIdea) as unknown[], [originalIdea]);
+  const dimensions = useMemo<ExpansionDimension[]>(() => generateExpansionDimensions(originalIdea), [originalIdea]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
 
@@ -15,7 +17,7 @@ export function IdeaAmplifierPanel({ project, onCommit }: any) {
 
   const expandedIdea = useMemo(() => {
     const parts = dimensions
-      .map((d: any) => (answers[d.id] || '').trim())
+      .map(dimension => (answers[dimension.id] || '').trim())
       .filter(Boolean);
     return parts.length ? `${originalIdea} — ${parts.join(', ')}` : originalIdea;
   }, [answers, dimensions, originalIdea]);
@@ -23,7 +25,7 @@ export function IdeaAmplifierPanel({ project, onCommit }: any) {
   const answeredCount = Object.values(answers).filter(Boolean).length;
 
   const handleProceed = () => {
-    const next = (applyIdeaExpansion as (...a: unknown[]) => unknown)(project, { answers, dimensions });
+    const next = applyIdeaExpansion(project, { answers, dimensions });
     onCommit(next, 'Fikir genişletildi. Planlama aşamasına geçildi.');
   };
 
@@ -53,7 +55,7 @@ export function IdeaAmplifierPanel({ project, onCommit }: any) {
 
       {/* Dimension cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {dimensions.map((dim: any) => (
+        {dimensions.map(dim => (
           <div key={dim.id} style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${answers[dim.id] ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '10px', padding: '14px 16px', transition: 'border-color 0.2s' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <span style={{ fontSize: '18px' }}>{dim.icon}</span>

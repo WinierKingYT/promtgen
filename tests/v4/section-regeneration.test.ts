@@ -84,4 +84,49 @@ describe('controlled section regeneration', () => {
     assert.equal(output.patches.length, 1);
     assert.match(regenerateAffectedSectionsTask.buildPrompt(accepted.project), /kullanıcı onayı olmadan uygulanmayacaktır/);
   });
+
+  it('runs the registered production task through the shared AI runtime', async () => {
+    const accepted = await acceptedImpactProject();
+    let receivedSystem = '';
+    let receivedContext: unknown = null;
+    const provider = {
+      model: 'section-mock',
+      async structured(input: {
+        system: string;
+        context: unknown;
+        schema: { parse(value: unknown): unknown };
+      }) {
+        receivedSystem = input.system;
+        receivedContext = input.context;
+        const context = input.context as { affectedSections: Array<{ id: string }> };
+        return input.schema.parse({
+          summary: 'Paylaşılan runtime çıktısı.',
+          patches: [{
+            sectionId: context.affectedSections[0].id,
+            proposedContent: 'Runtime tarafından doğrulanan bölüm içeriği.',
+            rationale: 'Kabul edilmiş etki',
+            warnings: []
+          }]
+        });
+      }
+    };
+    const generated = await generateSectionPatchProposals(accepted.project, accepted.impactId, {
+      settings: {
+        providerId: 'openai',
+        model: 'section-mock',
+        baseUrl: 'https://api.openai.com/v1',
+        useAiWhenAvailable: true,
+        useLocalMemory: false
+      },
+      provider
+    });
+    assert.equal(generated.usedFallback, false);
+    assert.match(receivedSystem, /yaşayan plan bölüm editörüsün/);
+    assert.ok((receivedContext as { affectedSections: unknown[] }).affectedSections.length > 0);
+    assert.equal(generated.proposals[0].provenance.providerId, 'openai');
+    assert.equal(generated.proposals[0].provenance.model, 'section-mock');
+    assert.equal(generated.proposals[0].provenance.schemaId, regenerateAffectedSectionsTask.schemaId);
+    assert.match(generated.proposals[0].provenance.inputHash, /^[a-f0-9]{64}$/);
+    assert.deepEqual(validateProjectDocument(generated.project), { valid: true, errors: [] });
+  });
 });

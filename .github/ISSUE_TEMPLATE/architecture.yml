@@ -1,0 +1,64 @@
+name: Mimari / P0 çalışma
+description: Canonical sahiplik, migration, güvenlik veya üretim sınırı değişikliği
+title: "[P0] "
+labels:
+  - "priority:P0"
+  - "type:architecture"
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Gözlenen üretim davranışını ve kanıtını yazın.
+    validations:
+      required: true
+  - type: textarea
+    id: importance
+    attributes:
+      label: Neden önemli?
+      description: Kullanıcı, veri, canonical plan veya release riskini açıklayın.
+    validations:
+      required: true
+  - type: textarea
+    id: modules
+    attributes:
+      label: Etkilenen modüller
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Önerilen çözüm
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Kapsam dışı
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Kabul kriterleri
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test planı
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration etkisi
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback planı
+    validations:
+      required: true
+

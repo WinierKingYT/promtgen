@@ -1,6 +1,6 @@
 import { analyzeCanonicalTraceability } from './canonical-graph.js';
 import { normalizeReviewFinding, normalizeSimulationRun } from './canonical-entities.js';
-import { assessWebSaasPack } from './domain-packs/web-saas.ts';
+import { DOMAIN_PACK_REGISTRY } from './domain-packs/registry.ts';
 import { getRequiredSections } from './project-document.js';
 
 const SEVERITY_WEIGHT = { info: 0, low: 3, medium: 8, high: 18, critical: 35 };
@@ -56,16 +56,16 @@ export function runPlanReview(project, { profile = 'deep' } = {}) {
             findings.push(finding('GAME-NET-001', 'architecture', 'medium', 'Oyun Ağ & Prediction Stratejisi Belirsiz', 'Multiplayer/S&box projelerinde Server Authority vs Client Prediction kararı açıkça belirtilmeli.', 'Network yetkisi ve tick rate senkronizasyon kararı ekle.', ['architecture', 'decisions']));
         }
     }
-    const webSaasAssessment = assessWebSaasPack(project);
-    if (webSaasAssessment.active) {
-        for (const item of webSaasAssessment.checks.filter(check => !check.passed)) {
+    for (const runtime of DOMAIN_PACK_REGISTRY.active(project)) {
+        const assessment = runtime.assess(project);
+        for (const item of assessment.checks.filter(check => !check.passed)) {
             findings.push(finding(
                 item.id.toUpperCase(),
-                item.sectionId === 'security' ? 'security' : item.sectionId === 'deployment' ? 'deployment' : 'domain',
+                runtime.reviewCategory(item),
                 item.blocking ? 'high' : 'medium',
                 item.label,
                 item.message,
-                `Web/SaaS alan sorusunu yanıtla: ${webSaasAssessment.discoveryQuestions.find(question => question.id === item.id)?.prompt || 'İlgili canonical plan bölümünü tamamla.'}`,
+                `${runtime.reviewPromptLabel} alan sorusunu yanıtla: ${assessment.discoveryQuestions.find(question => question.id === item.id)?.prompt || 'İlgili canonical plan bölümünü tamamla.'}`,
                 [item.sectionId],
                 item.entityIds
             ));

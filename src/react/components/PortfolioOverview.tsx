@@ -1,12 +1,23 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, CircleAlert, FolderKanban, Gauge, Search, Layers, Activity } from 'lucide-react';
+import { ArrowRight, CircleAlert, FolderKanban, Gauge, Search, Activity } from 'lucide-react';
 import { buildPortfolioSummary, filterPortfolioProjects, buildComparativeAnalytics } from '../../v4/portfolio-engine.js';
+import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import type {
+  PortfolioDepthFilter,
+  PortfolioSort,
+  PortfolioStatusFilter
+} from '../../v4/portfolio-engine.js';
 
-export function PortfolioOverview({ projects, onOpen }: any) {
+interface PortfolioOverviewProps {
+  projects: ProjectDocumentV5[];
+  onOpen: (projectId: string) => void;
+}
+
+export function PortfolioOverview({ projects, onOpen }: PortfolioOverviewProps) {
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
-  const [depth, setDepth] = useState('all');
-  const [sort, setSort] = useState('updated');
+  const [status, setStatus] = useState<PortfolioStatusFilter>('all');
+  const [depth, setDepth] = useState<PortfolioDepthFilter>('all');
+  const [sort, setSort] = useState<PortfolioSort>('updated');
   const summary = useMemo(() => buildPortfolioSummary(projects), [projects]);
   const analytics = useMemo(() => buildComparativeAnalytics(projects), [projects]);
   const visible = useMemo(() => filterPortfolioProjects(projects, { query, status, depth, sort }), [projects, query, status, depth, sort]);
@@ -28,23 +39,23 @@ export function PortfolioOverview({ projects, onOpen }: any) {
           <Activity size={13} /> En Aktif Projeler:
         </span>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {analytics.topActive.map((p: any) => (
+          {analytics.topActive.map(project => (
             <button
-              key={p.id}
+              key={project.id}
               type="button"
-              onClick={() => onOpen(p.id)}
+              onClick={() => onOpen(project.id)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', textDecoration: 'underline', padding: 0, fontSize: '12px' }}
             >
-              <b>{p.name}</b> (r{p.canonicalRevision})
+              <b>{project.name}</b> (r{project.canonicalRevision})
             </button>
           ))}
         </div>
       </div>
     )}
 
-    <div className="portfolio-controls"><label><Search size={14}/><input aria-label="Projelerde ara" value={query} onChange={event => setQuery(event.target.value)} placeholder="Proje ara…"/></label><select aria-label="Proje durumu" value={status} onChange={event => setStatus(event.target.value)}><option value="all">Tüm durumlar</option><option value="active">Canlı</option><option value="finalized">Final</option><option value="archived">Arşiv</option></select><select aria-label="Plan derinliği" value={depth} onChange={event => setDepth(event.target.value)}><option value="all">Tüm derinlikler</option><option value="quick">Quick</option><option value="standard">Standard</option><option value="advanced">Advanced</option><option value="enterprise">Enterprise</option></select><select aria-label="Proje sıralaması" value={sort} onChange={event => setSort(event.target.value)}><option value="updated">Son güncellenen</option><option value="readiness">Hazırlık skoru</option><option value="name">Ada göre</option></select></div>
+    <div className="portfolio-controls"><label><Search size={14}/><input aria-label="Projelerde ara" value={query} onChange={event => setQuery(event.target.value)} placeholder="Proje ara…"/></label><select aria-label="Proje durumu" value={status} onChange={event => setStatus(event.target.value as PortfolioStatusFilter)}><option value="all">Tüm durumlar</option><option value="active">Canlı</option><option value="finalized">Final</option><option value="archived">Arşiv</option></select><select aria-label="Plan derinliği" value={depth} onChange={event => setDepth(event.target.value as PortfolioDepthFilter)}><option value="all">Tüm derinlikler</option><option value="quick">Quick</option><option value="standard">Standard</option><option value="advanced">Advanced</option><option value="enterprise">Enterprise</option></select><select aria-label="Proje sıralaması" value={sort} onChange={event => setSort(event.target.value as PortfolioSort)}><option value="updated">Son güncellenen</option><option value="readiness">Hazırlık skoru</option><option value="name">Ada göre</option></select></div>
     {summary.attention.length > 0 && <p className="portfolio-attention"><CircleAlert size={14}/>{summary.attention.length} proje eksik veya güncelliğini yitirmiş bölüm içeriyor.</p>}
-    <div className="portfolio-projects">{visible.slice(0, 20).map((project: any) => <button type="button" key={project.id} onClick={() => onOpen(project.id)}><span className="portfolio-score"><Gauge size={13}/>{project.readiness.score}</span><span><b>{project.identity.name}</b><small>{project.planningDepth.selected} · r{project.canonicalRevision} · {project.lifecycle.status === 'finalized' ? 'final' : project.lifecycle.status === 'archived' ? 'arşiv' : 'canlı'}</small></span><ArrowRight size={15}/></button>)}</div>
+    <div className="portfolio-projects">{visible.slice(0, 20).map(project => <button type="button" key={project.id} onClick={() => onOpen(project.id)}><span className="portfolio-score"><Gauge size={13}/>{project.readiness.score}</span><span><b>{project.identity.name}</b><small>{project.planningDepth.selected} · r{project.canonicalRevision} · {project.lifecycle.status === 'finalized' ? 'final' : project.lifecycle.status === 'archived' ? 'arşiv' : 'canlı'}</small></span><ArrowRight size={15}/></button>)}</div>
     {!visible.length && <p className="portfolio-empty">Bu filtrelerle eşleşen yerel proje yok.</p>}
   </section>;
 }

@@ -1,12 +1,9 @@
-import { readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { discoverTestFiles } from './lib/test-discovery.mjs';
 
 const testDirectory = resolve(process.cwd(), 'tests', 'v4');
-const testFiles = readdirSync(testDirectory)
-  .filter(file => file.endsWith('.test.js') || file.endsWith('.test.ts'))
-  .sort()
-  .map(file => resolve(testDirectory, file));
+const testFiles = discoverTestFiles(testDirectory);
 
 if (testFiles.length === 0) {
   console.error('No V4 test files were discovered.');
