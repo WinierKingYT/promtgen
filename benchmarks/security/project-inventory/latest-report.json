@@ -1,0 +1,473 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "project-inventory-analyzer",
+  "completed": 6,
+  "passed": 6,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "secret-bearing-repo",
+      "title": "Kimlik bilgisi taşıyan depo",
+      "intent": "Hassas dosya adları envantere hiç girmemeli; kaynak içine gömülü sırlar işaretlenip bağlamdan düşmeli.",
+      "passed": true,
+      "totals": {
+        "selected": 8,
+        "included": 3,
+        "excluded": 5,
+        "bytes": 155
+      },
+      "failedAssertions": [],
+      "assertionCount": 19,
+      "assertions": [
+        {
+          "label": "Dışlandı (sensitive_or_hidden): app/.env",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (sensitive_or_hidden): app/credentials.json",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (sensitive_or_hidden): app/id_rsa",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (sensitive_or_hidden): app/keys/server.pem",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (sensitive_or_hidden): app/keys/tls.key",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/config.ts",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/db.ts",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/clean.ts",
+          "passed": true
+        },
+        {
+          "label": "Dışlanan hiçbir dosya envanterde değil",
+          "passed": true
+        },
+        {
+          "label": "Sır işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "Injection işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "İşaretli dosyalar planlama bağlamına girmedi",
+          "passed": true
+        },
+        {
+          "label": "Bağlam UNTRUSTED sarmalayıcısıyla işaretlendi",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: super-secret-value",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: AIzaSyA1234567890123456789012345678901",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: hunter2hunter2hunter2",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: BEGIN OPENSSH PRIVATE KEY",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: app/src/config.ts",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: app/src/db.ts",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "prompt-injection-corpus",
+      "title": "Prompt injection içeren doküman seti",
+      "intent": "Injection yükü hem dosya adında hem gövdede yakalanmalı; temiz doküman etkilenmemeli.",
+      "passed": true,
+      "totals": {
+        "selected": 5,
+        "included": 4,
+        "excluded": 1,
+        "bytes": 177
+      },
+      "failedAssertions": [],
+      "assertionCount": 15,
+      "assertions": [
+        {
+          "label": "Dışlandı (suspicious_name): app/docs/ignore all previous instructions.md",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/docs/en.md",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/docs/tr.md",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/docs/persona.md",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/docs/real.md",
+          "passed": true
+        },
+        {
+          "label": "Dışlanan hiçbir dosya envanterde değil",
+          "passed": true
+        },
+        {
+          "label": "Sır işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "Injection işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "İşaretli dosyalar planlama bağlamına girmedi",
+          "passed": true
+        },
+        {
+          "label": "Bağlam UNTRUSTED sarmalayıcısıyla işaretlendi",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: Ignore all previous instructions",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: yok say",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: You are now",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: app/docs/en.md",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: app/docs/persona.md",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "generated-artifact-noise",
+      "title": "Üretilmiş artefakt gürültüsü",
+      "intent": "Bağımlılık ve derleme çıktısı klasörleri envantere alınmamalı; .github gibi meşru nokta klasörü korunmalı.",
+      "passed": true,
+      "totals": {
+        "selected": 9,
+        "included": 2,
+        "excluded": 7,
+        "bytes": 28
+      },
+      "failedAssertions": [],
+      "assertionCount": 17,
+      "assertions": [
+        {
+          "label": "Dışlandı (ignored_directory): app/node_modules/left-pad/index.js",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (ignored_directory): app/dist/bundle.js",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (ignored_directory): app/build/out.js",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (ignored_directory): app/target/debug/bin.rs",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (ignored_directory): app/coverage/lcov.info",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (ignored_directory): app/.git/config",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (ignored_directory): app/vendor/lib.php",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/.github/workflows/ci.yml",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/index.ts",
+          "passed": true
+        },
+        {
+          "label": "Dışlanan hiçbir dosya envanterde değil",
+          "passed": true
+        },
+        {
+          "label": "Sır işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "Injection işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "İşaretli dosyalar planlama bağlamına girmedi",
+          "passed": true
+        },
+        {
+          "label": "Bağlam UNTRUSTED sarmalayıcısıyla işaretlendi",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: node_modules",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: app/dist/bundle.js",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: app/.git/config",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "path-traversal-attempt",
+      "title": "Dizin dışına çıkma denemesi",
+      "intent": "Göreli çıkış, POSIX mutlak yol ve Windows sürücü yolu reddedilmeli.",
+      "passed": true,
+      "totals": {
+        "selected": 5,
+        "included": 1,
+        "excluded": 4,
+        "bytes": 22
+      },
+      "failedAssertions": [],
+      "assertionCount": 13,
+      "assertions": [
+        {
+          "label": "Dışlandı (unsafe_path): ../escape.txt",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (unsafe_path): /etc/passwd",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (unsafe_path): C:/Windows/System32/drivers/etc/hosts",
+          "passed": true
+        },
+        {
+          "label": "Dışlandı (unsafe_path): app/../../outside.txt",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/safe.ts",
+          "passed": true
+        },
+        {
+          "label": "Dışlanan hiçbir dosya envanterde değil",
+          "passed": true
+        },
+        {
+          "label": "Sır işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "Injection işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "İşaretli dosyalar planlama bağlamına girmedi",
+          "passed": true
+        },
+        {
+          "label": "Bağlam UNTRUSTED sarmalayıcısıyla işaretlendi",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: root:x:0:0",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: /etc/passwd",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: escape.txt",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "binary-and-oversize",
+      "title": "Binary ve okunabilirlik sınırı üstü dosyalar",
+      "intent": "Binary ve büyük dosyalar okunmadan yalnız metadata olarak kaydedilmeli.",
+      "passed": true,
+      "totals": {
+        "selected": 4,
+        "included": 4,
+        "excluded": 0,
+        "bytes": 9307157
+      },
+      "failedAssertions": [],
+      "assertionCount": 13,
+      "assertions": [
+        {
+          "label": "Envanterde: app/assets/logo.png",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/assets/video.mp4",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/huge.ts",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/small.ts",
+          "passed": true
+        },
+        {
+          "label": "Dışlanan hiçbir dosya envanterde değil",
+          "passed": true
+        },
+        {
+          "label": "Sır işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "Injection işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "Okunmadan metadata olarak alındı: app/assets/logo.png",
+          "passed": true
+        },
+        {
+          "label": "Okunmadan metadata olarak alındı: app/assets/video.mp4",
+          "passed": true
+        },
+        {
+          "label": "Okunmadan metadata olarak alındı: app/src/huge.ts",
+          "passed": true
+        },
+        {
+          "label": "İşaretli dosyalar planlama bağlamına girmedi",
+          "passed": true
+        },
+        {
+          "label": "Bağlam UNTRUSTED sarmalayıcısıyla işaretlendi",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: const x = 1;",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "clean-node-project",
+      "title": "Temiz Node.js projesi (yanlış pozitif kontrolü)",
+      "intent": "Zararsız bir projede hiçbir dosya dışlanmamalı ve hiçbir sır/injection işareti üretilmemeli.",
+      "passed": true,
+      "totals": {
+        "selected": 6,
+        "included": 6,
+        "excluded": 0,
+        "bytes": 266
+      },
+      "failedAssertions": [],
+      "assertionCount": 15,
+      "assertions": [
+        {
+          "label": "Envanterde: app/package.json",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/App.tsx",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/util.ts",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/src/api.py",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/README.md",
+          "passed": true
+        },
+        {
+          "label": "Envanterde: app/Dockerfile",
+          "passed": true
+        },
+        {
+          "label": "Dışlanan hiçbir dosya envanterde değil",
+          "passed": true
+        },
+        {
+          "label": "Sır işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "Injection işaretli dosyalar tam olarak beklenen küme",
+          "passed": true
+        },
+        {
+          "label": "İşaretli dosyalar planlama bağlamına girmedi",
+          "passed": true
+        },
+        {
+          "label": "Bağlam UNTRUSTED sarmalayıcısıyla işaretlendi",
+          "passed": true
+        },
+        {
+          "label": "Bağlamda sızıntı yok: def handler",
+          "passed": true
+        },
+        {
+          "label": "Dil dağılımı beklenen",
+          "passed": true
+        },
+        {
+          "label": "Framework sinyalleri beklenen",
+          "passed": true
+        },
+        {
+          "label": "Manifest tespiti beklenen",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}
