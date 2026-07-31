@@ -40,3 +40,37 @@ Dondurma dışı bir iş ancak aşağıdakilerin tümü yazılıysa değerlendir
 5. Planner odağını genişletmediğine dair ürün sözleşmesi kontrolü.
 
 Bu koşullar karşılanmadığında iş backlog’a alınır; üretime eklenmez.
+
+## Kayıtlı istisna 1 — AI sağlayıcı zorunluluğu
+
+Tarih: 2026-07-31 · Durum: Uygulandı
+
+**1. Çözdüğü problem.** Ürün, sağlayıcı yapılandırılmadan açılıyordu ve varsayılan
+`offline` moddaydı. Yerel kural motorunun ürettiği mimari alternatifler fikre özel
+değil; tarayıcıda doğrulandı: iki tamamen farklı fikir (toplantı notu uygulaması ve
+serbest çalışan fatura takibi) için tradeoff metrikleri ve risk metinleri birebir
+aynı çıktı. Kullanıcı ürünü "çalışmıyor" olarak deneyimliyordu. Mevcut akışla
+çözülemezdi çünkü hiçbir yerde sağlayıcı bağlaması istenmiyordu.
+
+**2. Canonical, migration, güvenlik ve geri alma etkisi.** Canonical şema
+değişmedi; kapı yalnız proje oluşturma öncesinde çalışır. Migration gerekmez.
+Kimlik bilgisi mevcut credential vault'ta kalır, plan belgesine yazılmaz. Geri
+alma: `provider-readiness-service` devre dışı bırakılırsa akış eski davranışa
+döner, veri kaybı olmaz.
+
+**3. Testler.** `tests/v4/provider-readiness.test.ts` (7 senaryo, ağsız, probe
+enjekte edilir) ve `tests/e2e/smoke.spec.ts` içinde kapının açık/kapalı iki E2E
+testi. Toplam JS testleri 218 → 225, E2E 22 → 24.
+
+**4. Yeni kullanıcı kanıtı üretme amacı.** Bu maddenin gerekçesi budur.
+13 yeteneğin tamamı "en az 5 gerçek kullanıcı kanıtı" engelinde bloklu. Ürün
+sahibi dahil hiç kimse AI'sız açılan üründen anlamlı bir oturum üretemiyordu.
+Kapı, toplanacak her oturumun gerçek deneyimi yansıtmasını sağlar.
+
+**5. Planner odağı kontrolü.** Yeni ana özellik, panel veya navigasyon
+eklenmedi. Mevcut başlangıç ekranına bir önkoşul denetimi eklendi; Planner'ın
+kapsamı genişlemedi.
+
+**Sözleşme etkisi:** README'de "AI sağlayıcısı zorunludur" sınırı ve kurulum
+tablosu eklendi. Yerel kural motoru bağımsız çalışma modu değil, yedek yol
+olarak yeniden tanımlandı.

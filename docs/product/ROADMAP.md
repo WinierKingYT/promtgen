@@ -18,7 +18,7 @@ Tamamlanan mimari birleştirmeler:
 - Yeni özellik sayısı değil, ana planlama akışındaki doğrulanmış kullanıcı sonucu önceliklidir.
 - AI ve yerel kurallar canonical planı kullanıcı onayı olmadan değiştiremez.
 - Planner ana akıştır; yürütme, depo analizi ve uzman görünümleri Labs altında kalır.
-- Local-first çalışma, açık veri sahipliği ve geri alınabilir revizyonlar korunur.
+- Local-first veri sahipliği ve geri alınabilir revizyonlar korunur: plan cihazda saklanır, hesap gerekmez. Plan üretimi için doğrulanmış bir AI sağlayıcısı gerekir; Ollama seçildiğinde bağlam da cihazdan çıkmaz, bulut sağlayıcılarında çıkar.
 - Bir aşama kalite kapıları geçmeden sonraki aşamanın kapsamı genişletilmez.
 
 ## Faz 1 — Görev Teslim Merkezi V2

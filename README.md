@@ -33,7 +33,8 @@ Bu yeteneklerin üretim entegrasyon testleri vardır; ancak bütün terfi kanıt
 
 ## ⚠️ Bilinen Sınırlamalar (Known Limitations)
 
-- **Yerel Kural Motoru**: API gerektirmeyen yerel kural motoru üretken LLM çalıştırmaz; kural tabanlı şablonlar üretir.
+- **AI Sağlayıcısı Zorunludur**: Proje başlatmak için doğrulanmış bir sağlayıcı (Ollama, NVIDIA, Gemini veya OpenAI) gerekir. Sağlayıcı bağlı değilken "Fikri geliştir" kilitlidir.
+- **Yerel Kural Motoru**: Üretken LLM çalıştırmaz; kural tabanlı şablonlar üretir. Bağımsız bir çalışma modu değil, AI çağrısı başarısız olduğunda devreye giren yedek yoldur. Ürettiği mimari alternatifler fikre özel değil şablon niteliğindedir.
 - **Codex Executable Doğrulaması**: PromtGen seçilen Codex çalıştırılabilir dosyasının `--version` yanıtını doğrular; binary bütünlüğünü veya imzalayan yayıncı sertifikasını doğrulamaz.
 - **Güvenlik Filtresi**: Envanter taraması hassas klasörleri filtreler; antivirüs, SAST veya tam sızma testi taraması sunmaz.
 - **Maliyet Analizi**: Mimari karşılaştırmadaki maliyet ve operasyon puanları proje verilerinden otomatik hesaplanmaz, başlangıç varsayımı olarak sunulur.
@@ -43,6 +44,15 @@ Bu yeteneklerin üretim entegrasyon testleri vardır; ancak bütün terfi kanıt
 ## 🚀 Çalıştırma & Geliştirme
 
 Gereksinimler: Node.js 20+, masaüstü geliştirme için Rust ve Tauri sistem bağımlılıkları.
+
+**Ayrıca bir AI sağlayıcısı gerekir.** Uygulama açılışta bağlantıyı doğrular; sağlayıcı yoksa proje başlatılamaz. İki yol vardır:
+
+| Yol | Gereken | Veri nerede |
+|---|---|---|
+| Ollama | Kurulum + `ollama serve` çalışır durumda + indirilmiş model | Cihazda kalır |
+| NVIDIA / Gemini / OpenAI | Kendi API anahtarın | Sağlayıcıya gider |
+
+Anahtar cihazda saklanır (webde oturum belleği, masaüstünde OS anahtar zinciri) ve plan belgesine yazılmaz.
 
 ```bash
 npm install
