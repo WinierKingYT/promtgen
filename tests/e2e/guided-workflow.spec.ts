@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { stubReadyProvider } from './support/provider.js';
 
 test.describe('PromtGen guided production workflow', () => {
   test.beforeEach(async ({ page }) => {
+    await stubReadyProvider(page);
     await page.goto('/');
     await page.evaluate(async () => {
       await new Promise<void>((resolve, reject) => {

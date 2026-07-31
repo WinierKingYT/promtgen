@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { stubReadyProvider } from './support/provider.js';
 
 test.describe('PromtGen V4 Smoke Tests', () => {
+  test.beforeEach(async ({ page }) => {
+    await stubReadyProvider(page);
+  });
+
   test('loads the application shell', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/PromtGen/);
@@ -61,5 +66,35 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await page.getByLabel('Çalışma alanı araçları').click();
     await page.getByRole('button', { name: 'Markdown' }).click();
     expect((await download).suggestedFilename()).toMatch(/\.md$/);
+  });
+});
+
+// Sağlayıcı stub'ı KULLANMAZ: kapının gerçekten kapalı olduğunu doğrular.
+test.describe('AI sağlayıcı kapısı', () => {
+  test('sağlayıcı yokken fikir geliştirmeyi engeller ve nedenini söyler', async ({ page }) => {
+    // Yerel Ollama gerçekten çalışıyor olsa bile bu senaryoda erişilemez sayılır.
+    await page.route('**/api/tags', route => route.abort());
+    await page.goto('/');
+
+    await expect(page.getByRole('alert').filter({ hasText: 'AI sağlayıcısı bağlı değil' })).toBeVisible();
+    await expect(page.getByText(/Yerel kural motoru yalnız şablon üretir/)).toBeVisible();
+
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Küçük ekiplerin toplantı notlarından karar ve aksiyon çıkaran bir web uygulaması yapmak istiyorum'
+    );
+    // Metin yeterli olsa da kapı kapalı olduğu için ilerlenemez.
+    await expect(page.getByRole('button', { name: 'Fikri geliştir' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Sağlayıcı bağla' })).toBeVisible();
+  });
+
+  test('sağlayıcı doğrulanınca kapı açılır', async ({ page }) => {
+    await stubReadyProvider(page);
+    await page.goto('/');
+
+    await expect(page.getByRole('status').filter({ hasText: /Ollama/ })).toBeVisible();
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Küçük ekiplerin toplantı notlarından karar ve aksiyon çıkaran bir web uygulaması yapmak istiyorum'
+    );
+    await expect(page.getByRole('button', { name: 'Fikri geliştir' })).toBeEnabled();
   });
 });
