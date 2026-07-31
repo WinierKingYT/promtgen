@@ -8,6 +8,7 @@ import { PROJECT_INVENTORY_BENCHMARK_EVIDENCE } from './product/generated-projec
 import { PROVIDER_INTEGRATION_BENCHMARK_EVIDENCE } from './product/generated-provider-integration-evidence.js';
 import { NATIVE_EXECUTION_BENCHMARK_EVIDENCE } from './product/generated-native-execution-evidence.js';
 import { STORAGE_DURABILITY_BENCHMARK_EVIDENCE } from './product/generated-storage-durability-evidence.js';
+import { ARCHITECTURE_COMPARATOR_BENCHMARK_EVIDENCE } from './product/generated-architecture-comparator-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -315,11 +316,19 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     platformMaturity: { web: 'beta', desktop: 'beta' },
     implementationMode: 'static-template',
     limitations: [
-      'Otomatik benchmark hesaplanmaz; değerler kullanıcı varsayımıdır'
+      'Otomatik benchmark hesaplanmaz; değerler kullanıcı varsayımıdır',
+      'Metrikler proje verisinden türetilmez; alan değişse de aynı başlangıç puanları sunulur',
+      'Önerilen yaklaşım sabit bir varsayılandır, proje analizinden çıkarılmaz'
     ],
-    evidence: [{ testId: 'tests/v4/idea-lab.test.js', level: 'unit-test', platforms: ['web', 'desktop'] }],
+    evidence: [
+      { testId: 'tests/v4/idea-lab.test.js', level: 'unit-test', platforms: ['web', 'desktop'] },
+      { testId: 'tests/v4/architecture-comparator.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] }
+    ],
     supportedDomains: ['web-app', 'backend-api', 'small-saas'],
-    promotionEvidence: baselinePromotionEvidence(null)
+    promotionEvidence: baselinePromotionEvidence('docs/release/comparator-recovery.md', {
+      scenarios: ARCHITECTURE_COMPARATOR_BENCHMARK_EVIDENCE,
+      users: userEvidence('architecture-comparator-template')
+    })
   },
   {
     id: 'ai-discovery-provider',
