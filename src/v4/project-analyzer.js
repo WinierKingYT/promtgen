@@ -1,4 +1,8 @@
 import { scanForSecrets } from '../security/secret-detector.js';
+// Injection tespitinin tek üretim sahibi context-isolation'dır. Bu dosya
+// eskiden kendi zayıf kalıp kopyasını taşıyordu (5 kalıp, normalizasyon yok);
+// kanonik dedektör 8 kalıp, NFKC ve Türkçe diakritik katlaması uygular.
+import { containsPromptInjection } from './security/context-isolation.ts';
 
 export const PROJECT_ANALYSIS_POLICY = Object.freeze({
     maxFiles: 5000,
@@ -9,14 +13,6 @@ export const PROJECT_ANALYSIS_POLICY = Object.freeze({
     sensitiveNames: ['.env', '.env.local', '.env.production', '.npmrc', '.pypirc', 'credentials', 'credentials.json', 'secrets.json', 'id_rsa', 'id_ed25519'],
     textExtensions: ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'vue', 'svelte', 'py', 'rb', 'php', 'java', 'kt', 'kts', 'go', 'rs', 'cs', 'cpp', 'c', 'h', 'hpp', 'swift', 'dart', 'html', 'css', 'scss', 'less', 'sql', 'graphql', 'md', 'txt', 'json', 'jsonc', 'yaml', 'yml', 'toml', 'xml', 'ini', 'cfg', 'sh', 'ps1', 'bat', 'dockerfile']
 });
-
-const INJECTION_PATTERNS = [
-    /ignore\s+(all\s+)?previous\s+instructions/i,
-    /system\s+prompt/i,
-    /you\s+are\s+now/i,
-    /disregard\s+(all\s+)?prior/i,
-    /önceki\s+talimatları\s+(yok say|unut)/i
-];
 
 const LANGUAGE_BY_EXTENSION = Object.freeze({
     js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', jsx: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript',
@@ -44,7 +40,7 @@ function extension(path) {
 function pathPolicy(path) {
     if (!path || path.startsWith('/') || /^[a-z]:\//i.test(path) || path.split('/').includes('..')) return { allowed: false, reason: 'unsafe_path' };
     const segments = path.toLowerCase().split('/');
-    if (INJECTION_PATTERNS.some(pattern => pattern.test(path))) return { allowed: false, reason: 'suspicious_name' };
+    if (containsPromptInjection(path)) return { allowed: false, reason: 'suspicious_name' };
     if (segments.slice(0, -1).some(segment => PROJECT_ANALYSIS_POLICY.ignoredDirectories.includes(segment))) return { allowed: false, reason: 'ignored_directory' };
     const name = segments.at(-1);
     if (segments.some(segment => segment.startsWith('.') && segment !== '.github') || PROJECT_ANALYSIS_POLICY.sensitiveNames.includes(name) || name.endsWith('.pem') || name.endsWith('.key')) return { allowed: false, reason: 'sensitive_or_hidden' };
@@ -93,7 +89,7 @@ export async function analyzeSelectedFiles(files, policy = PROJECT_ANALYSIS_POLI
                 const content = await file.text();
                 entry.lineCount = content ? content.split(/\r?\n/).length : 0;
                 entry.secretDetected = scanForSecrets(content);
-                entry.injectionDetected = INJECTION_PATTERNS.some(pattern => pattern.test(content));
+                entry.injectionDetected = containsPromptInjection(content);
                 if (!entry.secretDetected && !entry.injectionDetected) {
                     const signals = localContentSignals(path, content);
                     for (const framework of signals.frameworkHints || []) frameworks.add(framework);
