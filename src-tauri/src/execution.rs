@@ -34,13 +34,24 @@ pub struct RuntimeCapabilities {
     codex_path: String,
     codex_error: String,
     custom_codex_configured: bool,
+    codex_signature_status: String,
+    codex_signature_signer: String,
 }
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct CodexSettings { schema_version: u8, executable_path: String }
+struct CodexSettings {
+    schema_version: u8,
+    executable_path: String,
+    // İmza öncesi yazılmış ayar dosyaları alan taşımaz; şema sürümü korunur ve
+    // eksik değer bilinmeyen sayılır, böylece eski seçim yeniden onaya düşer.
+    #[serde(default)]
+    signature_status: String,
+    #[serde(default)]
+    signature_signer: String,
+}
 
-struct CodexDetection { program: PathBuf, version: String, source: String, display_path: String }
+struct CodexDetection { program: PathBuf, version: String, source: String, display_path: String, signature_status: String, signature_signer: String }
 
 struct CodexProcessResult { success: bool, exit_code: Option<i32>, stdout: Vec<u8>, stderr: Vec<u8>, timed_out: bool }
 
@@ -85,33 +96,118 @@ fn allowed_codex_filename(path: &Path) -> bool {
     path.file_name().and_then(|value| value.to_str()).is_some_and(|name| name.eq_ignore_ascii_case("codex") || name.eq_ignore_ascii_case("codex.exe"))
 }
 
+const SIGNATURE_VALID: &str = "valid";
+const SIGNATURE_UNSIGNED: &str = "unsigned";
+const SIGNATURE_INVALID: &str = "invalid";
+const SIGNATURE_UNSUPPORTED: &str = "unsupported-platform";
+const SIGNATURE_UNVERIFIABLE: &str = "unverifiable";
+
+/// Get-AuthenticodeSignature durum adını sabit bir sözleşmeye indirir.
+/// Bilinmeyen ya da okunamayan her değer `invalid` sayılır (fail-closed).
+fn parse_authenticode_status(raw: &str) -> &'static str {
+    match raw.trim() {
+        "Valid" => SIGNATURE_VALID,
+        "NotSigned" | "NotSupportedFileFormat" => SIGNATURE_UNSIGNED,
+        _ => SIGNATURE_INVALID,
+    }
+}
+
+/// Kayıtlı imza durumu ile şu anki durumu karşılaştırır.
+/// Geçerli imza her zaman kabul edilir; `valid` iken bozulan imza kurtarılamaz
+/// bir uyarıdır; onaylanmış imzasız seçim yalnız durumu aynı kaldığı sürece geçer.
+fn signature_gate(stored: &str, current: &str) -> Result<(), String> {
+    if current == SIGNATURE_VALID {
+        return Ok(());
+    }
+    if stored == SIGNATURE_VALID {
+        return Err("Seçili Codex CLI dosyasının imzası artık doğrulanmıyor. Dosya değişmiş olabilir; yeniden seçmelisiniz.".into());
+    }
+    if stored == current {
+        return Ok(());
+    }
+    Err("Seçili Codex CLI dosyasının imza durumu değişti; yeniden onay vermeniz gerekiyor.".into())
+}
+
+fn signature_notice(status: &str, signer: &str) -> String {
+    match status {
+        SIGNATURE_UNSIGNED => "Seçilen dosya dijital olarak imzalanmamış. PromtGen yayıncı kimliğini doğrulayamıyor.".into(),
+        SIGNATURE_INVALID => "Seçilen dosyanın imzası geçersiz veya güvenilmiyor. Dosya değiştirilmiş olabilir.".into(),
+        SIGNATURE_UNSUPPORTED => "Bu platformda imza doğrulaması yapılamıyor; yayıncı kimliği denetlenmedi.".into(),
+        SIGNATURE_UNVERIFIABLE => "İmza doğrulaması bu sistemde çalıştırılamadı; dosya geçersiz değil, denetlenemedi.".into(),
+        _ => format!("İmza doğrulandı. Yayıncı: {signer}"),
+    }
+}
+
+#[cfg(windows)]
+fn probe_executable_signature(path: &Path) -> (String, String) {
+    let escaped = path.to_string_lossy().replace('\'', "''");
+    let script = format!("$s = Get-AuthenticodeSignature -LiteralPath '{escaped}'; \"$($s.Status)|$($s.SignerCertificate.Subject)\"");
+    match command_output("powershell", &["-NoProfile", "-NonInteractive", "-Command", &script]) {
+        Ok(raw) => {
+            let (status, signer) = raw.split_once('|').unwrap_or((raw.as_str(), ""));
+            (parse_authenticode_status(status).to_string(), signer.trim().to_string())
+        },
+        // Doğrulama çalıştırılamadıysa imzalı varsayılmaz, ama "geçersiz imza" da
+        // denmez; ikisi farklı durumlar ve kullanıcıya farklı söylenmeli.
+        Err(_) => (SIGNATURE_UNVERIFIABLE.to_string(), String::new()),
+    }
+}
+
+#[cfg(not(windows))]
+fn probe_executable_signature(_path: &Path) -> (String, String) {
+    (SIGNATURE_UNSUPPORTED.to_string(), String::new())
+}
+
 fn codex_settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     let directory = app.path().app_config_dir().map_err(|error| error.to_string())?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     Ok(directory.join("execution-settings.json"))
 }
 
-fn load_custom_codex(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+/// Seçili çalıştırılabilir dosyayı her yüklemede yeniden doğrular. İmza seçim
+/// anında değil kullanım anında da denetlenir; aksi hâlde seçimden sonra
+/// değiştirilen bir binary sessizce çalışırdı.
+fn load_custom_codex(app: &AppHandle) -> Result<Option<(PathBuf, String, String)>, String> {
     let path = codex_settings_path(app)?;
     if !path.exists() { return Ok(None); }
     let settings: CodexSettings = serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?).map_err(|_| "Codex CLI ayar dosyası bozuk.".to_string())?;
     if settings.schema_version != CODEX_SETTINGS_SCHEMA { return Err("Codex CLI ayar sürümü desteklenmiyor.".into()); }
     let executable = PathBuf::from(settings.executable_path).canonicalize().map_err(|_| "Seçili Codex CLI yolu artık kullanılamıyor.".to_string())?;
     if !executable.is_file() || !allowed_codex_filename(&executable) { return Err("Seçili dosya doğrulanmış bir codex/codex.exe değil.".into()); }
-    Ok(Some(executable))
+    let (status, signer) = probe_executable_signature(&executable);
+    signature_gate(&settings.signature_status, &status)?;
+    Ok(Some((executable, status, signer)))
 }
 
 fn detect_codex(app: &AppHandle) -> Result<Option<CodexDetection>, String> {
-    if let Some(program) = load_custom_codex(app)? {
+    if let Some((program, signature_status, signature_signer)) = load_custom_codex(app)? {
         let version = command_output_path(&program, &["--version"]).map_err(|error| format!("Seçili Codex CLI çalıştırılamadı: {error}"))?;
         let display_path = program.to_string_lossy().to_string();
-        return Ok(Some(CodexDetection { program, version, source: "custom".into(), display_path }));
+        return Ok(Some(CodexDetection { program, version, source: "custom".into(), display_path, signature_status, signature_signer }));
     }
     match command_output("codex", &["--version"]) {
-        Ok(version) => Ok(Some(CodexDetection { program: PathBuf::from("codex"), version, source: "path".into(), display_path: "PATH / codex".into() })),
+        Ok(version) => {
+            // PATH üzerinden bulunan codex de imza denetiminden geçer; sonuç
+            // kullanıcıya bildirilir fakat PATH seçimi kullanıcı onayına dayandığı
+            // için burada akış engellenmez.
+            let (status, signer) = which_codex().map(|path| probe_executable_signature(&path)).unwrap_or_else(|| (SIGNATURE_UNSUPPORTED.to_string(), String::new()));
+            Ok(Some(CodexDetection { program: PathBuf::from("codex"), version, source: "path".into(), display_path: "PATH / codex".into(), signature_status: status, signature_signer: signer }))
+        },
         Err(_) => Ok(None),
     }
 }
+
+#[cfg(windows)]
+fn which_codex() -> Option<PathBuf> {
+    command_output("powershell", &["-NoProfile", "-NonInteractive", "-Command", "(Get-Command codex -ErrorAction SilentlyContinue).Source"])
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
+#[cfg(not(windows))]
+fn which_codex() -> Option<PathBuf> { None }
 
 fn runtime_capabilities(app: &AppHandle) -> RuntimeCapabilities {
     let git = command_output("git", &["--version"]);
@@ -126,6 +222,8 @@ fn runtime_capabilities(app: &AppHandle) -> RuntimeCapabilities {
             codex_path: codex.display_path,
             codex_error: String::new(),
             custom_codex_configured,
+            codex_signature_status: codex.signature_status,
+            codex_signature_signer: codex.signature_signer,
         },
         Ok(None) => RuntimeCapabilities {
             git_available: git.is_ok(),
@@ -136,6 +234,8 @@ fn runtime_capabilities(app: &AppHandle) -> RuntimeCapabilities {
             codex_path: String::new(),
             codex_error: "Codex CLI PATH üzerinde bulunamadı.".into(),
             custom_codex_configured,
+            codex_signature_status: String::new(),
+            codex_signature_signer: String::new(),
         },
         Err(error) => RuntimeCapabilities {
             git_available: git.is_ok(),
@@ -146,6 +246,8 @@ fn runtime_capabilities(app: &AppHandle) -> RuntimeCapabilities {
             codex_path: String::new(),
             codex_error: error,
             custom_codex_configured,
+            codex_signature_status: String::new(),
+            codex_signature_signer: String::new(),
         },
     }
 }
@@ -206,7 +308,14 @@ pub fn select_codex_cli(app: AppHandle) -> Result<Option<RuntimeCapabilities>, S
     let executable = selected.canonicalize().map_err(|error| error.to_string())?;
     if !executable.is_file() || !allowed_codex_filename(&executable) { return Err("Yalnız codex veya codex.exe adlı çalıştırılabilir dosya seçilebilir.".into()); }
     command_output_path(&executable, &["--version"]).map_err(|error| format!("Seçilen Codex CLI doğrulanamadı: {error}"))?;
-    let settings = CodexSettings { schema_version: CODEX_SETTINGS_SCHEMA, executable_path: executable.to_string_lossy().to_string() };
+    let (signature_status, signature_signer) = probe_executable_signature(&executable);
+    if signature_status != SIGNATURE_VALID && !approved(
+        "İmza doğrulanamadı",
+        &format!("{}\n\n{}\n\nBu dosyayı yine de kullanmak istiyor musunuz? Ajan adımları bu çalıştırılabilir dosyayla yürütülecek.", signature_notice(&signature_status, &signature_signer), executable.to_string_lossy()),
+    ) {
+        return Err("Codex CLI seçimi imza onayı verilmediği için iptal edildi.".into());
+    }
+    let settings = CodexSettings { schema_version: CODEX_SETTINGS_SCHEMA, executable_path: executable.to_string_lossy().to_string(), signature_status, signature_signer };
     fs::write(codex_settings_path(&app)?, serde_json::to_vec_pretty(&settings).map_err(|error| error.to_string())?).map_err(|error| error.to_string())?;
     Ok(Some(runtime_capabilities(&app)))
 }
@@ -357,6 +466,73 @@ fn main() {
     fn project_labels_are_path_safe() {
         assert_eq!(safe_project_label("../demo project!"), "demoproject");
         assert_eq!(safe_project_label(""), "project");
+    }
+
+    #[test]
+    fn authenticode_status_mapping_fails_closed() {
+        assert_eq!(parse_authenticode_status("Valid"), SIGNATURE_VALID);
+        assert_eq!(parse_authenticode_status("  Valid  "), SIGNATURE_VALID);
+        assert_eq!(parse_authenticode_status("NotSigned"), SIGNATURE_UNSIGNED);
+        assert_eq!(parse_authenticode_status("NotSupportedFileFormat"), SIGNATURE_UNSIGNED);
+        assert_eq!(parse_authenticode_status("HashMismatch"), SIGNATURE_INVALID);
+        assert_eq!(parse_authenticode_status("NotTrusted"), SIGNATURE_INVALID);
+        assert_eq!(parse_authenticode_status("UnknownError"), SIGNATURE_INVALID);
+        // Bilinmeyen ve boş değerler imzalı sayılmaz.
+        assert_eq!(parse_authenticode_status("SomethingNew"), SIGNATURE_INVALID);
+        assert_eq!(parse_authenticode_status(""), SIGNATURE_INVALID);
+        assert_eq!(parse_authenticode_status("valid"), SIGNATURE_INVALID);
+    }
+
+    #[test]
+    fn signature_gate_accepts_valid_and_blocks_downgrade() {
+        // Geçerli imza her kayıtlı durumdan bağımsız kabul edilir.
+        assert!(signature_gate(SIGNATURE_UNSIGNED, SIGNATURE_VALID).is_ok());
+        assert!(signature_gate("", SIGNATURE_VALID).is_ok());
+        assert!(signature_gate(SIGNATURE_VALID, SIGNATURE_VALID).is_ok());
+        // İmzalıyken bozulan dosya engellenir.
+        assert!(signature_gate(SIGNATURE_VALID, SIGNATURE_INVALID).is_err());
+        assert!(signature_gate(SIGNATURE_VALID, SIGNATURE_UNSIGNED).is_err());
+        // Onaylanmış imzasız seçim aynı durumda çalışmaya devam eder.
+        assert!(signature_gate(SIGNATURE_UNSIGNED, SIGNATURE_UNSIGNED).is_ok());
+        assert!(signature_gate(SIGNATURE_UNSUPPORTED, SIGNATURE_UNSUPPORTED).is_ok());
+        // Onaylanmış imzasız dosya sonradan geçersize dönerse yeniden onay ister.
+        assert!(signature_gate(SIGNATURE_UNSIGNED, SIGNATURE_INVALID).is_err());
+        // İmza alanı taşımayan eski ayar dosyası yeniden onaya düşer.
+        assert!(signature_gate("", SIGNATURE_UNSIGNED).is_err());
+        assert!(signature_gate("", SIGNATURE_INVALID).is_err());
+        // Doğrulanamayan durum da onaylanmışsa çalışır, değişmişse onay ister.
+        assert!(signature_gate(SIGNATURE_UNVERIFIABLE, SIGNATURE_UNVERIFIABLE).is_ok());
+        assert!(signature_gate(SIGNATURE_VALID, SIGNATURE_UNVERIFIABLE).is_err());
+        assert!(signature_gate(SIGNATURE_UNSIGNED, SIGNATURE_UNVERIFIABLE).is_err());
+    }
+
+    #[test]
+    fn signature_notice_names_the_actual_risk() {
+        assert!(signature_notice(SIGNATURE_UNSIGNED, "").contains("imzalanmamış"));
+        assert!(signature_notice(SIGNATURE_INVALID, "").contains("geçersiz"));
+        assert!(signature_notice(SIGNATURE_UNSUPPORTED, "").contains("doğrulaması yapılamıyor"));
+        assert!(signature_notice(SIGNATURE_VALID, "CN=Example Publisher").contains("CN=Example Publisher"));
+        // Doğrulanamayan dosya, değiştirilmiş gibi suçlanmaz.
+        let unverifiable = signature_notice(SIGNATURE_UNVERIFIABLE, "");
+        assert!(unverifiable.contains("denetlenemedi"));
+        assert!(!unverifiable.contains("değiştirilmiş"));
+    }
+
+    #[test]
+    fn unsigned_fake_codex_is_reported_as_unsigned_or_unverifiable() {
+        let temporary = TestDirectory::new("signature-probe");
+        let tools = temporary.0.join("tools");
+        fs::create_dir_all(&tools).unwrap();
+        let fake_codex = build_fake_codex(&tools);
+        let (status, _signer) = probe_executable_signature(&fake_codex);
+        // Test tarafından üretilen sahte binary hiçbir platformda imzalı olamaz.
+        assert_ne!(status, SIGNATURE_VALID, "sahte codex imzalı raporlanmamalı");
+        assert!(
+            [SIGNATURE_UNSIGNED, SIGNATURE_INVALID, SIGNATURE_UNSUPPORTED, SIGNATURE_UNVERIFIABLE].contains(&status.as_str()),
+            "beklenmeyen imza durumu: {status}"
+        );
+        // Ve bu durum kapıdan onaysız geçemez.
+        assert!(signature_gate(SIGNATURE_VALID, &status).is_err());
     }
 
     #[test]
