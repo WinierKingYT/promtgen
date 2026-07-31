@@ -40,10 +40,15 @@ export async function prepareInitialProject({
   const result = await generateIdeaLab(input);
   const target = ensureIdeaDocumentRevision(result.project);
   if (result.usedFallback || result.error) {
+    // Sağlayıcı yapılandırılmamışken hiçbir çağrı yapılmaz. Bu durumu başarısız
+    // bir çağrı gibi anlatmak kullanıcıya olmamış bir olayı bildirmek olur;
+    // iki durum ayrı ayrı söylenir.
     target.messages.push({
       id: `msg-${Date.now()}`,
       role: 'assistant',
-      content: `Bulut AI çağrısı tamamlanamadı (${result.error || 'Sağlayıcı zaman aşımı'}). Yerel kural motoru başlangıç mimarisi alternatifleri üretti.`,
+      content: result.error
+        ? `Bulut AI çağrısı tamamlanamadı (${result.error}). Yerel kural motoru başlangıç mimarisi alternatifleri üretti.`
+        : 'Yapılandırılmış bir AI sağlayıcısı olmadığı için AI çağrısı yapılmadı. Alternatifleri yerel kural motoru üretti; bunlar şablon niteliğindedir. Sağlayıcı ayarlarından Ollama, Gemini, NVIDIA veya OpenAI bağladığında fikrine özel öneriler alırsın.',
       analysisNote: 'Local Fallback Engine',
       createdAt: now()
     });

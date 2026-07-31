@@ -8,6 +8,9 @@ Thumbs.db
 *.log
 .gemini/
 
+# Kullanıcıya özel yerel araç ayarları
+.claude/settings.local.json
+
 # Üretilen test ve yayın artefaktları — CI bunları artifact olarak yükler
 test-results/
 playwright-report/
