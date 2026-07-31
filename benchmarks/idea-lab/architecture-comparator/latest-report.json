@@ -1,0 +1,181 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "architecture-comparator-template",
+  "completed": 6,
+  "passed": 6,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "three-approaches-always-offered",
+      "title": "Üç yaklaşım her zaman sunulur",
+      "intent": "Karşılaştırma matrisi her fikir için sade/modüler/gelişmiş üçlüsünü ve tek bir öneriyi vermeli.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Her fikir için tam üç yaklaşım sunulur",
+          "passed": true
+        },
+        {
+          "label": "Yaklaşım kimlikleri sabit ve benzersiz",
+          "passed": true
+        },
+        {
+          "label": "Tam olarak bir yaklaşım önerilen işaretli",
+          "passed": true
+        },
+        {
+          "label": "Önerilen her zaman orta (modüler) seçenektir",
+          "passed": true
+        },
+        {
+          "label": "Her yaklaşım açıklama, artı ve eksi taşır",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "domain-aware-titles",
+      "title": "Başlıklar alana göre değişir",
+      "intent": "Oyun, web, mobil ve AI projeleri farklı mimari adlandırmaları almalı.",
+      "passed": true,
+      "assertionCount": 4,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Oyun ve web farklı başlıklar üretir",
+          "passed": true
+        },
+        {
+          "label": "Mobil ve AI farklı başlıklar üretir",
+          "passed": true
+        },
+        {
+          "label": "Dört alan da birbirinden ayrışır",
+          "passed": true
+        },
+        {
+          "label": "Aynı fikir aynı başlıkları üretir (deterministik)",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "metrics-are-declared-assumptions",
+      "title": "Metrikler hesaplanmaz, varsayımdır",
+      "intent": "Yeteneğin \"otomatik hesaplanmaz\" beyanı doğru olmalı; metrikler projeden türetilmemeli.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Metrikler alandan bağımsız aynıdır (hesaplanmıyor)",
+          "passed": true
+        },
+        {
+          "label": "Sade yaklaşım en düşük eforu taşır",
+          "passed": true
+        },
+        {
+          "label": "Modüler yaklaşım orta eforu taşır",
+          "passed": true
+        },
+        {
+          "label": "Gelişmiş yaklaşım en yüksek eforu taşır",
+          "passed": true
+        },
+        {
+          "label": "Metrikler 1-5 aralığında kalır",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "effort-ordering-is-monotonic",
+      "title": "Efor sıralaması tutarlı",
+      "intent": "Efor etiketi ve skoru sade→gelişmiş yönünde artmalı, riskler buna uygun bildirilmeli.",
+      "passed": true,
+      "assertionCount": 4,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Efor etiketleri low → medium → high",
+          "passed": true
+        },
+        {
+          "label": "Efor skorları artan sırada",
+          "passed": true
+        },
+        {
+          "label": "Sade yaklaşım hızlı doğrulama vaat eder",
+          "passed": true
+        },
+        {
+          "label": "Gelişmiş yaklaşım yüksek ilk efor riskini bildirir",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "selection-precedence",
+      "title": "Seçim önceliği",
+      "intent": "Kullanıcı seçimi öneriyi geçmeli; seçim yoksa önerilene, o da yoksa ilkine düşmeli.",
+      "passed": true,
+      "assertionCount": 6,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Açık seçim uygulanır",
+          "passed": true
+        },
+        {
+          "label": "Seçim yoksa önerilen kullanılır",
+          "passed": true
+        },
+        {
+          "label": "Bilinmeyen seçim önerilene düşer",
+          "passed": true
+        },
+        {
+          "label": "Seçilen yaklaşım konsept özetine taşınır",
+          "passed": true
+        },
+        {
+          "label": "Konsept kullanıcı onayı bekler",
+          "passed": true
+        },
+        {
+          "label": "Girdi projesi değiştirilmez",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "preference-chips-present",
+      "title": "Tercih çipleri ve aday kayıtlar",
+      "intent": "Her yaklaşım hızlı seçim çipi taşımalı; aday karar ve risk listeleri üretilmeli.",
+      "passed": true,
+      "assertionCount": 4,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Her yaklaşım en az bir tercih çipi taşır",
+          "passed": true
+        },
+        {
+          "label": "Çipler köşeli parantez biçiminde sunulur",
+          "passed": true
+        },
+        {
+          "label": "Aday risk listesi boş değil",
+          "passed": true
+        },
+        {
+          "label": "Aday kararlar üretilir",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}
