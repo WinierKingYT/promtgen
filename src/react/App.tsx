@@ -3,6 +3,7 @@ import { CircleAlert, Sparkles } from 'lucide-react';
 import { StartScreen } from './components/StartScreen.js';
 import { LazyFeatureBoundary } from './components/LazyFeatureBoundary.js';
 import { useProjectState } from './hooks/useProjectState.js';
+import { useProviderReadiness } from './hooks/useProviderReadiness.js';
 import { Workspace } from './Workspace.js';
 
 const ProviderSettingsDialog = lazy(() => import('./components/ProviderSettingsDialog.js').then(module => ({ default: module.ProviderSettingsDialog })));
@@ -23,6 +24,7 @@ export default function App() {
     importPackage,
     credentialVault
   } = useProjectState();
+  const { readiness, checking: checkingProvider, recheck: recheckProvider } = useProviderReadiness(providerSettings, credentialVault);
 
   if (loading) {
     return <div className="loading"><Sparkles /> PromtGen hazırlanıyor…</div>;
@@ -47,6 +49,9 @@ export default function App() {
           onOpen={setActiveId}
           providerSettings={providerSettings}
           onOpenSettings={openSettings}
+          readiness={readiness}
+          checkingProvider={checkingProvider}
+          onRecheckProvider={recheckProvider}
         />
         {settingsOpen && <LazyFeatureBoundary label="AI sağlayıcı ayarları" resetKey={settingsOpen}>
           <ProviderSettingsDialog

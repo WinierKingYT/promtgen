@@ -4,6 +4,8 @@ import { getProviderMeta } from '../../v4/provider-settings.js';
 import { isDesktopProjectImportAvailable, selectDesktopProjectFolder } from '../../v4/desktop-project-import.js';
 import { PortfolioOverview } from './PortfolioOverview.js';
 import { ProjectInventoryModal } from './ProjectInventoryModal.js';
+import { ProviderGateNotice } from './ProviderGateNotice.js';
+import { providerGateOpen, type ProviderReadinessResult } from '../../v4/application/provider-readiness-service.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
 import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
@@ -20,9 +22,22 @@ interface StartScreenProps {
   onOpen: (id: string) => void;
   providerSettings: ProviderSettings;
   onOpenSettings: () => void;
+  readiness: ProviderReadinessResult | null;
+  checkingProvider: boolean;
+  onRecheckProvider: () => void;
 }
 
-export function StartScreen({ onCreate, onImport, projects, onOpen, providerSettings, onOpenSettings }: StartScreenProps) {
+export function StartScreen({
+  onCreate,
+  onImport,
+  projects,
+  onOpen,
+  providerSettings,
+  onOpenSettings,
+  readiness,
+  checkingProvider,
+  onRecheckProvider
+}: StartScreenProps) {
   const { locale, setLocale, t } = useI18n();
   const productCopy = getProductCopy(locale);
   const [idea, setIdea] = useState('');
@@ -47,7 +62,10 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
     } finally { setSelectingFolder(false); }
   };
 
+  const gateOpen = Boolean(readiness && providerGateOpen(readiness));
+
   const handleCreate = async () => {
+    if (!gateOpen) return;
     setCreating(true);
     try { await onCreate(idea, language, files, nativeInventory ?? undefined); }
     finally { setCreating(false); }
@@ -70,7 +88,7 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
             onChange={event => setIdea(event.target.value)}
             onKeyDown={event => {
               if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                if (idea.trim().length >= 10 && !creating) {
+                if (idea.trim().length >= 10 && !creating && gateOpen) {
                   event.preventDefault();
                   handleCreate();
                 }
@@ -86,8 +104,14 @@ export function StartScreen({ onCreate, onImport, projects, onOpen, providerSett
             </span>
           </div>
         </label>
+        <ProviderGateNotice
+          readiness={readiness}
+          checking={checkingProvider}
+          onOpenSettings={onOpenSettings}
+          onRecheck={onRecheckProvider}
+        />
         <div className="start-actions">
-          <button className="primary" disabled={idea.trim().length < 10 || creating} onClick={handleCreate}>
+          <button className="primary" disabled={idea.trim().length < 10 || creating || !gateOpen} onClick={handleCreate}>
             {creating ? <><LoaderCircle className="spin" size={18} /> {t('start.analyzing')}</> : <>Fikri geliştir <ArrowRight size={18} /></>}
           </button>
         </div>

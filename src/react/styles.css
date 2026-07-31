@@ -26,6 +26,20 @@ h1 span { color:var(--violet-2); }
 textarea { width:100%; resize:vertical; border:1px solid var(--line); border-radius:10px; padding:13px; color:#eef1fb; background:#0b1120; line-height:1.55; }
 .idea-box textarea { border:0; padding:2px; background:transparent; font-size:18px; }
 .idea-footer { display:flex; justify-content:space-between; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
+.provider-gate { margin-top:16px; border-radius:12px; padding:12px 14px; font-size:13px; }
+.provider-gate.checking, .provider-gate.ready { display:flex; align-items:center; gap:8px; color:var(--muted); background:rgba(148,163,184,.08); border:1px solid rgba(148,163,184,.18); }
+.provider-gate.ready { color:#10b981; border-color:rgba(16,185,129,.28); background:rgba(16,185,129,.08); }
+.provider-gate.ready .link { margin-left:auto; background:none; border:none; color:var(--muted); text-decoration:underline; cursor:pointer; font-size:12px; }
+.provider-gate.blocked { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.32); color:#fbbf24; }
+.provider-gate-head { display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:6px; }
+.provider-gate.blocked p { margin:4px 0; color:var(--text); line-height:1.5; }
+.provider-gate-hint { color:var(--muted) !important; font-size:12px; }
+.provider-gate-options { list-style:none; margin:10px 0; padding:0; display:grid; gap:6px; }
+.provider-gate-options li { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 8px; border-radius:8px; background:rgba(148,163,184,.07); color:var(--text); }
+.provider-gate-options .badge { font-size:11px; padding:2px 7px; border-radius:999px; background:rgba(245,158,11,.18); color:#fbbf24; }
+.provider-gate-options .badge.local { background:rgba(16,185,129,.18); color:#10b981; }
+.provider-gate-desc { flex:1 1 100%; color:var(--muted); font-size:12px; }
+.provider-gate-actions { display:flex; align-items:center; gap:10px; margin-top:10px; }
 .start-actions { display:flex; align-items:center; gap:12px; margin-top:16px; }
 .start-actions>label { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
 select { border:1px solid var(--line); border-radius:8px; padding:9px 10px; background:#101727; color:#e8ecf7; }
