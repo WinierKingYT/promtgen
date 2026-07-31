@@ -1,0 +1,54 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "native-codex-execution",
+  "completed": 9,
+  "passed": 9,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "authenticode_status_mapping_fails_closed",
+      "title": "İmza durumu eşlemesi fail-closed davranır",
+      "passed": true
+    },
+    {
+      "id": "codex_selection_only_accepts_expected_executable_names",
+      "title": "Yalnız codex/codex.exe adlı dosya seçilebilir",
+      "passed": true
+    },
+    {
+      "id": "execution_role_order_cannot_be_skipped",
+      "title": "Rol sırası atlanamaz",
+      "passed": true
+    },
+    {
+      "id": "execution_roles_have_fixed_sandbox_and_risk",
+      "title": "Her ajan rolünün sandbox ve risk seviyesi sabittir",
+      "passed": true
+    },
+    {
+      "id": "native_codex_worktree_and_patch_flow_runs_end_to_end",
+      "title": "İzole worktree ve patch akışı uçtan uca çalışır",
+      "passed": true
+    },
+    {
+      "id": "project_labels_are_path_safe",
+      "title": "Proje etiketleri yol güvenlidir",
+      "passed": true
+    },
+    {
+      "id": "signature_gate_accepts_valid_and_blocks_downgrade",
+      "title": "Geçerli imza geçer, bozulan imza engellenir",
+      "passed": true
+    },
+    {
+      "id": "signature_notice_names_the_actual_risk",
+      "title": "İmza uyarısı gerçek riski adlandırır",
+      "passed": true
+    },
+    {
+      "id": "unsigned_fake_codex_is_reported_as_unsigned_or_unverifiable",
+      "title": "İmzasız binary imzalı olarak raporlanmaz",
+      "passed": true
+    }
+  ]
+}
