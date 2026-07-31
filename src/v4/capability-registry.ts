@@ -6,6 +6,7 @@ import { IMPLEMENTATION_EVIDENCE_BENCHMARK } from './product/generated-implement
 import { PLAN_CODE_ALIGNMENT_BENCHMARK } from './product/generated-plan-code-alignment-evidence.js';
 import { PROJECT_INVENTORY_BENCHMARK_EVIDENCE } from './product/generated-project-inventory-evidence.js';
 import { PROVIDER_INTEGRATION_BENCHMARK_EVIDENCE } from './product/generated-provider-integration-evidence.js';
+import { NATIVE_EXECUTION_BENCHMARK_EVIDENCE } from './product/generated-native-execution-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -352,11 +353,15 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     implementationMode: 'native-runtime',
     limitations: [
       'Codex CLI ayrıca kurulmalıdır',
-      'Executable yayıncı imzası veya binary imza bütünlüğü doğrulanmaz'
+      'Yayıncı imzası yalnız Windows üzerinde doğrulanır; diğer platformlarda durum "doğrulanamadı" olarak raporlanır ve kullanıcı onayına bırakılır',
+      'İmza doğrulaması yayıncı kimliğini denetler; Codex CLI\'ın çalışma zamanı davranışını güvence altına almaz'
     ],
     evidence: [{ testId: 'src-tauri/src/execution.rs', level: 'native-e2e', platforms: ['desktop'] }],
     supportedDomains: ['web-app', 'backend-api'],
-    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md')
+    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: NATIVE_EXECUTION_BENCHMARK_EVIDENCE,
+      users: userEvidence('native-codex-execution')
+    })
   },
   {
     id: 'project-inventory-analyzer',
