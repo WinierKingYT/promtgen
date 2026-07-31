@@ -1,16 +1,28 @@
 import type { ProjectDocumentV5 } from '../contracts.js';
 import { redactSensitiveData } from './secret-guard.js';
 
+// Türkçe kalıplar ASCII biçiminde yazılır; girdi eşleştirmeden önce diakritikten
+// arındırılır. Böylece "önceki talimatları yok say" ile klavye düzeni yüzünden
+// diakritiksiz yazılan "onceki talimatlari yok say" aynı kalıba düşer.
 const INJECTION_SIGNALS = [
   /ignore\b.{0,30}\b(previous|prior|all)\b.{0,20}\b(instruction|prompt)/i,
   /disregard\b.{0,30}\b(instruction|prompt)/i,
   /you\s+are\s+now/i,
   /system\s*(message|prompt|instruction)/i,
   /developer\s*(message|instruction)/i,
-  /önceki\b.{0,30}\b(talimat|komut).{0,20}\b(yok say|unut|dinleme)/i,
+  /onceki\b.{0,30}\b(talimat|komut).{0,20}\b(yok\s*say|unut|dinleme|dikkate\s+alma)/i,
   /sistem\b.{0,20}\b(talimat|mesaj|prompt)/i,
-  /bu\s+dosyadaki\s+talimatları\s+uygula/i
+  /bu\s+dosyadaki\s+talimatlari\s+uygula/i
 ];
+
+const TURKISH_FOLD: Array<[RegExp, string]> = [
+  [/[ıİ]/g, 'i'], [/[öÖ]/g, 'o'], [/[üÜ]/g, 'u'],
+  [/[şŞ]/g, 's'], [/[çÇ]/g, 'c'], [/[ğĞ]/g, 'g']
+];
+
+function foldTurkishDiacritics(value: string): string {
+  return TURKISH_FOLD.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), value);
+}
 
 export interface IsolatedContextResult {
   facts: Array<{ name: string; kind: string; summary: string }>;
@@ -24,7 +36,7 @@ export interface IsolatedContextResult {
 }
 
 export function containsPromptInjection(value: string): boolean {
-  const normalized = String(value || '').normalize('NFKC').replace(/\s+/g, ' ');
+  const normalized = foldTurkishDiacritics(String(value || '').normalize('NFKC').replace(/\s+/g, ' '));
   return INJECTION_SIGNALS.some(pattern => pattern.test(normalized));
 }
 

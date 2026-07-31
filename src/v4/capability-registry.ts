@@ -372,10 +372,10 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     platformMaturity: { web: 'candidate-stable', desktop: 'candidate-stable' },
     implementationMode: 'rule-engine',
     limitations: [
-      'Browser ortamında dosya içeriği sınırlı taranır',
-      'Masaüstü ortamında dosya yapısı incelenir; tam antivirüs veya SAST taraması yapılmaz',
+      'Metin dosyaları yalnız 256 KB sınırına kadar okunur; büyük ve binary dosyalar taranmadan metadata olarak alınır',
+      'Web ve masaüstü aynı sır ve injection kalıplarını uygular; tam antivirüs veya SAST taraması yapılmaz',
       'Sır tespiti kalıp tabanlıdır; bilinmeyen biçimdeki bir sır işaretlenmeyebilir',
-      'Injection tespiti diakritiksiz yazılmış Türkçe yükleri yakalamaz; dosya içeriği bağlama taşınmadığı için etki dosya adının listelenmesiyle sınırlıdır'
+      'Kalıplar iki çalışma zamanında ayrı ayrı uygulanır; eşdeğerlik ortak korpus testleriyle korunur'
     ],
     evidence: [
       { testId: 'tests/v4/project-analyzer.test.js', level: 'integration-test', platforms: ['web'] },
