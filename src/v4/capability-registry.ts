@@ -7,6 +7,7 @@ import { PLAN_CODE_ALIGNMENT_BENCHMARK } from './product/generated-plan-code-ali
 import { PROJECT_INVENTORY_BENCHMARK_EVIDENCE } from './product/generated-project-inventory-evidence.js';
 import { PROVIDER_INTEGRATION_BENCHMARK_EVIDENCE } from './product/generated-provider-integration-evidence.js';
 import { NATIVE_EXECUTION_BENCHMARK_EVIDENCE } from './product/generated-native-execution-evidence.js';
+import { STORAGE_DURABILITY_BENCHMARK_EVIDENCE } from './product/generated-storage-durability-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -285,6 +286,7 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     ],
     supportedDomains: ['web-app', 'backend-api', 'small-saas', 'admin-panel', 'internal-tool'],
     promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: STORAGE_DURABILITY_BENCHMARK_EVIDENCE,
       users: userEvidence('local-storage-recovery')
     })
   },
