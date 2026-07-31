@@ -1,0 +1,193 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "local-storage-recovery",
+  "completed": 6,
+  "passed": 6,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "checkpoint-integrity",
+      "title": "Checkpoint bütünlüğü",
+      "intent": "Checkpoint sağlama toplamı taşımalı ve diskte bozulan veriyi yakalamalı.",
+      "passed": true,
+      "assertionCount": 6,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Checkpoint kimliği damgalanmış",
+          "passed": true
+        },
+        {
+          "label": "Checkpoint sağlama toplamı taşıyor",
+          "passed": true
+        },
+        {
+          "label": "Sağlama algoritması kayıtlı",
+          "passed": true
+        },
+        {
+          "label": "Bozulmamış veri doğrulanır",
+          "passed": true
+        },
+        {
+          "label": "Bozulmuş veri yakalanır",
+          "passed": true
+        },
+        {
+          "label": "Aynı içerik aynı sağlamayı üretir (deterministik)",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "restore-creates-new-revision",
+      "title": "Geri yükleme yeni revision üretir",
+      "intent": "Checkpoint geri yükleme üzerine yazmamalı; ileri doğru yeni bir revision olmalı.",
+      "passed": true,
+      "assertionCount": 8,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Geri yükleme ileri revision üretir",
+          "passed": true
+        },
+        {
+          "label": "Doküman revision da ilerler",
+          "passed": true
+        },
+        {
+          "label": "Eski içerik geri gelir",
+          "passed": true
+        },
+        {
+          "label": "Proje yeniden aktif olur",
+          "passed": true
+        },
+        {
+          "label": "Finalize damgası temizlenir",
+          "passed": true
+        },
+        {
+          "label": "Kaynak revision kaydı tutulur",
+          "passed": true
+        },
+        {
+          "label": "Geri yükleme revision geçmişine yazılır",
+          "passed": true
+        },
+        {
+          "label": "Girdi projesi değiştirilmez",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "restore-preserves-forward-history",
+      "title": "Geri yükleme geçmişi silmez",
+      "intent": "Eski hâle dönmek revision geçmişini ve komut günlüğünü kaybettirmemeli.",
+      "passed": true,
+      "assertionCount": 4,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Önceki revision kayıtları korunur",
+          "passed": true
+        },
+        {
+          "label": "İkinci revision da korunur",
+          "passed": true
+        },
+        {
+          "label": "Geçmişe yeni kayıt eklenir",
+          "passed": true
+        },
+        {
+          "label": "Komut günlüğü kaybolmaz",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "cross-project-checkpoint-rejected",
+      "title": "Yabancı checkpoint reddi",
+      "intent": "Başka bir projeye ait checkpoint geri yüklenememeli.",
+      "passed": true,
+      "assertionCount": 3,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Başka projeye ait checkpoint reddedilir",
+          "passed": true
+        },
+        {
+          "label": "Ret nedeni açıklanır",
+          "passed": true
+        },
+        {
+          "label": "İki proje farklı kimlik taşır",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "quarantine-keeps-bad-payload",
+      "title": "Karantina ham veriyi korur",
+      "intent": "Bozuk kayıt sessizce atılmamalı; nedeniyle birlikte incelenebilir kalmalı.",
+      "passed": true,
+      "assertionCount": 4,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Karantina kaydı damgalanır",
+          "passed": true
+        },
+        {
+          "label": "Neden kaydedilir",
+          "passed": true
+        },
+        {
+          "label": "Ham veri kaybolmaz",
+          "passed": true
+        },
+        {
+          "label": "Kayıt serileştirilebilir",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "repository-validates-before-write",
+      "title": "Depo yazmadan önce doğrular",
+      "intent": "Geçersiz belge diske yazılmamalı ve başarısız yazma mevcut kaydı bozmamalı.",
+      "passed": true,
+      "assertionCount": 6,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Geçerli proje yazılır",
+          "passed": true
+        },
+        {
+          "label": "Yazılan proje geri okunur",
+          "passed": true
+        },
+        {
+          "label": "Gidiş-dönüş kimlik korunur",
+          "passed": true
+        },
+        {
+          "label": "Geçersiz belge yazılmaz",
+          "passed": true
+        },
+        {
+          "label": "Başarısız yazma mevcut veriyi bozmaz",
+          "passed": true
+        },
+        {
+          "label": "Listeleme yalnız geçerli kaydı döner",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

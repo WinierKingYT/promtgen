@@ -22,7 +22,7 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 | Canonical Yaşayan Plan ve Revizyon Yönetimi | candidate-stable | integration-test: tests/v4/acceptance-flow.test.js<br>browser-e2e: tests/e2e/guided-workflow.spec.ts | 10/10 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Görev Teslim Kanıtı | beta | integration-test: tests/v4/implementation-evidence.test.ts<br>browser-e2e: tests/e2e/smoke.spec.ts | 5/5 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Plan–Kod Hizalama | beta | integration-test: tests/v4/plan-code-alignment.test.ts<br>browser-e2e: tests/e2e/guided-workflow.spec.ts | 5/5 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
-| Local-First Depolama ve Yedekleme | candidate-stable | integration-test: tests/v4/storage-durability.test.ts<br>native-e2e: tests/v4/desktop-storage.test.js | 0/0 | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
+| Local-First Depolama ve Yedekleme | candidate-stable | integration-test: tests/v4/storage-durability.test.ts<br>native-e2e: tests/v4/desktop-storage.test.js | 6/6 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Uzman Perspektifleri | experimental | unit-test: tests/v4/review-engine.test.js | 0/0 | 0 | Belgelenmedi | 2acd7ba | Bloklu |
 | Mimari Karşılaştırma Şablonu | beta | unit-test: tests/v4/idea-lab.test.js | 0/0 | 0 | Belgelenmedi | 2acd7ba | Bloklu |
 | AI Sağlayıcı Entegrasyonu | beta | unit-test: tests/v4/provider-orchestrator.test.ts<br>integration-test: tests/v4/provider-integration.test.js | 7/7 (100%) | 0 | docs/release/provider-recovery.md | 2acd7ba | Bloklu |
@@ -58,8 +58,6 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 
 ### Local-First Depolama ve Yedekleme
 
-- En az 5 benchmark senaryosu gerekli.
-- Benchmark başarı oranı en az %90 olmalı.
 - En az 5 kullanıcıdan kanıt gerekli.
 
 ### Uzman Perspektifleri
