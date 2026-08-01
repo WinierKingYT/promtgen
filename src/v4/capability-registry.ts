@@ -9,6 +9,7 @@ import { PROVIDER_INTEGRATION_BENCHMARK_EVIDENCE } from './product/generated-pro
 import { NATIVE_EXECUTION_BENCHMARK_EVIDENCE } from './product/generated-native-execution-evidence.js';
 import { STORAGE_DURABILITY_BENCHMARK_EVIDENCE } from './product/generated-storage-durability-evidence.js';
 import { ARCHITECTURE_COMPARATOR_BENCHMARK_EVIDENCE } from './product/generated-architecture-comparator-evidence.js';
+import { EXPERT_PERSPECTIVES_BENCHMARK_EVIDENCE } from './product/generated-expert-perspectives-evidence.js';
 
 export type CapabilityMaturity = 'prototype' | 'experimental' | 'beta' | 'candidate-stable' | 'stable';
 
@@ -301,11 +302,19 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     implementationMode: 'rule-engine',
     limitations: [
       'Bağımsız LLM ajanları çalıştırmaz',
-      'Alan tespiti yerel kural motoruna dayanır'
+      'Alan tespiti yerel kural motoruna dayanır',
+      'Öneri metinleri sabit kural şablonlarındandır; proje analizinden türetilmez',
+      'Oylama skoru plan kalite ölçütü değildir; yalnız kabul edilmiş karar sayısına ve güvenlik kararının varlığına bakar'
     ],
-    evidence: [{ testId: 'tests/v4/review-engine.test.js', level: 'unit-test', platforms: ['web', 'desktop'] }],
+    evidence: [
+      { testId: 'tests/v4/review-engine.test.js', level: 'unit-test', platforms: ['web', 'desktop'] },
+      { testId: 'tests/v4/expert-perspectives.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] }
+    ],
     supportedDomains: ['web-app', 'backend-api'],
-    promotionEvidence: baselinePromotionEvidence(null)
+    promotionEvidence: baselinePromotionEvidence('docs/release/perspectives-recovery.md', {
+      scenarios: EXPERT_PERSPECTIVES_BENCHMARK_EVIDENCE,
+      users: userEvidence('expert-perspectives')
+    })
   },
   {
     id: 'architecture-comparator-template',

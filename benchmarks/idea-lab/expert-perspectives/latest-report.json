@@ -1,0 +1,197 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "capabilityId": "expert-perspectives",
+  "completed": 6,
+  "passed": 6,
+  "passRate": 1,
+  "results": [
+    {
+      "id": "domain-aware-committee",
+      "title": "Komite alana göre kurulur",
+      "intent": "Oyun, web, mobil ve AI projeleri farklı uzman perspektifleri almalı; bilinmeyen alan varsayılana düşmeli.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Her alan dört uzman perspektifi sunar",
+          "passed": true
+        },
+        {
+          "label": "Dört alan da birbirinden ayrışır",
+          "passed": true
+        },
+        {
+          "label": "Her ajan kimlik, ad, rol ve odak taşır",
+          "passed": true
+        },
+        {
+          "label": "Ajan kimlikleri komite içinde benzersiz",
+          "passed": true
+        },
+        {
+          "label": "Bilinmeyen alan varsayılan komiteye düşer",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "no-llm-agents-run",
+      "title": "Bağımsız LLM ajanı çalışmaz",
+      "intent": "Yetenek yerel kural motorudur; çıktı senkron ve deterministik olmalı.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Değerlendirme senkron çalışır (Promise döndürmez)",
+          "passed": true
+        },
+        {
+          "label": "Oylama senkron çalışır",
+          "passed": true
+        },
+        {
+          "label": "Aynı girdi aynı değerlendirmeyi üretir",
+          "passed": true
+        },
+        {
+          "label": "Aynı girdi aynı oylamayı üretir",
+          "passed": true
+        },
+        {
+          "label": "Komite üretimi deterministik",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "evaluation-covers-every-agent",
+      "title": "Her uzman değerlendirme üretir",
+      "intent": "Komitedeki her perspektif öneri ve karar adayı üretmeli, kimliğini korumalı.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Her uzman için bir değerlendirme üretilir",
+          "passed": true
+        },
+        {
+          "label": "Her değerlendirme öneri metni taşır",
+          "passed": true
+        },
+        {
+          "label": "Her değerlendirme karar adayı üretir",
+          "passed": true
+        },
+        {
+          "label": "Değerlendirme ajan kimliğini korur",
+          "passed": true
+        },
+        {
+          "label": "En az bir öneri proje fikrini alıntılar",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "voting-requires-accepted-decisions",
+      "title": "Oylama kanıt ister",
+      "intent": "Kabul edilmiş karar yokken hiçbir perspektif kesin onay vermemeli.",
+      "passed": true,
+      "assertionCount": 6,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Karar yokken hiçbir uzman kesin onay vermez",
+          "passed": true
+        },
+        {
+          "label": "Karar yokken tüm oylar şartlıdır",
+          "passed": true
+        },
+        {
+          "label": "Şartlı oylama %50 skor üretir",
+          "passed": true
+        },
+        {
+          "label": "Eksik karar gerekçesi açıklanır",
+          "passed": true
+        },
+        {
+          "label": "Tek karar da yeterli sayılmaz",
+          "passed": true
+        },
+        {
+          "label": "Özet skoru içerir",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "security-veto-mechanism",
+      "title": "Güvenlik vetosu",
+      "intent": "Güvenlik perspektifi, açık bir güvenlik kararı olmadan onay vermemeli.",
+      "passed": true,
+      "assertionCount": 7,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Web komitesinde güvenlik perspektifi bulunur",
+          "passed": true
+        },
+        {
+          "label": "Güvenlik kararı yokken güvenlik perspektifi reddeder",
+          "passed": true
+        },
+        {
+          "label": "Ret gerekçesi güvenlik kararına işaret eder",
+          "passed": true
+        },
+        {
+          "label": "Diğer perspektifler yine de onaylayabilir",
+          "passed": true
+        },
+        {
+          "label": "Güvenlik kararı eklenince tam onay çıkar",
+          "passed": true
+        },
+        {
+          "label": "Tam onay %100 skor üretir",
+          "passed": true
+        },
+        {
+          "label": "Güvenlik eksikken skor düşer",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "custom-slot-and-no-mutation",
+      "title": "Özel uzman ve mutasyon yokluğu",
+      "intent": "Projeye özel uzman eklenebilmeli; perspektifler canonical belgeyi değiştirmemeli.",
+      "passed": true,
+      "assertionCount": 4,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Özel uzman slotu komiteye eklenir",
+          "passed": true
+        },
+        {
+          "label": "Özel uzman listenin sonunda yer alır",
+          "passed": true
+        },
+        {
+          "label": "Yerleşik uzmanlar korunur",
+          "passed": true
+        },
+        {
+          "label": "Değerlendirme ve oylama projeyi değiştirmez",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

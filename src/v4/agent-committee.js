@@ -1,4 +1,4 @@
-export function getDomainAgentCommittee(project) {
+function baseDomainCommittee(project) {
     const text = `${project.identity?.originalIdea || ''} ${project.identity?.name || ''}`.toLowerCase();
     const isGame = /oyun|s&box|unity|godot|unreal|engine|fizik|arcade|yaratık|entity/.test(text);
     const isWebSaaS = /web|saas|e-ticaret|site|dashboard|portal|react|next|api|backend|veritabanı/.test(text);
@@ -153,32 +153,8 @@ export function getDomainAgentCommittee(project) {
         ];
     }
 
-    // Check if custom 5th agent slot exists
+    // Alan eşleşen dallar yukarıda döndü; buraya yalnız bilinmeyen alan düşer.
     const baseCommittee = (() => {
-        if (isGame) return [
-            { id: 'agent-gameplay', name: 'Oyun Mekaniği & UX Ajanı', role: 'Gameplay Architect', icon: '🎮', color: '#8b5cf6', focus: 'Oynanış döngüsü, oyuncu kontrolleri ve girdi gecikmesi' },
-            { id: 'agent-netcode', name: 'Ağ & Senkronizasyon Ajanı', role: 'Netcode & Multiplayer Specialist', icon: '🌐', color: '#3b82f6', focus: 'Server Authority, Client Prediction ve Tick Rate' },
-            { id: 'agent-physics', name: 'Fizik & Motor Performansı Ajanı', role: 'Physics & Engine Engineer', icon: '⚡', color: '#f59e0b', focus: 'FPS kararlılığı, bellek yönetimi ve Rigidbody karmaşıklığı' },
-            { id: 'agent-modding', name: 'Varlık & Eklenti Mimarı', role: 'Asset & Modding Architect', icon: '🛠️', color: '#10b981', focus: 'Mod desteği, prefab yönetimi ve topluluk içeriği altyapısı' }
-        ];
-        if (isWebSaaS) return [
-            { id: 'agent-frontend', name: 'Ön Yüz & Arayüz Mimarı', role: 'Frontend & UI Specialist', icon: '🎨', color: '#8b5cf6', focus: 'React/Next.js render optimizasyonu ve duyarlı tasarım' },
-            { id: 'agent-backend', name: 'Arka Yüz & Veritabanı Mimarı', role: 'Backend & Data Architect', icon: '🗄️', color: '#3b82f6', focus: 'REST/GraphQL API mimarisi ve PostgreSQL şeması' },
-            { id: 'agent-security', name: 'Güvenlik & Yetki Uzmanı', role: 'Security & Auth Specialist', icon: '🛡️', color: '#ef4444', focus: 'JWT/Session güvenliği ve RBAC yetkilendirme' },
-            { id: 'agent-devops', name: 'DevOps & Bulut Altyapı Mimarı', role: 'DevOps & Infrastructure Engineer', icon: '🚀', color: '#10b981', focus: 'Docker konteynerizasyon ve CI/CD otomasyonu' }
-        ];
-        if (isMobile) return [
-            { id: 'agent-mobile-ux', name: 'Mobil UX & Arayüz Mimarı', role: 'Mobile UI/UX Specialist', icon: '📱', color: '#8b5cf6', focus: 'Dokunmatik jestler ve ekran uyumu' },
-            { id: 'agent-offline', name: 'Çevrimdışı Veri & Depolama Ajanı', role: 'Offline-First Architect', icon: '💾', color: '#3b82f6', focus: 'SQLite / MMKV yerel veritabanı ve senkronizasyon' },
-            { id: 'agent-device', name: 'Cihaz Donanım Entegrasyon Ajanı', role: 'Device Hardware Specialist', icon: '📷', color: '#f59e0b', focus: 'Kamera, konum ve push bildirimler' },
-            { id: 'agent-store', name: 'Yayın & Güvenlik Uzmanı', role: 'App Store & Security Specialist', icon: '🛡️', color: '#10b981', focus: 'App Store uyumluluğu ve FaceID doğrulaması' }
-        ];
-        if (isAi) return [
-            { id: 'agent-prompt', name: 'Prompt & Ajan Akış Mimarı', role: 'Prompt & Agent Workflow Architect', icon: '🧠', color: '#8b5cf6', focus: 'Ajan rol tanımları ve zincirleme istemler' },
-            { id: 'agent-rag', name: 'Vektör & RAG Veri Mimarı', role: 'Vector DB & RAG Specialist', icon: '📚', color: '#3b82f6', focus: 'Embedding modelleri ve Vector DB indeksleme' },
-            { id: 'agent-guardrail', name: 'Model Güvenlik & Gizlilik Uzmanı', role: 'AI Safety & Guardrail Specialist', icon: '🛡️', color: '#ef4444', focus: 'Hassas veri maskeleme ve prompt injection koruması' },
-            { id: 'agent-llm-ops', name: 'LLMOps & Fallback Altyapı Ajanı', role: 'LLMOps & Fallback Engineer', icon: '⚡', color: '#10b981', focus: 'Yerel Ollama / Cloud LLM fallback ve gecikme optimizasyonu' }
-        ];
         return [
             { id: 'agent-ux', name: 'Kullanıcı Deneyimi Mimarı', role: 'UX Architect', icon: '🎨', color: '#8b5cf6', focus: 'Kullanım kolaylığı ve arayüz akışı' },
             { id: 'agent-tech', name: 'Teknik Sistem Mimarı', role: 'System Architect', icon: '⚙️', color: '#3b82f6', focus: 'Teknoloji seçimi ve modüler mimari' },
@@ -187,10 +163,19 @@ export function getDomainAgentCommittee(project) {
         ];
     })();
 
-    if (project.customAgentSlot) {
-        return [...baseCommittee, project.customAgentSlot];
-    }
     return baseCommittee;
+}
+
+/**
+ * Özel uzman slotu tek noktada uygulanır.
+ *
+ * Daha önce slot yalnız varsayılan alanda çalışıyordu: oyun, web, mobil ve AI
+ * dalları erken `return` ettiği için slot sessizce yok sayılıyordu. Komite
+ * bileşimi ile slot ekleme artık ayrı sorumluluklar.
+ */
+export function getDomainAgentCommittee(project) {
+    const committee = baseDomainCommittee(project);
+    return project?.customAgentSlot ? [...committee, project.customAgentSlot] : committee;
 }
 
 export function runCommitteeEvaluation(project) {
