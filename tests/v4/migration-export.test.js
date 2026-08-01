@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { migrateLegacyToV5 } from '../../src/v4/migrations.js';
 import { createDocumentSet, createExportBundle, createIdeWorkspaceFiles, createIdeWorkspacePackage, createPromtgenPackage, exportCanonicalMarkdown, inspectPromtgenPackage, readPromtgenPackage, resolveCanonicalRevision } from '../../src/v4/exporter.js';
+import { inspectPromtgenPackage as inspectTypedPortablePackage } from '../../src/v4/application/portable-package.ts';
 import { redactSensitiveText } from '../../src/v4/ai-context.js';
+
+assert.equal(inspectPromtgenPackage, inspectTypedPortablePackage, 'Public exporter must re-export the single typed package parser');
 
 const legacy = { id: 'legacy-1', schemaVersion: 3, name: 'Eski Plan', stepDepth: 5, workflowStage: 'EXPORTED', draftDescription: 'Bir yerel not uygulaması', tasks: [{ title: 'Editörü oluştur' }] };
 const result = migrateLegacyToV5(legacy);

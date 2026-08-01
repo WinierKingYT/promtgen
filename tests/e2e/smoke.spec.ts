@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { stubReadyProvider } from './support/provider.js';
 import { createProjectDocument } from '../../src/v4/project-document.js';
 import { createPromtgenPackage } from '../../src/v4/exporter.js';
+import JSZip from 'jszip';
 
 test.describe('PromtGen V4 Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -37,6 +38,7 @@ test.describe('PromtGen V4 Smoke Tests', () => {
   });
 
   test('previews verified packages and restores existing projects as a new revision', async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
     const fixture = createProjectDocument({
       idea: 'Bireysel geliştiricinin kapsam kararlarını yerel olarak planlayan web uygulaması',
       name: 'Paket kurtarma E2E'
@@ -55,7 +57,8 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     if (firstImportError) throw new Error(`Paket önizlemesi açılamadı: ${firstImportError}`);
     const dialog = page.getByRole('dialog', { name: 'Paket kurtarma E2E' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('Tam paket bütünlüğü doğrulandı')).toBeVisible();
+    await expect(dialog.getByText('Paket içeriği SHA-256 kayıtlarıyla eşleşiyor')).toBeVisible();
+    await expect(dialog.getByText(/paketi kimin ürettiğini.*kanıtlamaz/)).toBeVisible();
     expect(await page.evaluate(async () => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open('promtgen-v4', 2);
@@ -102,7 +105,8 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await page.locator('input[accept=".promtgen"]').setInputFiles(packagePath);
     const recoveryDialog = page.getByRole('dialog', { name: 'Paket kurtarma E2E' });
     await expect(recoveryDialog.getByText('Geri yükleme etkisi')).toBeVisible();
-    await expect(recoveryDialog.getByText(new RegExp(`Güncel r${changedRevision} → yeni r${changedRevision + 1}`))).toBeVisible();
+    await expect(recoveryDialog.getByText(new RegExp(`Paket r${fixture.canonicalRevision} → yerel yeni r${changedRevision + 1}`))).toBeVisible();
+    await expect(recoveryDialog.getByText(new RegExp(`Yerel r${changedRevision} zaman çizelgesi korunur`))).toBeVisible();
     await recoveryDialog.getByRole('button', { name: 'Yeni revision olarak geri yükle' }).click();
     await expect(recoveryDialog).toBeHidden();
 
@@ -121,6 +125,25 @@ test.describe('PromtGen V4 Smoke Tests', () => {
       return { canonicalRevision: project.canonicalRevision, vision: project.sections.vision.content };
     });
     expect(restored).toEqual({ canonicalRevision: changedRevision + 1, vision: 'Paket içindeki doğrulanmış ürün vizyonu.' });
+
+    const legacyProject = structuredClone(fixture);
+    legacyProject.sections.vision.content = 'Eski ve kriptografik kanıtsız paket vizyonu.';
+    const legacyZip = new JSZip();
+    legacyZip.file('manifest.json', JSON.stringify({
+      format: 'promtgen', formatVersion: 1, schemaVersion: 5, schemaRevision: legacyProject.schemaRevision, files: []
+    }));
+    legacyZip.file('project.json', JSON.stringify(legacyProject));
+    const legacyPath = testInfo.outputPath('legacy-project.promtgen');
+    await writeFile(legacyPath, Buffer.from(await legacyZip.generateAsync({ type: 'uint8array' })));
+
+    await page.reload();
+    await page.locator('input[accept=".promtgen"]').setInputFiles(legacyPath);
+    const legacyDialog = page.getByRole('dialog', { name: 'Paket kurtarma E2E' });
+    const legacyRestore = legacyDialog.getByRole('button', { name: 'Yeni revision olarak geri yükle' });
+    await expect(legacyDialog.getByText('Eski paket — sınırlı doğrulama')).toBeVisible();
+    await expect(legacyRestore).toBeDisabled();
+    await legacyDialog.getByLabel('Sınırlı doğrulamayı kabul ediyorum').check();
+    await expect(legacyRestore).toBeEnabled();
   });
 
   test('create, save, reopen and canonical export smoke flow', async ({ page }) => {

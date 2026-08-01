@@ -12,6 +12,7 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 const commitSha = git('rev-parse HEAD');
 const commitMessage = git('log -1 --pretty=%s');
 const branch = git('rev-parse --abbrev-ref HEAD');
+const dirty = Boolean(git('status --porcelain'));
 const timestamp = new Date().toISOString();
 const requiredJobsGreen = process.env.REQUIRED_JOBS_GREEN === 'true';
 function listFiles(directory) {
@@ -29,7 +30,7 @@ const checksums = Object.fromEntries(artifactFiles.map(path => [
 const evidence = {
     version: packageJson.version,
     timestamp,
-    git: { commitSha, commitMessage, branch },
+    git: { commitSha, commitMessage, branch, dirty },
     checks: {
         testAll: requiredJobsGreen,
         typecheck: requiredJobsGreen,

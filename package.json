@@ -25,6 +25,7 @@
     "desktop:build": "tauri build",
     "preview": "vite preview",
     "release:evidence": "node scripts/generate-release-evidence.mjs",
+    "check:capability-evidence": "tsx scripts/check-capability-evidence.ts",
     "release:readiness": "node scripts/release-readiness.mjs",
     "performance:report": "node scripts/performance-report.mjs",
     "check:version": "node scripts/check-version-sync.mjs",

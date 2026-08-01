@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   CAPABILITY_REGISTRY,
   STABLE_PROMOTION_POLICY,
+  commitEvidenceMatches,
   evaluateStableEligibility,
   getCapability,
   type ProductCapability
@@ -64,11 +65,33 @@ describe('Product Capability Claims Honesty Audit (Category 1)', () => {
         },
         recovery: { documented: true, path: 'docs/release/rollback.md' },
         criticalKnownDefects: 0,
-        lastVerifiedCommit: 'test-commit',
+        lastVerifiedCommit: 'abcdef1',
         lastReviewed: '2026-07-28'
       }
     };
-    assert.deepEqual(evaluateStableEligibility(eligibleCapability).blockers, []);
+    assert.deepEqual(evaluateStableEligibility(eligibleCapability, {
+      currentCommitSha: 'abcdef1234567890',
+      verifiedCommitSha: 'abcdef1'
+    }).blockers, []);
+  });
+
+  it('rejects stale, missing and non-git commit evidence', () => {
+    assert.equal(commitEvidenceMatches('abcdef1234567890', 'abcdef1'), true);
+    assert.equal(commitEvidenceMatches('abcdef1234567890', '1234567'), false);
+    assert.equal(commitEvidenceMatches('abcdef1234567890', 'test-commit'), false);
+
+    const source = getCapability('canonical-planning');
+    assert.ok(source);
+    const withoutBuildContext = evaluateStableEligibility(source);
+    assert.equal(withoutBuildContext.metrics.commitEvidenceCurrent, false);
+    assert.ok(withoutBuildContext.blockers.some(blocker => /build\/CI commit/i.test(blocker)));
+
+    const stale = evaluateStableEligibility(source, {
+      currentCommitSha: 'abcdef1234567890',
+      verifiedCommitSha: '1234567'
+    });
+    assert.equal(stale.metrics.commitEvidenceCurrent, false);
+    assert.ok(stale.blockers.some(blocker => /eşleşmiyor/i.test(blocker)));
   });
 
   it('README public claims map to the registry and avoid forbidden overclaims', () => {

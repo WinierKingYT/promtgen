@@ -4,6 +4,7 @@ import { restoreCheckpointAsNewRevision } from '../../src/v4/storage.js';
 import {
   assertRecoveryPreviewFresh,
   buildRecoveryPreview,
+  requiresExplicitLegacyRecoveryAcknowledgement,
   restorePortablePackageAsNewRevision
 } from '../../src/v4/application/recovery-service.js';
 
@@ -88,6 +89,9 @@ current.exports.push({
 });
 const packagePreview = buildRecoveryPreview(current, checkpoint, 'portable-package', 'verified');
 assert.equal(packagePreview.source, 'portable-package');
+assert.equal(requiresExplicitLegacyRecoveryAcknowledgement(packagePreview), false);
+assert.equal(requiresExplicitLegacyRecoveryAcknowledgement({ ...packagePreview, integrity: 'legacy' }), true);
+assert.equal(requiresExplicitLegacyRecoveryAcknowledgement({ ...packagePreview, source: 'web-checkpoint', integrity: 'legacy' }), false);
 const packageRestored = restorePortablePackageAsNewRevision(current, checkpoint);
 assert.equal(packageRestored.documentRevision, 7);
 assert.equal(packageRestored.canonicalRevision, 6);

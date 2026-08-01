@@ -1,6 +1,14 @@
 import type { ExportRecord, ProjectDocumentV5 } from './contracts.js';
+import type { CanonicalRevisionReference } from './application/canonical-export-core.js';
+import type {
+  PromtgenPackageEntry,
+  PromtgenPackageInspection,
+  PromtgenPackageIntegrity,
+  PromtgenPackageManifest
+} from './application/portable-package.js';
 
-export type RevisionReference = number | string | 'current';
+export type RevisionReference = CanonicalRevisionReference;
+export type { PromtgenPackageEntry, PromtgenPackageInspection, PromtgenPackageIntegrity, PromtgenPackageManifest };
 export interface IdeAdapterDefinition { id: string; label: string; path: string; }
 export interface WorkspaceFiles {
   source: ProjectDocumentV5;
@@ -14,38 +22,6 @@ export interface PackageArtifact {
   manifest: Record<string, unknown>;
   files?: Record<string, string>;
 }
-export interface PromtgenPackageEntry {
-  path: string;
-  sha256: string;
-  bytes: number;
-  role: 'project' | 'history' | 'export';
-}
-export interface PromtgenPackageManifest {
-  format: 'promtgen';
-  formatVersion: 1 | 2 | 3;
-  schemaVersion: 4 | 5;
-  schemaRevision?: number;
-  projectId?: string;
-  revision?: number;
-  canonicalRevision?: number;
-  canonicalHash?: string;
-  createdAt?: string;
-  files: string[];
-  entries?: PromtgenPackageEntry[];
-  adapters?: string[];
-}
-export interface PromtgenPackageIntegrity {
-  level: 'full' | 'canonical' | 'legacy';
-  verifiedEntries: number;
-  totalEntries: number;
-  warnings: string[];
-}
-export interface PromtgenPackageInspection {
-  project: ProjectDocumentV5;
-  manifest: PromtgenPackageManifest;
-  integrity: PromtgenPackageIntegrity;
-}
-
 export const IDE_ADAPTERS: readonly IdeAdapterDefinition[];
 export function resolveCanonicalRevision(project: ProjectDocumentV5, reference?: RevisionReference): ProjectDocumentV5;
 export function exportCanonicalMarkdown(project: ProjectDocumentV5, revision?: RevisionReference): string;
