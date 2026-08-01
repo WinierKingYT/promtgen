@@ -14,7 +14,7 @@
 6. `src/v4/exporter.js` seçilen revision’ı çözer; derinliğe bağlı belge seti ile `AGENTS.md`, `CLAUDE.md`, Cursor rule ve yürütme manifesti içeren IDE çalışma paketini üretir.
 7. `src/react` bu servislerin kullanıcı onaylı orkestrasyonunu sunar.
 8. `src/v4/execution-orchestrator.js` canonical rol sırasını; `src-tauri/src/execution.rs` token, native onay, worktree ve sabit Codex CLI sınırını uygular.
-9. Tauri SQLite katmanı WAL, `quick_check`, transaction tabanlı son-20 yedek retention’ı ve bozuk JSON karantinası uygular; `StorageHealthPanel` yalnız özet/metadata gösterir.
+9. Tauri SQLite katmanı WAL, `quick_check`, transaction tabanlı son-20 yedek retention’ı ve bozuk JSON karantinası uygular. Üretimdeki Kurtarma Merkezi web checkpoint’lerinde SHA-256, masaüstü yedeklerinde SQLite bütünlüğü + proje şeması doğrulaması yapar; fark önizlemesi ve stale revision kilidinden sonra kaydı yeni revision olarak geri yükler. Karantina ham içeriği UI’a açılmaz.
 10. `planning-memory.js` geçmiş projelerden isim/fikir taşımayan toplulaştırılmış tercih sinyalleri üretir; bu bağlam yalnız kullanıcı ayarı etkinse AI keşif çağrısına eklenir.
 11. `module-registry.js` yazılım, araştırma, içerik, iş/operasyon ve etkinlik alanlarını deklaratif katkılarla etkinleştirir; aktif paketin reviewer kuralları ve alan belgesi canonical exporttan türetilir.
 

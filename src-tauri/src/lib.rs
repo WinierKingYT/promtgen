@@ -1,5 +1,5 @@
 use regex::Regex;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::Serialize;
 use std::{collections::{HashMap, HashSet}, fs, path::{Path, PathBuf}, sync::OnceLock};
 use tauri::{AppHandle, Manager};
@@ -246,7 +246,36 @@ fn initialize_database(connection: &Connection) -> Result<(), String> {
     connection.pragma_update(None, "foreign_keys", "ON").map_err(|e| e.to_string())?;
     connection.pragma_update(None, "journal_mode", "WAL").map_err(|e| e.to_string())?;
     connection.pragma_update(None, "synchronous", "NORMAL").map_err(|e| e.to_string())?;
-    connection.execute("CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, document TEXT NOT NULL, updated_at TEXT NOT NULL)", []).map_err(|e| e.to_string())?;
+    connection.execute("CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, document TEXT NOT NULL, updated_at TEXT NOT NULL, document_revision INTEGER NOT NULL DEFAULT 0, canonical_revision INTEGER NOT NULL DEFAULT 0)", []).map_err(|e| e.to_string())?;
+    let project_columns = {
+        let mut statement = connection.prepare("PRAGMA table_info(projects)").map_err(|e| e.to_string())?;
+        let columns = statement.query_map([], |row| row.get::<_, String>(1)).map_err(|e| e.to_string())?
+            .collect::<Result<HashSet<_>, _>>().map_err(|e| e.to_string())?;
+        columns
+    };
+    let added_document_revision = !project_columns.contains("document_revision");
+    let added_canonical_revision = !project_columns.contains("canonical_revision");
+    if added_document_revision {
+        connection.execute("ALTER TABLE projects ADD COLUMN document_revision INTEGER NOT NULL DEFAULT 0", []).map_err(|e| e.to_string())?;
+    }
+    if added_canonical_revision {
+        connection.execute("ALTER TABLE projects ADD COLUMN canonical_revision INTEGER NOT NULL DEFAULT 0", []).map_err(|e| e.to_string())?;
+    }
+    if added_document_revision || added_canonical_revision {
+        let stored_documents = {
+            let mut statement = connection.prepare("SELECT id, document FROM projects").map_err(|e| e.to_string())?;
+            let documents = statement.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))).map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+            documents
+        };
+        for (id, document) in stored_documents {
+            let (document_revision, canonical_revision) = project_revision_values(&document)?;
+            connection.execute(
+                "UPDATE projects SET document_revision=?2, canonical_revision=?3 WHERE id=?1",
+                params![id, document_revision, canonical_revision]
+            ).map_err(|e| e.to_string())?;
+        }
+    }
     connection.execute("CREATE TABLE IF NOT EXISTS project_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, document TEXT NOT NULL, created_at TEXT NOT NULL)", []).map_err(|e| e.to_string())?;
     connection.execute("CREATE INDEX IF NOT EXISTS idx_project_backups_project ON project_backups(project_id, id DESC)", []).map_err(|e| e.to_string())?;
     connection.execute("CREATE TABLE IF NOT EXISTS project_quarantine (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL, document TEXT NOT NULL, reason TEXT NOT NULL, quarantined_at TEXT NOT NULL)", []).map_err(|e| e.to_string())?;
@@ -268,7 +297,16 @@ fn validate_project_document(id: &str, document: &str) -> Result<i64, String> {
     if document.len() > MAX_PROJECT_DOCUMENT_BYTES { return Err("Proje belgesi 10 MB sınırını aşıyor.".into()); }
     let value = serde_json::from_str::<serde_json::Value>(document).map_err(|error| format!("Geçersiz JSON: {error}"))?;
     if value.get("id").and_then(|item| item.as_str()) != Some(id) { return Err("Belge proje kimliği ile kayıt kimliği eşleşmiyor.".into()); }
-    Ok(value.get("revision").and_then(|item| item.as_i64()).unwrap_or(0))
+    Ok(value.get("documentRevision").and_then(|item| item.as_i64())
+        .or_else(|| value.get("revision").and_then(|item| item.as_i64())).unwrap_or(0))
+}
+
+fn project_revision_values(document: &str) -> Result<(i64, i64), String> {
+    let value = serde_json::from_str::<serde_json::Value>(document).map_err(|error| format!("Geçersiz JSON: {error}"))?;
+    let legacy_revision = value.get("revision").and_then(|item| item.as_i64()).unwrap_or(0);
+    let document_revision = value.get("documentRevision").and_then(|item| item.as_i64()).unwrap_or(legacy_revision);
+    let canonical_revision = value.get("canonicalRevision").and_then(|item| item.as_i64()).unwrap_or(legacy_revision);
+    Ok((document_revision, canonical_revision))
 }
 
 fn timestamp() -> String {
@@ -276,9 +314,73 @@ fn timestamp() -> String {
 }
 
 fn backup_document(transaction: &rusqlite::Transaction<'_>, project_id: &str, document: &str, created_at: &str) -> Result<(), String> {
-    let revision = serde_json::from_str::<serde_json::Value>(document).ok().and_then(|value| value.get("revision").and_then(|item| item.as_i64())).unwrap_or(0);
+    let revision = project_revision_values(document).map(|(_, canonical)| canonical).unwrap_or(0);
     transaction.execute("INSERT INTO project_backups(project_id, revision, document, created_at) VALUES(?1, ?2, ?3, ?4)", params![project_id, revision, document, created_at]).map_err(|e| e.to_string())?;
     transaction.execute("DELETE FROM project_backups WHERE project_id=?1 AND id NOT IN (SELECT id FROM project_backups WHERE project_id=?1 ORDER BY id DESC LIMIT ?2)", params![project_id, MAX_PROJECT_BACKUPS]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn revision_conflict(
+    id: &str,
+    expected_document_revision: Option<i64>,
+    expected_canonical_revision: Option<i64>,
+    actual_document_revision: Option<i64>,
+    actual_canonical_revision: Option<i64>,
+) -> String {
+    format!(
+        "PROJECT_REVISION_CONFLICT ({id}): document {:?} / canonical {:?} beklenirken {:?} / {:?} bulundu.",
+        expected_document_revision, expected_canonical_revision, actual_document_revision, actual_canonical_revision
+    )
+}
+
+fn save_project_in_connection(
+    connection: &mut Connection,
+    id: &str,
+    document: &str,
+    updated_at: &str,
+    expected_document_revision: Option<i64>,
+    expected_canonical_revision: Option<i64>,
+    create_only: bool,
+) -> Result<(), String> {
+    validate_project_document(id, document)?;
+    let (next_document_revision, next_canonical_revision) = project_revision_values(document)?;
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
+    let previous = transaction.query_row(
+        "SELECT document, document_revision, canonical_revision FROM projects WHERE id=?1",
+        [id],
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?))
+    ).optional().map_err(|e| e.to_string())?;
+    let actual_document_revision = previous.as_ref().map(|(_, revision, _)| *revision);
+    let actual_canonical_revision = previous.as_ref().map(|(_, _, revision)| *revision);
+
+    if create_only && previous.is_some() {
+        return Err(revision_conflict(id, None, None, actual_document_revision, actual_canonical_revision));
+    }
+    if expected_document_revision.is_some() && expected_document_revision != actual_document_revision {
+        return Err(revision_conflict(id, expected_document_revision, expected_canonical_revision, actual_document_revision, actual_canonical_revision));
+    }
+    if expected_canonical_revision.is_some() && expected_canonical_revision != actual_canonical_revision {
+        return Err(revision_conflict(id, expected_document_revision, expected_canonical_revision, actual_document_revision, actual_canonical_revision));
+    }
+
+    if let Some((previous_document, previous_document_revision, previous_canonical_revision)) = previous.as_ref() {
+        if previous_document != document {
+            backup_document(&transaction, id, previous_document, updated_at)?;
+        }
+        let changed = transaction.execute(
+            "UPDATE projects SET document=?2, updated_at=?3, document_revision=?4, canonical_revision=?5 WHERE id=?1 AND document_revision=?6 AND canonical_revision=?7",
+            params![id, document, updated_at, next_document_revision, next_canonical_revision, previous_document_revision, previous_canonical_revision]
+        ).map_err(|e| e.to_string())?;
+        if changed != 1 {
+            return Err(revision_conflict(id, expected_document_revision, expected_canonical_revision, actual_document_revision, actual_canonical_revision));
+        }
+    } else {
+        transaction.execute(
+            "INSERT INTO projects(id, document, updated_at, document_revision, canonical_revision) VALUES(?1, ?2, ?3, ?4, ?5)",
+            params![id, document, updated_at, next_document_revision, next_canonical_revision]
+        ).map_err(|e| e.to_string())?;
+    }
+    transaction.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -288,16 +390,67 @@ fn quarantine_document(transaction: &rusqlite::Transaction<'_>, project_id: &str
     Ok(())
 }
 
-#[tauri::command]
-fn save_project(app: AppHandle, id: String, document: String, updated_at: String) -> Result<(), String> {
-    validate_project_document(&id, &document)?;
-    let mut connection = database(&app)?;
-    let transaction = connection.transaction().map_err(|e| e.to_string())?;
-    let previous = transaction.query_row("SELECT document FROM projects WHERE id=?1", [&id], |row| row.get::<_, String>(0)).ok();
-    if let Some(previous_document) = previous.filter(|value| value != &document) { backup_document(&transaction, &id, &previous_document, &updated_at)?; }
-    transaction.execute("INSERT INTO projects(id, document, updated_at) VALUES(?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET document=?2, updated_at=?3", params![id, document, updated_at]).map_err(|e| e.to_string())?;
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectPurgeResult {
+    project_deleted: bool,
+    checkpoints_deleted: usize,
+    command_log_entries_deleted: usize,
+    quarantine_entries_deleted: usize,
+    backups_deleted: usize,
+}
+
+fn purge_project_in_connection(connection: &mut Connection, project_id: &str) -> Result<ProjectPurgeResult, String> {
+    if !valid_project_id(project_id) { return Err("Geçersiz proje kimliği.".into()); }
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e| e.to_string())?;
+    let document = transaction.query_row(
+        "SELECT document FROM projects WHERE id=?1",
+        [project_id],
+        |row| row.get::<_, String>(0)
+    ).optional().map_err(|e| e.to_string())?;
+    let command_log_entries_deleted = document.as_deref()
+        .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+        .and_then(|value| value.get("commandLog").and_then(|entries| entries.as_array()).map(Vec::len))
+        .unwrap_or(0);
+    let backups_deleted = transaction.execute("DELETE FROM project_backups WHERE project_id=?1", [project_id]).map_err(|e| e.to_string())?;
+    let quarantine_entries_deleted = transaction.execute("DELETE FROM project_quarantine WHERE project_id=?1", [project_id]).map_err(|e| e.to_string())?;
+    let projects_deleted = transaction.execute("DELETE FROM projects WHERE id=?1", [project_id]).map_err(|e| e.to_string())?;
     transaction.commit().map_err(|e| e.to_string())?;
-    Ok(())
+    Ok(ProjectPurgeResult {
+        project_deleted: projects_deleted > 0,
+        checkpoints_deleted: 0,
+        command_log_entries_deleted,
+        quarantine_entries_deleted,
+        backups_deleted,
+    })
+}
+
+#[tauri::command]
+fn save_project(
+    app: AppHandle,
+    id: String,
+    document: String,
+    updated_at: String,
+    expected_document_revision: Option<i64>,
+    expected_canonical_revision: Option<i64>,
+    create_only: Option<bool>,
+) -> Result<(), String> {
+    let mut connection = database(&app)?;
+    save_project_in_connection(
+        &mut connection,
+        &id,
+        &document,
+        &updated_at,
+        expected_document_revision,
+        expected_canonical_revision,
+        create_only.unwrap_or(false)
+    )
+}
+
+#[tauri::command]
+fn purge_project(app: AppHandle, id: String) -> Result<ProjectPurgeResult, String> {
+    let mut connection = database(&app)?;
+    purge_project_in_connection(&mut connection, &id)
 }
 
 #[tauri::command]
@@ -375,10 +528,8 @@ fn list_quarantined_projects(app: AppHandle) -> Result<Vec<QuarantineSummary>, S
 }
 
 #[tauri::command]
-fn read_project_backup_with_confirmation(app: AppHandle, project_id: String, backup_id: i64) -> Result<Option<String>, String> {
+fn read_project_backup(app: AppHandle, project_id: String, backup_id: i64) -> Result<Option<String>, String> {
     if !valid_project_id(&project_id) || backup_id <= 0 { return Err("Geçersiz yedek seçimi.".into()); }
-    let approved = rfd::MessageDialog::new().set_level(rfd::MessageLevel::Warning).set_title("PromtGen yedeğini geri yükle").set_description("Seçilen yerel yedek yeni bir plan revision'ı olarak geri yüklenecek. Güncel plan ayrıca korunacak.").set_buttons(rfd::MessageButtons::OkCancel).show();
-    if !matches!(approved, rfd::MessageDialogResult::Ok | rfd::MessageDialogResult::Yes) { return Ok(None); }
     let connection = database(&app)?;
     let document = connection.query_row("SELECT document FROM project_backups WHERE id=?1 AND project_id=?2", params![backup_id, project_id], |row| row.get::<_, String>(0)).map_err(|error| match error { rusqlite::Error::QueryReturnedNoRows => "Yedek bulunamadı.".into(), _ => error.to_string() })?;
     validate_project_document(&project_id, &document)?;
@@ -407,7 +558,7 @@ fn delete_provider_credential(provider: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(execution::ExecutionState::default())
-        .invoke_handler(tauri::generate_handler![save_project, load_project, list_projects, storage_health, list_project_backups, list_quarantined_projects, read_project_backup_with_confirmation, set_provider_credential, get_provider_credential, delete_provider_credential, select_and_inventory_project_folder, execution::execution_capabilities, execution::select_codex_cli, execution::clear_codex_cli, execution::select_execution_repository, execution::prepare_execution_worktree, execution::run_codex_agent_step, execution::execution_patch, execution::cleanup_execution_worktree])
+        .invoke_handler(tauri::generate_handler![save_project, purge_project, load_project, list_projects, storage_health, list_project_backups, list_quarantined_projects, read_project_backup, set_provider_credential, get_provider_credential, delete_provider_credential, select_and_inventory_project_folder, execution::execution_capabilities, execution::select_codex_cli, execution::clear_codex_cli, execution::select_execution_repository, execution::prepare_execution_worktree, execution::run_codex_agent_step, execution::execution_patch, execution::cleanup_execution_worktree])
         .run(tauri::generate_context!()).expect("PromtGen başlatılamadı");
 }
 
@@ -516,5 +667,71 @@ mod tests {
         let quarantine_count: i64 = connection.query_row("SELECT COUNT(*) FROM project_quarantine WHERE project_id='broken-project'", [], |row| row.get(0)).unwrap();
         assert_eq!(active_count, 0);
         assert_eq!(quarantine_count, 1);
+    }
+
+    #[test]
+    fn sqlite_compare_and_swap_rejects_lost_updates() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        initialize_database(&connection).unwrap();
+        let initial = r#"{"id":"cas-project","documentRevision":1,"canonicalRevision":1}"#;
+        save_project_in_connection(&mut connection, "cas-project", initial, "1", None, None, true).unwrap();
+
+        let first = r#"{"id":"cas-project","documentRevision":2,"canonicalRevision":1,"writer":"first"}"#;
+        save_project_in_connection(&mut connection, "cas-project", first, "2", Some(1), Some(1), false).unwrap();
+        let stale = r#"{"id":"cas-project","documentRevision":2,"canonicalRevision":1,"writer":"stale"}"#;
+        let conflict = save_project_in_connection(&mut connection, "cas-project", stale, "3", Some(1), Some(1), false)
+            .expect_err("stale writer reddedilmeliydi");
+        assert!(conflict.contains("PROJECT_REVISION_CONFLICT"));
+
+        let stored: String = connection.query_row(
+            "SELECT document FROM projects WHERE id='cas-project'",
+            [],
+            |row| row.get(0)
+        ).unwrap();
+        assert_eq!(stored, first);
+    }
+
+    #[test]
+    fn sqlite_create_only_rejects_existing_project() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        initialize_database(&connection).unwrap();
+        let document = r#"{"id":"create-project","documentRevision":1,"canonicalRevision":1}"#;
+        save_project_in_connection(&mut connection, "create-project", document, "1", None, None, true).unwrap();
+        let conflict = save_project_in_connection(&mut connection, "create-project", document, "2", None, None, true)
+            .expect_err("ikinci create-only kayıt reddedilmeliydi");
+        assert!(conflict.contains("PROJECT_REVISION_CONFLICT"));
+    }
+
+    #[test]
+    fn sqlite_permanent_delete_removes_project_backups_and_quarantine_atomically() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        initialize_database(&connection).unwrap();
+        let document = r#"{"id":"purge-project","documentRevision":2,"canonicalRevision":1,"commandLog":[{"commandId":"one"},{"commandId":"two"}]}"#;
+        connection.execute(
+            "INSERT INTO projects(id, document, updated_at, document_revision, canonical_revision) VALUES(?1, ?2, 'now', 2, 1)",
+            params!["purge-project", document]
+        ).unwrap();
+        connection.execute(
+            "INSERT INTO project_backups(project_id, revision, document, created_at) VALUES('purge-project', 1, ?1, 'before')",
+            [document]
+        ).unwrap();
+        connection.execute(
+            "INSERT INTO project_quarantine(project_id, document, reason, quarantined_at) VALUES('purge-project', ?1, 'test', 'now')",
+            [document]
+        ).unwrap();
+
+        let result = purge_project_in_connection(&mut connection, "purge-project").unwrap();
+        assert!(result.project_deleted);
+        assert_eq!(result.backups_deleted, 1);
+        assert_eq!(result.quarantine_entries_deleted, 1);
+        assert_eq!(result.command_log_entries_deleted, 2);
+        for table in ["projects", "project_backups", "project_quarantine"] {
+            let count: i64 = connection.query_row(
+                &format!("SELECT COUNT(*) FROM {table} WHERE {}='purge-project'", if table == "projects" { "id" } else { "project_id" }),
+                [],
+                |row| row.get(0)
+            ).unwrap();
+            assert_eq!(count, 0, "{table} temizlenmeliydi");
+        }
     }
 }

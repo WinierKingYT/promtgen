@@ -810,12 +810,27 @@ export interface DomainPackContribution {
   }
 }
 
+export interface ProjectSaveOptions {
+  expectedDocumentRevision?: number
+  expectedCanonicalRevision?: number
+  createOnly?: boolean
+}
+
+export interface ProjectPurgeResult {
+  projectDeleted: boolean
+  checkpointsDeleted: number
+  commandLogEntriesDeleted: number
+  quarantineEntriesDeleted: number
+  backupsDeleted: number
+}
+
 export interface ProjectRepository {
   list(): Promise<ProjectDocumentV5[]>
   get(id: string): Promise<ProjectDocumentV5 | null>
-  save(project: ProjectDocumentV5): Promise<ProjectDocumentV5>
+  save(project: ProjectDocumentV5, options?: ProjectSaveOptions): Promise<ProjectDocumentV5>
   archive(id: string): Promise<boolean>
-  remove?(id: string): Promise<void>
+  restore(id: string): Promise<boolean>
+  purge(id: string): Promise<ProjectPurgeResult>
 }
 
 export interface AIProvider {

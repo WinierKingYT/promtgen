@@ -9,7 +9,7 @@ Bu belge production React/Tauri yolunun orijinal ürün kabul ölçütlerini han
 | Canonical yaşayan plan, readiness ve downstream invalidation | `project-state-v4.js`, `planning-engine.js`, `canonical-graph.js` | V4 planning/graph/review testleri |
 | Finalize, yeniden açma, revision karşılaştırma/restore | `planning-engine.js` | `planning-engine.test.js`, `acceptance-flow.test.js` |
 | PWA IndexedDB ve Tauri SQLite/keyring | `storage.js`, `tauri-storage.js`, Rust `lib.rs` | storage testleri ve 7 Rust testi |
-| Otomatik yedek, karantina ve sağlık tanısı | Rust SQLite katmanı, `StorageHealthPanel` | `desktop-storage.test.js`, Rust retention/karantina testi |
+| Otomatik yedek, karantina ve onaylı kurtarma | Rust SQLite + IndexedDB, üretim Kurtarma Merkezi, `recovery-service.ts` | `recovery-service.test.ts`, Chromium kurtarma/bütünlük E2E, `desktop-storage.test.js`, Rust retention/karantina testi |
 | `.promtgen` güvenli transfer ve canonical export tutarlılığı | `exporter.js` | `migration-export.test.js`, `acceptance-flow.test.js` |
 | Ollama ve kontrollü bulut sağlayıcıları | `provider-url-policy.js`, `ai-context.js` | provider ve CSP güvenlik testleri |
 | Mevcut proje güvenli envanteri | `project-analyzer.js`, native klasör seçici | analyzer ve Rust inventory testleri |

@@ -37,13 +37,41 @@ export function IdeaOutcomeBar({ project, value, onChange }: { project: ProjectD
     outcomes.find(item => item.id === maturity.recommended)!,
     ...outcomes.filter(item => item.id !== maturity.recommended)
   ];
+  const primary = orderedOutcomes[0];
+  const secondary = orderedOutcomes.slice(1);
   return (
     <nav className="idea-outcomes" aria-label="Fikrinle ne yapmak istiyorsun?">
-      <div><span className="meta">ÖNERİLEN SONRAKİ ADIM · %{maturity.score}</span><b>{maturity.label}</b><small>{maturity.reason}</small></div>
-      <div className="idea-outcome-options">
-        {orderedOutcomes.map(({ id, title, detail, icon: Icon }) => (
-          <button key={id} type="button" className={`${value === id ? 'active' : ''} ${maturity.recommended === id ? 'recommended' : ''}`} aria-current={value === id ? 'step' : undefined} onClick={() => onChange(id)}>
-            <Icon size={18}/><span><b>{title}{maturity.recommended === id ? ' · Önerilen' : ''}</b><small>{detail}</small></span><ArrowRight size={15}/>
+      <div className="idea-outcome-primary">
+        <div className="idea-outcome-primary-copy">
+          <span className="meta">ÖNERİLEN SONRAKİ ADIM · %{maturity.score}</span>
+          <b>{maturity.label}</b>
+          <small>{maturity.reason}</small>
+        </div>
+        <button
+          type="button"
+          className="primary idea-outcome-primary-action"
+          aria-current={value === primary.id ? 'step' : undefined}
+          onClick={() => onChange(primary.id)}
+        >
+          <primary.icon size={18} />
+          <span>{primary.title}</span>
+          <ArrowRight size={16} />
+        </button>
+      </div>
+      <div className="idea-outcome-secondary">
+        {secondary.map(({ id, title, detail, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className={`${value === id ? 'active' : ''}`}
+            aria-current={value === id ? 'step' : undefined}
+            onClick={() => onChange(id)}
+          >
+            <Icon size={16} />
+            <span>
+              <b>{title}</b>
+              <small>{detail}</small>
+            </span>
           </button>
         ))}
       </div>

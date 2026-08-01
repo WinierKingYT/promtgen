@@ -61,6 +61,41 @@ function transactionDone(tx) {
     });
 }
 
+function deleteRecordsForProject(store, projectId) {
+    return new Promise((resolve, reject) => {
+        const request = store.index('projectId').getAllKeys(projectId);
+        request.onsuccess = () => {
+            for (const key of request.result) store.delete(key);
+            resolve(request.result.length);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function revisionConflict(projectId, expectedDocumentRevision, expectedCanonicalRevision, stored) {
+    const actualDocumentRevision = stored?.documentRevision ?? null;
+    const actualCanonicalRevision = stored?.canonicalRevision ?? null;
+    const error = new Error(
+        `Revision conflict (${projectId}): document ${expectedDocumentRevision ?? '*'} / canonical ${expectedCanonicalRevision ?? '*'} beklenirken ${actualDocumentRevision ?? 'yok'} / ${actualCanonicalRevision ?? 'yok'} bulundu.`
+    );
+    error.code = 'PROJECT_REVISION_CONFLICT';
+    return error;
+}
+
+function assertExpectedRevisions(projectId, stored, options = {}) {
+    if (options.createOnly && stored) {
+        throw revisionConflict(projectId, null, null, stored);
+    }
+    if (options.expectedDocumentRevision !== undefined
+        && stored?.documentRevision !== options.expectedDocumentRevision) {
+        throw revisionConflict(projectId, options.expectedDocumentRevision, options.expectedCanonicalRevision, stored);
+    }
+    if (options.expectedCanonicalRevision !== undefined
+        && stored?.canonicalRevision !== options.expectedCanonicalRevision) {
+        throw revisionConflict(projectId, options.expectedDocumentRevision, options.expectedCanonicalRevision, stored);
+    }
+}
+
 function buildPersistentCheckpoint(project, digest) {
     return {
         id: `checkpoint:${project.id}:${project.documentRevision}:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`,
@@ -137,7 +172,7 @@ export class IndexedDbProjectRepository {
         }
     }
 
-    async save(project) {
+    async save(project, options = {}) {
         const normalized = normalizeProjectDocument(project);
         const validation = validateProjectDocument(normalized);
         if (!validation.valid) {
@@ -145,10 +180,10 @@ export class IndexedDbProjectRepository {
             await quarantinePersistently(db, project, `Schema validation failure: ${validation.errors.join(' ')}`);
             throw new Error(validation.errors.join(' '));
         }
-        return this.#saveValidated(normalized);
+        return this.#saveValidated(normalized, null, options);
     }
 
-    async #saveValidated(normalized, migrationBackup = null) {
+    async #saveValidated(normalized, migrationBackup = null, options = {}) {
         const db = await openDatabase();
         const digest = await computeSha256(normalized);
         const checkpoint = buildPersistentCheckpoint(normalized, digest);
@@ -156,7 +191,17 @@ export class IndexedDbProjectRepository {
             ? buildPersistentCheckpoint(migrationBackup, await computeSha256(migrationBackup))
             : null;
         const tx = db.transaction(Object.values(STORES), 'readwrite');
-        tx.objectStore(STORES.projects).put(structuredClone(normalized));
+        const done = transactionDone(tx);
+        const projectsStore = tx.objectStore(STORES.projects);
+        const stored = await requestResult(projectsStore.get(normalized.id));
+        try {
+            assertExpectedRevisions(normalized.id, stored, options);
+        } catch (error) {
+            tx.abort();
+            await done.catch(() => undefined);
+            throw error;
+        }
+        projectsStore.put(structuredClone(normalized));
         tx.objectStore(STORES.checkpoints).put(checkpoint);
         if (backupCheckpoint) tx.objectStore(STORES.checkpoints).put(backupCheckpoint);
         for (const record of normalized.commandLog) {
@@ -176,7 +221,7 @@ export class IndexedDbProjectRepository {
                 tx.objectStore(STORES.checkpoints).delete(expired.id);
             }
         };
-        await transactionDone(tx);
+        await done;
         return normalized;
     }
 
@@ -196,17 +241,49 @@ export class IndexedDbProjectRepository {
     async archive(id) {
         const project = await this.get(id);
         if (!project) return false;
+        if (project.lifecycle.status === 'archived') return true;
+        const expectedDocumentRevision = project.documentRevision;
+        const expectedCanonicalRevision = project.canonicalRevision;
         project.lifecycle.status = 'archived';
         project.lifecycle.updatedAt = new Date().toISOString();
-        await this.save(project);
+        project.documentRevision += 1;
+        await this.save(project, { expectedDocumentRevision, expectedCanonicalRevision });
         return true;
     }
 
-    async remove(id) {
+    async restore(id) {
+        const project = await this.get(id);
+        if (!project) return false;
+        if (project.lifecycle.status !== 'archived') return true;
+        const expectedDocumentRevision = project.documentRevision;
+        const expectedCanonicalRevision = project.canonicalRevision;
+        project.lifecycle.status = 'active';
+        project.lifecycle.updatedAt = new Date().toISOString();
+        project.documentRevision += 1;
+        await this.save(project, { expectedDocumentRevision, expectedCanonicalRevision });
+        return true;
+    }
+
+    async purge(id) {
         const db = await openDatabase();
-        const tx = db.transaction(STORES.projects, 'readwrite');
-        tx.objectStore(STORES.projects).delete(id);
-        await transactionDone(tx);
+        const tx = db.transaction(Object.values(STORES), 'readwrite');
+        const done = transactionDone(tx);
+        const projects = tx.objectStore(STORES.projects);
+        const existing = await requestResult(projects.get(id));
+        const [checkpointsDeleted, commandLogEntriesDeleted, quarantineEntriesDeleted] = await Promise.all([
+            deleteRecordsForProject(tx.objectStore(STORES.checkpoints), id),
+            deleteRecordsForProject(tx.objectStore(STORES.commandLog), id),
+            deleteRecordsForProject(tx.objectStore(STORES.quarantine), id)
+        ]);
+        projects.delete(id);
+        await done;
+        return {
+            projectDeleted: Boolean(existing),
+            checkpointsDeleted,
+            commandLogEntriesDeleted,
+            quarantineEntriesDeleted,
+            backupsDeleted: 0
+        };
     }
 }
 
@@ -237,21 +314,50 @@ export class MemoryProjectRepository {
         }
         return normalized;
     }
-    async save(project) {
+    async save(project, options = {}) {
         const normalized = normalizeProjectDocument(project);
         const validation = validateProjectDocument(normalized);
         if (!validation.valid) throw new Error(validation.errors.join(' '));
+        assertExpectedRevisions(normalized.id, this.projects.get(normalized.id), options);
         this.projects.set(normalized.id, normalized);
         return normalized;
     }
     async archive(id) {
         const item = await this.get(id);
         if (!item) return false;
+        if (item.lifecycle.status === 'archived') return true;
+        const expectedDocumentRevision = item.documentRevision;
+        const expectedCanonicalRevision = item.canonicalRevision;
         item.lifecycle.status = 'archived';
-        await this.save(item);
+        item.lifecycle.updatedAt = new Date().toISOString();
+        item.documentRevision += 1;
+        await this.save(item, { expectedDocumentRevision, expectedCanonicalRevision });
         return true;
     }
-    async remove(id) { this.projects.delete(id); }
+    async restore(id) {
+        const item = await this.get(id);
+        if (!item) return false;
+        if (item.lifecycle.status !== 'archived') return true;
+        const expectedDocumentRevision = item.documentRevision;
+        const expectedCanonicalRevision = item.canonicalRevision;
+        item.lifecycle.status = 'active';
+        item.lifecycle.updatedAt = new Date().toISOString();
+        item.documentRevision += 1;
+        await this.save(item, { expectedDocumentRevision, expectedCanonicalRevision });
+        return true;
+    }
+    async purge(id) {
+        const project = this.projects.get(id);
+        const projectDeleted = this.projects.delete(id);
+        const backupsDeleted = this.migrationBackups.delete(id) ? 1 : 0;
+        return {
+            projectDeleted,
+            checkpointsDeleted: 0,
+            commandLogEntriesDeleted: project?.commandLog?.length || 0,
+            quarantineEntriesDeleted: 0,
+            backupsDeleted
+        };
+    }
 }
 
 export function createProjectRepository() {
@@ -303,9 +409,17 @@ export async function listWebQuarantinedProjects() {
     return new IndexedDbProjectRepository().listQuarantined();
 }
 
-export async function restoreWebProjectCheckpoint(currentProject, checkpointId) {
-    if (typeof indexedDB === 'undefined') return null;
+export async function loadWebProjectCheckpoint(currentProject, checkpointId) {
+    if (typeof indexedDB === 'undefined') throw new Error('IndexedDB checkpoint deposu bu ortamda kullanılamıyor.');
     const checkpoints = await listWebProjectCheckpoints(currentProject.id);
     const checkpoint = checkpoints.find(item => item.id === checkpointId);
-    return checkpoint ? restoreCheckpointAsNewRevision(currentProject, checkpoint.projectSnapshot) : null;
+    if (!checkpoint) throw new Error('Checkpoint bulunamadı. Listeyi yenileyip tekrar deneyin.');
+    if (checkpoint.projectId !== currentProject.id) throw new Error('Checkpoint başka bir projeye ait.');
+    if (!(await verifySha256(checkpoint.projectSnapshot, checkpoint.checksumHash))) {
+        throw new Error('Checkpoint bütünlük doğrulamasını geçemedi; geri yükleme engellendi.');
+    }
+    const candidate = normalizeProjectDocument(checkpoint.projectSnapshot);
+    const validation = validateProjectDocument(candidate);
+    if (!validation.valid) throw new Error(`Checkpoint şeması geçersiz: ${validation.errors.join(' ')}`);
+    return candidate;
 }

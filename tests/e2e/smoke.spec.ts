@@ -58,7 +58,7 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await expect(page.locator('.toast')).toContainText('kaydedildi');
 
     await page.reload();
-    await page.locator('.portfolio-projects > button').first().click();
+    await page.locator('.portfolio-project-open').first().click();
     await page.getByRole('button', { name: /Detaylı planla/ }).click();
     await expect(page.locator('.section-editor textarea')).toHaveValue(/yaşayan plana dönüştür/);
 

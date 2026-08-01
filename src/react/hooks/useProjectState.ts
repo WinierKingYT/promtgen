@@ -35,7 +35,7 @@ export function useProjectState() {
 
   useEffect(() => {
     repository.list().then((items: Project[]) => {
-      setProjects(items.filter(item => item.lifecycle.status !== 'archived'));
+      setProjects(items);
       setActiveId(null);
     }).finally(() => setLoading(false));
   }, []);
@@ -101,6 +101,49 @@ export function useProjectState() {
     }
   };
 
+  const reportRepositoryError = (error: unknown, fallback: string) => {
+    setAppError(error instanceof Error ? error.message : fallback);
+    window.setTimeout(() => setAppError(''), 4200);
+  };
+
+  const archiveProject = async (id: string) => {
+    try {
+      if (!(await repository.archive(id))) return false;
+      const archived = await repository.get(id);
+      if (archived) setProjects(current => current.map(item => item.id === id ? archived : item));
+      if (activeId === id) setActiveId(null);
+      return true;
+    } catch (error) {
+      reportRepositoryError(error, 'Proje arşivlenemedi.');
+      return false;
+    }
+  };
+
+  const restoreProject = async (id: string) => {
+    try {
+      if (!(await repository.restore(id))) return false;
+      const restored = await repository.get(id);
+      if (restored) setProjects(current => current.map(item => item.id === id ? restored : item));
+      return true;
+    } catch (error) {
+      reportRepositoryError(error, 'Proje arşivden çıkarılamadı.');
+      return false;
+    }
+  };
+
+  const purgeProject = async (id: string) => {
+    try {
+      const result = await repository.purge(id);
+      if (!result.projectDeleted) throw new Error('Silinecek proje bulunamadı.');
+      setProjects(current => current.filter(item => item.id !== id));
+      if (activeId === id) setActiveId(null);
+      return true;
+    } catch (error) {
+      reportRepositoryError(error, 'Proje kalıcı olarak silinemedi.');
+      return false;
+    }
+  };
+
   return {
     projects,
     activeId,
@@ -113,6 +156,9 @@ export function useProjectState() {
     persist,
     create,
     importPackage,
+    archiveProject,
+    restoreProject,
+    purgeProject,
     credentialVault,
   };
 }

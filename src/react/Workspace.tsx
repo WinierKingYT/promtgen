@@ -17,6 +17,7 @@ import { IdeaDiscussionPanel } from './components/IdeaDiscussionPanel.js';
 import { RequirementQualityPanel } from './components/RequirementQualityPanel.js';
 import { LazyFeatureBoundary } from './components/LazyFeatureBoundary.js';
 import { IdeaGuidePanel, IdeaOutcomeBar, type IdeaOutcome } from './components/IdeaOutcomeBar.js';
+import { IdeaPromptDeck } from './components/IdeaPromptDeck.js';
 import type { ProjectDocumentV5, SuggestionStatus } from '../v4/contracts.js';
 import type { ProviderSettings } from '../v4/provider-settings.js';
 import type { CredentialVault } from '../v4/credential-vault.js';
@@ -274,6 +275,9 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       />
       <IdeaOutcomeBar project={project} value={outcome} onChange={setOutcome}/>
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setOutcome('plan')}/>
+      <LazyFeatureBoundary label="Kurtarma Merkezi" resetKey={project.documentRevision}>
+        <StorageHealthPanel project={project} onCommit={persistCandidate}/>
+      </LazyFeatureBoundary>
       <div className={`workspace-grid outcome-${outcome}`}>
         <section className="conversation" aria-label="Planlama sohbeti">
           <div className="idea-summary"><div className="ai-avatar"><Sparkles size={18}/></div><div><div className="meta">FİKİR ANALİZİ</div><p>{project.identity.originalIdea}</p></div></div>
@@ -409,9 +413,24 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
 
             </form>
           </section>
+          {outcome !== 'plan' && (
+            <IdeaPromptDeck
+              project={project}
+              onPrompt={value => {
+                setDirection(value);
+                setChangeImpactMode(false);
+              }}
+              onQuestion={value => {
+                setFocusedQuestion(value);
+                setDirection(value);
+                setChangeImpactMode(false);
+              }}
+              onOutcome={setOutcome}
+            />
+          )}
           </>}
           {outcome === 'plan' && <>
-          <div className="conversation-heading"><div><span className="meta">KARAR TURU · {bundleSource.toUpperCase()}</span><h2>{currentBundle?.title || 'Planı geliştir'}</h2><p>Yalnızca kabul ettiğin değişiklikler yaşayan plana uygulanır.</p></div><Lightbulb size={23}/></div>
+          <div className="conversation-heading"><div><span className="meta">KARAR TURU · {bundleSource.toUpperCase()}</span><h2>{currentBundle?.title || 'Fikri konuşarak geliştir'}</h2><p>Önce konuşuruz, sonra sadece kabul ettiğin değişiklikler yaşayan plana uygulanır.</p></div><Lightbulb size={23}/></div>
           <div className="suggestions">{currentBundle?.items.map(item => <SuggestionCard key={item.id} item={item} provenance={currentBundle.provenance} onStatus={(nextStatus, edited = '') => status(item.id, nextStatus, edited)}/>)}</div>
           {!bundleResolved && changePreview && changePreview.acceptedCount > 0 && <section className="change-preview" aria-labelledby="change-preview-title" aria-live="polite">
             <div className="preview-head"><div className="preview-icon"><Eye size={17}/></div><div><span className="meta">UYGULAMA ÖNCESİ ÖNİZLEME</span><h3 id="change-preview-title">r{project.canonicalRevision} → r{changePreview.nextRevision}</h3></div><div className="preview-count"><b>{changePreview.acceptedCount}</b><span>kabul</span></div></div>
@@ -447,7 +466,6 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 <ReviewPanel project={project} onCommit={commit}/>
                 <ModulePanel project={project} onCommit={commit}/>
                 <ExecutionPanel project={project} onCommit={commit}/>
-                <StorageHealthPanel project={project} onCommit={commit}/>
                 <ResearchPanel project={project} onCommit={commit}/>
                 <TraceabilityMap project={project}/>
                 <PlanCodeAlignmentPanel project={project} onCommit={commit}/>

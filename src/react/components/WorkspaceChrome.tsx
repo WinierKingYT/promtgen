@@ -16,7 +16,7 @@ export function ProjectRail({ projects, activeId, onSelect, onNew, open, onClose
   onClose: () => void;
 }) {
   const [filter, setFilter] = useState('');
-  const filtered = projects.filter(p => (p.identity?.name || '').toLowerCase().includes(filter.toLowerCase()));
+  const filtered = projects.filter(p => p.lifecycle.status !== 'archived' && (p.identity?.name || '').toLowerCase().includes(filter.toLowerCase()));
 
   return <aside className={`project-rail ${open ? 'open' : ''}`} aria-label="Projeler" aria-hidden={!open}>
     <div className="brand"><div className="brand-symbol">P</div><div><b>PromtGen</b><small>Project architect</small></div><IconButton label="Menüyü kapat" onClick={onClose}><X size={18}/></IconButton></div>

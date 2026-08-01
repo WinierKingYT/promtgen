@@ -29,8 +29,15 @@ describe('Category 9: Storage & Provider Contracts Matrix Suite', () => {
     const reFetched = await repo.get(String(proj.id));
     assert.equal(reFetched?.lifecycle.status, 'archived');
 
-    // Remove
-    await repo.remove(String(proj.id));
+    // Restore
+    const restored = await repo.restore(String(proj.id));
+    assert.ok(restored);
+    assert.equal((await repo.get(String(proj.id)))?.lifecycle.status, 'active');
+
+    // Permanent delete
+    const purgeResult = await repo.purge(String(proj.id));
+    assert.equal(purgeResult.projectDeleted, true);
+    assert.ok(purgeResult.commandLogEntriesDeleted >= 0);
     const finalList = await repo.list();
     assert.equal(finalList.length, 0);
   });

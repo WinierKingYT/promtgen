@@ -22,6 +22,9 @@ export default function App() {
     persist,
     create,
     importPackage,
+    archiveProject,
+    restoreProject,
+    purgeProject,
     credentialVault
   } = useProjectState();
   const { readiness, checking: checkingProvider, recheck: recheckProvider } = useProviderReadiness(providerSettings, credentialVault);
@@ -47,6 +50,9 @@ export default function App() {
           onImport={importPackage}
           projects={projects}
           onOpen={setActiveId}
+          onArchive={archiveProject}
+          onRestore={restoreProject}
+          onPurge={purgeProject}
           providerSettings={providerSettings}
           onOpenSettings={openSettings}
           readiness={readiness}
