@@ -70,10 +70,27 @@ export interface StableEligibility {
     scenarioCount: number;
     scenarioPassRate: number;
     userParticipants: number;
+    commitEvidenceCurrent: boolean;
   };
 }
 
-export function evaluateStableEligibility(capability: ProductCapability): StableEligibility {
+export interface StableVerificationContext {
+  currentCommitSha?: string | null;
+  verifiedCommitSha?: string | null;
+}
+
+export function commitEvidenceMatches(currentCommitSha?: string | null, verifiedCommitSha?: string | null): boolean {
+  const current = currentCommitSha?.trim().toLowerCase() || '';
+  const verified = verifiedCommitSha?.trim().toLowerCase() || '';
+  const gitSha = /^[0-9a-f]{7,40}$/;
+  if (!gitSha.test(current) || !gitSha.test(verified)) return false;
+  return current.startsWith(verified) || verified.startsWith(current);
+}
+
+export function evaluateStableEligibility(
+  capability: ProductCapability,
+  verification: StableVerificationContext = {}
+): StableEligibility {
   const integrationTests = capability.evidence.filter(item =>
     STABLE_PROMOTION_POLICY.productionEvidenceLevels.includes(item.level)
   ).length;
@@ -81,6 +98,9 @@ export function evaluateStableEligibility(capability: ProductCapability): Stable
   const scenarioPassRate = scenarioCount
     ? capability.promotionEvidence.scenarios.passed / scenarioCount
     : 0;
+  const verifiedCommitSha = verification.verifiedCommitSha
+    ?? capability.promotionEvidence.lastVerifiedCommit;
+  const commitEvidenceCurrent = commitEvidenceMatches(verification.currentCommitSha, verifiedCommitSha);
   const blockers = [
     ...(integrationTests > 0 ? [] : ['En az bir üretim entegrasyon testi gerekli.']),
     ...(capability.platforms.every(platform => capability.evidence.some(item => item.platforms.includes(platform)))
@@ -99,7 +119,13 @@ export function evaluateStableEligibility(capability: ProductCapability): Stable
     ...(capability.promotionEvidence.users.participants >= STABLE_PROMOTION_POLICY.minimumUserParticipants
       ? []
       : [`En az ${STABLE_PROMOTION_POLICY.minimumUserParticipants} kullanıcıdan kanıt gerekli.`]),
-    ...(capability.promotionEvidence.lastVerifiedCommit ? [] : ['Son doğrulanan commit kaydı gerekli.'])
+    ...(!verification.currentCommitSha
+      ? ['Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.']
+      : !verifiedCommitSha
+        ? ['Doğrulanan commit kanıtı gerekli.']
+        : commitEvidenceCurrent
+          ? []
+          : [`Kanıt commit'i güncel build ile eşleşmiyor (kanıt: ${verifiedCommitSha}, build: ${verification.currentCommitSha}).`])
   ];
   return {
     eligible: blockers.length === 0,
@@ -108,7 +134,8 @@ export function evaluateStableEligibility(capability: ProductCapability): Stable
       integrationTests,
       scenarioCount,
       scenarioPassRate,
-      userParticipants: capability.promotionEvidence.users.participants
+      userParticipants: capability.promotionEvidence.users.participants,
+      commitEvidenceCurrent
     }
   };
 }

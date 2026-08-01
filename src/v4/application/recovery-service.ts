@@ -42,6 +42,10 @@ export interface RecoveryPreview {
   reason: string;
 }
 
+export function requiresExplicitLegacyRecoveryAcknowledgement(preview: RecoveryPreview | null | undefined): boolean {
+  return preview?.source === 'portable-package' && preview.integrity === 'legacy';
+}
+
 type EntityCollectionKey = 'objectives' | 'requirements' | 'decisions' | 'risks' | 'tasks' | 'testCases' | 'traceLinks';
 
 const entityCollections: Array<{ key: EntityCollectionKey; label: string }> = [

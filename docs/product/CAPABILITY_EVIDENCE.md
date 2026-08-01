@@ -1,6 +1,6 @@
 # Yetenek Kanıtları
 
-Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle “stable” ilanı yapılamaz; her yetenek makinece denetlenen terfi kapısını geçmelidir.
+Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle “stable” ilanı yapılamaz; her yetenek makinece denetlenen terfi kapısını geçmelidir. Statik belge geçmiş kanıt commit'ini gösterir; güncel commit eşleşmesi yalnız CI tarafından üretilen `release-evidence.json` ile doğrulanır.
 
 ## Stable terfi kapısı
 
@@ -10,7 +10,7 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 - Sıfır açık kritik kusur.
 - Belgelenmiş kurtarma veya geri alma yolu.
 - En az 5 gerçek kullanıcı katılımcısı.
-- Son doğrulanan commit kaydı.
+- Doğrulanan commit ile güncel build/CI commit'inin eşleşmesi.
 
 ## Kanıt tablosu
 
@@ -35,54 +35,67 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 ### Açıklanabilir Plan Kalite Kapısı
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Web/SaaS Planlama Paketi
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Backend/API Planlama Paketi
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Canonical Yaşayan Plan ve Revizyon Yönetimi
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Görev Teslim Kanıtı
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Plan–Kod Hizalama
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Local-First Depolama ve Yedekleme
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Uzman Perspektifleri
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Mimari Karşılaştırma Şablonu
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### AI Sağlayıcı Entegrasyonu
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### İzole Codex Worktree Yürütmesi
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Dosya Envanteri ve Güvenlik Filtresi
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Gelişmiş Dışa Aktarım
 
 - En az 5 kullanıcıdan kanıt gerekli.
+- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ## Proje desteği özeti
 

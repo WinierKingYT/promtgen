@@ -204,6 +204,7 @@ jobs:
         env:
           REQUIRED_JOBS_GREEN: 'true'
           WINDOWS_SIGNED: 'false'
+      - run: npm run check:capability-evidence -- release-evidence.json
       - run: npm run release:readiness
       - uses: actions/upload-artifact@v4
         with:

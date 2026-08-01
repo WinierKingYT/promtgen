@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArchiveRestore, FileArchive, LoaderCircle, ShieldCheck, TriangleAlert } from 'lucide-react';
-import { buildRecoveryPreview, type RecoveryPreview } from '../../v4/application/recovery-service.js';
+import {
+  buildRecoveryPreview,
+  requiresExplicitLegacyRecoveryAcknowledgement,
+  type RecoveryPreview
+} from '../../v4/application/recovery-service.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { PromtgenPackageInspection } from '../../v4/exporter.js';
 
@@ -12,7 +16,7 @@ interface PackageImportDialogProps {
 }
 
 const integrityCopy = {
-  full: { title: 'Tam paket bütünlüğü doğrulandı', detail: 'Manifest, proje, geçmiş ve export dosyalarının SHA-256 değerleri eşleşiyor.' },
+  full: { title: 'Paket içeriği SHA-256 kayıtlarıyla eşleşiyor', detail: 'Manifest, proje, geçmiş ve export dosyalarının SHA-256 değerleri eşleşiyor.' },
   canonical: { title: 'Canonical plan doğrulandı', detail: 'Eski paket sürümü nedeniyle yardımcı dosyalar tek tek doğrulanamadı.' },
   legacy: { title: 'Eski paket — sınırlı doğrulama', detail: 'Şema güvenli biçimde doğrulandı; kriptografik bütünlük kaydı yok.' }
 } as const;
@@ -21,6 +25,7 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [saving, setSaving] = useState(false);
+  const [legacyRecoveryAcknowledged, setLegacyRecoveryAcknowledged] = useState(false);
   const recoveryPreview = useMemo(() => existingProject
     ? buildRecoveryPreview(
         existingProject,
@@ -31,7 +36,9 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
     : null, [existingProject, inspection]);
   const integrity = integrityCopy[inspection.integrity.level];
   const mode = recoveryPreview ? 'recovery' : 'new';
-  const canConfirm = !recoveryPreview || recoveryPreview.canRestore;
+  const requiresLegacyAcknowledgement = requiresExplicitLegacyRecoveryAcknowledgement(recoveryPreview);
+  const canConfirm = (!recoveryPreview || recoveryPreview.canRestore)
+    && (!requiresLegacyAcknowledgement || legacyRecoveryAcknowledged);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -71,7 +78,7 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
           <h2 id="package-import-title">{inspection.project.identity.name}</h2>
           <p id="package-import-description">
             {recoveryPreview
-              ? 'Bu proje cihazda zaten var. Paket yalnız onayından sonra yeni bir revision olarak geri yüklenecek.'
+              ? 'Paketin canonical içeriği yalnız onayından sonra, cihazdaki revision/export/execution geçmişi korunarak yeni yerel revision olarak eklenecek.'
               : 'Paket henüz kaydedilmedi. İçeriği ve bütünlük sonucunu inceleyip yeni proje olarak ekleyebilirsin.'}
           </p>
         </div>
@@ -83,13 +90,14 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
           <strong>{integrity.title}</strong>
           <span>{integrity.detail}</span>
           <small>{inspection.integrity.verifiedEntries}/{inspection.integrity.totalEntries} paket girdisi doğrulandı.</small>
+          <small className="package-trust-limit">Bu kontrol içeriğin manifestle eşleştiğini gösterir; paketi kimin ürettiğini veya kaynağın güvenilirliğini kanıtlamaz.</small>
         </div>
       </section>
 
       <div className="package-import-facts" role="list" aria-label="Paket bilgileri">
-        <span role="listitem"><small>Belge revision</small><strong>r{inspection.project.documentRevision}</strong></span>
-        <span role="listitem"><small>Canonical revision</small><strong>r{inspection.project.canonicalRevision}</strong></span>
-        <span role="listitem"><small>Export belgesi</small><strong>{inspection.manifest.files.length}</strong></span>
+        <span role="listitem"><small>Paket belge rev.</small><strong>r{inspection.project.documentRevision}</strong></span>
+        <span role="listitem"><small>Paket canonical rev.</small><strong>r{inspection.project.canonicalRevision}</strong></span>
+        <span role="listitem"><small>{recoveryPreview ? 'Yerel hedef rev.' : 'Export belgesi'}</small><strong>{recoveryPreview ? `r${recoveryPreview.nextCanonicalRevision}` : inspection.manifest.files.length}</strong></span>
       </div>
 
       {inspection.integrity.warnings.length > 0 && (
@@ -102,8 +110,9 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
         <section className="package-recovery-preview" aria-labelledby="package-change-title">
           <div>
             <h3 id="package-change-title">Geri yükleme etkisi</h3>
-            <span>Güncel r{recoveryPreview.expectedCanonicalRevision} → yeni r{recoveryPreview.nextCanonicalRevision}</span>
+            <span>Paket r{recoveryPreview.sourceCanonicalRevision} → yerel yeni r{recoveryPreview.nextCanonicalRevision}</span>
           </div>
+          <p className="package-recovery-contract">Yerel r{recoveryPreview.expectedCanonicalRevision} zaman çizelgesi korunur; paketin kendi geçmişi yerel geçmişin yerine geçmez.</p>
           {!recoveryPreview.canRestore ? <p>{recoveryPreview.reason}</p> : (
             <div className="package-change-grid">
               <span><strong>{recoveryPreview.sections.length}</strong> plan bölümü</span>
@@ -118,6 +127,20 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
             <ul>{recoveryPreview.entities.slice(0, 5).map(entity => <li key={entity.key}>{entity.label}: +{entity.added}, −{entity.removed}, {entity.changed} değişti</li>)}</ul>
           )}
         </section>
+      )}
+
+      {requiresLegacyAcknowledgement && (
+        <label className="package-legacy-acknowledgement">
+          <input
+            type="checkbox"
+            checked={legacyRecoveryAcknowledged}
+            onChange={event => setLegacyRecoveryAcknowledged(event.currentTarget.checked)}
+          />
+          <span>
+            <strong>Sınırlı doğrulamayı kabul ediyorum</strong>
+            Bu eski paketin kriptografik bütünlük kanıtı olmadığını ve canonical içeriğinin yerel geçmişime yeni revision olarak ekleneceğini anlıyorum.
+          </span>
+        </label>
       )}
 
       <div className="package-import-actions">

@@ -1,21 +1,20 @@
 import JSZip from 'jszip';
 import { validateProjectDocument } from './project-document.js';
-import { normalizeProjectDocument } from './canonical-entities.js';
-import { tryMigrateOrPassthrough } from './migrations.js';
 import { createModuleRegistry } from './module-registry.js';
 import { generateArchitectureDiagram, generateDataFlowDiagram } from './diagram-generator.js';
+import {
+    canonicalHashPayload,
+    resolveCanonicalRevision,
+    sha256,
+    sha256Bytes,
+    stableJson
+} from './application/canonical-export-core.ts';
+import { inspectPromtgenPackage, readPromtgenPackage } from './application/portable-package.ts';
 import {
     buildImplementationEvidenceInstructions,
     buildImplementationEvidenceTemplate
 } from './application/implementation-evidence-format.ts';
 
-const MAX_PACKAGE_BYTES = 25 * 1024 * 1024;
-const MAX_ENTRY_BYTES = 5 * 1024 * 1024;
-const MAX_TOTAL_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
-const MAX_PACKAGE_ENTRIES = 500;
-const MAX_JSON_DEPTH = 40;
-const MAX_JSON_NODES = 50000;
-const FORBIDDEN_JSON_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const DEFAULT_ADAPTERS = ['generic', 'codex', 'cursor', 'claude', 'windsurf', 'copilot'];
 export const IDE_ADAPTERS = Object.freeze([
     { id: 'generic', label: 'Generic', path: 'PROMTGEN.md' },
@@ -31,61 +30,9 @@ function safeName(value) {
         .normalize('NFKD').replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'promtgen-projesi';
 }
 
-function stableJson(value) {
-    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-    if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-    return JSON.stringify(value);
-}
-
-export function canonicalHashPayload(project) {
-    const source = resolveCanonicalRevision(project);
-    return {
-        schemaVersion: source.schemaVersion,
-        schemaRevision: source.schemaRevision,
-        canonicalRevision: source.canonicalRevision,
-        sourceIdeaRevisionId: source.sourceIdeaRevisionId,
-        sourceIdeaRevisionNumber: source.sourceIdeaRevisionNumber,
-        identity: source.identity,
-        planningDepth: source.planningDepth,
-        profile: source.profile,
-        lifecycle: {
-            status: source.lifecycle.status,
-            activePhase: source.lifecycle.activePhase,
-            finalizedAt: source.lifecycle.finalizedAt
-        },
-        sections: source.sections,
-        objectives: source.objectives,
-        assumptions: source.assumptions,
-        requirements: source.requirements,
-        decisions: source.decisions,
-        tasks: source.tasks,
-        risks: source.risks,
-        milestones: source.milestones,
-        testCases: source.testCases,
-        traceLinks: source.traceLinks,
-        agentPrompts: source.agentPrompts,
-        researchQuestions: source.researchQuestions,
-        sources: source.sources,
-        evidence: source.evidence,
-        reviewFindings: source.reviewFindings,
-        simulationRuns: source.simulationRuns,
-        modules: source.modules,
-        readiness: source.readiness
-    };
-}
-
 function assertIdeaPlanAlignment(source) {
     if (source.planAlignment?.status === 'aligned') return;
     throw new Error('Fikir belgesi canonical plandan farklı. Güncel planı dışa aktarmadan önce etki analizini inceleyip onaylayın.');
-}
-
-async function sha256Bytes(bytes) {
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
-    return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-async function sha256(value) {
-    return sha256Bytes(new TextEncoder().encode(value));
 }
 
 function recordId() {
@@ -100,17 +47,6 @@ function sectionMarkdown(section) {
     if (!section) return '_Bu plan derinliğinde etkin değil._';
     const body = [section.content, ...(section.items || []).map(item => `- ${item}`)].filter(Boolean).join('\n\n');
     return `## ${section.title}\n\n${body || '_Henüz içerik yok._'}`;
-}
-
-export function resolveCanonicalRevision(project, reference = 'current') {
-    const normalized = normalizeProjectDocument(project);
-    if (reference === 'current' || reference == null || Number(reference) === normalized.canonicalRevision) return normalized;
-    const revision = normalized.revisions.find(item => item.id === reference || item.number === Number(reference));
-    if (!revision?.snapshot) throw new Error(`Plan revision'ı bulunamadı: ${reference}`);
-    const snapshot = normalizeProjectDocument(revision.snapshot);
-    snapshot.canonicalRevision = revision.number;
-    snapshot.documentRevision = Math.max(snapshot.documentRevision || revision.number, revision.number);
-    return snapshot;
 }
 
 export function exportCanonicalMarkdown(project, revision = 'current') {
@@ -485,116 +421,7 @@ export async function createPromtgenPackage(project, options = {}) {
     };
 }
 
-function validateEntryPath(path) {
-    if (!path || path.length > 240 || path.includes('\\') || path.includes('\0') || path.startsWith('/') || /^[a-z]:/i.test(path)) return false;
-    const segments = path.split('/').filter(Boolean);
-    return segments.length > 0 && segments.every(segment => segment !== '.' && segment !== '..' && !segment.includes(':'));
-}
-
-function assertSafeJsonValue(value) {
-    let nodes = 0;
-    const visit = (current, depth) => {
-        nodes += 1;
-        if (nodes > MAX_JSON_NODES) throw new Error('Paket JSON yapısı izin verilen karmaşıklığı aşıyor.');
-        if (depth > MAX_JSON_DEPTH) throw new Error('Paket JSON yapısı izin verilen derinliği aşıyor.');
-        if (!current || typeof current !== 'object') return;
-        for (const key of Object.keys(current)) {
-            if (FORBIDDEN_JSON_KEYS.has(key)) throw new Error(`Paket JSON içeriğinde yasak anahtar var: ${key}`);
-            visit(current[key], depth + 1);
-        }
-    };
-    visit(value, 0);
-    return value;
-}
-
-async function readSafeJsonEntry(zip, name) {
-    const entry = zip.file(name);
-    if (!entry) throw new Error(`Paket zorunlu girdiyi içermiyor: ${name}`);
-    let parsed;
-    try { parsed = JSON.parse(await entry.async('string')); }
-    catch { throw new Error(`Paket JSON girdisi okunamadı: ${name}`); }
-    return assertSafeJsonValue(parsed);
-}
-
-export async function inspectPromtgenPackage(file) {
-    if (!file || file.size > MAX_PACKAGE_BYTES) throw new Error('Paket 25 MB sınırını aşıyor.');
-    const packageData = typeof file.arrayBuffer === 'function' ? await file.arrayBuffer() : file;
-    if (!packageData || packageData.byteLength > MAX_PACKAGE_BYTES) throw new Error('Paket 25 MB sınırını aşıyor.');
-    const zip = await JSZip.loadAsync(packageData);
-    const entries = Object.values(zip.files);
-    if (entries.length > MAX_PACKAGE_ENTRIES) throw new Error(`Paket ${MAX_PACKAGE_ENTRIES} girdi sınırını aşıyor.`);
-    let totalUncompressedBytes = 0;
-    for (const entry of entries) {
-        if (!validateEntryPath(entry.name)) throw new Error(`Güvensiz paket yolu: ${entry.name}`);
-        if (entry.dir) continue;
-        const size = Number(entry._data?.uncompressedSize);
-        if (!Number.isSafeInteger(size) || size < 0) throw new Error(`Paket girdisi boyutu doğrulanamadı: ${entry.name}`);
-        if (size > MAX_ENTRY_BYTES) throw new Error(`Paket girdisi çok büyük: ${entry.name}`);
-        totalUncompressedBytes += size;
-        if (totalUncompressedBytes > MAX_TOTAL_UNCOMPRESSED_BYTES) throw new Error('Paket açılmış içerik boyutu 50 MB sınırını aşıyor.');
-    }
-    const manifest = await readSafeJsonEntry(zip, 'manifest.json');
-    if (manifest?.format !== 'promtgen' || ![4, 5].includes(manifest?.schemaVersion) || ![1, 2, 3].includes(manifest?.formatVersion)) throw new Error('Desteklenmeyen .promtgen paketi.');
-    const manifestFiles = manifest.files ?? (manifest.formatVersion === 1 ? [] : null);
-    if (!Array.isArray(manifestFiles) || manifestFiles.length > MAX_PACKAGE_ENTRIES || manifestFiles.some(path => typeof path !== 'string' || !validateEntryPath(path))) throw new Error('Paket manifest dosya listesi geçersiz.');
-    if (manifestFiles.some(path => !zip.file(path))) throw new Error('Paket manifestinde belirtilen bir dosya eksik.');
-    let integrity = {
-        level: 'legacy',
-        verifiedEntries: 0,
-        totalEntries: entries.filter(entry => !entry.dir && entry.name !== 'manifest.json').length,
-        warnings: ['Bu eski paket sürümünde kriptografik bütünlük kaydı bulunmuyor.']
-    };
-    if (manifest.formatVersion === 3) {
-        const declaredEntries = manifest.entries;
-        const roles = new Set(['project', 'history', 'export']);
-        if (!Array.isArray(declaredEntries) || declaredEntries.length > MAX_PACKAGE_ENTRIES) throw new Error('Paket bütünlük listesi geçersiz.');
-        const declaredPaths = new Set();
-        for (const declared of declaredEntries) {
-            if (!declared || typeof declared.path !== 'string' || !validateEntryPath(declared.path)
-                || !/^[a-f0-9]{64}$/.test(declared.sha256) || !Number.isSafeInteger(declared.bytes)
-                || declared.bytes < 0 || declared.bytes > MAX_ENTRY_BYTES || !roles.has(declared.role)) {
-                throw new Error('Paket bütünlük kaydı geçersiz.');
-            }
-            if (declaredPaths.has(declared.path)) throw new Error(`Paket bütünlük listesinde yinelenen yol var: ${declared.path}`);
-            declaredPaths.add(declared.path);
-        }
-        const actualPaths = entries.filter(entry => !entry.dir && entry.name !== 'manifest.json').map(entry => entry.name);
-        if (!declaredPaths.has('project.json') || !declaredPaths.has('history/revisions.json')) throw new Error('Paket zorunlu bütünlük kayıtlarını içermiyor.');
-        if (actualPaths.some(path => !declaredPaths.has(path)) || [...declaredPaths].some(path => !actualPaths.includes(path))) {
-            throw new Error('Paket içeriği ile bütünlük listesi eşleşmiyor.');
-        }
-        if (manifestFiles.some(path => !declaredPaths.has(path))) throw new Error('Export dosyası bütünlük listesinde bulunmuyor.');
-        for (const declared of declaredEntries) {
-            const bytes = await zip.file(declared.path).async('uint8array');
-            if (bytes.byteLength !== declared.bytes) throw new Error(`Paket girdisi boyutu doğrulanamadı: ${declared.path}`);
-            if (await sha256Bytes(bytes) !== declared.sha256) throw new Error(`Paket girdisi bütünlük doğrulamasını geçemedi: ${declared.path}`);
-        }
-        await readSafeJsonEntry(zip, 'history/revisions.json');
-        integrity = { level: 'full', verifiedEntries: declaredEntries.length, totalEntries: declaredEntries.length, warnings: [] };
-    }
-    const projectJson = await readSafeJsonEntry(zip, 'project.json');
-    if (manifest.formatVersion >= 2 && manifest.canonicalHash) {
-        const hashSource = resolveCanonicalRevision(projectJson, manifest.canonicalRevision || manifest.revision);
-        if (await sha256(stableJson(canonicalHashPayload(hashSource))) !== manifest.canonicalHash) throw new Error('Paket canonical özeti doğrulanamadı; içerik değiştirilmiş olabilir.');
-        if (manifest.formatVersion === 2) integrity = {
-            level: 'canonical',
-            verifiedEntries: 1,
-            totalEntries: entries.filter(entry => !entry.dir && entry.name !== 'manifest.json').length,
-            warnings: ['Canonical plan doğrulandı; bu eski sürümde export belgeleri ve geçmiş ayrı ayrı hashlenmiyor.']
-        };
-    }
-    const migration = tryMigrateOrPassthrough(projectJson);
-    if (migration.error) throw new Error(`Paket migration başarısız: ${migration.error}`);
-    const project = normalizeProjectDocument(migration.project);
-    const validation = validateProjectDocument(project);
-    if (!validation.valid) throw new Error(`Paket proje şeması geçersiz: ${validation.errors.join(' ')}`);
-    if (manifest.projectId && manifest.projectId !== project.id) throw new Error('Paket manifesti ile proje kimliği eşleşmiyor.');
-    return { project, manifest, integrity };
-}
-
-export async function readPromtgenPackage(file) {
-    return (await inspectPromtgenPackage(file)).project;
-}
+export { canonicalHashPayload, inspectPromtgenPackage, readPromtgenPackage, resolveCanonicalRevision };
 
 export function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
