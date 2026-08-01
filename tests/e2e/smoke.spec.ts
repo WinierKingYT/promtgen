@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
 import { stubReadyProvider } from './support/provider.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
+import { createPromtgenPackage } from '../../src/v4/exporter.js';
 
 test.describe('PromtGen V4 Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -31,6 +34,93 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await page.goto('/');
     await page.waitForTimeout(2000);
     expect(errors).toEqual([]);
+  });
+
+  test('previews verified packages and restores existing projects as a new revision', async ({ page }, testInfo) => {
+    const fixture = createProjectDocument({
+      idea: 'Bireysel geliştiricinin kapsam kararlarını yerel olarak planlayan web uygulaması',
+      name: 'Paket kurtarma E2E'
+    });
+    fixture.sections.vision.content = 'Paket içindeki doğrulanmış ürün vizyonu.';
+    const artifact = await createPromtgenPackage(fixture, { includeExports: false });
+    const packagePath = testInfo.outputPath('verified-project.promtgen');
+    await writeFile(packagePath, Buffer.from(await artifact.blob.arrayBuffer()));
+
+    await page.goto('/');
+    await page.locator('input[accept=".promtgen"]').setInputFiles(packagePath);
+    await expect(page.locator('.package-import-dialog, .package-import-error')).toBeVisible();
+    const firstImportError = await page.locator('.package-import-error').count()
+      ? await page.locator('.package-import-error').textContent()
+      : null;
+    if (firstImportError) throw new Error(`Paket önizlemesi açılamadı: ${firstImportError}`);
+    const dialog = page.getByRole('dialog', { name: 'Paket kurtarma E2E' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('Tam paket bütünlüğü doğrulandı')).toBeVisible();
+    expect(await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const count = await new Promise<number>((resolve, reject) => {
+        const request = db.transaction('projects', 'readonly').objectStore('projects').count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return count;
+    })).toBe(0);
+    await dialog.getByRole('button', { name: 'Yeni proje olarak içe aktar' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText('Paket kurtarma E2E', { exact: true }).first()).toBeVisible();
+
+    const changedRevision = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const project = await new Promise<any>((resolve, reject) => {
+        const request = db.transaction('projects', 'readonly').objectStore('projects').getAll();
+        request.onsuccess = () => resolve(request.result[0]);
+        request.onerror = () => reject(request.error);
+      });
+      project.documentRevision += 1;
+      project.canonicalRevision += 1;
+      project.sections.vision.content = 'Paket dışındaki geçici değişiklik.';
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('projects', 'readwrite');
+        tx.objectStore('projects').put(project);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+      return project.canonicalRevision;
+    });
+
+    await page.reload();
+    await page.locator('input[accept=".promtgen"]').setInputFiles(packagePath);
+    const recoveryDialog = page.getByRole('dialog', { name: 'Paket kurtarma E2E' });
+    await expect(recoveryDialog.getByText('Geri yükleme etkisi')).toBeVisible();
+    await expect(recoveryDialog.getByText(new RegExp(`Güncel r${changedRevision} → yeni r${changedRevision + 1}`))).toBeVisible();
+    await recoveryDialog.getByRole('button', { name: 'Yeni revision olarak geri yükle' }).click();
+    await expect(recoveryDialog).toBeHidden();
+
+    const restored = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const project = await new Promise<any>((resolve, reject) => {
+        const request = db.transaction('projects', 'readonly').objectStore('projects').getAll();
+        request.onsuccess = () => resolve(request.result[0]);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return { canonicalRevision: project.canonicalRevision, vision: project.sections.vision.content };
+    });
+    expect(restored).toEqual({ canonicalRevision: changedRevision + 1, vision: 'Paket içindeki doğrulanmış ürün vizyonu.' });
   });
 
   test('create, save, reopen and canonical export smoke flow', async ({ page }) => {

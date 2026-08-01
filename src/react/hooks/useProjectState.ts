@@ -9,6 +9,12 @@ import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
 import { prepareInitialProject } from '../../v4/application/project-creation-service.js';
 import { commitProjectCandidate, saveInitialProject } from '../../v4/application/command-transaction.js';
+import {
+  assertRecoveryPreviewFresh,
+  restorePortablePackageAsNewRevision,
+  type RecoveryPreview
+} from '../../v4/application/recovery-service.js';
+import type { PromtgenPackageInspection } from '../../v4/exporter.js';
 
 type Project = ProjectDocumentV5;
 
@@ -91,13 +97,25 @@ export function useProjectState() {
     await persist(prepared.project);
   };
 
-  const importPackage = async (file: File) => {
+  const importPackage = async (
+    inspection: PromtgenPackageInspection,
+    mode: 'new' | 'recovery',
+    preview?: RecoveryPreview
+  ) => {
     try {
-      const { readPromtgenPackage } = await import('../../v4/exporter.js');
-      await persist(await readPromtgenPackage(file));
+      const current = projects.find(project => project.id === inspection.project.id);
+      if (mode === 'new') {
+        if (current) throw new Error('Bu proje cihazda zaten var. Paketi kurtarma önizlemesiyle yeniden açın.');
+        return await persist(inspection.project, 'ImportPackage');
+      }
+      if (!current || !preview) throw new Error('Paket kurtarma önizlemesi bulunamadı.');
+      assertRecoveryPreviewFresh(current, preview);
+      const restored = restorePortablePackageAsNewRevision(current, inspection.project);
+      return await persist(restored, 'RestorePackage');
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Paket açılamadı.');
       window.setTimeout(() => setAppError(''), 4200);
+      return false;
     }
   };
 

@@ -18,7 +18,7 @@ Bu yeteneklerin üretim entegrasyon testleri vardır; ancak bütün terfi kanıt
 - **Canonical Yaşayan Plan ve Revizyon Yönetimi**: Proje durumunun JSON formatında saklanması, r1..rN sürüm takibi, etki analizi ve geri alma.
 - **Local-First Depolama ve Yedekleme**: Web'de IndexedDB; masaüstünde WAL modlu SQLite, 20 otomatik yedekleme ve kurtarma.
 - **Dosya Envanteri ve Güvenlik Filtresi**: Hassas dosyaların (`.env`, `node_modules`, binary içerikler) dışarıda bırakılması ve envantere alınması.
-- **Gelişmiş Dışa Aktarım**: Markdown, PRD, görev listeleri, `.promtgen` taşıma paketi ve IDE şablonları (Cursor, Claude Code, Windsurf).
+- **Gelişmiş Dışa Aktarım**: Markdown, PRD, görev listeleri, dosya bazlı SHA-256 doğrulamalı `.promtgen` taşıma paketi ve IDE şablonları (Cursor, Claude Code, Windsurf). Paket içe aktarma, kaydetmeden önce içerik/bütünlük önizlemesi gösterir; mevcut projeyi yalnız açık onayla yeni revision olarak geri yükler.
 
 ### 🟡 2. Beta Özellikler (Beta Capabilities)
 - **AI Sağlayıcı Entegrasyonu**: Ollama, OpenAI, Gemini ve NVIDIA sağlayıcıları üzerinden plan önerileri üretimi. Çağrı başarısız olursa yerel kural motoru otomatik fallback üretir; öneri kartı üzerinde kaynak ve fallback etiketi kalıcı olarak gösterilir.

@@ -3,7 +3,8 @@ import { createProjectDocument } from '../../src/v4/project-document.js';
 import { restoreCheckpointAsNewRevision } from '../../src/v4/storage.js';
 import {
   assertRecoveryPreviewFresh,
-  buildRecoveryPreview
+  buildRecoveryPreview,
+  restorePortablePackageAsNewRevision
 } from '../../src/v4/application/recovery-service.js';
 
 const checkpoint = createProjectDocument({
@@ -80,5 +81,20 @@ assert.equal(restored.canonicalRevision, 6);
 assert.equal(restored.sections.vision.content, 'Eski hedef kullanıcı');
 assert.equal(restored.revisions.at(-1)?.number, 6);
 assert.equal(current.documentRevision, 6, 'Geri yükleme güncel projeyi mutate etmemeli');
+
+current.exports.push({
+  id: 'export-current', format: 'promtgen', canonicalRevision: 5,
+  createdAt: '2026-01-02T00:00:00.000Z', canonicalHash: 'a'.repeat(64), adapterIds: [], fileNames: []
+});
+const packagePreview = buildRecoveryPreview(current, checkpoint, 'portable-package', 'verified');
+assert.equal(packagePreview.source, 'portable-package');
+const packageRestored = restorePortablePackageAsNewRevision(current, checkpoint);
+assert.equal(packageRestored.documentRevision, 7);
+assert.equal(packageRestored.canonicalRevision, 6);
+assert.equal(packageRestored.sections.vision.content, 'Eski hedef kullanıcı');
+assert.ok(packageRestored.exports.some(record => record.id === 'export-current'));
+assert.equal(packageRestored.revisions.at(-1)?.summary, 'Taşınabilir paket r2 yeni revision olarak geri yüklendi');
+assert.equal(packageRestored.metadata.restoredFromPortablePackage?.sourceCanonicalRevision, 2);
+assert.equal(checkpoint.documentRevision, 2, 'Paket kurtarma kaynak projeyi mutate etmemeli');
 
 console.log('✓ Recovery preview, stale lock and new revision semantics');
