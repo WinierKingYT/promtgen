@@ -4,9 +4,12 @@ import { getProviderMeta } from '../../v4/provider-settings.js';
 import { isDesktopProjectImportAvailable, selectDesktopProjectFolder } from '../../v4/desktop-project-import.js';
 import { PortfolioOverview } from './PortfolioOverview.js';
 import { ProjectInventoryModal } from './ProjectInventoryModal.js';
+import { PackageImportDialog } from './PackageImportDialog.js';
 import { ProviderGateNotice } from './ProviderGateNotice.js';
 import { providerGateOpen, type ProviderReadinessResult } from '../../v4/application/provider-readiness-service.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import type { PromtgenPackageInspection } from '../../v4/exporter.js';
+import type { RecoveryPreview } from '../../v4/application/recovery-service.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
 import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
 import { useI18n } from '../providers/I18nProvider.js';
@@ -17,7 +20,7 @@ type OutputLanguage = ProjectDocumentV5['identity']['outputLanguage'];
 
 interface StartScreenProps {
   onCreate: (idea: string, language: OutputLanguage, files: File[], nativeInventory?: ProjectInventoryReport) => Promise<void>;
-  onImport: (file: File) => void;
+  onImport: (inspection: PromtgenPackageInspection, mode: 'new' | 'recovery', preview?: RecoveryPreview) => Promise<boolean>;
   projects: Project[];
   onOpen: (id: string) => void;
   onArchive: (id: string) => Promise<boolean>;
@@ -53,6 +56,9 @@ export function StartScreen({
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [selectingFolder, setSelectingFolder] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [packageInspection, setPackageInspection] = useState<PromtgenPackageInspection | null>(null);
+  const [packageError, setPackageError] = useState('');
+  const [inspectingPackage, setInspectingPackage] = useState(false);
   const packageRef = useRef<HTMLInputElement>(null);
 
   const appendFiles = (incoming: FileList | null) => {
@@ -75,6 +81,21 @@ export function StartScreen({
     setCreating(true);
     try { await onCreate(idea, language, files, nativeInventory ?? undefined); }
     finally { setCreating(false); }
+  };
+
+  const inspectPackage = async (file: File | undefined) => {
+    if (!file) return;
+    setInspectingPackage(true);
+    setPackageError('');
+    try {
+      const { inspectPromtgenPackage } = await import('../../v4/exporter.js');
+      setPackageInspection(await inspectPromtgenPackage(file));
+    } catch (error) {
+      setPackageError(error instanceof Error ? error.message : 'Paket güvenli biçimde açılamadı.');
+    } finally {
+      setInspectingPackage(false);
+      if (packageRef.current) packageRef.current.value = '';
+    }
   };
 
   return (
@@ -165,10 +186,19 @@ export function StartScreen({
           </div>
         )}
         {nativeInventory && <div className="context-note">{nativeInventory.rootName || 'Seçilen proje'}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe hassas içerik politikasıyla dışarıda bırakıldı. <button type="button" className="text-button" onClick={() => setInventoryOpen(true)}>Envanteri incele</button></div>}
-        <div className="import-row"><span>{t('start.previous')}</span><button className="text-button" onClick={() => packageRef.current?.click()}><Sparkles size={16} /> {t('start.openPackage')}</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => event.target.files?.[0] && onImport(event.target.files[0])} /></div>
+        <div className="import-row"><span>{t('start.previous')}</span><button className="text-button" disabled={inspectingPackage} onClick={() => packageRef.current?.click()}>{inspectingPackage ? <LoaderCircle className="spin" size={16} /> : <Sparkles size={16} />} {inspectingPackage ? 'Paket doğrulanıyor…' : t('start.openPackage')}</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => inspectPackage(event.target.files?.[0])} /></div>
+        {packageError && <div className="package-import-error" role="alert"><X size={15} /> {packageError}</div>}
         <PortfolioOverview projects={projects} onOpen={onOpen} onArchive={onArchive} onRestore={onRestore} onPurge={onPurge} />
       </section>
       <ProjectInventoryModal open={inventoryOpen} nativeInventory={nativeInventory} onClose={() => setInventoryOpen(false)} />
+      {packageInspection && (
+        <PackageImportDialog
+          inspection={packageInspection}
+          existingProject={projects.find(project => project.id === packageInspection.project.id)}
+          onConfirm={(mode, preview) => onImport(packageInspection, mode, preview)}
+          onClose={() => setPackageInspection(null)}
+        />
+      )}
       <footer>
         {['offline', 'ollama'].includes(providerSettings.providerId)
           ? 'Hesap yok · Plan cihazında · Bulut AI bağlantısı yok'

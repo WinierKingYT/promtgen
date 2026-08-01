@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { migrateLegacyToV5 } from '../../src/v4/migrations.js';
-import { createDocumentSet, createExportBundle, createIdeWorkspaceFiles, createIdeWorkspacePackage, createPromtgenPackage, exportCanonicalMarkdown, readPromtgenPackage, resolveCanonicalRevision } from '../../src/v4/exporter.js';
+import { createDocumentSet, createExportBundle, createIdeWorkspaceFiles, createIdeWorkspacePackage, createPromtgenPackage, exportCanonicalMarkdown, inspectPromtgenPackage, readPromtgenPackage, resolveCanonicalRevision } from '../../src/v4/exporter.js';
 import { redactSensitiveText } from '../../src/v4/ai-context.js';
 
 const legacy = { id: 'legacy-1', schemaVersion: 3, name: 'Eski Plan', stepDepth: 5, workflowStage: 'EXPORTED', draftDescription: 'Bir yerel not uygulaması', tasks: [{ title: 'Editörü oluştur' }] };
@@ -22,7 +22,11 @@ assert.equal(bundle.canonicalHash.length, 64);
 assert.deepEqual(bundle.record.adapterIds, ['codex']);
 assert.equal(bundle.record.canonicalRevision, result.project.canonicalRevision);
 const packaged = await createPromtgenPackage(result.project, { adapters: ['codex'] });
-assert.equal(packaged.manifest.formatVersion, 2);
+assert.equal(packaged.manifest.formatVersion, 3);
+assert.ok(packaged.manifest.entries.every(entry => entry.sha256.length === 64 && entry.bytes > 0));
+const inspected = await inspectPromtgenPackage(packaged.blob);
+assert.equal(inspected.integrity.level, 'full');
+assert.equal(inspected.integrity.verifiedEntries, packaged.manifest.entries.length);
 const imported = await readPromtgenPackage(packaged.blob);
 assert.equal(imported.id, result.project.id);
 assert.equal(resolveCanonicalRevision(imported, imported.canonicalRevision).canonicalRevision, imported.canonicalRevision);
@@ -40,6 +44,33 @@ const ideZip = await JSZip.loadAsync(await idePackage.blob.arrayBuffer());
 assert.ok(ideZip.file('AGENTS.md'));
 assert.ok(ideZip.file('.cursor/rules/promtgen-plan.mdc'));
 assert.equal(JSON.parse(await ideZip.file('.promtgen/manifest.json').async('string')).sourceRevision, result.project.canonicalRevision);
+
+const tamperedZip = await JSZip.loadAsync(await packaged.blob.arrayBuffer());
+tamperedZip.file('plan/master-plan.md', '# değiştirilmiş içerik');
+await assert.rejects(
+    inspectPromtgenPackage(await tamperedZip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })),
+    /boyutu doğrulanamadı|bütünlük doğrulamasını geçemedi/
+);
+const extraEntryZip = await JSZip.loadAsync(await packaged.blob.arrayBuffer());
+extraEntryZip.file('unexpected.txt', 'manifest dışında');
+await assert.rejects(
+    inspectPromtgenPackage(await extraEntryZip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })),
+    /bütünlük listesi eşleşmiyor/
+);
+
+const v2Zip = new JSZip();
+v2Zip.file('manifest.json', JSON.stringify({
+    format: 'promtgen', formatVersion: 2, schemaVersion: 5, schemaRevision: 5,
+    projectId: result.project.id, revision: result.project.canonicalRevision,
+    canonicalRevision: result.project.canonicalRevision, canonicalHash: bundle.canonicalHash, files: []
+}));
+v2Zip.file('project.json', JSON.stringify(result.project));
+const v2Inspection = await inspectPromtgenPackage(await v2Zip.generateAsync({ type: 'uint8array' }));
+assert.equal(v2Inspection.integrity.level, 'canonical');
+assert.equal(v2Inspection.integrity.warnings.length, 1);
+
+const legacyInspection = await inspectPromtgenPackage(await maliciousPackage(JSON.stringify(result.project)));
+assert.equal(legacyInspection.integrity.level, 'legacy');
 
 async function maliciousPackage(projectJson, extras = [], compression = 'DEFLATE') {
     const zip = new JSZip();

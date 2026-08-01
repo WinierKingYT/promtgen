@@ -1,8 +1,10 @@
 import type { ProjectDocumentV5 } from '../contracts.js';
 import { diffTextLines } from '../planning-engine.js';
+import { normalizeProjectDocument } from '../canonical-entities.js';
+import { validateProjectDocument } from '../project-document.js';
 
-export type RecoverySource = 'web-checkpoint' | 'desktop-backup';
-export type RecoveryIntegrity = 'verified' | 'validated';
+export type RecoverySource = 'web-checkpoint' | 'desktop-backup' | 'portable-package';
+export type RecoveryIntegrity = 'verified' | 'validated' | 'legacy';
 
 export interface RecoverySectionChange {
   sectionId: string;
@@ -166,4 +168,46 @@ export function assertRecoveryPreviewFresh(current: ProjectDocumentV5, preview: 
     throw new Error('Kurtarma önizlemesi artık güncel değil. Proje değişti; kaydı yeniden inceleyin.');
   }
   if (!preview.canRestore) throw new Error(preview.reason);
+}
+
+export function restorePortablePackageAsNewRevision(
+  currentProject: ProjectDocumentV5,
+  packageProject: ProjectDocumentV5
+): ProjectDocumentV5 {
+  const current = normalizeProjectDocument(currentProject);
+  const packageSnapshot = normalizeProjectDocument(packageProject);
+  if (current.id !== packageSnapshot.id) throw new Error('Taşınabilir paket başka bir projeye ait.');
+  const restoredAt = new Date().toISOString();
+  const next = structuredClone(packageSnapshot);
+  next.documentRevision = current.documentRevision + 1;
+  next.canonicalRevision = current.canonicalRevision + 1;
+  next.lifecycle.status = 'active';
+  next.lifecycle.updatedAt = restoredAt;
+  next.lifecycle.finalizedAt = null;
+  next.revisions = structuredClone(current.revisions);
+  next.exports = structuredClone(current.exports);
+  next.executionSessions = structuredClone(current.executionSessions);
+  next.commandLog = structuredClone(current.commandLog);
+  next.metadata = {
+    ...next.metadata,
+    restoredFromPortablePackage: {
+      sourceDocumentRevision: packageSnapshot.documentRevision,
+      sourceCanonicalRevision: packageSnapshot.canonicalRevision,
+      restoredAt
+    }
+  };
+  const snapshot = structuredClone(next);
+  snapshot.revisions = [];
+  next.revisions.push({
+    id: `revision-package-${Date.now()}`,
+    number: next.canonicalRevision,
+    createdAt: restoredAt,
+    summary: `Taşınabilir paket r${packageSnapshot.canonicalRevision} yeni revision olarak geri yüklendi`,
+    acceptedSuggestionIds: [],
+    affectedSections: Object.keys(next.sections),
+    snapshot
+  });
+  const validation = validateProjectDocument(next);
+  if (!validation.valid) throw new Error(`Paket geri yükleme sonucu geçersiz: ${validation.errors.join(' ')}`);
+  return next;
 }
