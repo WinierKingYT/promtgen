@@ -27,6 +27,185 @@ test.describe('PromtGen guided production workflow', () => {
     await expect(page.getByRole('heading', { name: /Projelerin \(1\)/ })).toBeVisible();
   });
 
+  test('archive is reversible and permanent delete clears all local project records', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin proje fikirlerini yerel ve izlenebilir planlara dönüştüren bir araç yapmak istiyorum'
+    );
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await expect(page.getByRole('navigation', { name: 'Fikrinle ne yapmak istiyorsun?' })).toBeVisible();
+    const projectId = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const tx = db.transaction('projects', 'readonly');
+      const projects = await new Promise<any[]>((resolve, reject) => {
+        const request = tx.objectStore('projects').getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return projects[0].id as string;
+    });
+
+    await page.locator('.new-project').click();
+    await page.getByRole('button', { name: /projesini arşivle$/ }).click();
+    await expect(page.getByRole('button', { name: /projesini arşivden çıkar$/ })).toBeVisible();
+    await page.getByRole('button', { name: /projesini arşivden çıkar$/ }).click();
+    await expect(page.getByRole('button', { name: /projesini arşivle$/ })).toBeVisible();
+
+    await page.getByRole('button', { name: /projesini kalıcı sil$/ }).click();
+    const dialog = page.getByRole('dialog', { name: /kalıcı olarak silinsin mi/i });
+    await expect(dialog).toContainText('checkpoint');
+    await expect(dialog).toContainText('komut geçmişi');
+    await expect(dialog).toContainText('masaüstü yedekleri');
+    await dialog.getByRole('button', { name: 'Vazgeç' }).click();
+    await expect(page.getByRole('button', { name: /projesini kalıcı sil$/ })).toBeVisible();
+
+    await page.getByRole('button', { name: /projesini kalıcı sil$/ }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Kalıcı sil', exact: true }).click();
+    await expect(page.getByRole('button', { name: /projesini kalıcı sil$/ })).toHaveCount(0);
+
+    const remaining = await page.evaluate(async id => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const storeNames = ['projects', 'checkpoints', 'commandLog', 'quarantine'] as const;
+      const tx = db.transaction([...storeNames], 'readonly');
+      const requests = storeNames.map(name => new Promise<any[]>((resolve, reject) => {
+        const request = tx.objectStore(name).getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      }));
+      const [projects, checkpoints, commandLog, quarantine] = await Promise.all(requests);
+      db.close();
+      return {
+        projects: projects.filter(item => item.id === id).length,
+        checkpoints: checkpoints.filter(item => item.projectId === id).length,
+        commandLog: commandLog.filter(item => item.projectId === id).length,
+        quarantine: quarantine.filter(item => item.projectId === id).length
+      };
+    }, projectId);
+    expect(remaining).toEqual({ projects: 0, checkpoints: 0, commandLog: 0, quarantine: 0 });
+  });
+
+  test('recovery center previews a verified checkpoint and restores it as a new revision', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin proje fikirlerini yerel ve izlenebilir planlara dönüştüren bir araç yapmak istiyorum'
+    );
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await page.getByRole('button', { name: /Rehber oluştur/ }).click();
+    await page.locator('.concept-agreement .agreement-primary textarea').nth(1).fill('Bağımsız teknik kurucular');
+    await page.getByLabel('Açık kritik sorular').fill('');
+    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+
+    const recovery = page.getByRole('region', { name: 'Kurtarma Merkezi' });
+    await recovery.getByRole('button', { name: /Kurtarma Merkezi/ }).click();
+    const checkpoints = recovery.getByRole('button', { name: 'Farkı incele' });
+    await expect(checkpoints).toHaveCount(2);
+
+    const beforeRevision = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const project = await new Promise<any>((resolve, reject) => {
+        const request = db.transaction('projects', 'readonly').objectStore('projects').getAll();
+        request.onsuccess = () => resolve(request.result[0]);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return project.canonicalRevision as number;
+    });
+
+    await checkpoints.nth(1).click();
+    const dialog = page.getByRole('dialog', { name: /kaydını incele/ });
+    await expect(dialog).toContainText('SHA-256 bütünlüğü doğrulandı');
+    await expect(dialog).toContainText('Fikir belgesi');
+
+    const revisionWhilePreviewing = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const project = await new Promise<any>((resolve, reject) => {
+        const request = db.transaction('projects', 'readonly').objectStore('projects').getAll();
+        request.onsuccess = () => resolve(request.result[0]);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return project.canonicalRevision as number;
+    });
+    expect(revisionWhilePreviewing).toBe(beforeRevision);
+
+    await dialog.getByRole('button', { name: 'Yeni revision olarak geri yükle' }).click();
+    await expect(page.locator('.toast')).toContainText('Kurtarma kaydı yeni');
+    const restored = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const project = await new Promise<any>((resolve, reject) => {
+        const request = db.transaction('projects', 'readonly').objectStore('projects').getAll();
+        request.onsuccess = () => resolve(request.result[0]);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return {
+        revision: project.canonicalRevision as number,
+        restoredFrom: project.metadata.restoredFromCheckpoint?.sourceRevision as number | undefined
+      };
+    });
+    expect(restored.revision).toBe(beforeRevision + 1);
+    expect(restored.restoredFrom).toBeDefined();
+  });
+
+  test('recovery center blocks a checkpoint whose SHA-256 digest was changed', async ({ page }) => {
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(
+      'Bireysel geliştiricilerin proje fikirlerini yerel ve izlenebilir planlara dönüştüren bir araç yapmak istiyorum'
+    );
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await page.getByRole('button', { name: /Rehber oluştur/ }).click();
+    await page.locator('.concept-agreement .agreement-primary textarea').nth(1).fill('Bağımsız teknik kurucular');
+    await page.getByLabel('Açık kritik sorular').fill('');
+    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+    await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('promtgen-v4', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const tx = db.transaction('checkpoints', 'readwrite');
+      const store = tx.objectStore('checkpoints');
+      const records = await new Promise<any[]>((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result.sort((left, right) => left.createdAt.localeCompare(right.createdAt)));
+        request.onerror = () => reject(request.error);
+      });
+      records[0].checksumHash = 'tampered-digest';
+      store.put(records[0]);
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    });
+
+    const recovery = page.getByRole('region', { name: 'Kurtarma Merkezi' });
+    await recovery.getByRole('button', { name: /Kurtarma Merkezi/ }).click();
+    const checkpoints = recovery.getByRole('button', { name: 'Farkı incele' });
+    await expect(checkpoints).toHaveCount(2);
+    await checkpoints.nth(1).click();
+    await expect(recovery.getByRole('alert')).toContainText('bütünlük doğrulamasını geçemedi');
+    await expect(page.getByRole('dialog', { name: /kaydını incele/ })).toHaveCount(0);
+  });
+
   test('lets the user keep developing, create a guide, or open the detailed plan', async ({ page }) => {
     await page.getByLabel('Ne yapmak istiyorsun?').fill(
       'Bireysel geliştiricilerin günlük işlerini yerel olarak düzenleyen sade bir web uygulaması yapmak istiyorum.'

@@ -20,6 +20,9 @@ interface StartScreenProps {
   onImport: (file: File) => void;
   projects: Project[];
   onOpen: (id: string) => void;
+  onArchive: (id: string) => Promise<boolean>;
+  onRestore: (id: string) => Promise<boolean>;
+  onPurge: (id: string) => Promise<boolean>;
   providerSettings: ProviderSettings;
   onOpenSettings: () => void;
   readiness: ProviderReadinessResult | null;
@@ -32,6 +35,9 @@ export function StartScreen({
   onImport,
   projects,
   onOpen,
+  onArchive,
+  onRestore,
+  onPurge,
   providerSettings,
   onOpenSettings,
   readiness,
@@ -79,7 +85,7 @@ export function StartScreen({
         <div className="eyebrow">{t('start.eyebrow')}</div>
         <h1 id="start-title">{t('start.title')}<br /><span>{t('start.titleAccent')}</span></h1>
         <p className="lead">{productCopy.promise}</p>
-        <p className="product-positioning">{locale === 'en-US' ? 'Develop the idea first. Turn it into a guide or a detailed plan only when you want.' : 'Önce fikrini geliştir. İstersen anlaşılır bir rehbere, istersen ayrıntılı plana dönüştür.'}</p>
+        <p className="product-positioning">{locale === 'en-US' ? 'Talk through the idea first. Turn it into a guide or a detailed plan only when you want.' : 'Önce fikrini geliştir. Konuşarak netleştir, sonra istersen anlaşılır bir rehbere ya da ayrıntılı plana dönüştür.'}</p>
         <label className="idea-box">
           <span>{t('start.ideaLabel')}</span>
           <textarea
@@ -160,7 +166,7 @@ export function StartScreen({
         )}
         {nativeInventory && <div className="context-note">{nativeInventory.rootName || 'Seçilen proje'}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe hassas içerik politikasıyla dışarıda bırakıldı. <button type="button" className="text-button" onClick={() => setInventoryOpen(true)}>Envanteri incele</button></div>}
         <div className="import-row"><span>{t('start.previous')}</span><button className="text-button" onClick={() => packageRef.current?.click()}><Sparkles size={16} /> {t('start.openPackage')}</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => event.target.files?.[0] && onImport(event.target.files[0])} /></div>
-        <PortfolioOverview projects={projects} onOpen={onOpen} />
+        <PortfolioOverview projects={projects} onOpen={onOpen} onArchive={onArchive} onRestore={onRestore} onPurge={onPurge} />
       </section>
       <ProjectInventoryModal open={inventoryOpen} nativeInventory={nativeInventory} onClose={() => setInventoryOpen(false)} />
       <footer>

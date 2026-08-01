@@ -21,14 +21,47 @@ export class TauriSqliteProjectRepository {
         if (migration.migrated) await this.save(migration.project);
         return migration.project;
     }
-    async save(project) {
+    async save(project, options = {}) {
         const normalized = normalizeProjectDocument(project);
         const validation = validateProjectDocument(normalized);
         if (!validation.valid) throw new Error(validation.errors.join(' '));
-        await invoke('save_project', { id: normalized.id, document: JSON.stringify(normalized), updatedAt: normalized.lifecycle.updatedAt });
+        await invoke('save_project', {
+            id: normalized.id,
+            document: JSON.stringify(normalized),
+            updatedAt: normalized.lifecycle.updatedAt,
+            expectedDocumentRevision: options.expectedDocumentRevision,
+            expectedCanonicalRevision: options.expectedCanonicalRevision,
+            createOnly: options.createOnly === true
+        });
         return normalized;
     }
-    async archive(id) { const project = await this.get(id); if (!project) return false; project.lifecycle.status = 'archived'; await this.save(project); return true; }
+    async archive(id) {
+        const project = await this.get(id);
+        if (!project) return false;
+        if (project.lifecycle.status === 'archived') return true;
+        const expectedDocumentRevision = project.documentRevision;
+        const expectedCanonicalRevision = project.canonicalRevision;
+        project.lifecycle.status = 'archived';
+        project.lifecycle.updatedAt = new Date().toISOString();
+        project.documentRevision += 1;
+        await this.save(project, { expectedDocumentRevision, expectedCanonicalRevision });
+        return true;
+    }
+    async restore(id) {
+        const project = await this.get(id);
+        if (!project) return false;
+        if (project.lifecycle.status !== 'archived') return true;
+        const expectedDocumentRevision = project.documentRevision;
+        const expectedCanonicalRevision = project.canonicalRevision;
+        project.lifecycle.status = 'active';
+        project.lifecycle.updatedAt = new Date().toISOString();
+        project.documentRevision += 1;
+        await this.save(project, { expectedDocumentRevision, expectedCanonicalRevision });
+        return true;
+    }
+    async purge(id) {
+        return invoke('purge_project', { id });
+    }
 }
 
 export function restoreStorageBackupAsNewRevision(currentProject, backupProject) {
@@ -63,10 +96,15 @@ export function isDesktopStorageAvailable() { return isTauri(); }
 export async function getDesktopStorageHealth() { return isTauri() ? invoke('storage_health') : null; }
 export async function listDesktopProjectBackups(projectId) { return isTauri() ? invoke('list_project_backups', { projectId }) : []; }
 export async function listDesktopQuarantinedProjects() { return isTauri() ? invoke('list_quarantined_projects') : []; }
-export async function restoreDesktopProjectBackup(currentProject, backupId) {
+export async function loadDesktopProjectBackup(currentProject, backupId) {
     if (!isTauri()) throw new Error('Yerel SQLite yedekleri yalnız masaüstünde kullanılabilir.');
-    const document = await invoke('read_project_backup_with_confirmation', { projectId: currentProject.id, backupId });
-    return document ? restoreStorageBackupAsNewRevision(currentProject, JSON.parse(document)) : null;
+    const document = await invoke('read_project_backup', { projectId: currentProject.id, backupId });
+    if (!document) throw new Error('Yerel yedek bulunamadı.');
+    const candidate = normalizeProjectDocument(JSON.parse(document));
+    if (candidate.id !== currentProject.id) throw new Error('Yedek başka bir projeye ait.');
+    const validation = validateProjectDocument(candidate);
+    if (!validation.valid) throw new Error(`Yerel yedek şeması geçersiz: ${validation.errors.join(' ')}`);
+    return candidate;
 }
 
 export function createPlatformRepository() { return isTauri() ? new TauriSqliteProjectRepository() : new IndexedDbProjectRepository(); }

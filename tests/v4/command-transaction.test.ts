@@ -21,6 +21,13 @@ class FakeRepository implements ProjectRepository {
     return structuredClone(project);
   }
   async archive() { return false; }
+  async restore() { return false; }
+  async purge() {
+    const projectDeleted = Boolean(this.stored);
+    const commandLogEntriesDeleted = this.stored?.commandLog.length || 0;
+    this.stored = null;
+    return { projectDeleted, checkpointsDeleted: 0, commandLogEntriesDeleted, quarantineEntriesDeleted: 0, backupsDeleted: 0 };
+  }
 }
 
 describe('Persistent command transaction boundary', () => {

@@ -59,7 +59,10 @@ export async function commitProjectCandidate(
   }
 
   try {
-    const saved = await repository.save(ready);
+    const saved = await repository.save(ready, {
+      expectedDocumentRevision: command.expectedDocumentRevision,
+      expectedCanonicalRevision: command.expectedCanonicalRevision
+    });
     return { success: true, project: saved, alreadyApplied: false };
   } catch (error) {
     return { success: false, project: current, error: error instanceof Error ? error.message : String(error) };
@@ -85,7 +88,7 @@ export async function saveInitialProject(
   const validation = validateProjectDocument(next);
   if (!validation.valid) return { success: false, project, error: validation.errors.join('; ') };
   try {
-    return { success: true, project: await repository.save(next), alreadyApplied: false };
+    return { success: true, project: await repository.save(next, { createOnly: true }), alreadyApplied: false };
   } catch (error) {
     return { success: false, project, error: error instanceof Error ? error.message : String(error) };
   }
