@@ -150,7 +150,7 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await page.goto('/');
     await page.getByLabel('Ne yapmak istiyorsun?').fill('Bireysel geliştiricilerin fikirlerini yerel olarak onaylı MVP kapsamına ve uygulanabilir görevlere dönüştüren bir web uygulaması yapmak istiyorum');
     await page.getByRole('button', { name: 'Fikri geliştir' }).click();
-    await page.getByRole('button', { name: 'Rehber', exact: true }).click();
+    await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
     await page.getByLabel('Açık kritik sorular').fill('');
     await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
     await page.getByRole('button', { name: 'Plan', exact: true }).click();

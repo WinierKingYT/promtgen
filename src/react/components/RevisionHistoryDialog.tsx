@@ -78,7 +78,7 @@ export function RevisionHistoryDialog({ open, project, onRestore, onClose }: Rev
           </div>
           {comparison.valid && <div className="revision-summary" role="status" aria-live="polite"><span><b>{comparison.summary.changedSections}</b> bölüm</span><span className="added"><b>+{comparison.summary.addedLines + comparison.summary.addedItems}</b> ekleme</span><span className="removed"><b>−{comparison.summary.removedLines + comparison.summary.removedItems}</b> kaldırma</span></div>}
           <div className="revision-diffs">
-            {comparison.valid && comparison.sections.length === 0 && <p className="no-diff">Seçilen revision'lar arasında canonical plan farkı yok.</p>}
+            {comparison.valid && comparison.sections.length === 0 && <p className="no-diff">Seçilen sürümler arasında plan farkı yok.</p>}
             {comparison.sections.map(section => <details key={section.sectionId} open><summary><span><b>{section.title}</b><small>{section.beforeStatus} → {section.afterStatus}</small></span><ChevronDown size={15} /></summary><div className="line-diff" aria-label={`${section.title} satır farkları`}>{section.content.map((line, index) => <div key={`${line.type}-${index}`} className={line.type}><span>{line.type === 'added' ? '+' : line.type === 'removed' ? '−' : ' '}</span><code>{line.text || ' '}</code></div>)}</div>{(section.addedItems.length > 0 || section.removedItems.length > 0) && <div className="item-diff">{section.removedItems.map(item => <p className="removed" key={`removed-${item}`}>− {item}</p>)}{section.addedItems.map(item => <p className="added" key={`added-${item}`}>+ {item}</p>)}</div>}</details>)}
           </div>
           {restoreError && <p className="restore-error" role="alert">{restoreError}</p>}

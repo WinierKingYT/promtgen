@@ -35,6 +35,7 @@ import type { ProviderSettings } from '../v4/provider-settings.js';
 import type { CredentialVault } from '../v4/credential-vault.js';
 import type { TaskCompilationResult } from '../v4/task-compiler.js';
 import { prepareDiscoveryTurnProject } from '../v4/application/discovery-service.js';
+import { buildIdeaCoachState, ensureIdeaCoachWorkspace } from '../v4/application/idea-coach-service.js';
 import {
   applyDiscoveryAnswerDraft,
   compareDiscoveryAnswerWithAI,
@@ -49,12 +50,11 @@ import { DiscoveryAnswerReview } from './components/DiscoveryAnswerReview.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
 import {
-  ExplorationDeck,
+  IdeaCoachFocus,
   IdeaDecisionCards,
   IdeaSnapshot,
   IdeaStudioHeader,
   IdeaStudioSidebar,
-  QuestionChips,
   type IdeaStudioView
 } from './features/idea-studio/IdeaStudioPrimitives.js';
 
@@ -93,9 +93,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const [activeSection, setActiveSection] = useState('vision');
   const [sectionDraft, setSectionDraft] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
-  const [focusedQuestion, setFocusedQuestion] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [compareAnswerWithAi, setCompareAnswerWithAi] = useState(false);
   const [changeImpactMode, setChangeImpactMode] = useState(false);
   const [notice, setNotice] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -125,10 +123,9 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     () => new Set((changePreview?.sections || []).map(section => section.sectionId)),
     [changePreview]
   );
-  const questions = useMemo(() => [...new Set([
-    ...(project.openQuestions || []),
-    ...(project.ideaLabSession?.conceptSummary?.openQuestions || [])
-  ].filter(Boolean))] as string[], [project.openQuestions, project.ideaLabSession?.conceptSummary?.openQuestions]);
+  const coach = useMemo(() => buildIdeaCoachState(project), [project]);
+  const showDecisionTurn = !['problem', 'user', 'value'].includes(coach.activeStep)
+    && pendingItems.some(item => item.status === 'pending');
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
   const canonicalPlanningOpen = view === 'plan' && Boolean(project.sourceIdeaRevisionId || hasCanonicalPlan);
 
@@ -163,7 +160,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     commit(applyApprovedChanges(target, currentBundle.id), 'Seçtiğin fikir kararları kaydedildi.', 'ApplyApprovedChanges');
   };
 
-  const sendMessage = async (rawMessage: string, question = focusedQuestion) => {
+  const sendMessage = async (rawMessage: string, question = coach.activeQuestion) => {
     const message = rawMessage.trim();
     if (!message || generating) return;
     setGenerating(true);
@@ -171,7 +168,6 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       if (changeImpactMode) {
         const result = await generateImpactAnalysis(project, message, { pendingCommit: true });
         setMessageDraft('');
-        setFocusedQuestion('');
         setChangeImpactMode(false);
         await persistCandidate(result.project, 'Değişikliğin plan etkisi hazır; henüz uygulanmadı.', 'ProposeChangeImpact');
         return;
@@ -179,7 +175,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
 
       const credential = await credentialVault.get(providerSettings.providerId) || '';
       const memory = providerSettings.useLocalMemory ? buildLocalPlanningMemory(projects, project.id) : null;
-      const target = prepareDiscoveryTurnProject(project, currentBundle?.id);
+      const target = prepareDiscoveryTurnProject(ensureIdeaCoachWorkspace(project), currentBundle?.id);
       const result = await runConversationalDiscoveryTurn(target, {
         settings: providerSettings,
         credential,
@@ -191,7 +187,11 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         { ...result.project, documentRevision: project.documentRevision + 1 },
         { answer: message, focusedQuestion: question }
       );
-      if (answerDraft && compareAnswerWithAi) {
+      const shouldCompareWithAi = Boolean(answerDraft)
+        && answerDraft?.assessment.quality !== 'actionable'
+        && providerSettings.providerId !== 'offline'
+        && providerSettings.useAiWhenAvailable !== false;
+      if (answerDraft && shouldCompareWithAi) {
         const comparison = await generateDiscoveryAnswerExtraction(result.project, {
           settings: providerSettings,
           credential,
@@ -211,7 +211,6 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         }
       }
       setMessageDraft('');
-      setFocusedQuestion('');
       const sourceLabel = result.usedFallback ? 'Yerel fikir motoru' : getProviderMeta(providerSettings.providerId).label;
       const saved = await persistCandidate(result.project, `${sourceLabel} yeni seçenekleri hazırladı.`, 'AddDiscoveryTurn');
       if (saved) setDiscoveryAnswerDraft(answerDraft);
@@ -304,30 +303,36 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
 
             {generating && <div className="pg-thinking" role="status"><span><i/><i/><i/></span><p>Fikrini analiz ediyor, seçenekleri hazırlıyorum…</p></div>}
 
-            {discoveryAnswerDraft && <div className="pg-inline-review"><DiscoveryAnswerReview
-              draft={discoveryAnswerDraft}
-              onChange={setDiscoveryAnswerDraft}
-              onDiscard={() => setDiscoveryAnswerDraft(null)}
-              onApply={() => {
-                const result = applyDiscoveryAnswerDraft(project, discoveryAnswerDraft);
-                if (!result.success) { setNotice(result.reason); return; }
-                void persistCandidate(result.project, `${result.appliedFields.length} alan fikir haritasına işlendi.`, 'UpdateConceptAgreement')
-                  .then(saved => { if (saved) setDiscoveryAnswerDraft(null); });
-              }}
-            /></div>}
-
-            <IdeaDecisionCards items={pendingItems} onStatus={setSuggestion}/>
-            {pendingItems.length > 0 && !bundleResolved && <div className="pg-decision-commit">
-              <span>{unresolvedCount ? `${unresolvedCount} seçenek karar bekliyor` : `${acceptedCount} seçim kaydedilmeye hazır`}</span>
-              <button type="button" disabled={unresolvedCount > 0} onClick={applySuggestions}>Seçimleri fikre işle <ArrowRight size={16}/></button>
-            </div>}
-            <QuestionChips questions={questions} active={focusedQuestion} onChoose={question => { setFocusedQuestion(question); setMessageDraft(''); }}/>
-            <ExplorationDeck disabled={generating} onChoose={prompt => void sendMessage(prompt, '')}/>
+            {discoveryAnswerDraft
+              ? <div className="pg-inline-review"><DiscoveryAnswerReview
+                  draft={discoveryAnswerDraft}
+                  onChange={setDiscoveryAnswerDraft}
+                  onDiscard={() => setDiscoveryAnswerDraft(null)}
+                  onApply={() => {
+                    const result = applyDiscoveryAnswerDraft(project, discoveryAnswerDraft);
+                    if (!result.success) { setNotice(result.reason); return; }
+                    void persistCandidate(result.project, `${result.appliedFields.length} alan fikir özetine işlendi.`, 'UpdateConceptAgreement')
+                      .then(saved => { if (saved) setDiscoveryAnswerDraft(null); });
+                  }}
+                /></div>
+              : <>
+                  {showDecisionTurn
+                    ? <IdeaDecisionCards items={pendingItems} onStatus={setSuggestion}/>
+                    : <IdeaCoachFocus coach={coach} disabled={generating} onChoose={prompt => void sendMessage(prompt, '')}/>}
+                  {showDecisionTurn && pendingItems.length > 0 && !bundleResolved && <div className="pg-decision-commit">
+                    <span>{coach.criticalDecisionCount
+                      ? `${coach.criticalDecisionCount} kritik karar var; kalanları erteleyebilirsin.`
+                      : unresolvedCount
+                        ? `${unresolvedCount} düşük öncelikli yönü daha sonra konuşabilirsin.`
+                        : `${acceptedCount} seçim fikre işlenmeye hazır.`}</span>
+                    <button type="button" onClick={applySuggestions}>{acceptedCount ? 'Seçtiğim yönü fikre işle' : 'Bu turu şimdilik kapat'} <ArrowRight size={16}/></button>
+                  </div>}
+                </>}
             <div ref={messageEndRef}/>
           </div>
 
           <form className="pg-chat-composer" onSubmit={event => { event.preventDefault(); void sendMessage(messageDraft); }}>
-            {focusedQuestion && <div className="pg-focused-question"><span>Yanıtladığın soru</span><b>{focusedQuestion}</b><button type="button" onClick={() => setFocusedQuestion('')}>Kapat</button></div>}
+            <div className="pg-focused-question"><span>Şu an yanıtladığın soru</span><b>{coach.activeQuestion}</b></div>
             {hasCanonicalPlan && <div className="pg-composer-mode">
               <button type="button" className={!changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(false)}>Fikri tartış</button>
               <button type="button" className={changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(true)}>Plan etkisini incele</button>
@@ -345,18 +350,18 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                     void sendMessage(messageDraft);
                   }
                 }}
-                placeholder={focusedQuestion ? 'Bu soruya doğal şekilde cevap ver…' : 'Fikrine bir ayrıntı ekle veya bir şey sor…'}
+                placeholder="Bu soruya doğal şekilde cevap ver…"
               />
               <button type="submit" aria-label="Gönder" disabled={!messageDraft.trim() || generating}>{generating ? <LoaderCircle className="spin" size={19}/> : <Send size={19}/>}</button>
             </div>
-            <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><label><input type="checkbox" checked={compareAnswerWithAi} disabled={providerSettings.providerId === 'offline' || providerSettings.useAiWhenAvailable === false} onChange={event => setCompareAnswerWithAi(event.target.checked)}/> AI çıkarımıyla karşılaştır</label></div>
+            <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><small>Çıkarımlar önce taslak olarak gösterilir; sen onaylamadan kesinleşmez.</small></div>
           </form>
         </section>
-        <IdeaSnapshot project={project}/>
+        <IdeaSnapshot project={project} coach={coach}/>
       </main>}
 
       {view === 'guide' && <main id="pg-primary-content" className="pg-document-workspace" tabIndex={-1}>
-        <header className="pg-document-title"><span>YAŞAYAN FİKİR BELGESİ</span><h1>Konuşmayı anlaşılır bir fikre dönüştür</h1><p>Buradaki değişiklikler taslaktır. Sen onaylamadan yaşayan plana uygulanmaz.</p></header>
+        <header className="pg-document-title"><span>FİKİR ÖZETİ</span><h1>Ortak anlayışımızı kontrol et</h1><p>Konuşmadan çıkardığımız kullanıcıyı, problemi, değeri ve MVP sınırını düzeltip onayla.</p></header>
         <IdeaGuidePanel project={project} onCommit={commit} onConvert={convertIdeaToPlan} onOpenPlan={() => setView('plan')}/>
       </main>}
 
@@ -365,7 +370,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           ? <div className="pg-plan-gate"><header><span>PLANA GEÇİŞ</span><h1>Önce fikrin sınırlarını onayla</h1><p>Plan; yalnız onayladığın kullanıcı, problem, MVP kapsamı ve kararlar üzerinden oluşturulur.</p></header><IdeaGuidePanel project={project} onCommit={commit} onConvert={convertIdeaToPlan} onOpenPlan={() => setView('plan')}/></div>
           : <>
             <header className="pg-plan-header">
-              <div><span>CANONICAL PLAN · r{project.canonicalRevision}</span><h1>Yaşayan plan</h1><p>{project.planningDepth.rationale}</p></div>
+              <div><span>PLAN SÜRÜMÜ</span><h1>Yaşayan plan</h1><p>{project.planningDepth.rationale} Önceki sürümler korunur.</p></div>
               <div><label>Derinlik<select value={project.planningDepth.selected} onChange={event => commit(overridePlanningDepth(project, event.target.value as Project['planningDepth']['selected']))}>{depths.map(depth => <option value={depth.id} key={depth.id}>{depth.label} — {depth.detail}</option>)}</select></label><button type="button" onClick={exportMarkdown}><Download size={15}/> Markdown</button><button type="button" className="is-primary" onClick={project.lifecycle.status === 'finalized' ? () => commit(reopenPlan(project), 'Yeni plan sürümü açıldı.', 'ReopenPlan') : finish}>{project.lifecycle.status === 'finalized' ? 'Yeniden aç' : 'Finalleştir'}</button></div>
             </header>
             <div className="pg-plan-layout">
@@ -374,7 +379,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 {Object.values(project.sections).filter(section => section.required || section.content || section.items.length || impactedSections.has(section.id)).map(section => <button type="button" className={`${activeSection === section.id ? 'is-active' : ''} ${impactedSections.has(section.id) ? 'is-impacted' : ''}`} key={section.id} onClick={() => setActiveSection(section.id)}><span>{section.title}<small>{section.items.length ? `${section.items.length} öğe` : section.required ? 'Gerekli' : 'İsteğe bağlı'}</small></span><ChevronRightIcon/></button>)}
               </nav>
               <section className="pg-plan-editor">
-                {active && <><header><div><span>PLAN BÖLÜMÜ</span><h2>{active.title}</h2><p>{active.description}</p></div><small>r{active.updatedAtRevision}</small></header><textarea aria-label={`${active.title} canonical içeriği`} value={sectionDraft} onChange={event => setSectionDraft(event.target.value)} rows={12} placeholder="Bu bölümün canonical içeriğini yaz…"/><button type="button" className="pg-save-section" disabled={sectionDraft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{active.items.length > 0 && <ul>{active.items.map(item => <li key={item}>{item}</li>)}</ul>}{activeSection === 'tasks' && <><TaskContractSummary tasks={project.tasks}/><button type="button" className="pg-compile-tasks" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button></>}</>}
+                {active && <><header><div><span>PLAN BÖLÜMÜ</span><h2>{active.title}</h2><p>{active.description}</p></div><small>r{active.updatedAtRevision}</small></header><textarea aria-label={`${active.title} içeriği`} value={sectionDraft} onChange={event => setSectionDraft(event.target.value)} rows={12} placeholder="Bu bölümün içeriğini yaz…"/><button type="button" className="pg-save-section" disabled={sectionDraft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{active.items.length > 0 && <ul>{active.items.map(item => <li key={item}>{item}</li>)}</ul>}{activeSection === 'tasks' && <><TaskContractSummary tasks={project.tasks}/><button type="button" className="pg-compile-tasks" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button></>}</>}
                 {taskCompilation && <div className="pg-task-preview"><h3>{taskCompilation.tasks.length} görev taslağı hazır</h3>{taskCompilation.tasks.slice(0, 6).map(task => <p key={task.id}><b>{task.title}</b><span>{task.priority} · {task.status}</span></p>)}<footer><button type="button" onClick={() => setTaskCompilation(null)}>Vazgeç</button><button type="button" disabled={!taskCompilation.tasks.length} onClick={applyTaskPlan}><Check size={14}/> Onayla</button></footer></div>}
               </section>
               <aside className="pg-plan-context">

@@ -31,7 +31,7 @@ export function ProjectHealthRadarCard({
           {readiness.qualityGate.passed ? <CheckCircle2 size={15}/> : <XCircle size={15}/>}
           <b>{readiness.qualityGate.passed ? 'Kalite kapısı açık' : 'Kalite kapısı kapalı'}</b>
         </span>
-        <small>Canonical r{readiness.calculatedAtRevision} · {readiness.evidenceHash}</small>
+        <small>Plan sürümü r{readiness.calculatedAtRevision} · kanıt {readiness.evidenceHash}</small>
         <ul>
           {readiness.qualityGate.conditions.map(condition => (
             <li key={condition.id} className={condition.passed ? 'passed' : 'blocked'}>

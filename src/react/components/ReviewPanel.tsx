@@ -19,7 +19,7 @@ export function ReviewPanel({ project, onCommit }: { project: any; onCommit: (pr
   return <details className="review-panel" open={Boolean(project.reviewFindings.length && project.reviewFindings.some((item: any) => ['critical', 'high'].includes(item.severity)))}>
     <summary><ScanSearch size={16}/><span>Deterministic plan incelemesi<small>{lastReview ? `${lastReview.score}/100 · r${lastReview.revision}` : 'Henüz çalıştırılmadı'}</small></span></summary>
     <div className="review-body">
-      <p>Canonical planı eksik, çelişki, izlenebilirlik, risk ve uygulanabilirlik kurallarıyla inceler; dört teslim senaryosunu simüle eder.</p>
+      <p>Planı eksik, çelişki, izlenebilirlik, risk ve uygulanabilirlik kurallarıyla inceler; dört teslim senaryosunu simüle eder.</p>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
         <button type="button" onClick={run} disabled={running} style={{ flex: 1 }}><ScanSearch size={15}/> {running ? 'İnceleniyor…' : 'Planı yeniden incele'}</button>
         <button type="button" onClick={() => setRulesOpen(true)} style={{ background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#ddd6fe', padding: '0 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>

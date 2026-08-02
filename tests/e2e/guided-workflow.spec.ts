@@ -10,8 +10,8 @@ async function startIdea(page: Page, idea = IDEA) {
 }
 
 async function openGuide(page: Page) {
-  await page.getByRole('button', { name: 'Rehber', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Konuşmayı anlaşılır bir fikre dönüştür' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
 }
 
 test.describe('PromtGen idea studio production workflow', () => {
@@ -33,7 +33,7 @@ test.describe('PromtGen idea studio production workflow', () => {
     await startIdea(page, 'S&box içinde oyuncuyla bağ kuran bir at sistemi yapmak istiyorum.');
     await expect(page.getByRole('navigation', { name: 'Fikrinle ne yapmak istiyorsun?' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fikir', exact: true })).toHaveAttribute('aria-current', 'step');
-    await expect(page.getByRole('complementary', { name: 'Canlı fikir özeti' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Fikir özeti' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Fikir geliştirme sohbeti' })).toBeVisible();
 
     await page.reload();
@@ -42,41 +42,37 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('.pg-original-idea').getByText('S&box içinde oyuncuyla bağ kuran bir at sistemi yapmak istiyorum.')).toBeVisible();
   });
 
-  test('exploration cards run a real discovery turn and produce decision cards', async ({ page }) => {
-    await startIdea(page);
+  test('the single contextual action runs a real discovery turn and keeps one active question', async ({ page }) => {
+    await startIdea(page, 'Bir uygulama yapmak istiyorum.');
+    await expect(page.locator('.pg-coach-focus')).toBeVisible();
+    await expect(page.locator('.pg-coach-actions button')).toHaveCount(2);
     const previousMessages = await page.locator('.pg-message').count();
-    await page.getByRole('button', { name: /Fikri büyüt/ }).click();
+    await page.locator('.pg-coach-actions button').first().click();
     await expect(page.getByRole('status').filter({ hasText: /analiz ediyor/i })).toBeVisible();
     await expect.poll(() => page.locator('.pg-message').count()).toBeGreaterThan(previousMessages);
-    await expect(page.locator('.pg-decision-card')).toHaveCount(5);
-    await expect(page.getByText('Bunlardan hangileri fikrine uyuyor?')).toBeVisible();
+    await expect(page.locator('.pg-coach-focus')).toHaveCount(1);
+    await expect(page.locator('.pg-coach-actions button')).toHaveCount(2);
+    await expect(page.locator('.pg-focused-question b')).toHaveText(/MVP.nin çözeceği tek kritik sorun/i);
   });
 
-  test('each proposal requires a visible decision before it can change the idea', async ({ page }) => {
+  test('one explicit choice can be committed while lower-priority proposals are deferred', async ({ page }) => {
     await startIdea(page);
-    await page.getByRole('button', { name: /Fikri büyüt/ }).click();
-    const cards = page.locator('.pg-decision-card');
-    await expect(cards.first()).toBeVisible();
-    const count = await cards.count();
-    expect(count).toBeGreaterThanOrEqual(3);
-    await cards.first().getByRole('button', { name: 'Kabul', exact: true }).click();
-    for (let index = 1; index < count; index += 1) {
-      await cards.nth(index).getByRole('button', { name: 'Sonra', exact: true }).click();
-    }
-    const apply = page.getByRole('button', { name: /Seçimleri fikre işle/ });
+    await page.locator('.pg-coach-actions button').first().click();
+    const card = page.locator('.pg-decision-card');
+    await expect(card).toHaveCount(1);
+    await card.getByRole('button', { name: 'Bu yönden ilerle', exact: true }).click();
+    const apply = page.getByRole('button', { name: /Seçtiğim yönü fikre işle/ });
     await expect(apply).toBeEnabled();
     await apply.click();
     await expect(page.locator('.toast')).toContainText('fikir kararları kaydedildi');
-    await expect(page.getByText('Bunlardan hangileri fikrine uyuyor?')).toHaveCount(0);
+    await expect(page.getByText('Bir yön seçelim')).toHaveCount(0);
   });
 
   test('a focused answer is reviewed field by field before entering the idea map', async ({ page }) => {
-    await startIdea(page, 'Günlük öncelikleri sade biçimde gösteren yerel bir görev uygulaması yapmak istiyorum.');
-    const question = page.locator('.pg-question-block button').filter({ hasText: /kullanıcı|kim/i }).first();
-    await expect(question).toBeVisible();
-    await question.click();
-    await expect(page.getByText('Yanıtladığın soru')).toBeVisible();
-    await page.getByLabel('Fikir sohbeti mesajı').fill('Her gün AI kodlama araçları kullanan bireysel geliştirici');
+    await startIdea(page, 'Bir uygulama yapmak istiyorum.');
+    await expect(page.locator('.pg-coach-focus')).toBeVisible();
+    await expect(page.getByText('Şu an yanıtladığın soru')).toBeVisible();
+    await page.getByLabel('Fikir sohbeti mesajı').fill('Problem: Bireysel geliştiriciler projeye başlamadan önce kapsamı ve kararları netleştiremiyor.');
     await page.getByRole('button', { name: 'Gönder', exact: true }).click();
 
     const review = page.locator('.discovery-answer-review');
@@ -89,14 +85,14 @@ test.describe('PromtGen idea studio production workflow', () => {
     }
     await review.getByRole('button', { name: /alanı sistem yorumuna uygula/ }).click();
     await expect(review).toBeHidden();
-    await expect(page.getByRole('complementary', { name: 'Canlı fikir özeti' })).toContainText('bireysel geliştirici');
+    await expect(page.getByRole('complementary', { name: 'Fikir özeti' })).toContainText(/kapsamı|kararları/);
   });
 
   test('guide and plan are separate, approval-gated destinations', async ({ page }) => {
     await startIdea(page);
     await openGuide(page);
-    await expect(page.getByText('YAŞAYAN FİKİR BELGESİ', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Rehberi indir' })).toBeVisible();
+    await expect(page.getByText('FİKİR ÖZETİ · ONAY BEKLİYOR', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fikir özetini indir' })).toBeVisible();
 
     await page.getByLabel('Açık kritik sorular').fill('');
     await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();

@@ -87,7 +87,7 @@ export function ConceptAgreementEditor({ project, onCommit }: {
     </div>
     <div className="confidence-explanation">
       <b>Bu oran doğruluk garantisi değildir.</b>
-      <span>Eksik bağlam göstergesidir; alanları düzeltmeden canonical plana aktarılmaz.</span>
+      <span>Eksik bağlam göstergesidir; sen alanları düzeltip onaylamadan plana aktarılmaz.</span>
       {summary.confidenceRationale.map(reason => <small key={reason}>• {reason}</small>)}
     </div>
     <div className="agreement-primary">
