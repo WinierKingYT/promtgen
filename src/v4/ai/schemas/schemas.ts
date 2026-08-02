@@ -20,7 +20,14 @@ export const discoverySchema = z.object({
     affectedSections: z.array(planSectionSchema).min(1).max(12),
     recommended: z.boolean()
   }).strict()).min(3).max(5),
-  openQuestions: z.array(shortText).max(12).default([])
+  openQuestions: z.array(shortText).max(12).default([]),
+  uncertainty: z.array(shortText).max(2).default([]),
+  nextQuestionText: shortText,
+  optionalPaths: z.array(z.object({
+    title: shortText,
+    reason: shortText,
+    prompt: shortText
+  }).strict()).max(3).default([])
 }).strict();
 
 export const DISCOVERY_ANSWER_EXTRACTION_SCHEMA_ID = 'discovery-answer-extraction-v1';
