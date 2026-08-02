@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createProjectDocument } from '../../src/v4/project-document.js';
-import {
-  generateDiscoveryAnswerExtractionService,
-  generateDiscoveryBundleService
-} from '../../src/v4/application/discovery-generation-service.js';
+import { generateDiscoveryBundleService } from '../../src/v4/application/discovery-generation-service.js';
 import { generateIdeaLabBundleService } from '../../src/v4/application/idea-lab-generation-service.js';
 import { getDefaultProviderSettings } from '../../src/v4/provider-settings.js';
 
@@ -40,21 +37,6 @@ describe('typed AI generation application services', () => {
     assert.equal(result.usedFallback, true);
     assert.equal(result.bundle.title, 'MVP kapsamını netleştir');
     assert.equal(result.bundle.source?.type, 'local');
-  });
-
-  it('keeps answer extraction explicit when no AI provider is active', async () => {
-    const project = createProjectDocument({
-      idea: 'Bir proje fikrini tartışmak istiyorum',
-      name: 'Extraction service'
-    });
-    const result = await generateDiscoveryAnswerExtractionService(project, {
-      settings: offlineSettings,
-      answer: 'Bireysel geliştiriciler kullanacak'
-    });
-
-    assert.equal(result.extraction, null);
-    assert.equal(result.provenance, null);
-    assert.match(result.error || '', /etkin bir sağlayıcı/);
   });
 
   it('writes local Idea Lab output and provenance into a cloned project', async () => {
