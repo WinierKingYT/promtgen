@@ -531,3 +531,16 @@ export function applyDiscoveryAnswerDraft(
     return { success: false, reason: error instanceof Error ? error.message : 'Yanıt önerileri uygulanamadı.' };
   }
 }
+
+export function preselectConfidentPatches(
+  draft: DiscoveryAnswerDraft,
+  minConfidence = 70
+): DiscoveryAnswerDraft {
+  if (draft.assessment.warnings.length > 0) return draft;
+  return {
+    ...draft,
+    patches: draft.patches.map(patch => patch.status === 'pending' && patch.confidence >= minConfidence
+      ? { ...patch, status: 'accepted' }
+      : patch)
+  };
+}
