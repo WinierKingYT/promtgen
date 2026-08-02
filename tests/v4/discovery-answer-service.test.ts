@@ -4,6 +4,7 @@ import {
   applyDiscoveryAnswerDraft,
   compareDiscoveryAnswerWithAI,
   createDiscoveryAnswerDraft,
+  preselectConfidentPatches,
   updateDiscoveryAnswerPatch
 } from '../../src/v4/application/discovery-answer-service.js';
 import { createInitialConceptInterpretation } from '../../src/v4/application/idea-discussion-service.js';
@@ -145,5 +146,29 @@ describe('discovery answer proposal service', () => {
     assert.equal(compared.comparison?.aiOnly.length, 1);
     assert.ok(compared.patches.every(patch => patch.status === 'pending'));
     assert.deepEqual(project.ideaLabSession!.conceptSummary!.knownRisks, risksBefore);
+  });
+
+  it('preselectConfidentPatches, uyarı yoksa yüksek güvenli alanları otomatik kabul eder', () => {
+    const project = projectWithQuestion();
+    const draft = createDiscoveryAnswerDraft(project, {
+      focusedQuestion: project.ideaLabSession!.conceptSummary!.openQuestions[0],
+      answer: 'Her gün AI kodlama araçları kullanan bireysel geliştirici'
+    }, options)!;
+    assert.equal(draft.assessment.warnings.length, 0);
+    const preselected = preselectConfidentPatches(draft);
+    const targetUserPatch = preselected.patches.find(patch => patch.field === 'targetUser')!;
+    assert.ok(targetUserPatch.confidence >= 70);
+    assert.equal(targetUserPatch.status, 'accepted');
+  });
+
+  it('preselectConfidentPatches, herhangi bir uyarı varsa hiçbir alanı otomatik kabul etmez', () => {
+    const project = projectWithQuestion();
+    const draft = createDiscoveryAnswerDraft(project, {
+      focusedQuestion: project.ideaLabSession!.conceptSummary!.openQuestions[0],
+      answer: 'Yalnız bireysel kullanım ama aynı zamanda büyük ekip işbirliği de olmalı'
+    }, options)!;
+    assert.ok(draft.assessment.warnings.length > 0);
+    const preselected = preselectConfidentPatches(draft);
+    assert.ok(preselected.patches.every(patch => patch.status === 'pending'));
   });
 });
