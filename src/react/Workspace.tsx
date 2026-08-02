@@ -149,12 +149,20 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     commit(updateSuggestionStatus(project, currentBundle.id, suggestionId, status, edited), undefined, 'UpdateSuggestionStatus');
   };
 
-  const applySuggestions = () => {
+  const applySuggestions = async () => {
     if (!currentBundle) return;
     const target = structuredClone(project);
     const bundle = target.proposalStore.bundles.find(candidate => candidate.id === currentBundle.id);
     if (bundle) bundle.items.forEach(item => { if (item.status === 'pending') item.status = 'deferred'; });
-    commit(applyApprovedChanges(target, currentBundle.id), 'Seçtiğin fikir kararları kaydedildi.', 'ApplyApprovedChanges');
+    const result = applyApprovedChanges(target, currentBundle.id);
+    const saved = await persistCandidate(result, 'Seçtiğin fikir kararları kaydedildi.', 'ApplyApprovedChanges');
+    if (saved && discoveryAnswerDraft) {
+      setDiscoveryAnswerDraft({
+        ...discoveryAnswerDraft,
+        baseDocumentRevision: result.documentRevision,
+        baseCanonicalRevision: result.canonicalRevision
+      });
+    }
   };
 
   const sendMessage = async (rawMessage: string, question = coach.activeQuestion) => {
@@ -302,7 +310,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 : unresolvedCount
                   ? `${unresolvedCount} düşük öncelikli yönü daha sonra konuşabilirsin.`
                   : `${acceptedCount} seçim fikre işlenmeye hazır.`}</span>
-              <button type="button" onClick={applySuggestions}>{acceptedCount ? 'Seçtiğim yönü fikre işle' : 'Bu turu şimdilik kapat'} <ArrowRight size={16}/></button>
+              <button type="button" onClick={() => void applySuggestions()}>{acceptedCount ? 'Seçtiğim yönü fikre işle' : 'Bu turu şimdilik kapat'} <ArrowRight size={16}/></button>
             </div>}
             <div ref={messageEndRef}/>
           </div>

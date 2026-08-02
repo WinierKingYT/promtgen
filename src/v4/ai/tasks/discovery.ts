@@ -3,7 +3,6 @@ import { discoverySchema, DISCOVERY_SCHEMA_ID } from '../schemas/schemas.js';
 import { buildBudgetedContext } from '../context/context-builder.js';
 import { classifyProjectDomain, projectDomainLabel } from '../domain-classifier.js';
 import { isolateImportedProjectContext } from '../../security/context-isolation.js';
-import { buildIdeaCoachState } from '../../application/idea-coach-service.js';
 
 export const discoveryTask = {
   id: 'discovery',
@@ -31,20 +30,16 @@ optionalPaths alanına bu projenin somut eksiklerine özel en fazla 3 düşünme
 Yalnız şu üst seviye alanları içeren JSON döndür:
 {"reply":"...","analysisNote":"...","summary":"...","options":[{"kind":"feature|decision|risk|question|architecture","title":"...","description":"...","pros":["..."],"cons":["..."],"effort":"low|medium|high","impact":"low|medium|high","affectedSections":["scope"],"recommended":true}],"openQuestions":["..."],"uncertainty":["..."],"nextQuestionText":"...","optionalPaths":[{"title":"...","reason":"...","prompt":"..."}]}`;
   },
-  buildContext(project: ProjectDocumentV5, input: { direction?: string; memory?: unknown } = {}) {
+  buildContext(project: ProjectDocumentV5, input: { direction?: string; memory?: unknown; ideaCoach?: { activeStep: string; activeStepLabel: string } } = {}) {
     const budget = buildBudgetedContext(project, 4_000);
     const imported = isolateImportedProjectContext(project);
-    const coach = buildIdeaCoachState(project);
     return {
       ...budget.contextData,
       importedProjectFacts: imported.facts,
       importedContextReport: imported.report,
       userDirection: String(input.direction || '').trim(),
       localPlanningMemory: input.memory || null,
-      ideaCoach: {
-        activeStep: coach.activeStep,
-        activeStepLabel: coach.activeStepLabel
-      },
+      ideaCoach: input.ideaCoach || { activeStep: 'problem', activeStepLabel: 'Problem' },
       contextBudget: {
         estimatedTokens: budget.estimatedTokens,
         truncated: budget.truncated,

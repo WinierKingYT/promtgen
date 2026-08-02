@@ -144,6 +144,7 @@ export function IdeaCoachFocus({ coach, disabled, onChoose }: {
       <span>Şimdi netleştirdiğimiz konu · {coach.activeStepLabel}</span>
       <h2 id="pg-coach-question">{coach.activeQuestion}</h2>
       <p>Tek bir cevap yeterli. Emin değilsen aşağıdaki yollardan biriyle birlikte düşünebiliriz.</p>
+      {coach.uncertainty.map(item => <p key={item}>Henüz emin olmadığım: {item}</p>)}
     </div>
     <div className="pg-coach-actions" aria-label="Bağlamsal düşünme yolları">
       {coach.actions.map(action => <button type="button" disabled={disabled} key={action.id} onClick={() => onChoose(action.prompt)}>
