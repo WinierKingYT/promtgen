@@ -11,6 +11,7 @@ import type {
 } from '../ai/schemas/schemas.js';
 import { runRegisteredAITask } from '../ai/runtime.js';
 import { addExplorationMessage } from '../planning-engine.js';
+import { buildIdeaCoachState } from './idea-coach-service.js';
 import {
   buildIdeaDiscussionContext,
   captureDiscussionBundle
@@ -19,6 +20,9 @@ import {
 export interface DiscoverySuggestionBundle extends SuggestionBundle {
   replyMessage?: string;
   analysisNote?: string;
+  uncertainty?: string[];
+  optionalPaths?: Array<{ title: string; reason: string; prompt: string }>;
+  nextQuestionText?: string;
 }
 
 export interface DiscoveryBundleResult {
@@ -198,9 +202,6 @@ export async function runConversationalDiscoveryTurnService(
   );
   const replyText = result.bundle.replyMessage || result.bundle.title;
   let next = addExplorationMessage(withUserMessage, 'assistant', replyText);
-  if (result.bundle.analysisNote && next.messages.length) {
-    next.messages[next.messages.length - 1].analysisNote = result.bundle.analysisNote;
-  }
   next.proposalStore.bundles.push(result.bundle);
   next = captureDiscussionBundle(next, result.bundle, next.messages.at(-1)?.id || '');
   if (focusedQuestion) {
@@ -210,5 +211,23 @@ export async function runConversationalDiscoveryTurnService(
     if (!next.openQuestions.includes(question)) next.openQuestions.push(question);
   }
   next.metadata.lastDiscoveryProvider = result.bundle.source;
+  if (next.messages.length) {
+    const lastMessage = next.messages[next.messages.length - 1];
+    if (result.bundle.analysisNote) lastMessage.analysisNote = result.bundle.analysisNote;
+    // buildIdeaCoachState burada TAM BİRLEŞTİRİLMİŞ next projesi üzerinden çağrılır
+    // (openQuestions merge'ünden SONRA) — bu, questionFor()'un render zamanında
+    // (Task 5, idea-coach-service.ts) ürettiğiyle birebir aynı sonucu vermesini garanti eder.
+    // Sıra önemli: next'ten ÖNCE (openQuestions merge'ünden önce) hesaplanırsa, offline
+    // kural motorunun ürettiği openQuestions henüz projeye işlenmemiş olur ve questionFor()
+    // farklı bir soru bulur — bu da bu turda yazılan soruyla render'da görünen soru arasında
+    // tutarsızlığa yol açar.
+    const coach = buildIdeaCoachState(next);
+    lastMessage.uncertainty = result.bundle.uncertainty?.length ? result.bundle.uncertainty : [];
+    lastMessage.optionalPaths = result.bundle.optionalPaths?.length
+      ? result.bundle.optionalPaths
+      : coach.actions.map(({ title, reason, prompt }) => ({ title, reason, prompt }));
+    lastMessage.nextQuestionText = result.bundle.nextQuestionText || coach.activeQuestion;
+    lastMessage.nextQuestionStep = coach.activeStep;
+  }
   return { ...result, project: next, assistantMessage: replyText };
 }
