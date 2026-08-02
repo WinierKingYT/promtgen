@@ -66,13 +66,18 @@ export async function generateDiscoveryBundleService(
   }
 
   try {
+    const coach = buildIdeaCoachState(project);
     const run = await runRegisteredAITask<DiscoveryOutput>('discovery', {
       project,
       settings,
       credential,
       input: {
         direction,
-        memory: settings.useLocalMemory && memory?.sourceProjectCount ? memory : null
+        memory: settings.useLocalMemory && memory?.sourceProjectCount ? memory : null,
+        ideaCoach: {
+          activeStep: coach.activeStep,
+          activeStepLabel: coach.activeStepLabel
+        }
       },
       signal
     });
