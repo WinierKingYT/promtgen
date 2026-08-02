@@ -141,6 +141,9 @@ export function mapDiscoveryOutput(
     replyMessage: response.reply || response.summary,
     analysisNote: response.analysisNote || 'Mimari etki ve belirsizlik skoru güncellendi.',
     openQuestions: response.openQuestions.slice(0, 3),
+    uncertainty: response.uncertainty,
+    optionalPaths: response.optionalPaths,
+    nextQuestionText: response.nextQuestionText,
     source: { type: 'ai', providerId },
     provenance
   };
