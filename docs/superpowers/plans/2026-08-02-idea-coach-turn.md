@@ -1086,7 +1086,12 @@ export function IdeaCoachTurn({
   onDraftDiscard: () => void;
   onDraftApply: () => void;
 }) {
-  return <div className="pg-coach-turn">
+  // Fragment — NOT a wrapper <div>. .pg-thread uses `display:flex; gap:24px`
+  // directly on its children (.pg-inline-review, .pg-coach-focus, .pg-decision-deck
+  // all carry their own layout CSS as flex items). A wrapper element would swallow
+  // that gap between the review and the focus/decision block. See spec constraint:
+  // no visual/CSS changes in this task.
+  return <>
     {draft && <div className="pg-inline-review"><DiscoveryAnswerReview
       draft={draft}
       onChange={onDraftChange}
@@ -1096,7 +1101,7 @@ export function IdeaCoachTurn({
     {showDecisionTurn
       ? <IdeaDecisionCards items={pendingItems} onStatus={onStatus}/>
       : <IdeaCoachFocus coach={coach} disabled={disabled} onChoose={onChoose}/>}
-  </div>;
+  </>;
 }
 ```
 
@@ -1548,17 +1553,7 @@ import {
   };
 ```
 
-Mesaj listesindeki `analysisNote` satırını (satır 300):
-
-```tsx
-                {message.analysisNote && <details><summary>Bu yoruma nasıl ulaştım?</summary><p>{message.analysisNote}</p></details>}
-```
-
-şununla değiştir:
-
-```tsx
-                {message.analysisNote && <small className="pg-message-note">{message.analysisNote}</small>}
-```
+Mesaj listesindeki `analysisNote` satırına **dokunma** — `.pg-message-body details { ... }` (`styles.css`) bu elemente özel border/background/padding tanımlıyor; kaldırılması görsel bir değişiklik olurdu ve bu Aşama 1'in kapsamı dışında (bkz. Global Constraints). `{message.analysisNote && <details><summary>Bu yoruma nasıl ulaştım?</summary><p>{message.analysisNote}</p></details>}` satırı aynen kalır.
 
 Şu bloğu (satır 306-330):
 
@@ -1772,7 +1767,7 @@ EOF
 - Modify: `tests/e2e/guided-workflow.spec.ts:71-89`
 
 **Interfaces:**
-- Consumes: `.pg-coach-turn`, `.pg-coach-focus`, `.discovery-answer-review` class'ları (Task 8-9'da oluşturuldu/korundu)
+- Consumes: `.pg-coach-focus`, `.discovery-answer-review` class'ları (Task 8-9'da korundu). `IdeaCoachTurn` bir DOM sarmalayıcısı **eklemez** (React Fragment döner — bkz. Task 8), bu yüzden test bu iki elementi `.pg-thread` içindeki kardeşler olarak, ortak bir `.pg-coach-turn` locator'ı olmadan bulur.
 
 - [ ] **Step 1: Testi güncelle**
 
@@ -1810,11 +1805,10 @@ EOF
     await page.getByLabel('Fikir sohbeti mesajı').fill('Problem: Bireysel geliştiriciler projeye başlamadan önce kapsamı ve kararları netleştiremiyor.');
     await page.getByRole('button', { name: 'Gönder', exact: true }).click();
 
-    const turn = page.locator('.pg-coach-turn');
-    const review = turn.locator('.discovery-answer-review');
+    const review = page.locator('.discovery-answer-review');
     await expect(review.getByText('Yanıtından çıkarılan değişiklikleri incele')).toBeVisible();
-    // Tur kartı, alan incelemesiyle birlikte sıradaki soruyu/aksiyonları da aynı anda gösterir — ayrı bir moda geçilmez.
-    await expect(turn.locator('.pg-coach-focus')).toBeVisible();
+    // Alan incelemesiyle birlikte sıradaki soru/aksiyonlar da aynı anda görünür — ayrı bir moda geçilmez.
+    await expect(page.locator('.pg-coach-focus')).toBeVisible();
 
     const patches = review.locator('.answer-patch');
     const patchCount = await patches.count();
@@ -1824,7 +1818,7 @@ EOF
     }
     await review.getByRole('button', { name: /alanı sistem yorumuna uygula/ }).click();
     await expect(review).toBeHidden();
-    await expect(turn.locator('.pg-coach-focus')).toBeVisible();
+    await expect(page.locator('.pg-coach-focus')).toBeVisible();
     await expect(page.getByRole('complementary', { name: 'Fikir özeti' })).toContainText(/kapsamı|kararları/);
   });
 ```
