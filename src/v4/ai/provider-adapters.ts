@@ -1,4 +1,5 @@
 import { discoverySchema } from './schemas/schemas.js';
+import { getProviderMeta } from '../provider-settings.js';
 import { normalizeProviderSettings } from '../provider-url-policy.js';
 import { redactSensitiveData } from '../security/secret-guard.js';
 
@@ -209,9 +210,10 @@ export function createProvider(
   if (!['ollama', 'gemini', 'nvidia', 'openai'].includes(id)) {
     throw new Error(`Desteklenmeyen AI sağlayıcısı: ${id}`);
   }
+  const providerMeta = getProviderMeta(id);
   const normalized = normalizeProviderSettings(
     { providerId: id, ...configuration },
-    { defaultModel: configuration.model }
+    providerMeta
   );
   const safeConfiguration = {
     ...configuration,

@@ -1,4 +1,4 @@
-import { Archive, Check, Download, FlaskConical, GitBranch, History, Menu, MoreHorizontal, RotateCcw, Settings2 } from 'lucide-react';
+import { Archive, Check, ChevronDown, Download, FlaskConical, GitBranch, History, Menu, RotateCcw, Settings2 } from 'lucide-react';
 import { PHASE_REGISTRY } from '../../v4/project-document.js';
 import { IconButton } from './WorkspaceChrome.js';
 
@@ -56,33 +56,31 @@ export function GuidedHeaderBar({
   onPrimaryAction
 }: GuidedHeaderBarProps) {
   const phase = getPhaseGuidance(activePhase);
+  const journeyStep = ['IDEA_EXPANSION', 'DISCOVERY', 'IDEA_LAB', 'CONCEPT_CONFIRMATION'].includes(activePhase) ? 1
+    : ['SHAPING', 'DESIGN'].includes(activePhase) ? 2 : 3;
   const run = (action?: () => void) => {
     action?.();
     document.querySelector<HTMLDetailsElement>('.workspace-tools')?.removeAttribute('open');
   };
 
   return (
-    <>
-      <header className="topbar">
-        <IconButton label="Projeleri aç" onClick={onOpenProjects || (() => undefined)}><Menu size={20}/></IconButton>
-        <div className="title-block">
-          <span>{projectName}</span>
-          <small><span className="live-dot"/> {canonical ? `r${revision} · ${finalized ? 'Final plan' : 'Canlı plan'}` : 'Fikir çalışma alanı'}</small>
+    <header className="studio-header">
+        <div className="studio-project-control">
+          <IconButton label="Projeleri aç" onClick={onOpenProjects || (() => undefined)}><Menu size={19}/></IconButton>
+          <div><b>{projectName}</b><small><i/> {canonical ? `Plan r${revision}` : 'Fikir taslağı'} · cihazında</small></div>
         </div>
-        <div className="phase-focus" aria-label={`Mevcut aşama ${phase.step}/${phase.total}: ${phase.label}`}>
-          <span>{phase.step}/{phase.total}</span>
-          <b>{phase.label}</b>
-          <small>{phase.next}</small>
-        </div>
-        <div className="top-actions">
+        <nav className="studio-journey" aria-label={`Çalışma ilerlemesi. Mevcut aşama: ${phase.label}`}>
+          {['Fikir', 'Şekillendir', 'Plan'].map((label, index) => <span key={label} className={journeyStep === index + 1 ? 'active' : journeyStep > index + 1 ? 'complete' : ''}><i>{journeyStep > index + 1 ? <Check size={12}/> : index + 1}</i>{label}</span>)}
+        </nav>
+        <div className="studio-header-actions">
           {canonical && onPrimaryAction && (
-            <button className="primary compact" onClick={onPrimaryAction}>
+            <button className="studio-primary compact" onClick={onPrimaryAction}>
               {finalized ? <RotateCcw size={15}/> : <Check size={15}/>}
               {finalized ? 'Yeniden aç' : 'Finalleştir'}
             </button>
           )}
-          <details className="workspace-tools">
-            <summary aria-label="Çalışma alanı araçları"><MoreHorizontal size={17}/> Araçlar</summary>
+          <details className="studio-tools">
+            <summary aria-label="Çalışma alanı araçları">Araçlar <ChevronDown size={15}/></summary>
             <div>
               <button type="button" onClick={() => run(onOpenSettings)}><Settings2 size={15}/> AI ayarları</button>
               {canonical && <button type="button" onClick={() => run(onExportMarkdown)}><Download size={15}/> Markdown</button>}
@@ -94,9 +92,5 @@ export function GuidedHeaderBar({
           </details>
         </div>
       </header>
-      <section className="phase-guide" aria-label="Sıradaki çalışma adımı">
-        <span>Şimdi</span><b>{phase.label}</b><p>{phase.next}</p>
-      </section>
-    </>
   );
 }

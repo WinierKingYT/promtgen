@@ -1,5 +1,6 @@
 import type { ExportRecord, ProjectDocumentV5 } from './contracts.js';
 import type { CanonicalRevisionReference } from './application/canonical-export-core.js';
+import type { CanonicalExportBundle } from './application/canonical-export-service.js';
 import type {
   PromtgenPackageEntry,
   PromtgenPackageInspection,
@@ -29,7 +30,7 @@ export function buildAgentPrompt(project: ProjectDocumentV5, adapter?: string, r
 export function createDocumentSet(project: ProjectDocumentV5, options?: { revision?: RevisionReference; adapters?: string[] }): Record<string, string>;
 export function createIdeWorkspaceFiles(project: ProjectDocumentV5, options?: { revision?: RevisionReference; adapters?: string[] }): WorkspaceFiles;
 export function createIdeWorkspacePackage(project: ProjectDocumentV5, options?: { revision?: RevisionReference; adapters?: string[] }): Promise<PackageArtifact>;
-export function createExportBundle(project: ProjectDocumentV5, options?: { revision?: RevisionReference; adapters?: string[]; format?: string }): Promise<unknown>;
+export function createExportBundle(project: ProjectDocumentV5, options?: { revision?: RevisionReference; adapters?: string[]; format?: string }): Promise<CanonicalExportBundle>;
 export function createPromtgenPackage(project: ProjectDocumentV5, options?: { revision?: RevisionReference; adapters?: string[]; includeExports?: boolean }): Promise<PackageArtifact>;
 export function inspectPromtgenPackage(file: Blob | ArrayBuffer | Uint8Array): Promise<PromtgenPackageInspection>;
 export function readPromtgenPackage(file: Blob | ArrayBuffer | Uint8Array): Promise<ProjectDocumentV5>;

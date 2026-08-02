@@ -1,4 +1,4 @@
-import { ArrowRight, Lightbulb, MessageSquarePlus, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Lightbulb, ListChecks, MessageSquareText } from 'lucide-react';
 import { useMemo } from 'react';
 import { buildIdeaGuide } from '../../v4/application/idea-guide-service.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
@@ -72,63 +72,32 @@ export function IdeaPromptDeck({ project, onPrompt, onQuestion, onOutcome }: Ide
   }, [guide]);
 
   return (
-    <section className="idea-prompt-deck" aria-labelledby="idea-prompt-deck-title">
-      <header className="idea-prompt-deck__head">
-        <div>
-          <span className="meta">SOHBET KARTLARI</span>
-          <h3 id="idea-prompt-deck-title">
-            <MessageSquarePlus size={17} />
-            Fikri birlikte şekillendirelim
-          </h3>
-          <p>Bir kart seçince yazı alanı o yönde dolar. İstersen fikri geliştirir, istersen rehbere veya plana geçersin.</p>
-        </div>
-        <div className="idea-prompt-deck__actions">
-          <button type="button" onClick={() => onOutcome('guide')}>
-            <Sparkles size={15} />
-            Rehber yoluna geç
-          </button>
-          <button type="button" className="primary" onClick={() => onOutcome('plan')}>
-            <Lightbulb size={15} />
-            Plan yoluna geç
-          </button>
-        </div>
-      </header>
-      <div className="idea-prompt-deck__grid">
-        {cards.map(card => (
-          <article key={card.title} className={`idea-prompt-card kind-${card.kind}`}>
-            <span className="idea-prompt-card__kind">{card.kind === 'question' ? 'Soru' : card.kind === 'risk' ? 'Risk' : card.kind === 'tech' ? 'Teknik' : 'Kapsam'}</span>
-            <h4>{card.title}</h4>
-            <p>{card.detail}</p>
-            <button
-              type="button"
-              className="idea-prompt-card__action"
-              onClick={() => {
-                onPrompt(card.prompt);
-                if (card.kind === 'question') {
-                  onQuestion(card.prompt);
-                }
-              }}
-            >
-              {card.action}
-              <ArrowRight size={14} />
-            </button>
-          </article>
-        ))}
+    <section className="studio-suggestions" aria-labelledby="idea-prompt-deck-title">
+      <div className="studio-suggestions-heading">
+        <span><MessageSquareText size={15}/> Buradan devam edebilirsin</span>
+        <small>Bir seçenek seç veya kendi cevabını yaz</small>
       </div>
-      <div className="idea-prompt-deck__trail">
-        {(guide.nextSteps.slice(0, 3)).map(item => (
+      <div className="studio-suggestion-grid">
+        {cards.slice(0, 4).map((card, index) => (
           <button
-            key={item}
+            key={card.title}
             type="button"
-            className="idea-trail-chip"
+            className={`studio-suggestion kind-${card.kind}`}
             onClick={() => {
-              onPrompt(item);
-              onQuestion(item);
+              onPrompt(card.prompt);
+              if (card.kind === 'question') onQuestion(card.prompt);
             }}
           >
-            {item}
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <span><b>{card.title}</b><small>{card.detail}</small></span>
+            <ArrowUpRight size={16}/>
           </button>
         ))}
+      </div>
+      <div className="studio-next-actions">
+        <span>Fikir yeterince netse</span>
+        <button type="button" onClick={() => onOutcome('guide')}><Lightbulb size={15}/> Rehbere geç</button>
+        <button type="button" onClick={() => onOutcome('plan')}><ListChecks size={15}/> Planlamaya geç</button>
       </div>
     </section>
   );

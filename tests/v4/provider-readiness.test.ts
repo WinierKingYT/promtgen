@@ -27,21 +27,27 @@ function recordingProbe(handler: (settings: ProviderReadinessSettings, credentia
 const noCredentials = { credentialFor: async () => '' };
 
 describe('provider readiness gate', () => {
-  it('varsayılan ayar AI sağlamaz ve kapıyı kapalı tutar', async () => {
+  it('varsayılan ayar yerleşik NVIDIA GLM-5.2 profilini seçer', async () => {
     const defaults = getDefaultProviderSettings();
-    assert.equal(defaults.providerId, 'offline', 'varsayılan sağlayıcı offline olmalı');
+    assert.equal(defaults.providerId, 'nvidia');
+    assert.equal(defaults.model, 'z-ai/glm-5.2');
+    assert.equal(defaults.baseUrl, 'https://integrate.api.nvidia.com/v1');
 
     const { probe } = recordingProbe(() => fail('network'));
     const result = await evaluateProviderReadiness(defaults, { probe, ...noCredentials });
 
-    assert.equal(result.state, 'needs-setup');
+    assert.equal(result.state, 'needs-credential');
+    assert.equal(result.providerId, 'nvidia');
     assert.equal(providerGateOpen(result), false);
-    assert.match(result.message, /şablon/);
+    assert.match(result.message, /API anahtarı/);
   });
 
   it('yerelde çalışan Ollama bulunduğunda anahtar istemeden hazır olur', async () => {
     const { probe, calls } = recordingProbe(settings => (settings.providerId === 'ollama' ? ok : fail('network')));
-    const result = await evaluateProviderReadiness(getDefaultProviderSettings(), { probe, ...noCredentials });
+    const result = await evaluateProviderReadiness(
+      { ...getDefaultProviderSettings(), providerId: 'offline', useAiWhenAvailable: false },
+      { probe, ...noCredentials }
+    );
 
     assert.equal(result.state, 'ready');
     assert.equal(result.providerId, 'ollama');
@@ -55,7 +61,7 @@ describe('provider readiness gate', () => {
   it('anahtar gerektiren sağlayıcı seçili ama anahtar yoksa kapı açılmaz', async () => {
     const { probe, calls } = recordingProbe(() => ok);
     const result = await evaluateProviderReadiness(
-      { providerId: 'nvidia', model: 'meta/llama-3.3-70b-instruct' },
+      { providerId: 'nvidia', model: 'z-ai/glm-5.2' },
       { probe, ...noCredentials }
     );
 
@@ -70,7 +76,7 @@ describe('provider readiness gate', () => {
   it('anahtarı olan NVIDIA doğrulanınca kapı açılır', async () => {
     const { probe, calls } = recordingProbe(() => ok);
     const result = await evaluateProviderReadiness(
-      { providerId: 'nvidia', model: 'meta/llama-3.3-70b-instruct' },
+      { providerId: 'nvidia', model: 'z-ai/glm-5.2' },
       { probe, credentialFor: async () => 'nvapi-test-key' }
     );
 
@@ -94,7 +100,7 @@ describe('provider readiness gate', () => {
     for (const [errorCode, expected] of cases) {
       const { probe } = recordingProbe(() => fail(errorCode));
       const result = await evaluateProviderReadiness(
-        { providerId: 'nvidia', model: 'meta/llama-3.3-70b-instruct' },
+        { providerId: 'nvidia', model: 'z-ai/glm-5.2' },
         { probe, credentialFor: async () => 'nvapi-test-key' }
       );
       assert.equal(result.state, 'unreachable', `${errorCode} ulaşılamaz sayılmalı`);
@@ -115,7 +121,10 @@ describe('provider readiness gate', () => {
 
   it('kurulum seçeneklerinde anahtarsız yol başta gelir ve offline listelenmez', async () => {
     const { probe } = recordingProbe(() => fail('network'));
-    const result = await evaluateProviderReadiness(getDefaultProviderSettings(), { probe, ...noCredentials });
+    const result = await evaluateProviderReadiness(
+      { ...getDefaultProviderSettings(), providerId: 'offline', useAiWhenAvailable: false },
+      { probe, ...noCredentials }
+    );
 
     assert.equal(result.options.some(option => option.providerId === 'offline'), false);
     assert.equal(result.options[0]?.providerId, 'ollama');
