@@ -65,24 +65,6 @@ export function DiscoveryAnswerReview({
     {draft.assessment.warnings.length > 0 && <div className="answer-assessment-warnings" role="alert">
       {draft.assessment.warnings.map(warning => <p key={warning}>{warning}</p>)}
     </div>}
-    {draft.comparison && <details className="answer-assessment-warnings">
-      <summary>
-        AI–kural karşılaştırması · {draft.comparison.agreements.length} aynı · {draft.comparison.disagreements.length + draft.comparison.aiOnly.length} inceleme
-      </summary>
-      <p>
-        Kaynak: {draft.comparison.provenance.providerId}/{draft.comparison.provenance.model || 'bilinmeyen model'}.
-        AI sonucu hiçbir alanı otomatik değiştirmez.
-      </p>
-      {draft.comparison.disagreements.map(item => <div key={`different-${item.field}`}>
-        <b>{item.label}: farklı sonuç</b>
-        <p>Yerel kural: {display(item.ruleValue) || '—'}</p>
-        <p>AI: {display(item.aiValue) || '—'} · {item.rationale}</p>
-      </div>)}
-      {draft.comparison.aiOnly.map(item => <div key={`ai-only-${item.field}`}>
-        <b>{item.label}: yalnız AI önerisi (%{item.confidence})</b>
-        <p>{display(item.value)} · {item.rationale}</p>
-      </div>)}
-    </details>}
     {draft.patches.length === 0 && <p className="answer-empty">
       Plan alanı bulunamadı. Soru açık kaldı; alan adıyla netleştir.
     </p>}
