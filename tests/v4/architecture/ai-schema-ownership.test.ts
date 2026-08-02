@@ -13,7 +13,6 @@ const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 const registeredTaskIds = [
   'discovery',
   'idea-lab',
-  'discovery-answer-extraction',
   'regenerate-affected-sections'
 ] as const;
 
@@ -23,10 +22,6 @@ describe('AI schema ownership and prompt parity', () => {
     assert.doesNotMatch(source, /\bz\.(?:object|array|enum|union)\s*\(/);
     assert.match(source, /export \* from ['"]\.\/ai\/schemas\/schemas\.ts['"]/);
     assert.equal(compatibilitySchemas.discoverySchema, productionSchemas.discoverySchema);
-    assert.equal(
-      compatibilitySchemas.discoveryAnswerExtractionSchema,
-      productionSchemas.discoveryAnswerExtractionSchema
-    );
     assert.equal(compatibilitySchemas.ideaLabSchema, productionSchemas.ideaLabSchema);
     assert.equal(
       compatibilitySchemas.architectureReviewSchema,
@@ -44,7 +39,6 @@ describe('AI schema ownership and prompt parity', () => {
       'src/v4/ai/provider-adapters.ts',
       'src/v4/ai/tasks/discovery.ts',
       'src/v4/ai/tasks/idea-lab.ts',
-      'src/v4/ai/tasks/discovery-answer-extraction.ts',
       'src/v4/ai/tasks/regenerate-affected-sections.ts'
     ]) {
       const source = read(path);

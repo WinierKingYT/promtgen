@@ -11,7 +11,6 @@ import {
   mapDiscoveryOutput
 } from './deterministic-idea-planning.js';
 import {
-  generateDiscoveryAnswerExtractionService,
   generateDiscoveryBundleService,
   runConversationalDiscoveryTurnService
 } from './discovery-generation-service.js';
@@ -41,19 +40,6 @@ export async function generateDiscoveryBundle(
   } = {}
 ) {
   return generateDiscoveryBundleService(project, options, discoveryDependencies);
-}
-
-export async function generateDiscoveryAnswerExtraction(
-  project: ProjectDocumentV5,
-  options: {
-    settings?: ProviderSettings;
-    credential?: string;
-    answer?: string;
-    question?: string;
-    signal?: AbortSignal;
-  } = {}
-) {
-  return generateDiscoveryAnswerExtractionService(project, options);
 }
 
 export async function runConversationalDiscoveryTurn(
