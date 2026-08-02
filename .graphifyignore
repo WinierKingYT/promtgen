@@ -1,0 +1,36 @@
+# Mimari grafın kapsamı: ÜRETİM sahipliği olan kod.
+# MODULE_STATUS.md'de "archive" veya üretilmiş sayılan her şey buraya girer.
+# Aksi hâlde graf, üretimi temsil etmeyen kodu merkezi modül gibi gösterir.
+
+# --- Arşiv: üretim build'inde yok (docs/architecture/MODULE_STATUS.md) ---
+experiments/
+
+# --- Üretilmiş kaynak: Tauri build çıktısı, elle yazılmaz ---
+src-tauri/gen/
+
+# --- Bağımlılık kilit dosyaları: mimari bilgi taşımaz ---
+package-lock.json
+**/package-lock.json
+
+# --- Üretilmiş kanıt artefaktları: benchmark scriptleri yazar ---
+benchmarks/**/latest-report.json
+
+# --- Çalışma verisi ve test fixture'ları: mimari düğüm üretmez ---
+benchmarks/comparison/blind-map.json
+benchmarks/comparison/human-evaluations.json
+benchmarks/comparison/submissions.json
+benchmarks/comparison/user-sessions.json
+benchmarks/comparison/study.json
+benchmarks/discovery/answer-adversarial-corpus.json
+benchmarks/discovery/scenarios.json
+benchmarks/planner/scenarios.json
+tests/fixtures/
+
+# --- Yerel araç yapılandırması ---
+.claude/
+
+# Kapsam DIŞINDA BIRAKILMAYANLAR (bilinçli):
+#   package.json, tsconfig*.json, src-tauri/tauri.conf.json
+#     -> gerçek yapılandırma düğümleri üretir (dependencies, compilerOptions, permissions)
+#   tests/**/*.test.*  -> testler mimarinin parçasıdır, sahiplik sınırlarını gösterir
+#   scripts/*.ts       -> benchmark ve kanıt üretimi üretim araçlarıdır
