@@ -97,7 +97,7 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
   return (
     <dialog ref={dialogRef} open={open} className="provider-dialog" aria-modal="true" aria-labelledby="provider-dialog-title" onKeyDown={handleKeyDown} onCancel={onClose} onClose={onClose}>
       <div className="dialog-head"><div className="dialog-icon"><Bot size={20} /></div><div><span className="meta">AI YAPILANDIRMASI</span><h2 id="provider-dialog-title">Planlama motoru</h2></div><IconButton label="Ayarları kapat" onClick={() => { dialogRef.current?.close(); onClose(); }}><X size={18} /></IconButton></div>
-      <p className="dialog-lead">AI yalnızca filtrelenmiş canonical plan bağlamını görür. Ürettiği hiçbir değişiklik sen onaylamadan plana uygulanmaz.</p>
+      <p className="dialog-lead">AI yalnızca filtrelenmiş plan bağlamını görür. Ürettiği hiçbir değişiklik sen onaylamadan plana uygulanmaz.</p>
       <fieldset className="provider-options"><legend>Sağlayıcı</legend>{PROVIDER_CATALOG.map(item => <label key={item.id} className={draftSettings.providerId === item.id ? 'active' : ''}><input type="radio" name="provider" value={item.id} checked={draftSettings.providerId === item.id} onChange={() => chooseProvider(item.id)} /><span className="provider-radio" /><span><b>{item.label}</b><small>{item.description}</small></span>{item.builtIn && <em>Yerleşik</em>}{item.id === 'offline' && <em>Fallback</em>}</label>)}</fieldset>
       <div className="provider-fields">
         <label htmlFor="provider-model">Model<input id="provider-model" value={draftSettings.model} onChange={event => setDraftSettings({ ...draftSettings, model: event.target.value })} disabled={draftSettings.providerId === 'offline'} /></label>

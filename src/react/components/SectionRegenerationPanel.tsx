@@ -66,7 +66,7 @@ export function SectionRegenerationPanel({ project, onCommit, providerSettings, 
       if (result.project !== project) onCommit(result.project, result.reason, 'MarkSectionPatchesStale');
       return;
     }
-    onCommit(result.project, `${approved} canonical plan bölümü açık onayla güncellendi.`, 'ApplySectionPatches');
+    onCommit(result.project, `${approved} plan bölümü senin onayınla güncellendi.`, 'ApplySectionPatches');
   };
 
   return (
@@ -81,7 +81,7 @@ export function SectionRegenerationPanel({ project, onCommit, providerSettings, 
           <header><div><span className="meta">{project.sections[proposal.sectionId]?.title || proposal.sectionId}</span><b>{proposal.rationale}</b></div><ProvenanceBadge kind={provenanceKind} providerName={proposal.provenance.providerId || undefined}/></header>
           <div className="section-patch-diff"><div><small>MEVCUT r{proposal.baseCanonicalRevision}</small><pre>{proposal.originalContent || '—'}</pre></div><div><small>ÖNERİLEN</small><pre>{proposal.proposedContent}</pre></div></div>
           {proposal.warnings.length > 0 && <ul>{proposal.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
-          {editingId === proposal.id && <label>Düzenlenmiş canonical içerik<textarea value={editedContent} onChange={event => setEditedContent(event.target.value)} rows={7}/></label>}
+          {editingId === proposal.id && <label>Düzenlenmiş plan içeriği<textarea value={editedContent} onChange={event => setEditedContent(event.target.value)} rows={7}/></label>}
           {proposal.status === 'pending' && <footer>
             <button type="button" onClick={() => decide(proposal, 'rejected')}><X size={13}/> Reddet</button>
             <button type="button" onClick={() => decide(proposal, 'deferred')}>Ertele</button>

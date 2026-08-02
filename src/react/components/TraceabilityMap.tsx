@@ -49,7 +49,7 @@ export function TraceabilityMap({ project }: { project: ProjectDocumentV5 }) {
   return (
     <section className="trace-map" aria-labelledby="trace-map-title">
       <header>
-        <div><span className="meta">CANONICAL İZLENEBİLİRLİK</span><h3 id="trace-map-title"><GitBranch size={17}/> Plan bağlantı haritası</h3></div>
+        <div><span className="meta">PLAN İZLENEBİLİRLİĞİ</span><h3 id="trace-map-title"><GitBranch size={17}/> Plan bağlantı haritası</h3></div>
         <label>Revision<select value={view.revision} onChange={event => setRevision(Number(event.target.value))}>{view.availableRevisions.map(item => <option key={item.number} value={item.number}>{item.label}</option>)}</select></label>
       </header>
       <div className="trace-map-controls">
@@ -59,10 +59,10 @@ export function TraceabilityMap({ project }: { project: ProjectDocumentV5 }) {
         </select>
         <div className="trace-type-filters" aria-label="Kayıt türü filtreleri">{(Object.keys(TYPE_META) as TraceabilityNodeType[]).map(type => <button type="button" key={type} aria-pressed={types.includes(type)} onClick={() => toggleType(type)} style={{ '--trace-color': TYPE_META[type].color } as CSSProperties}>{TYPE_META[type].label}</button>)}</div>
       </div>
-      {view.invalidLinkIds.length > 0 && <p className="trace-warning" role="alert">{view.invalidLinkIds.length} bağlantının canonical ucu bulunamadığı için gösterilmedi.</p>}
+      {view.invalidLinkIds.length > 0 && <p className="trace-warning" role="alert">{view.invalidLinkIds.length} bağlantının karşı ucu bulunamadığı için gösterilmedi.</p>}
       <div className="trace-canvas" tabIndex={0} aria-label={`r${view.revision} izlenebilirlik grafiği, ${visibleNodes.length} kayıt ve ${visibleEdges.length} bağlantı`}>
         <svg viewBox={`0 0 1000 ${height}`} role="img" aria-labelledby="trace-svg-title trace-svg-description">
-          <title id="trace-svg-title">Canonical plan izlenebilirlik grafiği</title>
+          <title id="trace-svg-title">Plan izlenebilirlik grafiği</title>
           <desc id="trace-svg-description">Karar, gereksinim, görev, test ve risk kayıtları arasındaki yönlü bağlantılar.</desc>
           <defs><marker id="trace-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"/></marker></defs>
           {(Object.keys(TYPE_META) as TraceabilityNodeType[]).filter(type => types.includes(type)).map(type => <text key={type} className="trace-column-title" x={TYPE_META[type].x} y="24" textAnchor="middle">{TYPE_META[type].label}</text>)}

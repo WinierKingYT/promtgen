@@ -142,7 +142,7 @@ export function StorageHealthPanel({ project, onCommit }: StorageHealthPanelProp
         : restoreCheckpointAsNewRevision(project, candidate);
       const persisted = await onCommit(
         restored,
-        `Kurtarma kaydı yeni r${restored.canonicalRevision} canonical revision'ı olarak geri yüklendi.`,
+        `Yedek, yeni plan sürümü r${restored.canonicalRevision} olarak geri yüklendi; önceki sürümler korunuyor.`,
         'RestoreCheckpoint'
       );
       if (persisted === false) throw new Error('Geri yüklenen revision kaydedilemedi; güncel proje değiştirilmedi.');
@@ -202,7 +202,7 @@ export function StorageHealthPanel({ project, onCommit }: StorageHealthPanelProp
         {!preview.canRestore && <p className="storage-health-error" role="alert">{preview.reason}</p>}
         {preview.documentChanges.length > 0 && <section className="recovery-change-group"><h3>Belge değişiklikleri</h3><ul>{preview.documentChanges.map(label => <li key={label}>{label}</li>)}</ul></section>}
         {preview.sections.length > 0 && <section className="recovery-change-group"><h3>Plan bölümleri</h3><div>{preview.sections.map(section => <article key={section.sectionId}><b>{section.title}</b><small>+{section.addedLines + section.addedItems} · −{section.removedLines + section.removedItems}{section.statusChanged ? ' · durum değişecek' : ''}</small></article>)}</div></section>}
-        {preview.entities.length > 0 && <section className="recovery-change-group"><h3>Canonical kayıtlar</h3><div>{preview.entities.map(entity => <article key={entity.key}><b>{entity.label}</b><small>{entity.beforeCount} → {entity.afterCount} · +{entity.added} −{entity.removed} ~{entity.changed}</small></article>)}</div></section>}
+        {preview.entities.length > 0 && <section className="recovery-change-group"><h3>Plan kayıtları</h3><div>{preview.entities.map(entity => <article key={entity.key}><b>{entity.label}</b><small>{entity.beforeCount} → {entity.afterCount} · +{entity.added} −{entity.removed} ~{entity.changed}</small></article>)}</div></section>}
         {error && <p className="storage-health-error" role="alert">{error}</p>}
       </div>
       <div className="dialog-actions"><button type="button" disabled={busyId === 'restore'} onClick={closePreview}>Vazgeç</button><button type="button" className="primary" disabled={!preview.canRestore || busyId === 'restore'} onClick={() => void restore()}>{busyId === 'restore' ? <LoaderCircle className="spin" size={15}/> : <RotateCcw size={15}/>} Yeni revision olarak geri yükle</button></div>

@@ -41,7 +41,7 @@ export function PlanningScenarioPanel({ project, onCommit }: { project: ProjectD
           dependencies: dependencies.split(',').map(item => item.trim()).filter(Boolean)
         }]
       });
-      onCommit(result.project, `"${result.scenario.name}" senaryosu canonical plan değiştirilmeden kaydedildi.`, 'CreatePlanningScenario');
+      onCommit(result.project, `"${result.scenario.name}" senaryosu plan değiştirilmeden kaydedildi.`, 'CreatePlanningScenario');
       setName(''); setDescription(''); setDecision(''); setRationale(''); setDependencies(''); setOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -59,7 +59,7 @@ export function PlanningScenarioPanel({ project, onCommit }: { project: ProjectD
       }
       const generated = await generateImpactAnalysis(selected.project, selected.request, { pendingCommit: true });
       const linked = linkScenarioImpact(generated.project, scenarioId, generated.impact.id);
-      await onCommit(linked, 'Senaryo etki analizine dönüştürüldü; açık onay olmadan canonical plana uygulanmayacak.', 'SelectPlanningScenario');
+      await onCommit(linked, 'Senaryo etki analizine dönüştürüldü; açık onay olmadan plana uygulanmayacak.', 'SelectPlanningScenario');
     } finally {
       setBusyId('');
     }
@@ -68,7 +68,7 @@ export function PlanningScenarioPanel({ project, onCommit }: { project: ProjectD
   return (
     <section className="scenario-panel" aria-labelledby="scenario-panel-title">
       <header><div><span className="meta">ALTERNATİF PLAN DALLARI</span><h3 id="scenario-panel-title"><GitCompareArrows size={16}/> Senaryo laboratuvarı</h3></div><button type="button" onClick={() => setOpen(value => !value)}><Plus size={14}/>{open ? 'Formu kapat' : 'Yeni senaryo'}</button></header>
-      <p>Alternatifleri canonical planı değiştirmeden karşılaştır. Seçilen senaryo önce etki analizi ve kullanıcı onayına gider.</p>
+      <p>Alternatifleri planı değiştirmeden karşılaştır. Seçtiğin senaryo önce etki analizine, sonra senin onayına gider.</p>
       {open && <div className="scenario-form">
         <label>Senaryo adı<input value={name} onChange={event => setName(event.target.value)} placeholder="Örn. Sunucu otoriteli hareket"/></label>
         <label>Amaç ve fark<textarea value={description} onChange={event => setDescription(event.target.value)} rows={2}/></label>
@@ -76,7 +76,7 @@ export function PlanningScenarioPanel({ project, onCommit }: { project: ProjectD
         <label>Gerekçe<textarea value={rationale} onChange={event => setRationale(event.target.value)} rows={2}/></label>
         <label>Etkilenen bölümler<input value={sections} onChange={event => setSections(event.target.value)}/></label>
         <label>Bağımlılıklar<input value={dependencies} onChange={event => setDependencies(event.target.value)} placeholder="Virgülle ayır"/></label>
-        <button type="button" className="primary" disabled={!name.trim() || !decision.trim() || !rationale.trim()} onClick={create}>Canonical planı değiştirmeden kaydet</button>
+        <button type="button" className="primary" disabled={!name.trim() || !decision.trim() || !rationale.trim()} onClick={create}>Planı değiştirmeden kaydet</button>
       </div>}
       {error && <p className="scenario-error" role="alert">{error}</p>}
       <div className="scenario-grid">{scenarios.map(scenario => <article key={scenario.id} className={`scenario-card ${scenario.status}`}>
@@ -86,7 +86,7 @@ export function PlanningScenarioPanel({ project, onCommit }: { project: ProjectD
         <small>{scenario.comparison.affectedSectionIds.join(' · ') || 'Bölüm belirtilmedi'}</small>
         {scenario.status === 'draft' && <footer><button type="button" onClick={() => onCommit(discardPlanningScenario(project, scenario.id), 'Senaryo geçmişte korunarak elendi.', 'DiscardPlanningScenario')}><Trash2 size={13}/> Ele</button><button type="button" className="primary" disabled={Boolean(busyId)} onClick={() => prepareMerge(scenario.id)}>{busyId === scenario.id ? 'Analiz ediliyor…' : 'Etki analizine gönder'}<ArrowRight size={13}/></button></footer>}
         {scenario.status === 'selected' && <em>Etki analizi kullanıcı kararı bekliyor.</em>}
-        {scenario.status === 'merged' && <em>Canonical plana onayla birleştirildi.</em>}
+        {scenario.status === 'merged' && <em>Senin onayınla plana işlendi.</em>}
       </article>)}</div>
       {!scenarios.length && <small className="scenario-empty">Henüz alternatif senaryo yok.</small>}
     </section>

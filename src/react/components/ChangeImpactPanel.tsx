@@ -45,7 +45,7 @@ export function ChangeImpactPanel({ project, onCommit }: ChangeImpactPanelProps)
     }
     onCommit(
       result.project,
-      `Değişiklik canonical plana uygulandı; r${result.project.canonicalRevision} oluşturuldu.`,
+      `Değişiklik plana işlendi. Yeni plan sürümü r${result.project.canonicalRevision} oluşturuldu; önceki sürümler korunuyor.`,
       'ApplyChangeImpact'
     )
   }
@@ -59,7 +59,7 @@ export function ChangeImpactPanel({ project, onCommit }: ChangeImpactPanelProps)
             <header className="change-impact-header">
               <div className="change-impact-icon"><GitBranch size={19} /></div>
               <div>
-                <span className="meta">CANONICAL DEĞİŞİKLİK ÖNİZLEMESİ</span>
+                <span className="meta">PLAN DEĞİŞİKLİK ÖNİZLEMESİ</span>
                 <h3 id={`${impact.id}-title`}>{impact.userRequest}</h3>
                 <p>r{impact.baseCanonicalRevision} → r{impact.preview.nextCanonicalRevision} · Henüz plana uygulanmadı</p>
               </div>
@@ -67,7 +67,7 @@ export function ChangeImpactPanel({ project, onCommit }: ChangeImpactPanelProps)
 
             <p className="change-impact-summary">{impact.summary}</p>
 
-            <div className="change-impact-metrics" aria-label="Önerilen canonical kayıtlar">
+            <div className="change-impact-metrics" aria-label="Önerilen plan kayıtları">
               <span><b>+{impact.preview.requirementCount}</b> gereksinim</span>
               <span><b>+{impact.preview.taskCount}</b> görev</span>
               <span><b>+{impact.preview.testCount}</b> test</span>
@@ -97,7 +97,7 @@ export function ChangeImpactPanel({ project, onCommit }: ChangeImpactPanelProps)
                       </li>
                     ))}
                   </ul>
-                ) : <p>Doğrudan bağlı canonical entity bulunamadı; yeni izlenebilir zincir oluşturulacak.</p>}
+                ) : <p>Bu değişikliğe doğrudan bağlı bir plan kaydı bulunamadı; yeni bir izlenebilirlik zinciri oluşturulacak.</p>}
               </div>
             </div>
 

@@ -31,7 +31,7 @@ export function IdeaDocumentHistoryPanel({ project, onCommit }: {
     }
     onCommit(result.project, `Fikir belgesi r${result.project.ideaDocumentRevisions.at(-1)?.restoredFromRevision} sürümünden geri yüklendi.`, 'RestoreIdeaDocumentRevision');
     setNotice(result.canonicalPlanUnchanged
-      ? 'Fikir belgesi geri yüklendi. Canonical plan değişmedi; sonraki adımda etki analizi önerilecek.'
+      ? 'Fikir özeti geri yüklendi. Planın kendisi değişmedi; sonraki adımda etkisini gözden geçirmeni önereceğiz.'
       : 'Fikir belgesi yeni bir sürüm olarak geri yüklendi.');
     setRestoreId('');
   };
@@ -63,7 +63,7 @@ export function IdeaDocumentHistoryPanel({ project, onCommit }: {
         {comparison.from.id !== latest.id && <button type="button" onClick={() => setRestoreId(comparison.from.id)}><RotateCcw size={14}/> Bu sürümü geri yükle</button>}
       </section>}
       {restoreId && <div className="idea-history-confirm" role="alert">
-        <p><b>Eski sürüm yeni kayıt olarak geri yüklenecek.</b> Mevcut canonical planın üzerine yazılmayacak.</p>
+        <p><b>Eski sürüm yeni kayıt olarak geri yüklenecek.</b> Mevcut planın üzerine yazılmayacak.</p>
         <button type="button" onClick={restore}><Check size={14}/> Geri yükle</button>
         <button type="button" onClick={() => setRestoreId('')}><X size={14}/> Vazgeç</button>
       </div>}

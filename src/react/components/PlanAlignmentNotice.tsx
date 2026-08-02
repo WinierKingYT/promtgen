@@ -14,14 +14,14 @@ export function PlanAlignmentNotice({ project, onCommit, onInspect }: {
 
   const inspect = () => {
     const result = createIdeaAlignmentImpactAnalysis(project);
-    onCommit(result.project, 'Fikir değişikliğinin canonical plan etkileri hazırlandı.', 'ProposeIdeaAlignmentImpact');
+    onCommit(result.project, 'Fikir değişikliğinin plana etkileri hazırlandı.', 'ProposeIdeaAlignmentImpact');
     onInspect();
   };
   const restore = () => {
     if (!alignment.sourceIdeaRevisionId) return;
     const result = restoreIdeaDocumentRevision(project, alignment.sourceIdeaRevisionId);
     if (result.success) {
-      onCommit(result.project, 'Fikir belgesi canonical planın kaynak sürümüne geri alındı.', 'RestoreAlignedIdeaRevision');
+      onCommit(result.project, 'Fikir özeti, planın dayandığı sürüme geri alındı.', 'RestoreAlignedIdeaRevision');
     }
   };
 

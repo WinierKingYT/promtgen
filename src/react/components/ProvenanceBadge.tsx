@@ -14,7 +14,7 @@ export const ProvenanceBadge: React.FC<ProvenanceBadgeProps> = ({ kind, provider
       return (
         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 ${className}`}>
           <span>✓</span>
-          <span>Canonical Plan</span>
+          <span>Onaylı plan</span>
         </span>
       );
     case 'ai-proposed':

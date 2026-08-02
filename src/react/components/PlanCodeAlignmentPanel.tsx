@@ -44,7 +44,7 @@ export function PlanCodeAlignmentPanel({ project, onCommit }: { project: Project
         <strong>{report.summary.evidenceGaps > 0 ? `${report.summary.evidenceGaps} açık` : 'Uyumlu'}</strong>
       </summary>
       <div className="alignment-body">
-        <p className="alignment-boundary">PromtGen burada kod yazmaz veya dosya değiştirmez. Canonical planı güvenli dosya envanteri ve kullanıcıca sağlanan teslim kanıtlarıyla karşılaştırır; çözüm seçeneklerini ayrıca onaylanacak öneri olarak hazırlar.</p>
+        <p className="alignment-boundary">PromtGen burada kod yazmaz veya dosya değiştirmez. Planı güvenli dosya envanteri ve kullanıcıca sağlanan teslim kanıtlarıyla karşılaştırır; çözüm seçeneklerini ayrıca onaylanacak öneri olarak hazırlar.</p>
         {report.summary.inventoryFiles === 0 && <div className="alignment-empty"><span><b>Mevcut proje envanteri bulunamadı.</b><small>Yeni proje ekranında isteğe bağlı klasör seçerek güvenli, yerel envanter oluşturabilirsin.</small></span></div>}
         <p className="alignment-summary">
           {report.summary.requirements} gereksinim · {report.summary.tasks} görev · {report.summary.inventoryFiles} güvenli dosya · {report.summary.filteredInventoryFiles} filtrelenen dosya · {report.summary.evidenceGaps} inceleme açığı

@@ -17,7 +17,7 @@ interface PackageImportDialogProps {
 
 const integrityCopy = {
   full: { title: 'Paket içeriği SHA-256 kayıtlarıyla eşleşiyor', detail: 'Manifest, proje, geçmiş ve export dosyalarının SHA-256 değerleri eşleşiyor.' },
-  canonical: { title: 'Canonical plan doğrulandı', detail: 'Eski paket sürümü nedeniyle yardımcı dosyalar tek tek doğrulanamadı.' },
+  canonical: { title: 'Plan içeriği doğrulandı', detail: 'Eski paket sürümü nedeniyle yardımcı dosyalar tek tek doğrulanamadı.' },
   legacy: { title: 'Eski paket — sınırlı doğrulama', detail: 'Şema güvenli biçimde doğrulandı; kriptografik bütünlük kaydı yok.' }
 } as const;
 
@@ -78,7 +78,7 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
           <h2 id="package-import-title">{inspection.project.identity.name}</h2>
           <p id="package-import-description">
             {recoveryPreview
-              ? 'Paketin canonical içeriği yalnız onayından sonra, cihazdaki revision/export/execution geçmişi korunarak yeni yerel revision olarak eklenecek.'
+              ? 'Paketin plan içeriği yalnız sen onayladıktan sonra yeni bir plan sürümü olarak eklenecek. Cihazdaki sürüm geçmişin, dışa aktarımların ve çalıştırma kayıtların olduğu gibi korunur.'
               : 'Paket henüz kaydedilmedi. İçeriği ve bütünlük sonucunu inceleyip yeni proje olarak ekleyebilirsin.'}
           </p>
         </div>
@@ -96,7 +96,7 @@ export function PackageImportDialog({ inspection, existingProject, onConfirm, on
 
       <div className="package-import-facts" role="list" aria-label="Paket bilgileri">
         <span role="listitem"><small>Paket belge rev.</small><strong>r{inspection.project.documentRevision}</strong></span>
-        <span role="listitem"><small>Paket canonical rev.</small><strong>r{inspection.project.canonicalRevision}</strong></span>
+        <span role="listitem"><small>Paketteki plan sürümü</small><strong>r{inspection.project.canonicalRevision}</strong></span>
         <span role="listitem"><small>{recoveryPreview ? 'Yerel hedef rev.' : 'Export belgesi'}</small><strong>{recoveryPreview ? `r${recoveryPreview.nextCanonicalRevision}` : inspection.manifest.files.length}</strong></span>
       </div>
 
