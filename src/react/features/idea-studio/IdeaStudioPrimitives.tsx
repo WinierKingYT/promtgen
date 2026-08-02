@@ -17,6 +17,8 @@ import type {
   SuggestionStatus
 } from '../../../v4/contracts.js';
 import type { IdeaCoachState } from '../../../v4/application/idea-coach-service.js';
+import type { DiscoveryAnswerDraft } from '../../../v4/application/discovery-answer-service.js';
+import { DiscoveryAnswerReview } from '../../components/DiscoveryAnswerReview.js';
 
 export type IdeaStudioView = 'develop' | 'guide' | 'plan';
 
@@ -179,4 +181,45 @@ export function IdeaDecisionCards({
       </footer>
     </article>
   </section>;
+}
+
+export function IdeaCoachTurn({
+  draft,
+  coach,
+  showDecisionTurn,
+  pendingItems,
+  disabled,
+  onChoose,
+  onStatus,
+  onDraftChange,
+  onDraftDiscard,
+  onDraftApply
+}: {
+  draft: DiscoveryAnswerDraft | null;
+  coach: IdeaCoachState;
+  showDecisionTurn: boolean;
+  pendingItems: SuggestionItem[];
+  disabled: boolean;
+  onChoose: (prompt: string) => void;
+  onStatus: (id: string, status: SuggestionStatus, edited?: string) => void;
+  onDraftChange: (draft: DiscoveryAnswerDraft) => void;
+  onDraftDiscard: () => void;
+  onDraftApply: () => void;
+}) {
+  // Fragment — NOT a wrapper <div>. .pg-thread uses `display:flex; gap:24px`
+  // directly on its children (.pg-inline-review, .pg-coach-focus, .pg-decision-deck
+  // all carry their own layout CSS as flex items). A wrapper element would swallow
+  // that gap between the review and the focus/decision block. See spec constraint:
+  // no visual/CSS changes in this task.
+  return <>
+    {draft && <div className="pg-inline-review"><DiscoveryAnswerReview
+      draft={draft}
+      onChange={onDraftChange}
+      onDiscard={onDraftDiscard}
+      onApply={onDraftApply}
+    /></div>}
+    {showDecisionTurn
+      ? <IdeaDecisionCards items={pendingItems} onStatus={onStatus}/>
+      : <IdeaCoachFocus coach={coach} disabled={disabled} onChoose={onChoose}/>}
+  </>;
 }
