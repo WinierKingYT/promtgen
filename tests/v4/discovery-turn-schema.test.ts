@@ -42,10 +42,11 @@ describe('discoverySchema — birleşik tur alanları', () => {
     assert.deepEqual(parsed.optionalPaths, []);
   });
 
-  it('nextQuestionText zorunludur', () => {
+  it('nextQuestionText eksikse boş metne düşer', () => {
     const payload: Record<string, unknown> = validPayload();
     delete payload.nextQuestionText;
-    assert.throws(() => discoverySchema.parse(payload));
+    const parsed = discoverySchema.parse(payload);
+    assert.equal(parsed.nextQuestionText, '');
   });
 
   it('uncertainty en fazla 2 öğe kabul eder', () => {
