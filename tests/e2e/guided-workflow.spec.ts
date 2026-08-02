@@ -68,7 +68,7 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.getByText('Bir yön seçelim')).toHaveCount(0);
   });
 
-  test('a focused answer is reviewed field by field before entering the idea map', async ({ page }) => {
+  test('a focused answer is reviewed inline while the next question stays visible in the same turn', async ({ page }) => {
     await startIdea(page, 'Bir uygulama yapmak istiyorum.');
     await expect(page.locator('.pg-coach-focus')).toBeVisible();
     await expect(page.getByText('Şu an yanıtladığın soru')).toBeVisible();
@@ -77,6 +77,13 @@ test.describe('PromtGen idea studio production workflow', () => {
 
     const review = page.locator('.discovery-answer-review');
     await expect(review.getByText('Yanıtından çıkarılan değişiklikleri incele')).toBeVisible();
+    // Alan incelemesiyle birlikte sıradaki soru/aksiyonlar da aynı anda görünür — ayrı bir moda geçilmez.
+    // Bu yanıt sonrasında beklemede kritik kararlar oluştuğu için "sıradaki" panel karar kartı
+    // destesi (.pg-decision-deck) olarak görünür; bekleyen kritik karar yokken .pg-coach-focus
+    // görünür. Her iki durumda da incelemeyle birlikte, onu gizlemeden, kardeş olarak render edilir.
+    const nextStepPanel = page.locator('.pg-coach-focus, .pg-decision-deck');
+    await expect(nextStepPanel).toBeVisible();
+
     const patches = review.locator('.answer-patch');
     const patchCount = await patches.count();
     expect(patchCount).toBeGreaterThan(0);
@@ -85,7 +92,8 @@ test.describe('PromtGen idea studio production workflow', () => {
     }
     await review.getByRole('button', { name: /alanı sistem yorumuna uygula/ }).click();
     await expect(review).toBeHidden();
-    await expect(page.getByRole('complementary', { name: 'Fikir özeti' })).toContainText(/kapsamı|kararları/);
+    await expect(nextStepPanel).toBeVisible();
+    await expect(page.locator('.toast')).toContainText(/alan fikir özetine işlendi/);
   });
 
   test('guide and plan are separate, approval-gated destinations', async ({ page }) => {
