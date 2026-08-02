@@ -50,7 +50,19 @@ describe('runConversationalDiscoveryTurnService — birleşik tur alanlarını m
 
   it('bundle bu alanları sağlamazsa idea-coach\'ın kendi yerel varsayılanına (questionFor/actionsFor) düşer', async () => {
     const project = createProjectDocument({ idea: 'Bireysel geliştiriciler için yerel proje planlama aracı' });
-    const bare = () => stubBundle({ uncertainty: undefined, optionalPaths: undefined, nextQuestionText: undefined });
+    // Bu bundle'ın openQuestions'ı boş DEĞİL — taze bir projede activeStep 'problem' olur
+    // (questionFor'un problem eşleştiricisi: /problem|sorun|acı|ihtiyaç/i), bu yüzden bu soru
+    // birleştirme döngüsünden (openQuestions merge) sonra questionFor() tarafından bulunmalı.
+    // Bu, buildIdeaCoachState(next)'in birleştirilmiş next.openQuestions üzerinden (merge'den
+    // ÖNCE değil, SONRA) çağrıldığını kanıtlar — merge'den önce çağrılsaydı bu soru henüz
+    // projede olmayacağı için questionFor() derivedQuestion()'a düşer ve bu assertion başarısız olurdu.
+    const mergedQuestion = 'Bu ürünün çözdüğü asıl sorun ne?';
+    const bare = () => stubBundle({
+      uncertainty: undefined,
+      optionalPaths: undefined,
+      nextQuestionText: undefined,
+      openQuestions: [mergedQuestion]
+    });
     const dependencies = { createFallback: bare, mapProviderOutput: bare };
     const result = await runConversationalDiscoveryTurnService(
       project,
@@ -66,5 +78,8 @@ describe('runConversationalDiscoveryTurnService — birleşik tur alanlarını m
     assert.equal(typeof lastMessage.nextQuestionStep, 'string');
     assert.ok(Array.isArray(lastMessage.optionalPaths) && lastMessage.optionalPaths!.length > 0);
     assert.deepEqual(lastMessage.uncertainty, []);
+    assert.equal(result.project.openQuestions.includes(mergedQuestion), true);
+    assert.equal(lastMessage.nextQuestionText, mergedQuestion);
+    assert.equal(lastMessage.nextQuestionStep, 'problem');
   });
 });
