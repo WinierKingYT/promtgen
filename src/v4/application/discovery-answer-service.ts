@@ -1,4 +1,4 @@
-import type { ConceptSummary, GenerationProvenance, ProjectDocumentV5 } from '../contracts.js';
+import type { ConceptSummary, ProjectDocumentV5 } from '../contracts.js';
 import { updateIdeaDocumentWithRevision } from './idea-document-revision-service.js';
 
 export type DiscoveryConceptField =
@@ -48,40 +48,8 @@ export interface DiscoveryAnswerDraft {
     mode: 'rule-engine';
     label: 'Yerel kural tabanlı alan çıkarımı';
   };
-  comparison?: DiscoveryAnswerComparison;
   assessment: DiscoveryAnswerAssessment;
   patches: DiscoveryAnswerPatch[];
-}
-
-export interface DiscoveryAIExtraction {
-  fields: Array<{
-    field: Exclude<DiscoveryConceptField, 'openQuestions'>;
-    value: DiscoveryAnswerPatchValue;
-    confidence: number;
-    rationale: string;
-  }>;
-  warnings: string[];
-}
-
-export interface DiscoveryAnswerComparison {
-  mode: 'ai-vs-rule';
-  provenance: GenerationProvenance;
-  agreements: DiscoveryConceptField[];
-  disagreements: Array<{
-    field: DiscoveryConceptField;
-    label: string;
-    ruleValue: DiscoveryAnswerPatchValue;
-    aiValue: DiscoveryAnswerPatchValue;
-    rationale: string;
-  }>;
-  aiOnly: Array<{
-    field: DiscoveryConceptField;
-    label: string;
-    value: DiscoveryAnswerPatchValue;
-    confidence: number;
-    rationale: string;
-  }>;
-  warnings: string[];
 }
 
 type DraftOptions = {
@@ -423,63 +391,6 @@ export function createDiscoveryAnswerDraft(
   };
 }
 
-export function compareDiscoveryAnswerWithAI(
-  draft: DiscoveryAnswerDraft,
-  extraction: DiscoveryAIExtraction,
-  provenance: GenerationProvenance
-): DiscoveryAnswerDraft {
-  const patchByField = new Map(draft.patches.map(patch => [patch.field, patch]));
-  const agreements: DiscoveryConceptField[] = [];
-  const disagreements: DiscoveryAnswerComparison['disagreements'] = [];
-  const aiOnly: DiscoveryAnswerComparison['aiOnly'] = [];
-
-  for (const candidate of extraction.fields) {
-    const rulePatch = patchByField.get(candidate.field);
-    if (!rulePatch) {
-      aiOnly.push({
-        field: candidate.field,
-        label: FIELD_META[candidate.field].label,
-        value: structuredClone(candidate.value),
-        confidence: candidate.confidence,
-        rationale: candidate.rationale
-      });
-      continue;
-    }
-    if (normalizeComparison(rulePatch.proposedValue) === normalizeComparison(candidate.value)) {
-      agreements.push(candidate.field);
-      continue;
-    }
-    disagreements.push({
-      field: candidate.field,
-      label: FIELD_META[candidate.field].label,
-      ruleValue: structuredClone(rulePatch.proposedValue),
-      aiValue: structuredClone(candidate.value),
-      rationale: candidate.rationale
-    });
-  }
-
-  const comparisonWarnings = [
-    ...extraction.warnings,
-    ...(disagreements.length ? [`AI ile yerel kural motoru ${disagreements.length} alanda farklı sonuç üretti; otomatik seçim yapılmadı.`] : []),
-    ...(aiOnly.length ? [`AI, yerel motorun bulmadığı ${aiOnly.length} alan önerdi; bunlar yalnız karşılaştırma amacıyla gösteriliyor.`] : [])
-  ];
-  return {
-    ...draft,
-    comparison: {
-      mode: 'ai-vs-rule',
-      provenance,
-      agreements,
-      disagreements,
-      aiOnly,
-      warnings: comparisonWarnings
-    },
-    assessment: {
-      ...draft.assessment,
-      warnings: [...new Set([...draft.assessment.warnings, ...comparisonWarnings])]
-    }
-  };
-}
-
 export function updateDiscoveryAnswerPatch(
   draft: DiscoveryAnswerDraft,
   patchId: string,
@@ -530,4 +441,17 @@ export function applyDiscoveryAnswerDraft(
   } catch (error) {
     return { success: false, reason: error instanceof Error ? error.message : 'Yanıt önerileri uygulanamadı.' };
   }
+}
+
+export function preselectConfidentPatches(
+  draft: DiscoveryAnswerDraft,
+  minConfidence = 70
+): DiscoveryAnswerDraft {
+  if (draft.assessment.warnings.length > 0) return draft;
+  return {
+    ...draft,
+    patches: draft.patches.map(patch => patch.status === 'pending' && patch.confidence >= minConfidence
+      ? { ...patch, status: 'accepted' }
+      : patch)
+  };
 }

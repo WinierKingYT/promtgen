@@ -3,6 +3,7 @@ import { generateDiscoveryBundle, getSeenSuggestionFingerprints, testProviderCon
 import { analyzeIdea, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
 import { validateSuggestionResponse } from '../../src/v4/ai-context.js';
 import { getDefaultProviderSettings } from '../../src/v4/provider-settings.js';
+import { mapDiscoveryOutput } from '../../src/v4/application/deterministic-idea-planning.js';
 
 let project = analyzeIdea('Yerel çalışan, SQLite tabanlı, güvenlik ve rol yönetimi destekli bir proje planlama uygulaması yapmak istiyorum.');
 const initial = project.proposalStore.bundles[0];
@@ -25,4 +26,28 @@ const connection = await testProviderConnection(offlineSettings);
 assert.equal(connection.ok, true);
 assert.equal(connection.providerId, 'offline');
 assert.equal(connection.message, 'Yerel akıllı motor hazır.');
+
+const aiResponse = {
+  reply: 'Anladım.',
+  analysisNote: 'Not.',
+  summary: 'Özet',
+  options: [
+    { kind: 'feature', title: 'Özellik A', description: 'D', pros: [], cons: [], effort: 'low', impact: 'low', affectedSections: ['scope'], recommended: true },
+    { kind: 'feature', title: 'Özellik B', description: 'D', pros: [], cons: [], effort: 'low', impact: 'low', affectedSections: ['scope'], recommended: false },
+    { kind: 'feature', title: 'Özellik C', description: 'D', pros: [], cons: [], effort: 'low', impact: 'low', affectedSections: ['scope'], recommended: false }
+  ],
+  openQuestions: [],
+  uncertainty: ['Hedef kullanıcı hâlâ belirsiz'],
+  nextQuestionText: 'Bu ürünü kim kullanacak?',
+  optionalPaths: [{ title: 'Kullanıcıyı daralt', reason: 'Grup geniş', prompt: 'Karşılaştır.' }]
+};
+const mappedBundle = mapDiscoveryOutput(project, aiResponse, 'openai', {
+  runId: 'run-1', mode: 'cloud-ai', providerId: 'openai', model: 'test-model',
+  promptVersion: '1.0.0', requestedAt: new Date().toISOString(), completedAt: new Date().toISOString(),
+  latencyMs: 0, retryCount: 0, fallbackReason: null, schemaId: 'discovery-v1', schemaVersion: 1, inputHash: 'x'
+});
+assert.deepEqual(mappedBundle.uncertainty, ['Hedef kullanıcı hâlâ belirsiz']);
+assert.equal(mappedBundle.nextQuestionText, 'Bu ürünü kim kullanacak?');
+assert.deepEqual(mappedBundle.optionalPaths, [{ title: 'Kullanıcıyı daralt', reason: 'Grup geniş', prompt: 'Karşılaştır.' }]);
+
 console.log('✓ V4 AI discovery and provider fallback');

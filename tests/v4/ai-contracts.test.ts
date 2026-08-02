@@ -2,8 +2,6 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { TASK_REGISTRY, getTaskDefinition } from '../../src/v4/ai/registry.js';
 import {
-  discoveryAnswerExtractionSchema,
-  DISCOVERY_ANSWER_EXTRACTION_SCHEMA_ID,
   ideaLabSchema,
   discoverySchema,
   IDEA_LAB_SCHEMA_ID,
@@ -17,26 +15,8 @@ describe('Category 2: AI & Prompt Architecture Contracts', () => {
     assert.ok(TASK_REGISTRY['idea-lab'], 'Idea Lab task registered');
     assert.equal(TASK_REGISTRY['idea-lab'].schemaId, IDEA_LAB_SCHEMA_ID);
     assert.equal(TASK_REGISTRY['discovery'].schemaId, DISCOVERY_SCHEMA_ID);
-    assert.equal(TASK_REGISTRY['discovery-answer-extraction'].schemaId, DISCOVERY_ANSWER_EXTRACTION_SCHEMA_ID);
     assert.equal(getTaskDefinition('discovery').buildPrompt instanceof Function, true);
     assert.equal(getTaskDefinition('idea-lab').buildContext instanceof Function, true);
-  });
-
-  it('validates AI answer extraction without accepting unknown fields', () => {
-    const parsed = discoveryAnswerExtractionSchema.parse({
-      fields: [{
-        field: 'targetUser',
-        value: 'Bireysel geliştirici',
-        confidence: 82,
-        rationale: 'Yanıtta açıkça belirtilmiş.'
-      }],
-      warnings: []
-    });
-    assert.equal(parsed.fields[0].field, 'targetUser');
-    assert.throws(() => discoveryAnswerExtractionSchema.parse({
-      fields: [{ field: 'unknown', value: 'x', confidence: 80, rationale: 'x' }],
-      warnings: []
-    }));
   });
 
   it('validateSuggestionResponse validates IdeaLab output using ideaLabSchema without throwing', () => {
