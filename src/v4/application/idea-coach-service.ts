@@ -33,6 +33,7 @@ export interface IdeaCoachState {
   steps: IdeaCoachStep[];
   evidence: IdeaEvidenceField[];
   actions: IdeaCoachAction[];
+  uncertainty: string[];
   criticalDecisionCount: number;
   deferrableDecisionCount: number;
   readyForSummaryReview: boolean;
@@ -107,6 +108,24 @@ function field(
   status: IdeaEvidenceStatus
 ): IdeaEvidenceField {
   return { id, label, value, status, ...statusCopy(status) };
+}
+
+function turnFieldsFor(project: ProjectDocumentV5, activeStep: IdeaCoachStepId): {
+  question: string | null;
+  actions: IdeaCoachAction[] | null;
+  uncertainty: string[];
+} {
+  const lastAssistant = [...project.messages].reverse().find(message => message.role === 'assistant');
+  if (!lastAssistant || lastAssistant.nextQuestionStep !== activeStep) {
+    return { question: null, actions: null, uncertainty: [] };
+  }
+  return {
+    question: lastAssistant.nextQuestionText || null,
+    actions: lastAssistant.optionalPaths?.length
+      ? lastAssistant.optionalPaths.map((path, index) => ({ id: `turn-path-${index}`, ...path }))
+      : null,
+    uncertainty: lastAssistant.uncertainty || []
+  };
 }
 
 function latestOpenItems(project: ProjectDocumentV5): SuggestionItem[] {
@@ -218,17 +237,20 @@ export function buildIdeaCoachState(project: ProjectDocumentV5): IdeaCoachState 
   const pendingItems = latestOpenItems(project).filter(item => item.status === 'pending');
   const criticalDecisionCount = pendingItems.filter(isCriticalDecision).length;
 
+  const turnFields = turnFieldsFor(project, activeStep);
+
   return {
     activeStep,
     activeStepLabel: STEP_LABELS[activeStep],
-    activeQuestion: questionFor(activeStep, project),
+    activeQuestion: turnFields.question || questionFor(activeStep, project),
     steps: orderedSteps.map((id, index) => ({
       id,
       label: STEP_LABELS[id],
       state: id === activeStep ? 'active' : index < orderedSteps.indexOf(activeStep) ? 'complete' : 'upcoming'
     })),
     evidence,
-    actions: actionsFor(activeStep),
+    actions: turnFields.actions || actionsFor(activeStep),
+    uncertainty: turnFields.uncertainty,
     criticalDecisionCount,
     deferrableDecisionCount: pendingItems.length - criticalDecisionCount,
     readyForSummaryReview: problemReady && userReady && alternativeReady && outcomeReady && mvpReady && risksReady

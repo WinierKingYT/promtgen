@@ -88,3 +88,54 @@ test('idea coach shows claims as confirmed only after explicit summary approval'
   assert.ok(confirmedState.evidence.every(item => item.status === 'confirmed'));
   assert.equal(confirmedState.readyForSummaryReview, true);
 });
+
+test('aktif adımla eşleşen AI turu, soruyu ve aksiyonları yerel varsayılanların yerine kullanır', () => {
+  const project = projectWithSummary();
+  const summary = project.ideaLabSession!.conceptSummary;
+  summary.problemStatement = 'İşler zor';
+  summary.targetUser = 'Herkes';
+  summary.userConfirmed = false;
+  const state = buildIdeaCoachState(project);
+  assert.equal(state.activeStep, 'problem');
+
+  project.messages.push({
+    id: 'm1',
+    role: 'assistant',
+    content: 'Anladım.',
+    createdAt: new Date().toISOString(),
+    nextQuestionStep: 'problem',
+    nextQuestionText: 'Bu proje tam olarak hangi somut anı düzeltiyor?',
+    optionalPaths: [{ title: 'Somut örnek ver', reason: 'Genel tanımı netleştirir.', prompt: 'Örnek anlat.' }],
+    uncertainty: ['Problem tanımı hâlâ çok genel']
+  });
+
+  const turnState = buildIdeaCoachState(project);
+  assert.equal(turnState.activeQuestion, 'Bu proje tam olarak hangi somut anı düzeltiyor?');
+  assert.equal(turnState.actions.length, 1);
+  assert.equal(turnState.actions[0].title, 'Somut örnek ver');
+  assert.deepEqual(turnState.uncertainty, ['Problem tanımı hâlâ çok genel']);
+});
+
+test('AI turu farklı bir adım için üretildiyse (adım ilerlediyse) yerel varsayılana döner', () => {
+  const project = projectWithSummary();
+  const summary = project.ideaLabSession!.conceptSummary;
+  summary.problemStatement = 'İşler zor';
+  summary.targetUser = 'Herkes';
+  summary.userConfirmed = false;
+
+  project.messages.push({
+    id: 'm1',
+    role: 'assistant',
+    content: 'Anladım.',
+    createdAt: new Date().toISOString(),
+    nextQuestionStep: 'value',
+    nextQuestionText: 'Bu, adım ilerlemeden önce üretilmiş eski bir soru.',
+    optionalPaths: [{ title: 'Eski aksiyon', reason: 'Eski', prompt: 'Eski' }],
+    uncertainty: ['Eski belirsizlik']
+  });
+
+  const state = buildIdeaCoachState(project);
+  assert.equal(state.activeStep, 'problem');
+  assert.notEqual(state.activeQuestion, 'Bu, adım ilerlemeden önce üretilmiş eski bir soru.');
+  assert.deepEqual(state.uncertainty, []);
+});
