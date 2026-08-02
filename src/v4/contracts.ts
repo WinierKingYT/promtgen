@@ -726,7 +726,17 @@ export interface ProjectDocumentV5 {
   simulationRuns: SimulationRun[]
   executionSessions: ExecutionSession[]
   openQuestions: string[]
-  messages: Array<{ id: string; role: 'user' | 'assistant'; content: string; analysisNote?: string; createdAt: string }>
+  messages: Array<{
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    analysisNote?: string
+    createdAt: string
+    uncertainty?: string[]
+    optionalPaths?: Array<{ title: string; reason: string; prompt: string }>
+    nextQuestionText?: string
+    nextQuestionStep?: string
+  }>
   readiness: ReadinessResult
   revisions: PlanRevision[]
   exports: ExportRecord[]
