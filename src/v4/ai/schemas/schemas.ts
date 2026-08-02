@@ -22,7 +22,7 @@ export const discoverySchema = z.object({
   }).strict()).min(3).max(5),
   openQuestions: z.array(shortText).max(12).default([]),
   uncertainty: z.array(shortText).max(2).default([]),
-  nextQuestionText: shortText,
+  nextQuestionText: shortText.default(''),
   optionalPaths: z.array(z.object({
     title: shortText,
     reason: shortText,
