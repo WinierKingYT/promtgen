@@ -20,7 +20,6 @@ import {
   updateSuggestionStatus
 } from '../v4/planning-engine.js';
 import {
-  generateDiscoveryAnswerExtraction,
   generateImpactAnalysis,
   runConversationalDiscoveryTurn
 } from '../v4/application/idea-planning-api.js';
@@ -38,20 +37,18 @@ import { prepareDiscoveryTurnProject } from '../v4/application/discovery-service
 import { buildIdeaCoachState, ensureIdeaCoachWorkspace } from '../v4/application/idea-coach-service.js';
 import {
   applyDiscoveryAnswerDraft,
-  compareDiscoveryAnswerWithAI,
   createDiscoveryAnswerDraft,
+  preselectConfidentPatches,
   type DiscoveryAnswerDraft
 } from '../v4/application/discovery-answer-service.js';
 import {
   applyIdeaPlanConversion,
   type IdeaPlanConversionPreview
 } from '../v4/application/idea-plan-conversion-service.js';
-import { DiscoveryAnswerReview } from './components/DiscoveryAnswerReview.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
 import {
-  IdeaCoachFocus,
-  IdeaDecisionCards,
+  IdeaCoachTurn,
   IdeaSnapshot,
   IdeaStudioHeader,
   IdeaStudioSidebar,
@@ -183,33 +180,11 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         focusedQuestion: question,
         memory
       });
-      let answerDraft = createDiscoveryAnswerDraft(
+      const rawDraft = createDiscoveryAnswerDraft(
         { ...result.project, documentRevision: project.documentRevision + 1 },
         { answer: message, focusedQuestion: question }
       );
-      const shouldCompareWithAi = Boolean(answerDraft)
-        && answerDraft?.assessment.quality !== 'actionable'
-        && providerSettings.providerId !== 'offline'
-        && providerSettings.useAiWhenAvailable !== false;
-      if (answerDraft && shouldCompareWithAi) {
-        const comparison = await generateDiscoveryAnswerExtraction(result.project, {
-          settings: providerSettings,
-          credential,
-          answer: message,
-          question
-        });
-        if (comparison.extraction && comparison.provenance) {
-          answerDraft = compareDiscoveryAnswerWithAI(answerDraft, comparison.extraction, comparison.provenance);
-        } else if (comparison.error) {
-          answerDraft = {
-            ...answerDraft,
-            assessment: {
-              ...answerDraft.assessment,
-              warnings: [...answerDraft.assessment.warnings, `AI karşılaştırması yapılmadı: ${comparison.error}`]
-            }
-          };
-        }
-      }
+      const answerDraft = rawDraft ? preselectConfidentPatches(rawDraft) : null;
       setMessageDraft('');
       const sourceLabel = result.usedFallback ? 'Yerel fikir motoru' : getProviderMeta(providerSettings.providerId).label;
       const saved = await persistCandidate(result.project, `${sourceLabel} yeni seçenekleri hazırladı.`, 'AddDiscoveryTurn');
@@ -303,31 +278,32 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
 
             {generating && <div className="pg-thinking" role="status"><span><i/><i/><i/></span><p>Fikrini analiz ediyor, seçenekleri hazırlıyorum…</p></div>}
 
-            {discoveryAnswerDraft
-              ? <div className="pg-inline-review"><DiscoveryAnswerReview
-                  draft={discoveryAnswerDraft}
-                  onChange={setDiscoveryAnswerDraft}
-                  onDiscard={() => setDiscoveryAnswerDraft(null)}
-                  onApply={() => {
-                    const result = applyDiscoveryAnswerDraft(project, discoveryAnswerDraft);
-                    if (!result.success) { setNotice(result.reason); return; }
-                    void persistCandidate(result.project, `${result.appliedFields.length} alan fikir özetine işlendi.`, 'UpdateConceptAgreement')
-                      .then(saved => { if (saved) setDiscoveryAnswerDraft(null); });
-                  }}
-                /></div>
-              : <>
-                  {showDecisionTurn
-                    ? <IdeaDecisionCards items={pendingItems} onStatus={setSuggestion}/>
-                    : <IdeaCoachFocus coach={coach} disabled={generating} onChoose={prompt => void sendMessage(prompt, '')}/>}
-                  {showDecisionTurn && pendingItems.length > 0 && !bundleResolved && <div className="pg-decision-commit">
-                    <span>{coach.criticalDecisionCount
-                      ? `${coach.criticalDecisionCount} kritik karar var; kalanları erteleyebilirsin.`
-                      : unresolvedCount
-                        ? `${unresolvedCount} düşük öncelikli yönü daha sonra konuşabilirsin.`
-                        : `${acceptedCount} seçim fikre işlenmeye hazır.`}</span>
-                    <button type="button" onClick={applySuggestions}>{acceptedCount ? 'Seçtiğim yönü fikre işle' : 'Bu turu şimdilik kapat'} <ArrowRight size={16}/></button>
-                  </div>}
-                </>}
+            <IdeaCoachTurn
+              draft={discoveryAnswerDraft}
+              coach={coach}
+              showDecisionTurn={showDecisionTurn}
+              pendingItems={pendingItems}
+              disabled={generating}
+              onChoose={prompt => void sendMessage(prompt, '')}
+              onStatus={setSuggestion}
+              onDraftChange={setDiscoveryAnswerDraft}
+              onDraftDiscard={() => setDiscoveryAnswerDraft(null)}
+              onDraftApply={() => {
+                if (!discoveryAnswerDraft) return;
+                const result = applyDiscoveryAnswerDraft(project, discoveryAnswerDraft);
+                if (!result.success) { setNotice(result.reason); return; }
+                void persistCandidate(result.project, `${result.appliedFields.length} alan fikir özetine işlendi.`, 'UpdateConceptAgreement')
+                  .then(saved => { if (saved) setDiscoveryAnswerDraft(null); });
+              }}
+            />
+            {showDecisionTurn && pendingItems.length > 0 && !bundleResolved && <div className="pg-decision-commit">
+              <span>{coach.criticalDecisionCount
+                ? `${coach.criticalDecisionCount} kritik karar var; kalanları erteleyebilirsin.`
+                : unresolvedCount
+                  ? `${unresolvedCount} düşük öncelikli yönü daha sonra konuşabilirsin.`
+                  : `${acceptedCount} seçim fikre işlenmeye hazır.`}</span>
+              <button type="button" onClick={applySuggestions}>{acceptedCount ? 'Seçtiğim yönü fikre işle' : 'Bu turu şimdilik kapat'} <ArrowRight size={16}/></button>
+            </div>}
             <div ref={messageEndRef}/>
           </div>
 

@@ -30,27 +30,6 @@ export const discoverySchema = z.object({
   }).strict()).max(3).default([])
 }).strict();
 
-export const DISCOVERY_ANSWER_EXTRACTION_SCHEMA_ID = 'discovery-answer-extraction-v1';
-export const discoveryAnswerExtractionSchema = z.object({
-  fields: z.array(z.object({
-    field: z.enum([
-      'targetUser',
-      'problemStatement',
-      'currentAlternative',
-      'desiredOutcome',
-      'confirmedFeatures',
-      'outOfScope',
-      'technicalApproaches',
-      'knownRisks',
-      'mvpTarget'
-    ]),
-    value: z.union([shortText, z.array(shortText).min(1).max(12)]),
-    confidence: z.number().int().min(0).max(100),
-    rationale: shortText
-  }).strict()).max(10),
-  warnings: z.array(shortText).max(8).default([])
-}).strict();
-
 export const IDEA_LAB_SCHEMA_ID = 'idea-lab-v1';
 export const ideaLabSchema = z.object({
   approaches: z.array(z.object({
@@ -101,7 +80,6 @@ export const sectionRegenerationSchema = z.object({
 }).strict();
 
 export type DiscoveryOutput = z.infer<typeof discoverySchema>;
-export type DiscoveryAnswerExtractionOutput = z.infer<typeof discoveryAnswerExtractionSchema>;
 export type IdeaLabOutput = z.infer<typeof ideaLabSchema>;
 export type ArchitectureReviewOutput = z.infer<typeof architectureReviewSchema>;
 export type SectionRegenerationOutput = z.infer<typeof sectionRegenerationSchema>;

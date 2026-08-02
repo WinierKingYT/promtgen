@@ -5,10 +5,7 @@ import type {
 } from '../contracts.js';
 import type { ProviderSettings } from '../provider-settings.js';
 import type { LocalPlanningMemory } from '../planning-memory.js';
-import type {
-  DiscoveryAnswerExtractionOutput,
-  DiscoveryOutput
-} from '../ai/schemas/schemas.js';
+import type { DiscoveryOutput } from '../ai/schemas/schemas.js';
 import { runRegisteredAITask } from '../ai/runtime.js';
 import { addExplorationMessage } from '../planning-engine.js';
 import { buildIdeaCoachState } from './idea-coach-service.js';
@@ -93,59 +90,6 @@ export async function generateDiscoveryBundleService(
       bundle: dependencies.createFallback(project, direction, message),
       usedFallback: true,
       error: message
-    };
-  }
-}
-
-export interface DiscoveryAnswerExtractionOptions {
-  settings?: ProviderSettings;
-  credential?: string;
-  answer?: string;
-  question?: string;
-  signal?: AbortSignal;
-}
-
-export interface DiscoveryAnswerExtractionResult {
-  extraction: DiscoveryAnswerExtractionOutput | null;
-  provenance: GenerationProvenance | null;
-  error: string | null;
-}
-
-export async function generateDiscoveryAnswerExtractionService(
-  project: ProjectDocumentV5,
-  {
-    settings,
-    credential = '',
-    answer = '',
-    question = '',
-    signal
-  }: DiscoveryAnswerExtractionOptions
-): Promise<DiscoveryAnswerExtractionResult> {
-  if (!settings || settings.providerId === 'offline' || settings.useAiWhenAvailable === false) {
-    return {
-      extraction: null,
-      provenance: null,
-      error: 'AI karşılaştırması için etkin bir sağlayıcı gerekli.'
-    };
-  }
-
-  try {
-    const run = await runRegisteredAITask<DiscoveryAnswerExtractionOutput>(
-      'discovery-answer-extraction',
-      {
-        project,
-        settings,
-        credential,
-        input: { answer, question },
-        signal
-      }
-    );
-    return { extraction: run.output, provenance: run.provenance, error: null };
-  } catch (error) {
-    return {
-      extraction: null,
-      provenance: null,
-      error: error instanceof Error ? error.message : 'AI alan karşılaştırması başarısız.'
     };
   }
 }
