@@ -80,12 +80,12 @@ describe('AI production runtime ownership', () => {
     }
   });
 
-  it('keeps typed portfolio and inventory views connected to the production start flow', () => {
+  it('keeps the typed inventory flow while the minimal recent-project list stays in production', () => {
     const startScreen = read('src/react/components/StartScreen.tsx');
-    assert.match(startScreen, /from ['"]\.\/PortfolioOverview\.js['"]/);
     assert.match(startScreen, /from ['"]\.\/ProjectInventoryModal\.js['"]/);
-    assert.match(startScreen, /<PortfolioOverview/);
     assert.match(startScreen, /<ProjectInventoryModal/);
+    assert.match(startScreen, /pg-onboarding-projects/);
+    assert.doesNotMatch(startScreen, /<PortfolioOverview/);
     assert.doesNotMatch(read('src/v4/portfolio-engine.d.ts'), /\bany\b/);
   });
 

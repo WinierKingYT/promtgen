@@ -1,19 +1,32 @@
 import { useRef, useState } from 'react';
-import { ArrowRight, FolderOpen, LoaderCircle, Settings2, Sparkles, X } from 'lucide-react';
+import {
+  Archive,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  FileUp,
+  FolderOpen,
+  LoaderCircle,
+  Plus,
+  RotateCcw,
+  Settings2,
+  Sparkles,
+  Trash2,
+  X
+} from 'lucide-react';
 import { getProviderMeta } from '../../v4/provider-settings.js';
 import { isDesktopProjectImportAvailable, selectDesktopProjectFolder } from '../../v4/desktop-project-import.js';
-import { PortfolioOverview } from './PortfolioOverview.js';
 import { ProjectInventoryModal } from './ProjectInventoryModal.js';
 import { PackageImportDialog } from './PackageImportDialog.js';
-import { ProviderGateNotice } from './ProviderGateNotice.js';
+import { ProjectDeleteDialog } from './ProjectDeleteDialog.js';
 import { providerGateOpen, type ProviderReadinessResult } from '../../v4/application/provider-readiness-service.js';
+import { getProductCopy } from '../../v4/product/product-contract.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { PromtgenPackageInspection } from '../../v4/exporter.js';
 import type { RecoveryPreview } from '../../v4/application/recovery-service.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
 import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
 import { useI18n } from '../providers/I18nProvider.js';
-import { getProductCopy } from '../../v4/product/product-contract.js';
 
 type Project = ProjectDocumentV5;
 type OutputLanguage = ProjectDocumentV5['identity']['outputLanguage'];
@@ -33,6 +46,12 @@ interface StartScreenProps {
   onRecheckProvider: () => void;
 }
 
+const STARTERS = [
+  'Yeni bir web uygulaması fikrim var',
+  'Mevcut projeme özellik eklemek istiyorum',
+  'Bir oyun sistemi tasarlamak istiyorum'
+];
+
 export function StartScreen({
   onCreate,
   onImport,
@@ -47,8 +66,7 @@ export function StartScreen({
   checkingProvider,
   onRecheckProvider
 }: StartScreenProps) {
-  const { locale, setLocale, t } = useI18n();
-  const productCopy = getProductCopy(locale);
+  const { locale, setLocale } = useI18n();
   const [idea, setIdea] = useState('');
   const [language, setLanguage] = useState<OutputLanguage>(locale === 'en-US' ? 'en' : 'tr');
   const [files, setFiles] = useState<File[]>([]);
@@ -59,30 +77,31 @@ export function StartScreen({
   const [packageInspection, setPackageInspection] = useState<PromtgenPackageInspection | null>(null);
   const [packageError, setPackageError] = useState('');
   const [inspectingPackage, setInspectingPackage] = useState(false);
+  const [busyProjectId, setBusyProjectId] = useState<string | null>(null);
+  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
   const packageRef = useRef<HTMLInputElement>(null);
+  const ideaRef = useRef<HTMLTextAreaElement>(null);
 
   const appendFiles = (incoming: FileList | null) => {
     setNativeInventory(null);
     setFiles(current => [...current, ...Array.from(incoming || [])]);
   };
-
   const chooseDesktopFolder = async () => {
     setSelectingFolder(true);
     try {
       const report = await selectDesktopProjectFolder();
-      if (report) { setFiles([]); setNativeInventory(report); }
+      if (report) { setFiles([]); setNativeInventory(report); setInventoryOpen(true); }
     } finally { setSelectingFolder(false); }
   };
-
-  const gateOpen = Boolean(readiness && providerGateOpen(readiness));
-
+  const aiReady = Boolean(readiness && providerGateOpen(readiness));
+  const builtInAiNeedsKey = readiness?.state === 'needs-credential' && readiness.providerId === 'nvidia';
+  const productCopy = getProductCopy(locale);
   const handleCreate = async () => {
-    if (!gateOpen) return;
+    if (idea.trim().length < 10 || creating) return;
     setCreating(true);
     try { await onCreate(idea, language, files, nativeInventory ?? undefined); }
     finally { setCreating(false); }
   };
-
   const inspectPackage = async (file: File | undefined) => {
     if (!file) return;
     setInspectingPackage(true);
@@ -98,112 +117,110 @@ export function StartScreen({
     }
   };
 
-  return (
-    <main id="main-content" className="start-shell">
-      <a className="skip-link" href="#idea-input">{t('start.skip')}</a>
-      <div className="start-mark"><Sparkles size={20} /> PROMTGEN / LOCAL-FIRST</div>
-      <section className="start-card" aria-labelledby="start-title">
-        <div className="eyebrow">{t('start.eyebrow')}</div>
-        <h1 id="start-title">{t('start.title')}<br /><span>{t('start.titleAccent')}</span></h1>
-        <p className="lead">{productCopy.promise}</p>
-        <p className="product-positioning">{locale === 'en-US' ? 'Talk through the idea first. Turn it into a guide or a detailed plan only when you want.' : 'Önce fikrini geliştir. Konuşarak netleştir, sonra istersen anlaşılır bir rehbere ya da ayrıntılı plana dönüştür.'}</p>
-        <label className="idea-box">
-          <span>{t('start.ideaLabel')}</span>
+  return <main id="main-content" className="pg-onboarding-shell">
+    <a className="skip-link" href="#idea-input">Ana içeriğe geç</a>
+    <aside className="pg-onboarding-sidebar" aria-label="Kayıtlı çalışmalar">
+      <div className="pg-onboarding-brand"><span><Sparkles size={18}/></span><b>PromtGen</b></div>
+      <button type="button" className="pg-sidebar-new" onClick={() => { setIdea(''); ideaRef.current?.focus(); }}><Plus size={17}/> Yeni fikir</button>
+      <div className="pg-onboarding-projects">
+        <span>SON ÇALIŞMALAR</span>
+        {projects.length === 0 && <p>İlk fikrin burada saklanacak.</p>}
+        {projects.slice(0, 8).map(item => <article key={item.id} className={item.lifecycle.status === 'archived' ? 'is-archived' : ''}>
+          <button type="button" className="portfolio-project-open" onClick={() => onOpen(item.id)}>
+            <i>{(item.identity.name || 'F').slice(0, 1).toLocaleUpperCase('tr-TR')}</i>
+            <span><b>{item.identity.name || 'İsimsiz fikir'}</b><small>r{item.canonicalRevision} · {item.lifecycle.status === 'archived' ? 'arşiv' : 'yerel'}</small></span>
+          </button>
+          <div>
+            <button type="button" disabled={busyProjectId === item.id} aria-label={`${item.identity.name} projesini ${item.lifecycle.status === 'archived' ? 'arşivden çıkar' : 'arşivle'}`} onClick={async () => {
+              setBusyProjectId(item.id);
+              try { await (item.lifecycle.status === 'archived' ? onRestore(item.id) : onArchive(item.id)); }
+              finally { setBusyProjectId(null); }
+            }}>{item.lifecycle.status === 'archived' ? <RotateCcw size={14}/> : <Archive size={14}/>}</button>
+            <button type="button" aria-label={`${item.identity.name} projesini kalıcı sil`} onClick={() => setDeleteProject(item)}><Trash2 size={14}/></button>
+          </div>
+        </article>)}
+      </div>
+      <button type="button" className="pg-onboarding-settings" aria-label="AI ayarları" onClick={onOpenSettings}><Settings2 size={17}/><span><b>Çalışma biçimi</b><small>{aiReady ? getProviderMeta(providerSettings.providerId).label : 'Yerel mod kullanılabilir'}</small></span></button>
+    </aside>
+
+    <section className="pg-onboarding-main">
+      <header className="pg-onboarding-topbar">
+        <div className={`pg-runtime-pill ${aiReady ? 'is-ai' : 'is-local'}`} role="status"><i/>{checkingProvider ? 'Bağlantı kontrol ediliyor' : aiReady ? `${getProviderMeta(providerSettings.providerId).label} hazır` : 'Yerel fikir motoru'}</div>
+        <button type="button" onClick={() => {
+          const next = language === 'tr' ? 'en' : 'tr';
+          setLanguage(next);
+          setLocale(next === 'en' ? 'en-US' : 'tr-TR');
+        }}>{language.toUpperCase()}</button>
+      </header>
+
+      <div className="pg-onboarding-center">
+        <div className="pg-onboarding-copy">
+          <span>FİKİR STÜDYOSU</span>
+          <h1>{locale === 'en-US' ? 'Start with the idea, not the form.' : 'Form doldurma. Fikrini anlat.'}</h1>
+          <p>{productCopy.promise}</p>
+        </div>
+
+        <div className="pg-start-composer">
+          <label htmlFor="idea-input">{locale === 'en-US' ? 'What is on your mind?' : 'Aklında ne var?'}</label>
           <textarea
+            ref={ideaRef}
             id="idea-input"
+            aria-label={locale === 'en-US' ? 'What do you want to build?' : 'Ne yapmak istiyorsun?'}
             value={idea}
+            rows={5}
+            autoFocus
             onChange={event => setIdea(event.target.value)}
             onKeyDown={event => {
               if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                if (idea.trim().length >= 10 && !creating && gateOpen) {
-                  event.preventDefault();
-                  handleCreate();
-                }
+                event.preventDefault();
+                void handleCreate();
               }
             }}
-            rows={5}
-            placeholder={t('start.ideaPlaceholder')}
+            placeholder="Örneğin: S&box için oyuncunun güvenini kazanabildiği, yetiştirilebilen bir at sistemi yapmak istiyorum…"
           />
-          <div className="idea-footer">
-            <span>{t('start.characterCount', { count: String(idea.length) })} {idea.length < 50 ? t('start.amplifierHint') : ''}</span>
-            <span style={{ color: idea.trim().length >= 10 ? '#10b981' : '#f59e0b' }}>
-              {idea.trim().length < 10 ? t('start.minimum') : t('start.shortcut')}
-            </span>
+          <div className="pg-start-composer-footer">
+            <div>
+              <label title="Dosya veya belge ekle"><FolderOpen size={17}/><span>Bağlam ekle</span><input type="file" multiple hidden onChange={event => appendFiles(event.target.files)}/></label>
+              {(files.length > 0 || nativeInventory) && <button type="button" className="pg-context-count" onClick={() => setInventoryOpen(true)}><Check size={14}/>{nativeInventory ? nativeInventory.totals.included : files.length} dosya</button>}
+            </div>
+            <button type="button" className="pg-start-submit" disabled={idea.trim().length < 10 || creating} onClick={() => void handleCreate()}>{creating ? <LoaderCircle className="spin" size={19}/> : <ArrowRight size={19}/>}<span>{creating ? 'Fikir alanı hazırlanıyor' : 'Fikri geliştir'}</span></button>
           </div>
-        </label>
-        <ProviderGateNotice
-          readiness={readiness}
-          checking={checkingProvider}
-          onOpenSettings={onOpenSettings}
-          onRecheck={onRecheckProvider}
-        />
-        <div className="start-actions">
-          <button className="primary" disabled={idea.trim().length < 10 || creating || !gateOpen} onClick={handleCreate}>
-            {creating ? <><LoaderCircle className="spin" size={18} /> {t('start.analyzing')}</> : <>Fikri geliştir <ArrowRight size={18} /></>}
-          </button>
         </div>
-        <details className="start-options">
-          <summary>Dosya, dil ve AI seçenekleri</summary>
+
+        <div className="pg-starter-prompts" aria-label="Örnek başlangıçlar">
+          {STARTERS.map(starter => <button type="button" key={starter} onClick={() => { setIdea(starter); ideaRef.current?.focus(); }}>{starter}<ChevronRight size={15}/></button>)}
+        </div>
+
+        {!aiReady && readiness && <div className="pg-local-mode-note" role="note">
+          <Sparkles size={17}/><span><b>{builtInAiNeedsKey ? 'Yerleşik GLM-5.2 etkinleştirilmeyi bekliyor.' : 'AI bağlantısı olmadan da başlayabilirsin.'}</b><small>{builtInAiNeedsKey ? 'NVIDIA anahtarını yalnız bir kez ekle; masaüstü uygulaması sonraki açılışlarda güvenli kasadan otomatik kullanır.' : 'Yerel motor sorular ve yapılandırılmış seçenekler üretir. İstersen daha sonra bir AI sağlayıcısı bağlayabilirsin.'}</small></span><button type="button" onClick={onOpenSettings}>{builtInAiNeedsKey ? 'GLM-5.2’yi etkinleştir' : 'AI bağla'}</button><button type="button" onClick={onRecheckProvider} disabled={checkingProvider}>Kontrol et</button>
+        </div>}
+
+        <details className="pg-import-options">
+          <summary>Mevcut bir çalışmayla başla <ChevronRight size={16}/></summary>
           <div>
-            <label className="file-action"><FolderOpen size={17} /> {t('start.files')}<input type="file" multiple hidden onChange={event => appendFiles(event.target.files)} /></label>
             {isDesktopProjectImportAvailable()
-              ? <button type="button" className="file-action" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17} /> : <FolderOpen size={17} />} Proje klasörü</button>
-              : <label className="file-action"><FolderOpen size={17} /> {t('start.folder')}<input
-                  ref={element => {
-                    if (!element) return;
-                    element.setAttribute('webkitdirectory', '');
-                    element.setAttribute('directory', '');
-                  }}
-                  type="file"
-                  multiple
-                  hidden
-                  onChange={event => appendFiles(event.target.files)}
-                /></label>}
-            <button className="file-action" onClick={onOpenSettings}><Settings2 size={17} /> AI: {getProviderMeta(providerSettings.providerId).label}</button>
-            <label>{t('start.outputLanguage')}<select value={language} onChange={event => {
-              const next = event.target.value as OutputLanguage;
-              setLanguage(next);
-              setLocale(next === 'en' ? 'en-US' : 'tr-TR');
-            }}><option value="tr">{t('language.turkish')}</option><option value="en">{t('language.english')}</option></select></label>
+              ? <button type="button" disabled={selectingFolder} onClick={chooseDesktopFolder}>{selectingFolder ? <LoaderCircle className="spin" size={17}/> : <FolderOpen size={17}/>}<span><b>Proje klasörü</b><small>Yerel envanter çıkarılır; hassas dosyalar filtrelenir</small></span></button>
+              : <label><FolderOpen size={17}/><span><b>Proje klasörü</b><small>Yerel envanter çıkarılır; hassas dosyalar filtrelenir</small></span><input ref={element => { if (element) { element.setAttribute('webkitdirectory', ''); element.setAttribute('directory', ''); } }} type="file" multiple hidden onChange={event => appendFiles(event.target.files)}/></label>}
+            <button type="button" disabled={inspectingPackage} onClick={() => packageRef.current?.click()}><FileUp size={17}/><span><b>PromtGen paketi</b><small>Önceki bir çalışmayı aç</small></span></button>
           </div>
         </details>
+        <input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => void inspectPackage(event.target.files?.[0])}/>
+        {packageError && <div className="package-import-error" role="alert"><X size={15}/>{packageError}</div>}
+      </div>
 
-        {files.length > 0 && (
-          <div className="selected-files">
-            <div>
-              <span>Eklenen dosyalar ({files.length})</span>
-              <button type="button" onClick={() => setFiles([])}>Tümünü temizle</button>
-            </div>
-            <div>
-              {files.map((file, idx) => (
-                <span key={`${file.name}-${idx}`}>
-                  {file.name}
-                  <button aria-label={`${file.name} dosyasını kaldır`} type="button" onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}><X size={12}/></button>
-                </span>
-              ))}
-            </div>
-            <p className="context-note">{t('start.inventoryNotice')}</p>
-          </div>
-        )}
-        {nativeInventory && <div className="context-note">{nativeInventory.rootName || 'Seçilen proje'}: {nativeInventory.totals.included} dosya envantere alındı, {nativeInventory.totals.excluded} öğe hassas içerik politikasıyla dışarıda bırakıldı. <button type="button" className="text-button" onClick={() => setInventoryOpen(true)}>Envanteri incele</button></div>}
-        <div className="import-row"><span>{t('start.previous')}</span><button className="text-button" disabled={inspectingPackage} onClick={() => packageRef.current?.click()}>{inspectingPackage ? <LoaderCircle className="spin" size={16} /> : <Sparkles size={16} />} {inspectingPackage ? 'Paket doğrulanıyor…' : t('start.openPackage')}</button><input ref={packageRef} hidden type="file" accept=".promtgen" onChange={event => inspectPackage(event.target.files?.[0])} /></div>
-        {packageError && <div className="package-import-error" role="alert"><X size={15} /> {packageError}</div>}
-        <PortfolioOverview projects={projects} onOpen={onOpen} onArchive={onArchive} onRestore={onRestore} onPurge={onPurge} />
-      </section>
-      <ProjectInventoryModal open={inventoryOpen} nativeInventory={nativeInventory} onClose={() => setInventoryOpen(false)} />
-      {packageInspection && (
-        <PackageImportDialog
-          inspection={packageInspection}
-          existingProject={projects.find(project => project.id === packageInspection.project.id)}
-          onConfirm={(mode, preview) => onImport(packageInspection, mode, preview)}
-          onClose={() => setPackageInspection(null)}
-        />
-      )}
-      <footer>
-        {['offline', 'ollama'].includes(providerSettings.providerId)
-          ? 'Hesap yok · Plan cihazında · Bulut AI bağlantısı yok'
-          : `Hesap yok · Plan cihazında · Seçili AI sağlayıcısına (${getProviderMeta(providerSettings.providerId).label}) filtrelenmiş bağlam gönderilir`}
-      </footer>
-    </main>
-  );
+      <footer className="pg-onboarding-footer"><span>Local-first</span><span>Otomatik plan değişikliği yok</span><span>Hesap gerektirmez</span></footer>
+    </section>
+
+    <ProjectInventoryModal open={inventoryOpen} nativeInventory={nativeInventory} onClose={() => setInventoryOpen(false)}/>
+    {packageInspection && <PackageImportDialog inspection={packageInspection} existingProject={projects.find(project => project.id === packageInspection.project.id)} onConfirm={(mode, preview) => onImport(packageInspection, mode, preview)} onClose={() => setPackageInspection(null)}/>}
+    {deleteProject && <ProjectDeleteDialog
+      projectName={deleteProject.identity.name}
+      onClose={() => setDeleteProject(null)}
+      onConfirm={async () => {
+        const deleted = await onPurge(deleteProject.id);
+        if (deleted) setDeleteProject(null);
+        return deleted;
+      }}
+    />}
+  </main>;
 }

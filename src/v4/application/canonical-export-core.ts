@@ -3,6 +3,11 @@ import { normalizeProjectDocument } from '../canonical-entities.js';
 
 export type CanonicalRevisionReference = number | string | 'current';
 
+export function safeExportName(value: unknown): string {
+  return String(value || 'promtgen-projesi').toLocaleLowerCase('tr-TR')
+    .normalize('NFKD').replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'promtgen-projesi';
+}
+
 export function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
   if (value && typeof value === 'object') {

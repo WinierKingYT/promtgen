@@ -25,10 +25,9 @@ export class ProviderRegistry {
         this.register(PROVIDER_IDS.GEMINI, new GeminiProvider(), PROVIDER_META[PROVIDER_IDS.GEMINI]);
         this.register(PROVIDER_IDS.NVIDIA, new OpenAICompatibleProvider({
             baseURL: 'https://integrate.api.nvidia.com/v1',
-            model: 'deepseek-ai/deepseek-v4-pro',
-            topP: 0.95,
-            jsonMode: false,
-            extraBody: { chat_template_kwargs: { thinking: false } }
+            model: 'z-ai/glm-5.2',
+            topP: 1,
+            jsonMode: true
         }), PROVIDER_META[PROVIDER_IDS.NVIDIA]);
         this.register(PROVIDER_IDS.OPENAI, new OpenAICompatibleProvider({
             baseURL: 'https://api.openai.com/v1',

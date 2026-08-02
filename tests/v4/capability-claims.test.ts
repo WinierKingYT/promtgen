@@ -109,8 +109,8 @@ describe('Product Capability Claims Honesty Audit (Category 1)', () => {
 
   it('keeps optional inventory behind progressive disclosure without overstating it', () => {
     const startScreen = readFileSync(path.resolve('src/react/components/StartScreen.tsx'), 'utf8');
-    assert.match(startScreen, /Dosya, dil ve AI seçenekleri/);
-    assert.match(startScreen, /inventoryNotice/);
+    assert.match(startScreen, /Mevcut bir çalışmayla başla/);
+    assert.match(startScreen, /hassas dosyalar filtrelenir/i);
     assert.doesNotMatch(startScreen, /güvenlik taraması|security scan/i);
   });
 

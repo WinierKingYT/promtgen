@@ -5,17 +5,29 @@ import { generateArchitectureDiagram, generateDataFlowDiagram } from './diagram-
 import {
     canonicalHashPayload,
     resolveCanonicalRevision,
+    safeExportName as safeName,
     sha256,
-    sha256Bytes,
     stableJson
 } from './application/canonical-export-core.ts';
-import { inspectPromtgenPackage, readPromtgenPackage } from './application/portable-package.ts';
+import {
+    createPromtgenPackageArchive,
+    inspectPromtgenPackage,
+    readPromtgenPackage
+} from './application/portable-package.ts';
+import {
+    createCanonicalExportBundle,
+    createExportRecordId
+} from './application/canonical-export-service.ts';
 import {
     buildImplementationEvidenceInstructions,
     buildImplementationEvidenceTemplate
 } from './application/implementation-evidence-format.ts';
+import {
+    createCanonicalDocumentExporter,
+    DEFAULT_DOCUMENT_ADAPTERS
+} from './application/canonical-document-export.ts';
 
-const DEFAULT_ADAPTERS = ['generic', 'codex', 'cursor', 'claude', 'windsurf', 'copilot'];
+const DEFAULT_ADAPTERS = [...DEFAULT_DOCUMENT_ADAPTERS];
 export const IDE_ADAPTERS = Object.freeze([
     { id: 'generic', label: 'Generic', path: 'PROMTGEN.md' },
     { id: 'codex', label: 'Codex', path: 'AGENTS.md' },
@@ -25,240 +37,22 @@ export const IDE_ADAPTERS = Object.freeze([
     { id: 'copilot', label: 'GitHub Copilot', path: '.github/copilot-instructions.md' }
 ]);
 
-function safeName(value) {
-    return String(value || 'promtgen-projesi').toLocaleLowerCase('tr-TR')
-        .normalize('NFKD').replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'promtgen-projesi';
-}
-
-function assertIdeaPlanAlignment(source) {
-    if (source.planAlignment?.status === 'aligned') return;
-    throw new Error('Fikir belgesi canonical plandan farklı. Güncel planı dışa aktarmadan önce etki analizini inceleyip onaylayın.');
-}
-
-function recordId() {
-    return globalThis.crypto?.randomUUID?.() || `export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function bulletList(items, empty = '_Henüz kayıt yok._') {
-    return items?.length ? items.map(item => `- ${item}`).join('\n') : empty;
-}
-
-function sectionMarkdown(section) {
-    if (!section) return '_Bu plan derinliğinde etkin değil._';
-    const body = [section.content, ...(section.items || []).map(item => `- ${item}`)].filter(Boolean).join('\n\n');
-    return `## ${section.title}\n\n${body || '_Henüz içerik yok._'}`;
-}
+const canonicalDocuments = createCanonicalDocumentExporter({
+    generateArchitectureDiagram,
+    generateDataFlowDiagram,
+    createModuleRegistry
+});
 
 export function exportCanonicalMarkdown(project, revision = 'current') {
-    const source = resolveCanonicalRevision(project, revision);
-    assertIdeaPlanAlignment(source);
-    const visible = Object.values(source.sections).filter(section => section.required || section.content || section.items.length);
-    const archDiagram = generateArchitectureDiagram(source);
-    return [
-        `# ${source.identity.name}`,
-        `> Plan sürümü ${source.canonicalRevision} · ${source.planningDepth.selected.toUpperCase()} · Hazırlık ${source.readiness.score}/100`,
-        `**Başlangıç fikri:** ${source.identity.originalIdea}`,
-        ...visible.map(sectionMarkdown),
-        '## Mimari Şema',
-        '```mermaid\n' + archDiagram + '\n```',
-        '## Kabul Edilmiş Kararlar',
-        source.decisions.length ? source.decisions.filter(item => item.status === 'accepted').map(item => `- **${item.title}:** ${item.decision}${item.rationale ? ` — ${item.rationale}` : ''}`).join('\n') : '_Henüz karar yok._',
-        '## Plan Geçmişi',
-        `Toplama ${source.revisions.length} revizyon kaydedildi. Son revizyon: r${source.canonicalRevision}.`,
-        '## Açık Uyarılar',
-        bulletList([...source.readiness.blockers, ...source.readiness.warnings], '_Açık uyarı yok._')
-    ].join('\n\n');
-}
-
-function prdMarkdown(project) {
-    return [
-        `# ${project.identity.name} — Ürün Gereksinimleri`,
-        '## Problem ve beklenen sonuç', project.sections.vision?.content || project.identity.originalIdea,
-        '## Hedefler', project.objectives.length ? project.objectives.map(item => `- **${item.title}**${item.metric ? ` — ${item.metric}: ${item.target || 'belirlenecek'}` : ''}`).join('\n') : sectionMarkdown(project.sections.objectives),
-        '## Kapsam', project.sections.scope?.content || bulletList(project.sections.scope?.items),
-        '## Başarı ve kabul', project.requirements.length ? project.requirements.flatMap(item => item.acceptanceCriteria.map(criterion => `- ${item.id}: ${criterion}`)).join('\n') || '_Kabul kriterleri henüz tanımlanmadı._' : '_Gereksinimler henüz yapılandırılmadı._'
-    ].join('\n\n');
-}
-
-function entityDocument(title, items, render) {
-    return `# ${title}\n\n${items.length ? items.map(render).join('\n\n') : '_Henüz kayıt yok._'}`;
-}
-
-function taskDocument(project) {
-    if (!project.tasks.length) return sectionMarkdown(project.sections.tasks);
-    return entityDocument('Görevler ve Yol Haritası', project.tasks, item => {
-        const contract = item.contract;
-        const filePolicy = contract?.filePolicy;
-        const verification = contract?.verification;
-        return [
-            `## ${item.id} — ${item.title}`,
-            item.description,
-            `- Durum: ${item.status}`,
-            `- Öncelik / efor: ${item.priority} / ${item.effort}`,
-            item.dependencies.length ? `- Bağımlılıklar: ${item.dependencies.join(', ')}` : '',
-            item.requirementIds.length ? `- Kaynak gereksinimler: ${item.requirementIds.join(', ')}` : '',
-            item.acceptanceCriteria.length ? `### Kabul kriterleri\n${bulletList(item.acceptanceCriteria)}` : '',
-            contract ? [
-                '### TaskContract V2',
-                `**Amaç:** ${contract.objective}`,
-                `**Kapsam içi:**\n${bulletList(contract.inScope)}`,
-                `**Kapsam dışı:**\n${bulletList(contract.outOfScope)}`,
-                `**Dosya politikası:** ${filePolicy.status}`,
-                `- İzinli yollar: ${filePolicy.allowedPaths.join(', ') || 'Proje envanteri ve kullanıcı onayı gerekli'}`,
-                `- Yasak yollar: ${filePolicy.forbiddenPaths.join(', ')}`,
-                `**Test senaryoları:** ${verification.testCaseIds.join(', ')}`,
-                `**Çalıştırılacak komutlar:** ${verification.commands.join(', ') || 'Mevcut proje komutları keşfedilmeli; keşif tamamlanmadan başarı beyan edilemez.'}`,
-                `**Beklenen çıktılar:**\n${bulletList(contract.expectedOutputs)}`,
-                `**Tamamlanma kanıtı:**\n${bulletList(contract.completionEvidence)}`,
-                `**Geri alma:** ${contract.rollbackPlan}`
-            ].join('\n\n') : ''
-        ].filter(Boolean).join('\n');
-    });
-}
-
-function traceabilityDocument(project) {
-    return [
-        '# İzlenebilirlik Matrisi',
-        '| Kaynak | İlişki | Hedef |', '|---|---|---|',
-        ...(project.traceLinks.length ? project.traceLinks.map(link => `| ${link.fromType}:${link.fromId} | ${link.relation} | ${link.toType}:${link.toId} |`) : ['| — | Henüz bağlantı yok | — |'])
-    ].join('\n');
-}
-
-function agentRunbookDocument(project) {
-    return entityDocument('Ajan Çalıştırma Zinciri', project.agentPrompts, prompt => [
-        `## ${prompt.role.toUpperCase()} — ${prompt.title}`,
-        prompt.instructions,
-        `- Görevler: ${prompt.taskIds.join(', ') || 'Henüz bağlanmadı'}`,
-        prompt.dependsOnPromptIds.length ? `- Ön koşul promptları: ${prompt.dependsOnPromptIds.join(', ')}` : '',
-        prompt.expectedOutputs.length ? `### Beklenen çıktılar\n${bulletList(prompt.expectedOutputs)}` : ''
-    ].filter(Boolean).join('\n\n'));
-}
-
-function researchDocument(project) {
-    const questions = project.researchQuestions.length ? project.researchQuestions.map(question => `- [${question.status === 'answered' ? 'x' : ' '}] ${question.question} (${question.priority})`).join('\n') : '_Araştırma sorusu yok._';
-    const evidence = project.evidence.length ? project.evidence.map(item => {
-        const source = project.sources.find(candidate => candidate.id === item.sourceId);
-        return `## ${item.claim}\n\n${item.summary}\n\nKaynak: [${source?.title || source?.url || 'Kaynak'}](${source?.url || '#'}) · ${source?.sourceType || 'unknown'} · Güven: ${item.confidence}`;
-    }).join('\n\n') : '_Onaylı kanıt yok._';
-    return `# Araştırma ve Kanıt Defteri\n\n## Sorular\n\n${questions}\n\n## Kanıtlar\n\n${evidence}`;
-}
-
-function reviewDocument(project) {
-    const lastReview = project.metadata?.lastReview;
-    const findings = project.reviewFindings.length ? project.reviewFindings.map(item => `- **${item.severity.toUpperCase()} · ${item.ruleId}: ${item.title}** — ${item.description} Öneri: ${item.recommendation}`).join('\n') : '_Kayıtlı bulgu yok._';
-    const simulations = project.simulationRuns.length ? project.simulationRuns.slice(-4).map(run => `- **${run.title}: ${run.status}** — ${run.summary}`).join('\n') : '_Simülasyon çalıştırılmadı._';
-    return `# Plan Kalite İncelemesi\n\n${lastReview ? `Skor: **${lastReview.score}/100** · İncelenen revision: r${lastReview.revision}` : 'Henüz inceleme çalıştırılmadı.'}\n\n## Bulgular\n\n${findings}\n\n## Simülasyonlar\n\n${simulations}`;
-}
-
-function architectureDocument(project) {
-    const archDiagram = generateArchitectureDiagram(project);
-    const flowDiagram = generateDataFlowDiagram(project);
-    return `# System Architecture & Diagrams — ${project.identity.name}
-
-## System Components
-\`\`\`mermaid
-${archDiagram}
-\`\`\`
-
-## Data Flow & Execution Sequence
-\`\`\`mermaid
-${flowDiagram}
-\`\`\`
-
-## Architectural Decisions
-${project.decisions.length ? project.decisions.map(item => `- **${item.title}:** ${item.decision}`).join('\n') : '_Henüz karar kaydedilmedi._'}
-`;
-}
-
-function modulesDocument(project) {
-    const registry = createModuleRegistry(project.modules.localManifests || []);
-    const active = project.modules.active.length ? project.modules.active.map(item => {
-        const manifest = registry.get(item.id);
-        const domainPack = manifest?.version === item.version ? manifest.contributions.domainPack : null;
-        const details = domainPack
-            ? `\n  - Olgunluk: ${domainPack.maturity}\n  - Destek: ${domainPack.projectTypes.join(', ')}\n  - Sınırlama: ${domainPack.limitations.join(' ')}`
-            : '';
-        return `- **${item.id}** v${item.version} · r${item.enabledAtRevision}${details}`;
-    }).join('\n') : '_Aktif modül yok._';
-    return `# Aktif Planlama Modülleri\n\n${active}\n\nModüller yalnız deklaratif bölüm, reviewer ve export katkıları sağlar; çalıştırılabilir kod içermez. Alan paketleri teknoloji seçmez ve kullanıcı onayı olmadan canonical plana karar yazmaz.`;
-}
-
-function moduleContributionDocument(project, manifest, documentId) {
-    const sectionIds = [...new Set([...(manifest.contributions.requiredSections || []), ...(manifest.contributions.suggestedSections || [])])];
-    return [
-        `# ${manifest.name} — ${documentId}`,
-        manifest.description,
-        `Kaynak canonical plan: r${project.canonicalRevision}`,
-        ...sectionIds.map(sectionId => sectionMarkdown(project.sections[sectionId])),
-        '## Alan kalite kontrolleri',
-        bulletList(manifest.contributions.reviewerRuleIds || [], '_Alan kuralı tanımlanmadı._')
-    ].join('\n\n');
-}
-
-function executionHistoryDocument(project) {
-    if (!project.executionSessions.length) return '# Ajan Execution Geçmişi\n\n_Henüz execution session yok._';
-    return `# Ajan Execution Geçmişi\n\n${project.executionSessions.map(session => [`## ${session.adapterId} · ${session.status}`, `Kaynak plan: r${session.sourceRevision} · ${session.worktreeLabel || 'haricî çalışma'}`, ...session.steps.map(step => `- **${step.role}** — ${step.status} · risk ${step.risk}${step.exitCode == null ? '' : ` · exit ${step.exitCode}`}`)].join('\n')).join('\n\n')}`;
+    return canonicalDocuments.exportCanonicalMarkdown(project, revision);
 }
 
 export function buildAgentPrompt(project, adapter = 'generic', revision = 'current') {
-    const source = resolveCanonicalRevision(project, revision);
-    const labels = {
-        generic: 'Genel Kodlama Ajanı', codex: 'OpenAI Codex', cursor: 'Cursor', claude: 'Claude Code',
-        windsurf: 'Windsurf', copilot: 'GitHub Copilot'
-    };
-    return [
-        `# ${labels[adapter] || labels.generic} Uygulama Promptu`,
-        `Kaynak: canonical plan r${source.canonicalRevision}. Aşağıdaki planı tek doğruluk kaynağı kabul et; kabul edilmiş kararlarla çelişme.`,
-        'Önce mevcut kod tabanını incele, sonra bağımlılık sırasına göre küçük ve doğrulanabilir adımlarla uygula. Her adımda testleri çalıştır; belirsizlikte varsayımı açıkça yaz.',
-        adapter === 'codex' ? 'Değişiklikleri workspace içinde uygula; test sonuçlarını ve kalan riskleri özetle.' : '',
-        adapter === 'cursor' ? 'Planı uygulanabilir görevler halinde ele al ve ilgili dosyaları bağlama ekle.' : '',
-        adapter === 'claude' ? 'Önce plan ile mevcut sistem arasındaki farkları çıkar, sonra bağımlılık sırasıyla uygula.' : '',
-        'Her görev tesliminde `.promtgen/evidence/templates/` altındaki sürümlü JSON şablonunu gerçek dosya, test ve kabul kriteri kanıtlarıyla doldur. PromtGen bu paketi kullanıcıya önizletir; sen canonical görev durumunu doğrudan değiştiremezsin.',
-        taskDocument(source),
-        exportCanonicalMarkdown(source)
-    ].filter(Boolean).join('\n\n');
+    return canonicalDocuments.buildAgentPrompt(project, adapter, revision);
 }
 
-export function createDocumentSet(project, { revision = 'current', adapters = DEFAULT_ADAPTERS } = {}) {
-    const source = resolveCanonicalRevision(project, revision);
-    const depth = source.planningDepth.selected;
-    const documents = {
-        'plan/master-plan.md': exportCanonicalMarkdown(source),
-        'documents/prd.md': prdMarkdown(source),
-        'documents/tasks.md': taskDocument(source),
-        'documents/modules.md': modulesDocument(source),
-        'agents/runbook.md': agentRunbookDocument(source),
-        'agents/execution-history.md': executionHistoryDocument(source)
-    };
-    if (depth !== 'quick') Object.assign(documents, {
-        'documents/requirements.md': sectionMarkdown(source.sections.requirements),
-        'documents/architecture.md': architectureDocument(source),
-        'documents/risks.md': sectionMarkdown(source.sections.risks),
-        'documents/test-strategy.md': sectionMarkdown(source.sections.testing)
-    });
-    if (['advanced', 'enterprise'].includes(depth)) Object.assign(documents, {
-        'documents/decisions.md': entityDocument('Mimari Kararlar', source.decisions, item => `## ${item.title}\n\n${item.decision}\n\n**Gerekçe:** ${item.rationale || 'Belirtilmedi.'}`),
-        'documents/security.md': sectionMarkdown(source.sections.security),
-        'documents/deployment.md': sectionMarkdown(source.sections.deployment),
-        'documents/research.md': researchDocument(source),
-        'documents/review.md': reviewDocument(source)
-    });
-    if (depth === 'enterprise') Object.assign(documents, {
-        'documents/operations.md': sectionMarkdown(source.sections.operations),
-        'documents/traceability.md': traceabilityDocument(source)
-    });
-    const registry = createModuleRegistry(source.modules.localManifests || []);
-    const builtInDocumentIds = new Set(['master-plan', 'tasks', 'requirements', 'architecture', 'test-strategy', 'deployment', 'security', 'risks', 'research', 'prd']);
-    for (const active of source.modules.active || []) {
-        const manifest = registry.get(active.id);
-        if (!manifest) continue;
-        for (const documentId of manifest.contributions.exportDocumentIds || []) {
-            if (builtInDocumentIds.has(documentId)) continue;
-            documents[`documents/modules/${documentId}.md`] = moduleContributionDocument(source, manifest, documentId);
-        }
-    }
-    for (const adapter of adapters) documents[`agents/${adapter}.md`] = buildAgentPrompt(source, adapter);
-    return documents;
+export function createDocumentSet(project, options = {}) {
+    return canonicalDocuments.createDocumentSet(project, options);
 }
 
 function ideWorkflowDocument(project) {
@@ -304,7 +98,9 @@ export function createIdeWorkspaceFiles(project, { revision = 'current', adapter
     const files = {
         'README-PROMTGEN.md': ideWorkflowDocument(source),
         '.promtgen/plan/master-plan.md': exportCanonicalMarkdown(source),
-        '.promtgen/plan/decisions.md': entityDocument('Kabul Edilmiş Kararlar', source.decisions.filter(item => item.status === 'accepted'), item => `## ${item.id} — ${item.title}\n\n${item.decision}\n\n**Gerekçe:** ${item.rationale || 'Belirtilmedi.'}`),
+        '.promtgen/plan/decisions.md': canonicalDocuments.renderDecisionDocument(source, {
+            title: 'Kabul Edilmiş Kararlar', acceptedOnly: true, includeIds: true
+        }),
         '.promtgen/execution.json': JSON.stringify({
             sourceRevision: source.canonicalRevision,
             lifecycleStatus: source.lifecycle.status,
@@ -360,7 +156,7 @@ export async function createIdeWorkspacePackage(project, options = {}) {
     for (const [path, content] of Object.entries(workspace.files)) zip.file(path, content);
     zip.file('.promtgen/manifest.json', JSON.stringify(manifest, null, 2));
     const record = {
-        id: recordId(), format: 'ide-workspace', canonicalRevision: workspace.source.canonicalRevision,
+        id: createExportRecordId(), format: 'ide-workspace', canonicalRevision: workspace.source.canonicalRevision,
         createdAt, canonicalHash, adapterIds: workspace.adapters, fileNames: manifest.files
     };
     return {
@@ -371,54 +167,16 @@ export async function createIdeWorkspacePackage(project, options = {}) {
 }
 
 export async function createExportBundle(project, { revision = 'current', adapters = DEFAULT_ADAPTERS, format = 'promtgen' } = {}) {
-    const source = resolveCanonicalRevision(project, revision);
-    assertIdeaPlanAlignment(source);
-    const validation = validateProjectDocument(source);
-    if (!validation.valid) throw new Error(`Geçersiz proje: ${validation.errors.join(' ')}`);
-    const documents = createDocumentSet(source, { adapters });
-    const canonicalHash = await sha256(stableJson(canonicalHashPayload(source)));
-    const createdAt = new Date().toISOString();
-    const record = {
-        id: recordId(), format, canonicalRevision: source.canonicalRevision, createdAt, canonicalHash,
-        adapterIds: [...adapters], fileNames: Object.keys(documents)
-    };
-    return { source, documents, canonicalHash, record };
+    return createCanonicalExportBundle(
+        project,
+        { revision, adapters, format },
+        (source, selectedAdapters) => createDocumentSet(source, { adapters: selectedAdapters })
+    );
 }
 
 export async function createPromtgenPackage(project, options = {}) {
     const bundle = await createExportBundle(project, options);
-    const zip = new JSZip();
-    const history = JSON.stringify((project.revisions || []).map(revision =>
-        Object.fromEntries(Object.entries(revision).filter(([key]) => key !== 'snapshot'))
-    ), null, 2);
-    const packageFiles = {
-        'project.json': JSON.stringify(project, null, 2),
-        'history/revisions.json': history,
-        ...(options.includeExports === false ? {} : bundle.documents)
-    };
-    const exportedPaths = options.includeExports === false ? [] : Object.keys(bundle.documents);
-    const entries = await Promise.all(Object.entries(packageFiles).map(async ([path, content]) => {
-        const bytes = new TextEncoder().encode(content);
-        return {
-            path,
-            sha256: await sha256Bytes(bytes),
-            bytes: bytes.byteLength,
-            role: path === 'project.json' ? 'project' : path === 'history/revisions.json' ? 'history' : 'export'
-        };
-    }));
-    const manifest = {
-        format: 'promtgen', formatVersion: 3, schemaVersion: 5, schemaRevision: 5, projectId: project.id,
-        revision: bundle.source.canonicalRevision, canonicalRevision: bundle.source.canonicalRevision, canonicalHash: bundle.canonicalHash,
-        createdAt: bundle.record.createdAt, files: exportedPaths, entries, adapters: bundle.record.adapterIds
-    };
-    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-    for (const [path, content] of Object.entries(packageFiles)) zip.file(path, content);
-    return {
-        blob: await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }),
-        filename: `${safeName(project.identity.name)}-r${bundle.source.canonicalRevision}.promtgen`,
-        record: bundle.record,
-        manifest
-    };
+    return createPromtgenPackageArchive(project, bundle, { includeExports: options.includeExports });
 }
 
 export { canonicalHashPayload, inspectPromtgenPackage, readPromtgenPackage, resolveCanonicalRevision };

@@ -74,8 +74,8 @@ function ollamaSettings(): ProviderReadinessSettings {
  * Uygulama açılışında çalışan AI sağlayıcısı olup olmadığını belirler.
  *
  * Sıra:
- *  1. Yapılandırılmış gerçek bir sağlayıcı varsa doğrulanır.
- *  2. Yoksa (offline / AI kapalı) yereldeki Ollama yoklanır — kurulu ve
+ *  1. Yerleşik NVIDIA GLM-5.2 profili dahil yapılandırılmış gerçek sağlayıcı doğrulanır.
+ *  2. Sağlayıcı kullanıcı tarafından offline bırakıldıysa yereldeki Ollama yoklanır — kurulu ve
  *     çalışıyorsa anahtar istemeden kullanılabilir.
  *  3. O da yoksa kullanıcıya kurulum seçenekleri sunulur.
  *
@@ -142,7 +142,7 @@ export async function evaluateProviderReadiness(
   return {
     state: 'needs-setup',
     providerId: 'offline',
-    message: 'Fikre özel öneri üretebilmek için bir AI sağlayıcısı bağlaman gerekiyor. Yerel kural motoru yalnız şablon üretir.',
+    message: 'Yerleşik GLM-5.2 kullanılamıyor; fikir geliştirme yerel ve deterministik motorla devam edecek.',
     errorCode: null,
     options,
     autoSelected: false
@@ -160,7 +160,9 @@ export function providerRecoveryHint(result: ProviderReadinessResult): string {
     case 'ready':
       return '';
     case 'needs-credential':
-      return 'Sağlayıcı ayarlarından API anahtarını gir. Anahtar cihazda saklanır, plan belgesine yazılmaz.';
+      return result.providerId === 'nvidia'
+        ? 'Yerleşik GLM-5.2 için NVIDIA API anahtarını bir kez gir. Masaüstünde anahtar işletim sistemi kasasında saklanır ve plan belgesine yazılmaz.'
+        : 'Sağlayıcı ayarlarından API anahtarını gir. Anahtar cihazda saklanır, plan belgesine yazılmaz.';
     case 'unreachable':
       return recoveryForErrorCode(result.errorCode);
     default:

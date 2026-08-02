@@ -31,6 +31,17 @@ try {
 
     globalThis.fetch = async (url, options) => {
         captured = { url, options };
+        return response({ choices: [{ message: { content: JSON.stringify(validPayload) } }] });
+    };
+    const nvidia = createProvider('nvidia', { credential: 'nvapi-test-key' });
+    assert.equal((await nvidia.structured({ system: 'system', context: {} })).options.length, 3);
+    assert.equal(captured.url, 'https://integrate.api.nvidia.com/v1/chat/completions');
+    assert.equal(captured.options.headers.Authorization, 'Bearer nvapi-test-key');
+    assert.equal(JSON.parse(captured.options.body).model, 'z-ai/glm-5.2');
+    assert.equal(JSON.parse(captured.options.body).response_format.type, 'json_object');
+
+    globalThis.fetch = async (url, options) => {
+        captured = { url, options };
         return response({ candidates: [{ content: { parts: [{ text: JSON.stringify(validPayload) }] } }] });
     };
     const gemini = createProvider('gemini', { credential: 'gem-key', model: 'gemini-test' });
