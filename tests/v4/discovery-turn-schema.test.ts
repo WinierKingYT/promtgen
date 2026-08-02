@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { discoverySchema } from '../../src/v4/ai/schemas/schemas.js';
+import { discoveryTask } from '../../src/v4/ai/tasks/discovery.js';
+import { createProjectDocument } from '../../src/v4/project-document.js';
 
 function validPayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -56,5 +58,29 @@ describe('discoverySchema — birleşik tur alanları', () => {
       optionalPaths: Array.from({ length: 4 }, (_, index) => ({ title: `T${index}`, reason: 'R', prompt: 'P' }))
     });
     assert.throws(() => discoverySchema.parse(payload));
+  });
+});
+
+describe('discoveryTask — birleşik tur bağlamı ve prompt', () => {
+  it('buildContext, ideaCoach.activeStep alanını içerir', () => {
+    const project = createProjectDocument({ idea: 'Bireysel geliştiriciler için yerel proje planlama aracı' });
+    const context = discoveryTask.buildContext(project, {});
+    assert.ok(context.ideaCoach);
+    assert.equal(typeof context.ideaCoach.activeStep, 'string');
+    assert.equal(typeof context.ideaCoach.activeStepLabel, 'string');
+  });
+
+  it('buildPrompt, yeni alanları JSON şeklinde belirtir', () => {
+    const project = createProjectDocument({ idea: 'Bireysel geliştiriciler için yerel proje planlama aracı' });
+    const prompt = discoveryTask.buildPrompt(project);
+    assert.match(prompt, /"uncertainty"\s*:/);
+    assert.match(prompt, /"nextQuestionText"\s*:/);
+    assert.match(prompt, /"optionalPaths"\s*:/);
+  });
+
+  it('outputFields, discoverySchema alanlarıyla birebir eşleşir', () => {
+    const schemaFields = Object.keys(discoveryTask.schema.shape).sort();
+    const declaredFields = [...discoveryTask.outputFields].sort();
+    assert.deepEqual(declaredFields, schemaFields);
   });
 });
