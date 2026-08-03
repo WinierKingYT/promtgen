@@ -80,6 +80,19 @@ test('idea coach changes its contextual actions as the conversation becomes clea
   assert.ok(valueState.actions.every(action => action.id.startsWith('value-')));
 });
 
+test('kullanıcının onayladığı bir alan, genel onaylanmadan önce bile özet panelinde gerçek değeriyle görünür', () => {
+  const project = projectWithSummary();
+  const summary = project.ideaLabSession!.conceptSummary;
+  summary.problemStatement = 'Dağınık fikirler geliştirme boyunca izlenebilir karar ve görev bağlarını kaybediyor.';
+  summary.userConfirmed = false;
+
+  const state = buildIdeaCoachState(project);
+  const problemField = state.evidence.find(item => item.id === 'problem')!;
+
+  assert.equal(problemField.status, 'draft');
+  assert.equal(problemField.displayText, summary.problemStatement, 'kullanıcının onayladığı patch ile yazılmış gerçek değer, genel onaydan önce de gösterilmeli');
+});
+
 test('idea coach shows claims as confirmed only after explicit summary approval', () => {
   const project = projectWithSummary();
   const summary = project.ideaLabSession!.conceptSummary;

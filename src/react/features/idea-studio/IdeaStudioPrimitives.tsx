@@ -123,14 +123,14 @@ export function IdeaSnapshot({ project, coach }: { project: ProjectDocumentV5; c
     <div className="pg-map-fields">
       {coach.evidence.map(item => <section key={item.id} className={`is-${item.status}`}>
         <span>{item.label}<b>{item.statusLabel}</b></span>
-        <p>{item.status === 'confirmed' ? item.value : item.detail}</p>
+        <p>{item.displayText}</p>
       </section>)}
     </div>
     <section className="pg-scope-snapshot">
       <div><span>Kritik karar</span><b>{coach.criticalDecisionCount}</b></div>
       <div><span>Ertelenebilir</span><b>{coach.deferrableDecisionCount}</b></div>
     </section>
-    <p className="pg-map-note"><ShieldAlert size={15}/> Taslak çıkarımlar burada kesin bilgi gibi gösterilmez. Fikir özetini onayladığında görünür olur.</p>
+    <p className="pg-map-note"><ShieldAlert size={15}/> Taslak alanlar henüz kesinleşmedi; fikir özetini onayladığında sabitlenir.</p>
   </aside>;
 }
 

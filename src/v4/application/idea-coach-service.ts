@@ -16,6 +16,7 @@ export interface IdeaEvidenceField {
   status: IdeaEvidenceStatus;
   statusLabel: string;
   detail: string;
+  displayText: string;
 }
 
 export interface IdeaCoachAction {
@@ -130,7 +131,14 @@ function field(
   value: string,
   status: IdeaEvidenceStatus
 ): IdeaEvidenceField {
-  return { id, label, value, status, ...statusCopy(status) };
+  const copy = statusCopy(status);
+  // A field's value only ever gets written through applyDiscoveryAnswerDraft, which
+  // requires the user to have reviewed and accepted that specific patch — so a 'draft'
+  // status (not yet globally confirmed) still holds a real, user-approved value, not an
+  // unconfirmed AI guess. Only 'contradicted' hides the value, since two conflicting
+  // claims exist and showing either one silently would be misleading.
+  const displayText = value && status !== 'contradicted' ? value : copy.detail;
+  return { id, label, value, status, ...copy, displayText };
 }
 
 function turnFieldsFor(project: ProjectDocumentV5, activeStep: IdeaCoachStepId): {
