@@ -11,6 +11,7 @@ import {
   updateIdeaRecordStatus
 } from '../../src/v4/application/idea-discussion-service.js';
 import { buildBudgetedContext } from '../../src/v4/ai/context/context-builder.js';
+import { ensureIdeaCoachWorkspace } from '../../src/v4/application/idea-coach-service.js';
 import type { SuggestionBundle, SuggestionItem } from '../../src/v4/contracts.js';
 import { confirmConceptSummary } from '../../src/v4/planning-engine.js';
 import { createProjectDocument, validateProjectDocument } from '../../src/v4/project-document.js';
@@ -160,6 +161,19 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
     assert.equal(updated.ideaLabSession.conceptSummary?.targetUser, 'AI kodlama aracı kullanan bireysel geliştirici');
     assert.deepEqual(updated.ideaLabSession.conceptSummary?.confirmedFeatures, ['Fikir tartışması', 'Canonical plan']);
     assert.equal(updated.ideaLabSession.conceptSummary?.mvpTarget, 'Yerel kayıtlı çalışan MVP');
+  });
+
+  it('boş bir konsept özetinde tek alanı doldurmak diğer alanlar boş kalsa da başarılı olur', () => {
+    const project = ensureIdeaCoachWorkspace(createProjectDocument({ idea: 'Yerel planlama uygulaması' }));
+    assert.equal(project.ideaLabSession.conceptSummary?.problemStatement, '');
+
+    const updated = updateConceptAgreement(project, {
+      problemStatement: 'Kullanıcı fikrini uygulamaya dökerken kapsamı kaybediyor.'
+    });
+
+    assert.equal(updated.ideaLabSession.conceptSummary?.problemStatement, 'Kullanıcı fikrini uygulamaya dökerken kapsamı kaybediyor.');
+    assert.equal(updated.ideaLabSession.conceptSummary?.targetUser, '');
+    assert.equal(getConceptAgreementGate(updated).ready, false, 'diğer alanlar hâlâ eksik olduğu için genel onay hâlâ engellenmeli');
   });
 
   it('eksik yorum ve kapsamı açıkça raporlar, düzenleme sonrası onaya açar', () => {

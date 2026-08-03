@@ -354,9 +354,6 @@ export function updateConceptAgreement(
   for (const key of ['confidenceRationale', 'confirmedFeatures', 'outOfScope', 'technicalApproaches', 'knownRisks', 'openQuestions'] as const) {
     if (changes[key] !== undefined) summary[key] = normalizeList(changes[key]);
   }
-  if (INTERPRETATION_FIELDS.some(field => !summary[field]?.toString().trim())) {
-    throw new Error('Sistem yorumu, hedef kullanıcı, problem, mevcut çözüm, beklenen sonuç ve MVP hedefi boş olamaz.');
-  }
   summary.userConfirmed = false;
   delete summary.confirmedAt;
   next.ideaDiscussion.updatedAt = new Date().toISOString();
