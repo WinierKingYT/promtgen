@@ -55,7 +55,22 @@ for (const [id, section] of Object.entries(project.sections)) if (section.requir
 const blockedFinalize = finalizePlan(project);
 assert.equal(blockedFinalize.success, false, 'Yorum ve MVP kapsamı onaylanmadan plan finalleştirilememeli');
 assert.ok(blockedFinalize.blockers.some(blocker => blocker.includes('MVP')));
-project.ideaLabSession.conceptSummary.openQuestions = [];
+project.ideaLabSession.conceptSummary = {
+    summary: 'Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması.',
+    targetUser: 'Bireysel geliştiriciler ve küçük ekipler',
+    problemStatement: 'Görev ve proje durumu dağınık araçlarda tutulduğu için izlenebilirlik kayboluyor.',
+    currentAlternative: 'Genel amaçlı görev yönetimi uygulamaları ve elle tutulan notlar',
+    desiredOutcome: 'Yerel, CLI destekli, tek bir yerde izlenebilir görev ve proje takibi',
+    interpretationConfidence: 90,
+    confidenceRationale: ['Kullanıcı tarafından doğrulandı.'],
+    confirmedFeatures: ['Görev oluşturma', 'Proje durumu takibi'],
+    outOfScope: ['Çoklu kullanıcı senkronizasyonu'],
+    technicalApproaches: ['SQLite', 'CLI'],
+    openQuestions: [],
+    knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
+    mvpTarget: 'Görev oluşturma ve proje durumu takibini tamamlayan ilk sürüm',
+    userConfirmed: false
+};
 project = confirmConceptSummary(project);
 const requirementBlocked = finalizePlan(project);
 assert.equal(requirementBlocked.success, false, 'Kabul edilmiş gereksinim olmadan plan finalleştirilememeli');

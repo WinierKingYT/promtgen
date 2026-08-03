@@ -23,6 +23,18 @@ test('taze bir kısa fikir, hiçbir alan elle doldurulmadan problem adımında b
   assert.equal(state.readyForSummaryReview, false);
 });
 
+test('taze, uzun (50+ karakter) bir fikir de hiçbir alan elle doldurulmadan problem adımında başlar', () => {
+  const project = analyzeIdea('Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması yapmak istiyorum.');
+  assert.equal(project.ideaLabSession?.conceptSummary, undefined);
+
+  const initialized = ensureIdeaCoachWorkspace(project);
+  const state = buildIdeaCoachState(initialized);
+
+  assert.equal(state.activeStep, 'problem');
+  assert.equal(state.evidence.find(item => item.id === 'problem')?.status, 'decision-required');
+  assert.equal(state.readyForSummaryReview, false);
+});
+
 test('idea coach rejects vague placeholders and exposes one evidence-based focus without a score', () => {
   const project = projectWithSummary();
   const summary = project.ideaLabSession!.conceptSummary;

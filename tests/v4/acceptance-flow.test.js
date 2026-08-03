@@ -21,7 +21,22 @@ assert.ok(project.canonicalRevision > unchangedRevision);
 assert.ok(project.dismissedSuggestionFingerprints.length > 0);
 assert.ok(Object.values(project.sections).some(section => section.sourceSuggestionIds.length > 0));
 
-project.ideaLabSession.conceptSummary.openQuestions = [];
+project.ideaLabSession.conceptSummary = {
+    summary: 'Yerel çalışan küçük bir alışkanlık takip aracı.',
+    targetUser: 'Kişisel alışkanlıklarını takip etmek isteyen bireysel kullanıcılar',
+    problemStatement: 'Kullanıcı alışkanlıklarını düzenli ve izlenebilir biçimde takip edemiyor.',
+    currentAlternative: 'Kağıt üzerinde takip veya genel amaçlı not uygulamaları',
+    desiredOutcome: 'Çevrimdışı, güvenli ve kolay bir alışkanlık takip deneyimi',
+    interpretationConfidence: 90,
+    confidenceRationale: ['Kullanıcı tarafından doğrulandı.'],
+    confirmedFeatures: ['Alışkanlık ekleme', 'İlerleme görünümü'],
+    outOfScope: ['Bulut senkronizasyonu'],
+    technicalApproaches: [],
+    openQuestions: [],
+    knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
+    mvpTarget: 'Alışkanlık ekleme ve ilerleme görünümünü tamamlayan ilk sürüm',
+    userConfirmed: false
+};
 project = confirmConceptSummary(project);
 project.requirements.push(normalizeRequirement({ id: 'req-local-save', title: 'Yerel kayıt', statement: 'Kayıtlar cihazda kalıcı tutulmalı.', priority: 'must', acceptanceCriteria: ['Uygulama yeniden açıldığında kayıtlar görünür.'], status: 'accepted' }));
 project = updatePlanSection(project, 'vision', { content: 'Kişisel alışkanlıkları çevrimdışı ve güvenli biçimde takip etmeyi kolaylaştır.' });

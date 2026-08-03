@@ -9,7 +9,22 @@ import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 function readyProject(): ProjectDocumentV5 {
   let project = analyzeIdea('Yerel çalışan, kabul kriterli görevleri ve test bağlantılarını yöneten küçük bir web planlama uygulaması yapmak istiyorum.');
-  project.ideaLabSession.conceptSummary!.openQuestions = [];
+  project.ideaLabSession.conceptSummary = {
+    summary: 'Kabul kriterli görevleri ve test bağlantılarını yöneten yerel bir web planlama uygulaması.',
+    targetUser: 'Küçük ekiplerde çalışan proje sorumluları',
+    problemStatement: 'Ekipler görev, kabul kriteri ve test bağlantısını farklı araçlarda dağınık tutuyor.',
+    currentAlternative: 'Genel amaçlı görev yönetimi araçları ve ayrı test takip sayfaları',
+    desiredOutcome: 'Tek bir yerde izlenebilir görev, kabul kriteri ve test bağlantısı',
+    interpretationConfidence: 90,
+    confidenceRationale: ['Kullanıcı tarafından doğrulandı.'],
+    confirmedFeatures: ['Görev oluşturma', 'Kabul kriteri ekleme'],
+    outOfScope: ['Çoklu kullanıcı senkronizasyonu'],
+    technicalApproaches: [],
+    openQuestions: [],
+    knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
+    mvpTarget: 'Görev oluşturma, kabul kriteri ekleme ve test bağlantısı kurma akışını tamamlayan ilk sürüm',
+    userConfirmed: false
+  };
   project = confirmConceptSummary(project);
   project = createRequirementDraftsFromConcept(project);
   for (const requirement of project.requirements) project = acceptRequirementDraft(project, requirement.id);

@@ -21,7 +21,7 @@ function activateBackendApi(project: ReturnType<typeof analyzeIdea>) {
 
 test('Backend/API pack is conditional, beta and requires explicit approval', () => {
   const project = analyzeIdea(
-    'Harici istemcilerin API anahtarıyla sipariş yazdığı, webhook ve kuyruk kullanan REST backend API.'
+    'Harici istemcilerin API anahtarıyla sipariş yazıp veritabanına kaydettiği, webhook ve kuyruk kullanan REST backend API.'
   );
   const assessment = assessBackendApiPack(project);
   assert.equal(assessment.applicable, true);
