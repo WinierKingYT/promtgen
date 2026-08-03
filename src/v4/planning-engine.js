@@ -65,7 +65,13 @@ export function analyzeIdea(idea, options = {}) {
     if (isShortIdea) {
         project.lifecycle.activePhase = PLANNING_PHASES.IDEA_EXPANSION;
     } else {
-        project.ideaLabSession.conceptSummary = createInitialConceptInterpretation(project);
+        // Deliberately no eager conceptSummary here: createInitialConceptInterpretation()
+        // fabricates full-length "meaningful" text for every field from just the raw idea
+        // text, which made buildIdeaCoachState() treat the idea as fully clarified before
+        // any real conversation happened (activeStep jumped straight to 'approval' on
+        // project creation). ensureIdeaCoachWorkspace() seeds it empty on first use instead,
+        // same as the short-idea path. proposeNextOptions() only reads identity/sections,
+        // not conceptSummary, so the suggestion bundle is unaffected.
         project.proposalStore.bundles.push(proposeNextOptions(project));
     }
     return recalculateReadiness(project);
