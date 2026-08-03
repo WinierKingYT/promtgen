@@ -1,5 +1,4 @@
-import type { ProjectDocumentV5, SuggestionItem } from '../contracts.js';
-import { createInitialConceptInterpretation } from './idea-discussion-service.js';
+import type { ConceptSummary, ProjectDocumentV5, SuggestionItem } from '../contracts.js';
 
 export type IdeaCoachStepId = 'problem' | 'user' | 'value' | 'mvp' | 'risks' | 'approval';
 export type IdeaEvidenceStatus = 'unknown' | 'draft' | 'confirmed' | 'contradicted' | 'decision-required';
@@ -39,6 +38,25 @@ export interface IdeaCoachState {
   readyForSummaryReview: boolean;
 }
 
+function emptyConceptSummary(): ConceptSummary {
+  return {
+    summary: '',
+    targetUser: '',
+    problemStatement: '',
+    currentAlternative: '',
+    desiredOutcome: '',
+    interpretationConfidence: 0,
+    confidenceRationale: [],
+    confirmedFeatures: [],
+    outOfScope: [],
+    technicalApproaches: [],
+    openQuestions: [],
+    knownRisks: [],
+    mvpTarget: '',
+    userConfirmed: false
+  };
+}
+
 export function ensureIdeaCoachWorkspace(project: ProjectDocumentV5): ProjectDocumentV5 {
   if (project.ideaLabSession?.conceptSummary) return project;
   const next = structuredClone(project);
@@ -48,7 +66,12 @@ export function ensureIdeaCoachWorkspace(project: ProjectDocumentV5): ProjectDoc
     ideaNotes: [],
     candidateDecisions: [],
     candidateRisks: [],
-    conceptSummary: createInitialConceptInterpretation(next)
+    // Deliberately empty, not a heuristic guess: createInitialConceptInterpretation()
+    // fabricates full-length "meaningful" text for every field from just the raw idea
+    // text, which made buildIdeaCoachState() treat the idea as fully clarified before
+    // any real conversation happened (activeStep jumped straight to 'approval' on
+    // turn one). Fields here must stay empty until the user's own answers fill them.
+    conceptSummary: emptyConceptSummary()
   };
   return next;
 }

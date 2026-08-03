@@ -6,9 +6,22 @@ import { analyzeIdea } from '../../src/v4/planning-engine.js';
 
 function projectWithSummary() {
   const project = analyzeIdea('Bireysel geliştiricilerin dağınık proje fikirlerini yerel olarak netleştiren bir web uygulaması yapmak istiyorum.');
-  assert.ok(project.ideaLabSession?.conceptSummary);
-  return project;
+  const initialized = ensureIdeaCoachWorkspace(project);
+  assert.ok(initialized.ideaLabSession?.conceptSummary);
+  return initialized;
 }
+
+test('taze bir kısa fikir, hiçbir alan elle doldurulmadan problem adımında başlar', () => {
+  const project = analyzeIdea('Bir uygulama yapmak istiyorum.');
+  assert.equal(project.ideaLabSession?.conceptSummary, undefined);
+
+  const initialized = ensureIdeaCoachWorkspace(project);
+  const state = buildIdeaCoachState(initialized);
+
+  assert.equal(state.activeStep, 'problem');
+  assert.equal(state.evidence.find(item => item.id === 'problem')?.status, 'decision-required');
+  assert.equal(state.readyForSummaryReview, false);
+});
 
 test('idea coach rejects vague placeholders and exposes one evidence-based focus without a score', () => {
   const project = projectWithSummary();
