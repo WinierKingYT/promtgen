@@ -189,7 +189,16 @@ export function validateProjectDocument(state) {
             if (!revision?.id || !Number.isInteger(revision.number) || revision.number < 1) errors.push('Fikir belgesi sürümü kimlik ve pozitif sıra numarası taşımalı.');
             if (revisionNumbers.has(revision?.number)) errors.push(`Fikir belgesi sürüm numarası benzersiz değil: ${revision.number}`);
             revisionNumbers.add(revision?.number);
-            if (!revision?.snapshot?.summary || !revision?.snapshot?.mvpTarget) errors.push(`Fikir belgesi sürüm içeriği eksik: ${revision?.id || 'boş'}`);
+            // Anlık görüntü yapısal olarak bulunmalıdır, ancak içeriği boş
+            // olabilir: conceptSummary alanları kullanıcı doldurana kadar boş
+            // başlar (bkz. analyzeIdea / ensureIdeaCoachWorkspace). Erken
+            // sürümler netleşmemiş bir fikrin dürüst kaydıdır. Doluluk şartı
+            // yalnız plana dönüştürülmüş sürümler için anlamlıdır.
+            if (typeof revision?.snapshot?.summary !== 'string' || typeof revision?.snapshot?.mvpTarget !== 'string') {
+                errors.push(`Fikir belgesi sürüm anlık görüntüsü geçersiz: ${revision?.id || 'boş'}`);
+            } else if (revision?.status === 'converted' && (!revision.snapshot.summary.trim() || !revision.snapshot.mvpTarget.trim())) {
+                errors.push(`Fikir belgesi sürüm içeriği eksik: ${revision?.id || 'boş'}`);
+            }
             if (revision?.status === 'converted' && !Number.isInteger(revision.convertedCanonicalRevision)) errors.push(`Dönüştürülen fikir sürümünün canonical revision kanıtı eksik: ${revision.id}`);
         }
     }
