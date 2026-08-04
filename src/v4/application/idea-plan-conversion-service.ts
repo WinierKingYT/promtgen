@@ -1,7 +1,7 @@
 import { normalizeObjective } from '../canonical-entities.js';
 import type { ProjectDocumentV5 } from '../contracts.js';
 import { confirmConceptSummary } from '../planning-engine.js';
-import { getConceptAgreementGate } from './idea-discussion-service.js';
+import { getConceptAgreementGate, updateIdeaRecordStatus } from './idea-discussion-service.js';
 import { createRequirementDraftsFromConcept } from './requirement-quality-service.js';
 import { markCurrentIdeaRevisionConverted } from './idea-document-revision-service.js';
 
@@ -29,7 +29,12 @@ function conversionBlockers(project: ProjectDocumentV5): string[] {
     ...gate.missingInterpretationFields.map(field => `${field} alanı tamamlanmalı.`),
     ...gate.missingScopeLists.map(field => `${field} listesi en az bir madde içermeli.`),
     ...gate.unresolvedSummaryQuestions.map(question => `Açık soru kapatılmalı: ${question}`),
-    ...(gate.pending.length ? [`${gate.pending.length} fikir kaydı kabul, erteleme veya ret kararı bekliyor.`] : []),
+    // Yalnız kritik kayıtlar blokler. Ertelenebilir kayıtlar dönüşüm sırasında
+    // otomatik ertelenir ve plana varsayım/risk olarak taşınır; kullanıcı üç
+    // cevap sonrası biriken onlarca kaydı tek tek karara bağlamak zorunda değil.
+    ...(gate.criticalPending.length
+      ? [`${gate.criticalPending.length} kritik karar veya açık soru çözülmeli.`]
+      : []),
     ...(gate.unansweredAcceptedQuestions.length
       ? [`${gate.unansweredAcceptedQuestions.length} kabul edilmiş soru cevaplanmalı.`]
       : [])
@@ -45,7 +50,13 @@ function objectiveId(project: ProjectDocumentV5): string {
 }
 
 function buildConversionCandidate(project: ProjectDocumentV5): ProjectDocumentV5 {
-  let next = confirmConceptSummary(project) as ProjectDocumentV5;
+  // Ertelenebilir kayıtlar sessizce yok sayılmaz: dönüşüm anında açıkça
+  // "deferred" olarak damgalanır, böylece defterde izleri kalır ve kullanıcı
+  // daha sonra geri dönebilir.
+  const deferrable = getConceptAgreementGate(project).deferrablePending;
+  let next = confirmConceptSummary(
+    deferrable.reduce((carry, record) => updateIdeaRecordStatus(carry, record.id, 'deferred'), project)
+  ) as ProjectDocumentV5;
   const summary = next.ideaLabSession?.conceptSummary;
   if (!summary) throw new Error('Plan dönüşümü için fikir belgesi bulunamadı.');
 

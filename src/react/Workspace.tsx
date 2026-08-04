@@ -19,6 +19,7 @@ import {
   updatePlanSection,
   updateSuggestionStatus
 } from '../v4/planning-engine.js';
+import { resolveIdeaRecordsForBundle } from '../v4/application/idea-discussion-service.js';
 import {
   generateImpactAnalysis,
   runConversationalDiscoveryTurn
@@ -154,7 +155,13 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     const target = structuredClone(project);
     const bundle = target.proposalStore.bundles.find(candidate => candidate.id === currentBundle.id);
     if (bundle) bundle.items.forEach(item => { if (item.status === 'pending') item.status = 'deferred'; });
-    const result = applyApprovedChanges(target, currentBundle.id);
+    // Aynı öneriler fikir defterinde de duruyor; paket kapanınca onlar da
+    // kapanmalı, yoksa kullanıcı aynı kararı ikinci kez veremediği hâlde
+    // kayıtlar "pending" kalıp plana geçişi bloklar.
+    const result = applyApprovedChanges(
+      resolveIdeaRecordsForBundle(target, currentBundle.id),
+      currentBundle.id
+    );
     const saved = await persistCandidate(result, 'Seçtiğin fikir kararları kaydedildi.', 'ApplyApprovedChanges');
     if (saved && discoveryAnswerDraft) {
       setDiscoveryAnswerDraft({

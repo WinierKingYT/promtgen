@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
+import {
+  advanceToDecisionTurn,
+  completeConceptAgreement,
+  resolveDecisionTurn,
+  runCoachTurn
+} from './support/idea-flow.js';
 
 const IDEA = 'Bireysel geliştiricilerin dağınık proje fikirlerini yerel olarak netleştiren sade bir web uygulaması yapmak istiyorum.';
 
@@ -12,31 +18,6 @@ async function startIdea(page: Page, idea = IDEA) {
 async function openGuide(page: Page) {
   await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
-}
-
-/**
- * Konsept özeti ilk sohbet turunda oluşturulur; analyzeIdea hiçbir alanı
- * kendiliğinden doldurmaz. Fikir Özeti düzenleyicisi ancak bu turdan sonra
- * görünür, dolayısıyla özeti kullanan her senaryo önce bir tur çalıştırmalıdır.
- */
-async function runCoachTurn(page: Page) {
-  const before = await page.locator('.pg-message').count();
-  await page.locator('.pg-coach-actions button').first().click();
-  await expect.poll(() => page.locator('.pg-message').count()).toBeGreaterThan(before);
-}
-
-/** Alanları kullanıcı gibi doldurur: sistem bunları uydurmaz, onay kullanıcıya aittir. */
-async function completeConceptAgreement(page: Page) {
-  await page.getByLabel('Sistem yorumu').fill('Bireysel geliştiriciler için yerel fikir netleştirme aracı.');
-  await page.getByLabel('Birincil kullanıcı').fill('AI kodlama araçlarıyla çalışan bireysel geliştirici');
-  await page.getByLabel('Ana problem').fill('Fikirler kapsamı netleşmeden doğrudan koda dönüşüyor.');
-  await page.getByLabel('Bugünkü çözüm').fill('Dağınık notlar ve sohbet geçmişi.');
-  await page.getByLabel('Beklenen ana sonuç').fill('Kodlamadan önce onaylanmış bir MVP kapsamı.');
-  await page.getByLabel('MVP hedefi').fill('Bir fikri onaylı MVP kapsamına dönüştürmek.');
-  await page.getByLabel('MVP içinde').fill('Fikir sohbeti\nMVP kapsam onayı');
-  await page.getByLabel('MVP dışında').fill('Bulut senkronizasyonu');
-  await page.getByLabel('Açık kritik sorular').fill('');
-  await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
 }
 
 test.describe('PromtGen idea studio production workflow', () => {
@@ -82,9 +63,9 @@ test.describe('PromtGen idea studio production workflow', () => {
 
   test('one explicit choice can be committed while lower-priority proposals are deferred', async ({ page }) => {
     await startIdea(page);
-    await page.locator('.pg-coach-actions button').first().click();
+    // Karar kartları ancak problem, kullanıcı ve değer netleştikten sonra çıkar.
+    await advanceToDecisionTurn(page);
     const card = page.locator('.pg-decision-card');
-    await expect(card).toHaveCount(1);
     await card.getByRole('button', { name: 'Bu yönden ilerle', exact: true }).click();
     const apply = page.getByRole('button', { name: /Seçtiğim yönü fikre işle/ });
     await expect(apply).toBeEnabled();
@@ -123,7 +104,8 @@ test.describe('PromtGen idea studio production workflow', () => {
 
   test('guide and plan are separate, approval-gated destinations', async ({ page }) => {
     await startIdea(page);
-    await runCoachTurn(page);
+    await advanceToDecisionTurn(page);
+    await resolveDecisionTurn(page);
     await openGuide(page);
     await expect(page.getByText('FİKİR ÖZETİ · ONAY BEKLİYOR', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fikir özetini indir' })).toBeVisible();
@@ -145,19 +127,33 @@ test.describe('PromtGen idea studio production workflow', () => {
     await startIdea(page);
     await runCoachTurn(page);
     await openGuide(page);
+    // Kaydet düğmesi ancak tüm yorum alanları doluyken açılır.
+    await completeConceptAgreement(page);
+
+    const history = page.locator('.idea-history');
+    const versionCount = async () =>
+      Number((await history.locator('summary small').textContent())?.match(/\d+/)?.[0] ?? 0);
+    const beforeEdit = await versionCount();
+    expect(beforeEdit).toBeGreaterThan(0);
+
     const summary = page.getByLabel('Sistem yorumu');
     const original = await summary.inputValue();
-    await page.getByLabel('Açık kritik sorular').fill('');
     await summary.fill('Düzenlenmiş fikir belgesi özeti.');
     await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
-    const history = page.locator('.idea-history');
-    await expect(history.locator('summary small')).toHaveText('2 sürüm');
+    await expect.poll(versionCount).toBe(beforeEdit + 1);
+
     await history.locator('summary').click();
-    await history.locator('.idea-history-list button').filter({ hasText: 'r1' }).click();
+    // Doldurulmuş içeriği taşıyan sürüm; r1 alanlar dolmadan önceki hâldir.
+    // Etiket "r2Fikir belgesi düzenlendi…" biçiminde bitişik yazılır.
+    await history.locator('.idea-history-list button')
+      .filter({ hasText: new RegExp(`^r${beforeEdit}(?!\\d)`) })
+      .first()
+      .click();
     await history.getByRole('button', { name: 'Bu sürümü geri yükle' }).click();
     await history.getByRole('button', { name: 'Geri yükle', exact: true }).click();
+    // Geri yükleme üzerine yazmaz: eski içerik döner, geçmiş bir sürüm daha uzar.
     await expect(summary).toHaveValue(original);
-    await expect(history.getByText('3 sürüm')).toBeVisible();
+    await expect.poll(versionCount).toBe(beforeEdit + 2);
   });
 
   test('project lifecycle controls remain available from the focused start page', async ({ page }) => {
