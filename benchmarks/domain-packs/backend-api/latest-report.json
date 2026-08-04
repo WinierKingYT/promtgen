@@ -194,7 +194,6 @@
       "detectedQuestions": [
         "api.contract",
         "api.error-model",
-        "api.data-consistency",
         "api.idempotency",
         "api.operations"
       ],
@@ -202,7 +201,6 @@
         "api.contract",
         "api.error-model",
         "api.operations",
-        "api.data-consistency",
         "api.idempotency"
       ]
     },
@@ -260,15 +258,13 @@
         "api.contract",
         "api.error-model",
         "api.authentication",
-        "api.data-consistency",
         "api.operations"
       ],
       "detectedChecks": [
         "api.contract",
         "api.error-model",
         "api.operations",
-        "api.authentication",
-        "api.data-consistency"
+        "api.authentication"
       ]
     },
     {
@@ -324,7 +320,6 @@
       "detectedQuestions": [
         "api.contract",
         "api.error-model",
-        "api.data-consistency",
         "api.operations",
         "api.rate-boundary"
       ],
@@ -332,7 +327,6 @@
         "api.contract",
         "api.error-model",
         "api.operations",
-        "api.data-consistency",
         "api.rate-boundary"
       ]
     }

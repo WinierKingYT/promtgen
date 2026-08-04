@@ -231,8 +231,14 @@ export function validateProjectDocument(state) {
     }
     const conceptSummary = state.ideaLabSession?.conceptSummary;
     if (conceptSummary) {
+        // Alanlar her zaman string olmalıdır, ancak yalnız kullanıcı konsepti
+        // onayladığında dolu olmaları gerekir. Boş alan, henüz netleşmemiş bir
+        // bilgiyi dürüstçe temsil eder; sistem bu alanları kendiliğinden
+        // dolduramayacağı için (bkz. analyzeIdea) doluluk şartı ancak onay
+        // anında anlamlıdır.
         for (const field of ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'mvpTarget']) {
-            if (typeof conceptSummary[field] !== 'string' || !conceptSummary[field].trim()) errors.push(`Konsept yorum alanı eksik: ${field}`);
+            if (typeof conceptSummary[field] !== 'string') errors.push(`Konsept yorum alanı geçersiz: ${field}`);
+            else if (conceptSummary.userConfirmed && !conceptSummary[field].trim()) errors.push(`Konsept yorum alanı eksik: ${field}`);
         }
         if (!Number.isInteger(conceptSummary.interpretationConfidence) || conceptSummary.interpretationConfidence < 0 || conceptSummary.interpretationConfidence > 100) {
             errors.push('Konsept yorum güveni 0-100 arasında tam sayı olmalı.');
