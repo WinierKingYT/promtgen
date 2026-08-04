@@ -41,6 +41,9 @@ export default function App() {
     setSettingsOpen(false);
     requestAnimationFrame(() => settingsTriggerRef.current?.focus());
   };
+  const errorToast = appError
+    ? <div className="toast error" role="alert"><CircleAlert size={17} />{appError}</div>
+    : null;
 
   if (!activeProject) {
     return (
@@ -68,21 +71,28 @@ export default function App() {
             credentialVault={credentialVault}
           />
         </LazyFeatureBoundary>}
-        {appError && <div className="toast error" role="alert"><CircleAlert size={17} />{appError}</div>}
+        {errorToast}
       </>
     );
   }
 
+  // Hata toast'ı her iki dalda da render edilmelidir. Yalnız başlangıç
+  // ekranında gösterildiğinde, proje açıkken oluşan kaydetme hataları
+  // sessizce yutuluyordu: kullanıcı tıklıyor, hiçbir şey olmuyor ve
+  // neden olmadığı hiçbir yerde görünmüyordu.
   return (
-    <Workspace
-      project={activeProject}
-      projects={projects}
-      onProject={setActiveId}
-      onNew={() => setActiveId(null)}
-      onPersist={persist}
-      providerSettings={providerSettings}
-      onProviderSettings={setProviderSettings}
-      credentialVault={credentialVault}
-    />
+    <>
+      <Workspace
+        project={activeProject}
+        projects={projects}
+        onProject={setActiveId}
+        onNew={() => setActiveId(null)}
+        onPersist={persist}
+        providerSettings={providerSettings}
+        onProviderSettings={setProviderSettings}
+        credentialVault={credentialVault}
+      />
+      {errorToast}
+    </>
   );
 }

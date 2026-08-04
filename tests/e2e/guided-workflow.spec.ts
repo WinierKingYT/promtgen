@@ -14,6 +14,31 @@ async function openGuide(page: Page) {
   await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
 }
 
+/**
+ * Konsept özeti ilk sohbet turunda oluşturulur; analyzeIdea hiçbir alanı
+ * kendiliğinden doldurmaz. Fikir Özeti düzenleyicisi ancak bu turdan sonra
+ * görünür, dolayısıyla özeti kullanan her senaryo önce bir tur çalıştırmalıdır.
+ */
+async function runCoachTurn(page: Page) {
+  const before = await page.locator('.pg-message').count();
+  await page.locator('.pg-coach-actions button').first().click();
+  await expect.poll(() => page.locator('.pg-message').count()).toBeGreaterThan(before);
+}
+
+/** Alanları kullanıcı gibi doldurur: sistem bunları uydurmaz, onay kullanıcıya aittir. */
+async function completeConceptAgreement(page: Page) {
+  await page.getByLabel('Sistem yorumu').fill('Bireysel geliştiriciler için yerel fikir netleştirme aracı.');
+  await page.getByLabel('Birincil kullanıcı').fill('AI kodlama araçlarıyla çalışan bireysel geliştirici');
+  await page.getByLabel('Ana problem').fill('Fikirler kapsamı netleşmeden doğrudan koda dönüşüyor.');
+  await page.getByLabel('Bugünkü çözüm').fill('Dağınık notlar ve sohbet geçmişi.');
+  await page.getByLabel('Beklenen ana sonuç').fill('Kodlamadan önce onaylanmış bir MVP kapsamı.');
+  await page.getByLabel('MVP hedefi').fill('Bir fikri onaylı MVP kapsamına dönüştürmek.');
+  await page.getByLabel('MVP içinde').fill('Fikir sohbeti\nMVP kapsam onayı');
+  await page.getByLabel('MVP dışında').fill('Bulut senkronizasyonu');
+  await page.getByLabel('Açık kritik sorular').fill('');
+  await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+}
+
 test.describe('PromtGen idea studio production workflow', () => {
   test.beforeEach(async ({ page }) => {
     await stubReadyProvider(page);
@@ -98,12 +123,14 @@ test.describe('PromtGen idea studio production workflow', () => {
 
   test('guide and plan are separate, approval-gated destinations', async ({ page }) => {
     await startIdea(page);
+    await runCoachTurn(page);
     await openGuide(page);
     await expect(page.getByText('FİKİR ÖZETİ · ONAY BEKLİYOR', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fikir özetini indir' })).toBeVisible();
 
-    await page.getByLabel('Açık kritik sorular').fill('');
-    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+    // Alanlar boşken plana geçiş kilitlidir; sistem onları doldurmaz.
+    await expect(page.getByRole('button', { name: 'Dönüşümü önizle' })).toBeDisabled();
+    await completeConceptAgreement(page);
     await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
     const preview = page.getByRole('region', { name: 'Plan dönüşümü önizlemesi' });
     await expect(preview).toContainText('Gereksinim taslağı');
@@ -116,6 +143,7 @@ test.describe('PromtGen idea studio production workflow', () => {
 
   test('idea document revisions remain comparable and restore as a new revision', async ({ page }) => {
     await startIdea(page);
+    await runCoachTurn(page);
     await openGuide(page);
     const summary = page.getByLabel('Sistem yorumu');
     const original = await summary.inputValue();
