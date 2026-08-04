@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { stubReadyProvider } from './support/provider.js';
+import { advanceToDecisionTurn, completeConceptAgreement, resolveDecisionTurn } from './support/idea-flow.js';
 import { createProjectDocument } from '../../src/v4/project-document.js';
 import { createPromtgenPackage } from '../../src/v4/exporter.js';
 import JSZip from 'jszip';
@@ -150,10 +151,11 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     await page.goto('/');
     await page.getByLabel('Ne yapmak istiyorsun?').fill('Bireysel geliştiricilerin fikirlerini yerel olarak onaylı MVP kapsamına ve uygulanabilir görevlere dönüştüren bir web uygulaması yapmak istiyorum');
     await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    // Konsept alanları kullanıcının cevaplarından dolar; sistem hiçbirini uydurmaz.
+    await advanceToDecisionTurn(page);
+    await resolveDecisionTurn(page);
     await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
-    await page.getByLabel('Açık kritik sorular').fill('');
-    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
-    await page.getByRole('button', { name: 'Plan', exact: true }).click();
+    await completeConceptAgreement(page);
     await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
     await page.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
     await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();

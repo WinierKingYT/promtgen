@@ -1,4 +1,5 @@
 import type { ProjectDocumentV5 } from '../contracts.js';
+import { resolveIdeaRecordsForBundle } from './idea-discussion-service.js';
 
 export function prepareDiscoveryTurnProject(
   project: ProjectDocumentV5,
@@ -14,5 +15,8 @@ export function prepareDiscoveryTurnProject(
     if (item.status === 'pending') item.status = 'deferred';
   }
   bundle.status = 'resolved';
-  return candidate;
+  // Paket kapanınca fikir defterindeki izleri de kapanmalı. Aksi hâlde her tur
+  // arkasında kapatılamayan kayıtlar bırakır: kullanıcı o önerileri bir daha
+  // göremediği hâlde kayıtlar "pending" kalıp plana geçişi bloklardı.
+  return resolveIdeaRecordsForBundle(candidate, openBundleId);
 }

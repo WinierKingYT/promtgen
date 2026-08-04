@@ -277,6 +277,26 @@ export function updateIdeaRecordStatus(
   return next;
 }
 
+/**
+ * Bir öneri paketi karara bağlandığında, o paketten üretilmiş fikir kayıtları
+ * da kapanır.
+ *
+ * Öneri öğeleri (proposalStore.bundles[].items) ile fikir kayıtları
+ * (ideaDiscussion.records) aynı önerinin iki ayrı defterdeki izidir. Paket
+ * çözüldüğünde yalnız öğeler güncelleniyordu; kayıtlar sonsuza dek "pending"
+ * kalıyor ve plana geçişi blokluyordu. Kullanıcı aynı öneriyi iki kez karara
+ * bağlayamayacağı için ikinci defter burada paketi takip eder.
+ */
+export function resolveIdeaRecordsForBundle(
+  project: ProjectDocumentV5,
+  bundleId: string,
+  status: IdeaRecordStatus = 'deferred'
+): ProjectDocumentV5 {
+  const stale = (project.ideaDiscussion?.records || [])
+    .filter(record => record.sourceBundleId === bundleId && record.status === 'pending');
+  return stale.reduce((carry, record) => updateIdeaRecordStatus(carry, record.id, status), project);
+}
+
 export function getConceptAgreementGate(project: ProjectDocumentV5) {
   const records = project.ideaDiscussion?.records || [];
   const summary = project.ideaLabSession?.conceptSummary;
@@ -284,6 +304,12 @@ export function getConceptAgreementGate(project: ProjectDocumentV5) {
     item.kind === 'question' && item.status === 'accepted' && !item.answer.trim()
   );
   const pending = records.filter(item => item.status === 'pending');
+  // Kritik / ertelenebilir ayrimi: karar ve soru plani belirsiz birakir, bu
+  // yuzden plana gecmeden once cozulmelidir. Hipotez ve risk ise kaybolmaz —
+  // canonical planin varsayim ve risk bolumlerine tasinir ve orada izlenir.
+  // Boylece kullanici her kaydi tek tek karara baglamak zorunda kalmaz.
+  const criticalPending = pending.filter(item => item.kind === 'decision' || item.kind === 'question');
+  const deferrablePending = pending.filter(item => item.kind !== 'decision' && item.kind !== 'question');
   const missingInterpretationFields = summary
     ? INTERPRETATION_FIELDS.filter(field => !summary[field]?.toString().trim())
     : [...INTERPRETATION_FIELDS];
@@ -305,6 +331,8 @@ export function getConceptAgreementGate(project: ProjectDocumentV5) {
     missingScopeLists,
     unresolvedSummaryQuestions,
     pending,
+    criticalPending,
+    deferrablePending,
     unresolvedCount: pending.length + unansweredAcceptedQuestions.length + missingInterpretationFields.length + missingScopeLists.length + unresolvedSummaryQuestions.length,
     unansweredAcceptedQuestions,
     accepted: records.filter(item => item.status === 'accepted'),
