@@ -1,12 +1,15 @@
 import type { ProjectDocumentV5 } from '../../contracts.js';
-import { discoverySchema, DISCOVERY_SCHEMA_ID } from '../schemas/schemas.js';
+import { discoverySchema, DISCOVERY_SCHEMA_ID, PLAN_SECTION_IDS } from '../schemas/schemas.js';
 import { buildBudgetedContext } from '../context/context-builder.js';
 import { classifyProjectDomain, projectDomainLabel } from '../domain-classifier.js';
 import { isolateImportedProjectContext } from '../../security/context-isolation.js';
 
 export const discoveryTask = {
   id: 'discovery',
-  promptVersion: '2.2.0',
+  // 2.3.0: affectedSections izinli değerleri şemadan üretilerek isteme yazıldı.
+  // Önceki sürüm yalnız tek bir örnek veriyordu ve model geçersiz bölüm adı
+  // uydurunca tüm yanıt şemadan düşüp fallback'e gidiyordu.
+  promptVersion: '2.3.0',
   schemaId: DISCOVERY_SCHEMA_ID,
   schemaVersion: 1,
   schema: discoverySchema,
@@ -27,8 +30,9 @@ Bekleyen kayıtları derinleştir ve cevaplanmış sorularla çelişme.
 PROJECT_CONTEXT.ideaCoach.activeStep, kullanıcının şu an netleştirdiği tek konuyu belirtir; nextQuestionText'i yalnız bu konu için üret, başka konuya atlama.
 uncertainty alanına yalnız gerçekten belirsiz olan en fazla 2 noktayı yaz; hiçbiri yoksa boş dizi döndür, icat etme.
 optionalPaths alanına bu projenin somut eksiklerine özel en fazla 3 düşünme yolu öner; "fikri büyüt" gibi jenerik ifadeler kullanma.
+affectedSections yalnız şu değerlerden seçilir, yenisini uydurma: ${PLAN_SECTION_IDS.join('|')}
 Yalnız şu üst seviye alanları içeren JSON döndür:
-{"reply":"...","analysisNote":"...","summary":"...","options":[{"kind":"feature|decision|risk|question|architecture","title":"...","description":"...","pros":["..."],"cons":["..."],"effort":"low|medium|high","impact":"low|medium|high","affectedSections":["scope"],"recommended":true}],"openQuestions":["..."],"uncertainty":["..."],"nextQuestionText":"...","optionalPaths":[{"title":"...","reason":"...","prompt":"..."}]}`;
+{"reply":"...","analysisNote":"...","summary":"...","options":[{"kind":"feature|decision|risk|question|architecture","title":"...","description":"...","pros":["..."],"cons":["..."],"effort":"low|medium|high","impact":"low|medium|high","affectedSections":["${PLAN_SECTION_IDS.join('|')}"],"recommended":true}],"openQuestions":["..."],"uncertainty":["..."],"nextQuestionText":"...","optionalPaths":[{"title":"...","reason":"...","prompt":"..."}]}`;
   },
   buildContext(project: ProjectDocumentV5, input: { direction?: string; memory?: unknown; ideaCoach?: { activeStep: string; activeStepLabel: string } } = {}) {
     const budget = buildBudgetedContext(project, 4_000);
