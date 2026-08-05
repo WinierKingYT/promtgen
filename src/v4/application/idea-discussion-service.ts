@@ -292,9 +292,29 @@ export function resolveIdeaRecordsForBundle(
   bundleId: string,
   status: IdeaRecordStatus = 'deferred'
 ): ProjectDocumentV5 {
+  // Kullanıcının açıkça kabul ettiği öneri, kayıt defterinde de kabul olarak
+  // durmalıdır. Aksi hâlde iki defter ayrışır: öneri "accepted" kalırken kaydı
+  // "deferred" damgalanır, confirmConceptSummary yalnız kabul edilen kayıtlara
+  // baktığı için kullanıcının kararı plana hiç geçmez.
+  // Kayıtlar captureDiscussionBundle içinde `item.title || item.description`
+  // metniyle üretilir; eşleme burada da aynı anahtarı kullanır.
+  const bundle = project.proposalStore?.bundles?.find(item => item.id === bundleId);
+  const acceptedTexts = new Set(
+    (bundle?.items || [])
+      .filter(item => item.status === 'accepted' || item.status === 'edited')
+      .map(item => String(item.title || item.description || '').trim())
+      .filter(Boolean)
+  );
   const stale = (project.ideaDiscussion?.records || [])
     .filter(record => record.sourceBundleId === bundleId && record.status === 'pending');
-  return stale.reduce((carry, record) => updateIdeaRecordStatus(carry, record.id, status), project);
+  return stale.reduce(
+    (carry, record) => updateIdeaRecordStatus(
+      carry,
+      record.id,
+      acceptedTexts.has(record.text.trim()) ? 'accepted' : status
+    ),
+    project
+  );
 }
 
 export function getConceptAgreementGate(project: ProjectDocumentV5) {
