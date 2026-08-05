@@ -141,5 +141,9 @@ describe('AI production runtime ownership', () => {
     assert.doesNotMatch(task, /planning-engine/);
     assert.doesNotMatch(task, /idea-plan-conversion-service/);
     assert.doesNotMatch(task, /canonical-entities/);
+
+    const intake = read('src/v4/application/idea-expansion-intake.ts');
+    assert.doesNotMatch(intake, /confirmConceptSummary|applyApprovedChanges/);
+    assert.match(intake, /status: 'pending'/);
   });
 });
