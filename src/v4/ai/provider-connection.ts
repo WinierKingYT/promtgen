@@ -27,6 +27,45 @@ function result(
   };
 }
 
+/**
+ * Sağlayıcıların model listesi biçimleri farklıdır:
+ *   Gemini  -> { models: [{ name: "models/gemini-2.5-flash" }] }
+ *   OpenAI  -> { data:   [{ id:   "gpt-4.1-mini" }] }
+ *   Ollama  -> { models: [{ name: "llama3.2:latest" }] }
+ * Okunamayan bir gövde sessizce boş liste döner; model denetimi o durumda
+ * atlanır ve bağlantı testi eski davranışına düşer (yanlış negatif üretmez).
+ */
+async function listModelNames(response: { json?: () => Promise<unknown> }): Promise<string[]> {
+  if (typeof response.json !== 'function') return [];
+  try {
+    const body = await response.json() as {
+      models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>;
+      data?: Array<{ id?: string }>;
+    };
+    return [
+      // Listede olmak yetmez: model generateContent'i desteklemiyorsa üretim
+      // çağrısı 404 döner. Yalnız gerçekten kullanılabilir modeller sayılır.
+      ...(body.models || [])
+        .filter(item => !item?.supportedGenerationMethods || item.supportedGenerationMethods.includes('generateContent'))
+        .map(item => String(item?.name || '')),
+      ...(body.data || []).map(item => String(item?.id || ''))
+    ].filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/** Hata mesajında gösterilecek birkaç somut model adı; kullanıcı kopyalayıp yapıştırabilsin. */
+function suggestModels(models: string[]): string[] {
+  return models.map(name => name.replace(/^models\//, '')).slice(0, 4);
+}
+
+/** "models/gemini-2.5-flash" ve "llama3.2:latest" gibi ön/son ekleri tolere eder. */
+function modelMatches(listed: string, configured: string): boolean {
+  const strip = (value: string) => value.replace(/^models\//, '').split(':')[0].trim().toLowerCase();
+  return strip(listed) === strip(configured);
+}
+
 function describeFailure(status: number): { code: string; message: string } {
   if (status === 401 || status === 403) return { code: 'authentication', message: `Kimlik bilgisi reddedildi (${status}).` };
   if (status === 404) return { code: 'endpoint', message: 'API adresi veya model endpointi bulunamadı (404).' };
@@ -64,7 +103,31 @@ export async function testProviderConnection(
       const failure = describeFailure(response.status);
       return result(settings, startedAt, false, failure.message, failure.code);
     }
-    return result(settings, startedAt, true, 'Bağlantı ve kimlik bilgisi doğrulandı.');
+    // Liste isteği yalnız kimlik bilgisini doğrular. Seçili model o listede
+    // yoksa üretim çağrısı 404 döner ve kullanıcı "bağlantı doğrulandı"
+    // gördüğü hâlde hiçbir öneri alamaz. Model adı burada da denetlenir.
+    const models = await listModelNames(response);
+    if (!models.length) {
+      // Liste okunamadı: kimlik bilgisi doğrulandı ama model denetlenemedi.
+      // "Model doğrulandı" demek burada yanlış olurdu; kullanıcı üretim
+      // sırasında 404 alıp neden olduğunu anlayamazdı.
+      return result(
+        settings,
+        startedAt,
+        true,
+        'Kimlik bilgisi doğrulandı. Model listesi okunamadığı için "' + settings.model + '" ayrıca denetlenemedi.'
+      );
+    }
+    if (settings.model && !models.some(name => modelMatches(name, settings.model))) {
+      return result(
+        settings,
+        startedAt,
+        false,
+        `Kimlik bilgisi geçerli ancak "${settings.model}" modeli bu hesapta üretim için kullanılamıyor. Kullanılabilir: ${suggestModels(models).join(', ')}`,
+        'endpoint'
+      );
+    }
+    return result(settings, startedAt, true, 'Bağlantı, kimlik bilgisi ve model doğrulandı.');
   } catch (error) {
     const aborted = error instanceof Error && error.name === 'AbortError';
     return result(
