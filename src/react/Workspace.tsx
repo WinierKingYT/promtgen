@@ -348,7 +348,12 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><small>Çıkarımlar önce taslak olarak gösterilir; sen onaylamadan kesinleşmez.</small></div>
           </form>
         </section>
-        <IdeaSnapshot project={project} coach={coach}/>
+        <IdeaSnapshot
+          project={project}
+          coach={coach}
+          settings={providerSettings}
+          onAddCard={(next, message) => void persistCandidate(next, message, 'AddExpansionCard')}
+        />
       </main>}
 
       {view === 'guide' && <main id="pg-primary-content" className="pg-document-workspace" tabIndex={-1}>
