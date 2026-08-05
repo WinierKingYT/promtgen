@@ -1142,12 +1142,12 @@ git commit -m "feat(v4): kesif kartini bekleyen oneri olarak fikre ekle"
 `tests/e2e/idea-expansion-board.spec.ts`:
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
 
 const IDEA = 'Şehir içinde bisiklet kullananlara güvenli rota öneren bir mobil uygulama yapmak istiyorum.';
 
-async function startIdea(page) {
+async function startIdea(page: Page) {
   await page.getByLabel('Ne yapmak istiyorsun?').fill(IDEA);
   await page.getByRole('button', { name: 'Fikri geliştir' }).click();
   await expect(page.getByRole('heading', { name: 'Fikrini birlikte şekillendirelim' })).toBeVisible();
