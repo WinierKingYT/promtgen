@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { discoverySchema } from '../../src/v4/ai/schemas/schemas.js';
+import { discoverySchema, PLAN_SECTION_IDS } from '../../src/v4/ai/schemas/schemas.js';
 import { discoveryTask } from '../../src/v4/ai/tasks/discovery.js';
 import { createProjectDocument } from '../../src/v4/project-document.js';
 
@@ -62,7 +62,64 @@ describe('discoverySchema — birleşik tur alanları', () => {
   });
 });
 
+describe('discoverySchema — bozuk seçenek kurtarma', () => {
+  const option = (title: string, overrides: Record<string, unknown> = {}) => ({
+    kind: 'feature', title, description: 'Açıklama', pros: [], cons: [],
+    effort: 'low', impact: 'low', affectedSections: ['scope'], recommended: false,
+    ...overrides
+  });
+
+  it('recommended alanı eksik olan seçeneği atar, geçerli olanları korur', () => {
+    const bozuk = option('Bozuk');
+    delete (bozuk as Record<string, unknown>).recommended;
+    const parsed = discoverySchema.parse(validPayload({
+      options: [option('A'), option('B'), option('C'), bozuk]
+    }));
+    assert.deepEqual(parsed.options.map(item => item.title), ['A', 'B', 'C']);
+  });
+
+  it('şemada olmayan bölüm adı içeren seçeneği atar', () => {
+    const parsed = discoverySchema.parse(validPayload({
+      options: [option('A'), option('B'), option('C'), option('Uydurma', { affectedSections: ['mutfak'] })]
+    }));
+    assert.deepEqual(parsed.options.map(item => item.title), ['A', 'B', 'C']);
+  });
+
+  it('kurtarılan seçenekleri değiştirmez; hiçbir alan uydurulmaz', () => {
+    const saglam = option('Sağlam', { pros: ['Net'], cons: ['Efor'], effort: 'high', recommended: true });
+    const parsed = discoverySchema.parse(validPayload({
+      options: [saglam, option('B'), option('C'), option('Bozuk', { effort: 'imkansiz' })]
+    }));
+    assert.deepEqual(parsed.options[0], saglam);
+  });
+
+  // Kurtarma bir kaçış kapısı değildir: geriye yeterli seçenek kalmıyorsa
+  // şema yine reddeder ve tur dürüstçe yerel motora düşer.
+  it('geçerli seçenek 3’ün altına düşerse yine reddeder', () => {
+    assert.throws(() => discoverySchema.parse(validPayload({
+      options: [option('A'), option('B'), option('Bozuk', { impact: 'devasa' })]
+    })));
+  });
+
+  it('tek geçersiz seçenek yüzünden tüm yanıtı düşürmez', () => {
+    const parsed = discoverySchema.parse(validPayload({
+      options: [option('A'), option('B'), option('C'), option('D'), option('Bozuk', { kind: 'yok' })]
+    }));
+    assert.equal(parsed.options.length, 4);
+    assert.equal(parsed.summary, 'Özet');
+  });
+});
+
 describe('discoveryTask — birleşik tur bağlamı ve prompt', () => {
+  it('buildPrompt, affectedSections için izinli bölümleri listeler', () => {
+    const project = createProjectDocument({ idea: 'Bireysel geliştiriciler için yerel proje planlama aracı' });
+    const prompt = discoveryTask.buildPrompt(project);
+    // Tek bir örnek değer yetmez: model geçerli bölüm adlarını bilemeyip uydurur.
+    for (const section of PLAN_SECTION_IDS) {
+      assert.ok(prompt.includes(section), `İstem ${section} bölümünü listelemeli`);
+    }
+  });
+
   it('buildContext, ideaCoach.activeStep alanını içerir', () => {
     const project = createProjectDocument({ idea: 'Bireysel geliştiriciler için yerel proje planlama aracı' });
     const context = discoveryTask.buildContext(project, {});
