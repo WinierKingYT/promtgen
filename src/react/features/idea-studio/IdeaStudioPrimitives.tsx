@@ -16,9 +16,11 @@ import type {
   SuggestionItem,
   SuggestionStatus
 } from '../../../v4/contracts.js';
+import type { ProviderSettings } from '../../../v4/provider-settings.js';
 import type { IdeaCoachState } from '../../../v4/application/idea-coach-service.js';
 import type { DiscoveryAnswerDraft } from '../../../v4/application/discovery-answer-service.js';
 import { DiscoveryAnswerReview } from '../../components/DiscoveryAnswerReview.js';
+import { IdeaExpansionBoard } from './IdeaExpansionBoard.js';
 
 export type IdeaStudioView = 'develop' | 'guide' | 'plan';
 
@@ -110,27 +112,41 @@ export function IdeaStudioHeader({
   </header>;
 }
 
-export function IdeaSnapshot({ project, coach }: { project: ProjectDocumentV5; coach: IdeaCoachState }) {
+export function IdeaSnapshot({ project, coach, settings, onAddCard }: {
+  project: ProjectDocumentV5;
+  coach: IdeaCoachState;
+  settings: ProviderSettings;
+  onAddCard: (project: ProjectDocumentV5, message: string) => void;
+}) {
   const conceptConfirmed = Boolean(project.ideaLabSession?.conceptSummary?.userConfirmed);
+  const [tab, setTab] = useState<'summary' | 'expansion'>('summary');
   return <aside className="pg-idea-map" aria-label="Fikir özeti">
     <div className="pg-map-head">
       <div><span>Onaylanmış anlayış</span><h2>Fikir özeti</h2></div>
       <strong className={conceptConfirmed ? 'is-confirmed' : 'is-draft'}>{conceptConfirmed ? 'Onaylandı' : 'Taslak'}</strong>
     </div>
-    <ol className="pg-coach-steps" aria-label="Fikir geliştirme aşamaları">
-      {coach.steps.map(step => <li key={step.id} className={`is-${step.state}`}><i/>{step.label}</li>)}
-    </ol>
-    <div className="pg-map-fields">
-      {coach.evidence.map(item => <section key={item.id} className={`is-${item.status}`}>
-        <span>{item.label}<b>{item.statusLabel}</b></span>
-        <p>{item.displayText}</p>
-      </section>)}
+    <div className="pg-map-tabs" role="tablist" aria-label="Fikir paneli görünümü">
+      <button type="button" role="tab" aria-selected={tab === 'summary'} onClick={() => setTab('summary')}>Özet</button>
+      <button type="button" role="tab" aria-selected={tab === 'expansion'} onClick={() => setTab('expansion')}>Keşif</button>
     </div>
-    <section className="pg-scope-snapshot">
-      <div><span>Kritik karar</span><b>{coach.criticalDecisionCount}</b></div>
-      <div><span>Ertelenebilir</span><b>{coach.deferrableDecisionCount}</b></div>
-    </section>
-    <p className="pg-map-note"><ShieldAlert size={15}/> Taslak alanlar henüz kesinleşmedi; fikir özetini onayladığında sabitlenir.</p>
+    {tab === 'expansion'
+      ? <IdeaExpansionBoard project={project} settings={settings} onAddCard={onAddCard}/>
+      : <>
+        <ol className="pg-coach-steps" aria-label="Fikir geliştirme aşamaları">
+          {coach.steps.map(step => <li key={step.id} className={`is-${step.state}`}><i/>{step.label}</li>)}
+        </ol>
+        <div className="pg-map-fields">
+          {coach.evidence.map(item => <section key={item.id} className={`is-${item.status}`}>
+            <span>{item.label}<b>{item.statusLabel}</b></span>
+            <p>{item.displayText}</p>
+          </section>)}
+        </div>
+        <section className="pg-scope-snapshot">
+          <div><span>Kritik karar</span><b>{coach.criticalDecisionCount}</b></div>
+          <div><span>Ertelenebilir</span><b>{coach.deferrableDecisionCount}</b></div>
+        </section>
+        <p className="pg-map-note"><ShieldAlert size={15}/> Taslak alanlar henüz kesinleşmedi; fikir özetini onayladığında sabitlenir.</p>
+      </>}
   </aside>;
 }
 
