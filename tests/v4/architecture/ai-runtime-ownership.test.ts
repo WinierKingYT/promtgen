@@ -36,7 +36,8 @@ describe('AI production runtime ownership', () => {
     for (const path of [
       'src/v4/application/discovery-generation-service.ts',
       'src/v4/application/idea-lab-generation-service.ts',
-      'src/v4/application/section-regeneration-service.ts'
+      'src/v4/application/section-regeneration-service.ts',
+      'src/v4/application/idea-expansion-service.ts'
     ]) {
       const source = read(path);
       assert.doesNotMatch(source, /from ['"].*ai-context/);
@@ -132,5 +133,13 @@ describe('AI production runtime ownership', () => {
     assert.equal(result.provenance.model, 'registry-mock');
     assert.equal(result.provenance.schemaId, 'discovery-v1');
     assert.match(result.provenance.inputHash, /^[a-f0-9]{64}$/);
+  });
+
+  it('keeps the idea expansion task away from canonical write paths', () => {
+    const task = read('src/v4/ai/tasks/idea-expansion.ts');
+    // Görev yalnız istem ve bağlam üretir; plana yazan hiçbir modülü tanımaz.
+    assert.doesNotMatch(task, /planning-engine/);
+    assert.doesNotMatch(task, /idea-plan-conversion-service/);
+    assert.doesNotMatch(task, /canonical-entities/);
   });
 });
