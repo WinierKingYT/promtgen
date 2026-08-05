@@ -5,21 +5,53 @@ export const PLAN_SECTION_IDS = ['vision', 'objectives', 'scope', 'requirements'
 export const planSectionSchema = z.enum(PLAN_SECTION_IDS);
 
 export const DISCOVERY_SCHEMA_ID = 'discovery-v1';
+
+export const MINIMUM_DISCOVERY_OPTIONS = 3;
+
+export const discoveryOptionSchema = z.object({
+  kind: z.enum(['feature', 'decision', 'risk', 'question', 'architecture']).default('feature'),
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().min(1).max(3000),
+  pros: z.array(shortText).max(8),
+  cons: z.array(shortText).max(8),
+  effort: z.enum(['low', 'medium', 'high']),
+  impact: z.enum(['low', 'medium', 'high']),
+  affectedSections: z.array(planSectionSchema).min(1).max(12),
+  recommended: z.boolean()
+}).strict();
+
+/**
+ * Seçenekleri kullanılabilir ve kullanılamaz diye ayırır.
+ * Model tek bir seçenekte alan atlayabiliyor veya olmayan bir bölüm adı
+ * uydurabiliyor; hepsi-ya-hiçbiri doğrulama bu yüzden geçerli 3-5 seçeneğin
+ * tamamını çöpe atıyordu. Hiçbir alan tamamlanmaz veya uydurulmaz: bozuk
+ * seçenek yalnızca dışarıda bırakılır.
+ */
+export function partitionDiscoveryOptions(value: unknown): { usable: unknown[]; dropped: unknown[] } {
+  if (!Array.isArray(value)) return { usable: [], dropped: [] };
+  const usable: unknown[] = [];
+  const dropped: unknown[] = [];
+  for (const item of value) {
+    (discoveryOptionSchema.safeParse(item).success ? usable : dropped).push(item);
+  }
+  return { usable, dropped };
+}
+
+/**
+ * Kurtarma bir kaçış kapısı değildir. Geriye yeterli seçenek kalmıyorsa ham
+ * dizi olduğu gibi döndürülür; şema reddeder, hata mesajı gerçek nedeni
+ * gösterir ve tur dürüstçe yerel motora düşer.
+ */
+function dropUnusableOptions(value: unknown): unknown {
+  const { usable } = partitionDiscoveryOptions(value);
+  return usable.length >= MINIMUM_DISCOVERY_OPTIONS ? usable : value;
+}
+
 export const discoverySchema = z.object({
   reply: z.string().trim().min(1).max(4000).default(''),
   analysisNote: z.string().trim().min(1).max(2000).default(''),
   summary: z.string().trim().min(1).max(1200),
-  options: z.array(z.object({
-    kind: z.enum(['feature', 'decision', 'risk', 'question', 'architecture']).default('feature'),
-    title: z.string().trim().min(1).max(160),
-    description: z.string().trim().min(1).max(3000),
-    pros: z.array(shortText).max(8),
-    cons: z.array(shortText).max(8),
-    effort: z.enum(['low', 'medium', 'high']),
-    impact: z.enum(['low', 'medium', 'high']),
-    affectedSections: z.array(planSectionSchema).min(1).max(12),
-    recommended: z.boolean()
-  }).strict()).min(3).max(5),
+  options: z.preprocess(dropUnusableOptions, z.array(discoveryOptionSchema).min(MINIMUM_DISCOVERY_OPTIONS).max(5)),
   openQuestions: z.array(shortText).max(12).default([]),
   uncertainty: z.array(shortText).max(2).default([]),
   nextQuestionText: shortText.default(''),
