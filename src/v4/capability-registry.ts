@@ -64,7 +64,20 @@ export const STABLE_PROMOTION_POLICY = Object.freeze({
 
 export interface StableEligibility {
   eligible: boolean;
+  /** Tüm engeller: yeteneğin kendi kanıtı + sürüm bağlamı. Terfi kararı bunu kullanır. */
   blockers: string[];
+  /**
+   * Yalnız yeteneğin kendi kanıtına bağlı engeller (test, senaryo, kullanıcı,
+   * kurtarma). Bunlar kod ve kanıt üretilerek kapatılabilir.
+   */
+  capabilityBlockers: string[];
+  /**
+   * Yalnız sürüm bağlamına bağlı engeller (güncel build/CI commit eşleşmesi).
+   * Bu boyut statik olarak doğrulanamaz; commit bağlamı verilmediğinde her
+   * yetenek için aynı biçimde dolar. Yeteneğin olgunluğu hakkında bilgi
+   * taşımaz, bu yüzden yetenek engellerinden ayrı raporlanır.
+   */
+  releaseContextBlockers: string[];
   metrics: {
     integrationTests: number;
     scenarioCount: number;
@@ -101,7 +114,7 @@ export function evaluateStableEligibility(
   const verifiedCommitSha = verification.verifiedCommitSha
     ?? capability.promotionEvidence.lastVerifiedCommit;
   const commitEvidenceCurrent = commitEvidenceMatches(verification.currentCommitSha, verifiedCommitSha);
-  const blockers = [
+  const capabilityBlockers = [
     ...(integrationTests > 0 ? [] : ['En az bir üretim entegrasyon testi gerekli.']),
     ...(capability.platforms.every(platform => capability.evidence.some(item => item.platforms.includes(platform)))
       ? []
@@ -118,18 +131,24 @@ export function evaluateStableEligibility(
       : ['Kurtarma veya geri alma yolu belgelenmeli.']),
     ...(capability.promotionEvidence.users.participants >= STABLE_PROMOTION_POLICY.minimumUserParticipants
       ? []
-      : [`En az ${STABLE_PROMOTION_POLICY.minimumUserParticipants} kullanıcıdan kanıt gerekli.`]),
-    ...(!verification.currentCommitSha
-      ? ['Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.']
-      : !verifiedCommitSha
-        ? ['Doğrulanan commit kanıtı gerekli.']
-        : commitEvidenceCurrent
-          ? []
-          : [`Kanıt commit'i güncel build ile eşleşmiyor (kanıt: ${verifiedCommitSha}, build: ${verification.currentCommitSha}).`])
+      : [`En az ${STABLE_PROMOTION_POLICY.minimumUserParticipants} kullanıcıdan kanıt gerekli.`])
   ];
+  // Commit boyutu yeteneğin kendi kanıtı değil, kanıtın hangi sürüme ait
+  // olduğudur. Statik belge üretiminde commit bağlamı yoktur ve bu engel her
+  // yetenekte aynı şekilde çıkar; yetenek engelleriyle karıştırılmamalı.
+  const releaseContextBlockers = !verification.currentCommitSha
+    ? ['Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.']
+    : !verifiedCommitSha
+      ? ['Doğrulanan commit kanıtı gerekli.']
+      : commitEvidenceCurrent
+        ? []
+        : [`Kanıt commit'i güncel build ile eşleşmiyor (kanıt: ${verifiedCommitSha}, build: ${verification.currentCommitSha}).`];
+  const blockers = [...capabilityBlockers, ...releaseContextBlockers];
   return {
     eligible: blockers.length === 0,
     blockers,
+    capabilityBlockers,
+    releaseContextBlockers,
     metrics: {
       integrationTests,
       scenarioCount,
