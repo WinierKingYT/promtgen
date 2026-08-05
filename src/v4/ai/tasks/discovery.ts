@@ -15,7 +15,10 @@ export const discoveryTask = {
   schema: discoverySchema,
   outputFields: ['reply', 'analysisNote', 'summary', 'options', 'openQuestions', 'uncertainty', 'nextQuestionText', 'optionalPaths'] as const,
   timeoutMs: 30_000,
-  maxRepairAttempts: 1,
+  // Her denemenin kendi zaman bütçesi ve gerçek hata geri bildirimi olduğundan
+  // ikinci onarımın kazanma şansı ilkinden düşük değil. En kötü bekleme
+  // 3 x timeoutMs; ölçülen medyan bunun çok altında.
+  maxRepairAttempts: 2,
   fallbackPolicy: 'local-rule-engine' as const,
   buildPrompt(project: ProjectDocumentV5): string {
     const idea = project.identity.originalIdea.trim();
