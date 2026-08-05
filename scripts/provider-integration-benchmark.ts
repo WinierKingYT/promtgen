@@ -172,6 +172,34 @@ async function connectionDiagnostics(): Promise<Assertion[]> {
   ];
 }
 
+/** Bağlantı testi anahtarı doğrulamakla yetinmemeli; seçili modeli de denetlemeli. */
+async function connectionValidatesModel(): Promise<Assertion[]> {
+  const listBody = { models: [{ name: 'models/gemini-2.0-flash' }, { name: 'models/gemini-1.5-pro' }] };
+
+  stubFetch(() => httpResponse(listBody));
+  const missing = await testProviderConnection({ providerId: 'gemini', model: 'gemini-9.9-imkansiz', baseUrl: '' }, 'k');
+
+  stubFetch(() => httpResponse(listBody));
+  const present = await testProviderConnection({ providerId: 'gemini', model: 'gemini-2.0-flash', baseUrl: '' }, 'k');
+
+  // OpenAI biçimi { data: [{ id }] } de tanınmalı.
+  stubFetch(() => httpResponse({ data: [{ id: 'gpt-4.1-mini' }] }));
+  const openai = await testProviderConnection({ providerId: 'openai', model: 'gpt-4.1-mini', baseUrl: 'https://api.example/v1' }, 'k');
+
+  // Liste okunamıyorsa model denetimi atlanır; yanlış negatif üretilmez.
+  stubFetch(() => httpResponse({ beklenmeyen: true }));
+  const unknownShape = await testProviderConnection({ providerId: 'gemini', model: 'her-neyse', baseUrl: '' }, 'k');
+
+  return [
+    { label: 'Listede olmayan model reddedilir', passed: missing.ok === false && missing.errorCode === 'endpoint' },
+    { label: 'Hata mesajı kullanılabilir modelleri gösterir', passed: /gemini-2\.0-flash/.test(missing.message) },
+    { label: 'Listedeki model kabul edilir', passed: present.ok === true },
+    { label: 'OpenAI liste biçimi de tanınır', passed: openai.ok === true },
+    // Anahtar gecerliyken salt liste bicimi taninmadi diye kullanici engellenmez.
+    { label: 'Tanınmayan liste biçiminde bağlantı engellenmez', passed: unknownShape.ok === true }
+  ];
+}
+
 // --- 7 -----------------------------------------------------------------------
 async function offlineMakesNoNetworkCall(): Promise<Assertion[]> {
   const project = analyzeIdea(idea);
@@ -200,6 +228,7 @@ const scenarios = [
   { id: 'schema-failure-fallback', title: 'Şema dışı yanıtta fallback', intent: 'Sağlayıcı geçersiz yapı döndürdüğünde yerel kural motoru devralmalı ve etiket kalıcı olmalı.', run: schemaFailureFallback },
   { id: 'transport-failure-fallback', title: 'Taşıma hatasında fallback', intent: 'Ağ hatası ve HTTP 500 aynı fallback sözleşmesini üretmeli.', run: transportFailureFallback },
   { id: 'connection-diagnostics', title: 'Bağlantı tanılama kodları', intent: 'Her başarısızlık sınıfı kullanıcının düzeltebileceği ayrı bir errorCode üretmeli.', run: connectionDiagnostics },
+  { id: 'connection-validates-model', title: 'Bağlantı testi modeli de doğrular', intent: 'Anahtar geçerli olsa bile seçili model hesapta yoksa kapı açılmamalı; aksi hâlde üretim çağrısı 404 verir.', run: connectionValidatesModel },
   { id: 'offline-local-first', title: 'Offline local-first garantisi', intent: 'Offline modda ve AI kapalıyken hiçbir ağ isteği yapılmamalı.', run: offlineMakesNoNetworkCall }
 ];
 

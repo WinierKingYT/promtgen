@@ -1,8 +1,8 @@
 {
   "benchmarkVersion": "1.0.0",
   "capabilityId": "ai-discovery-provider",
-  "completed": 7,
-  "passed": 7,
+  "completed": 8,
+  "passed": 8,
   "passRate": 1,
   "results": [
     {
@@ -221,6 +221,36 @@
         },
         {
           "label": "Offline sağlayıcı ağ olmadan hazır bildiriyor",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "connection-validates-model",
+      "title": "Bağlantı testi modeli de doğrular",
+      "intent": "Anahtar geçerli olsa bile seçili model hesapta yoksa kapı açılmamalı; aksi hâlde üretim çağrısı 404 verir.",
+      "passed": true,
+      "assertionCount": 5,
+      "failedAssertions": [],
+      "assertions": [
+        {
+          "label": "Listede olmayan model reddedilir",
+          "passed": true
+        },
+        {
+          "label": "Hata mesajı kullanılabilir modelleri gösterir",
+          "passed": true
+        },
+        {
+          "label": "Listedeki model kabul edilir",
+          "passed": true
+        },
+        {
+          "label": "OpenAI liste biçimi de tanınır",
+          "passed": true
+        },
+        {
+          "label": "Tanınmayan liste biçiminde bağlantı engellenmez",
           "passed": true
         }
       ]

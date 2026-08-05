@@ -1,6 +1,6 @@
 # AI Sağlayıcı Entegrasyonu Benchmark
 
-Sonuç: **7/7** senaryo geçti (45 doğrulama).
+Sonuç: **8/8** senaryo geçti (50 doğrulama).
 
 | Senaryo | Sonuç | Doğrulama |
 |---|---:|---:|
@@ -10,6 +10,7 @@ Sonuç: **7/7** senaryo geçti (45 doğrulama).
 | Şema dışı yanıtta fallback | Geçti | 5 |
 | Taşıma hatasında fallback | Geçti | 10 |
 | Bağlantı tanılama kodları | Geçti | 8 |
+| Bağlantı testi modeli de doğrular | Geçti | 5 |
 | Offline local-first garantisi | Geçti | 5 |
 
 ## Ölçülen davranış
@@ -20,6 +21,7 @@ Sonuç: **7/7** senaryo geçti (45 doğrulama).
 - **Şema dışı yanıtta fallback** — Sağlayıcı geçersiz yapı döndürdüğünde yerel kural motoru devralmalı ve etiket kalıcı olmalı.
 - **Taşıma hatasında fallback** — Ağ hatası ve HTTP 500 aynı fallback sözleşmesini üretmeli.
 - **Bağlantı tanılama kodları** — Her başarısızlık sınıfı kullanıcının düzeltebileceği ayrı bir errorCode üretmeli.
+- **Bağlantı testi modeli de doğrular** — Anahtar geçerli olsa bile seçili model hesapta yoksa kapı açılmamalı; aksi hâlde üretim çağrısı 404 verir.
 - **Offline local-first garantisi** — Offline modda ve AI kapalıyken hiçbir ağ isteği yapılmamalı.
 
 ## Bu benchmarkın kanıtlamadıkları
