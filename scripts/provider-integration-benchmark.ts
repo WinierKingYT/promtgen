@@ -190,13 +190,40 @@ async function connectionValidatesModel(): Promise<Assertion[]> {
   stubFetch(() => httpResponse({ beklenmeyen: true }));
   const unknownShape = await testProviderConnection({ providerId: 'gemini', model: 'her-neyse', baseUrl: '' }, 'k');
 
+  // Gerçek `ollama serve` /api/tags gövdesi: embedding modeli plan üretemez.
+  const ollamaBody = {
+    models: [
+      { name: 'nomic-embed-text:latest', capabilities: ['embedding'] },
+      { name: 'qwen2.5:1.5b', capabilities: ['completion', 'tools'] }
+    ]
+  };
+  stubFetch(() => httpResponse(ollamaBody));
+  const embeddingOnly = await testProviderConnection(
+    { providerId: 'ollama', model: 'nomic-embed-text', baseUrl: 'http://127.0.0.1:11434' }
+  );
+  stubFetch(() => httpResponse(ollamaBody));
+  const ollamaUsable = await testProviderConnection(
+    { providerId: 'ollama', model: 'qwen2.5', baseUrl: 'http://127.0.0.1:11434' }
+  );
+
   return [
     { label: 'Listede olmayan model reddedilir', passed: missing.ok === false && missing.errorCode === 'endpoint' },
     { label: 'Hata mesajı kullanılabilir modelleri gösterir', passed: /gemini-2\.0-flash/.test(missing.message) },
     { label: 'Listedeki model kabul edilir', passed: present.ok === true },
     { label: 'OpenAI liste biçimi de tanınır', passed: openai.ok === true },
     // Anahtar gecerliyken salt liste bicimi taninmadi diye kullanici engellenmez.
-    { label: 'Tanınmayan liste biçiminde bağlantı engellenmez', passed: unknownShape.ok === true }
+    { label: 'Tanınmayan liste biçiminde bağlantı engellenmez', passed: unknownShape.ok === true },
+    // Ollama'da kurulu olmak yetmez: embedding modeli plan üretemez.
+    { label: 'Ollama embedding modeli üretim için reddedilir', passed: embeddingOnly.ok === false && embeddingOnly.errorCode === 'endpoint' },
+    // Mesajın başı seçili modeli yankılar; denetlenmesi gereken yalnız öneri listesi.
+    {
+      label: 'Embedding modeli öneri listesinde gösterilmez',
+      passed: (() => {
+        const suggested = embeddingOnly.message.split('Kullanılabilir:')[1] || '';
+        return /qwen2\.5/.test(suggested) && !/nomic-embed-text/.test(suggested);
+      })()
+    },
+    { label: 'Ollama completion modeli kabul edilir', passed: ollamaUsable.ok === true }
   ];
 }
 

@@ -1,6 +1,6 @@
 # AI Sağlayıcı Entegrasyonu Benchmark
 
-Sonuç: **8/8** senaryo geçti (50 doğrulama).
+Sonuç: **8/8** senaryo geçti (53 doğrulama).
 
 | Senaryo | Sonuç | Doğrulama |
 |---|---:|---:|
@@ -10,7 +10,7 @@ Sonuç: **8/8** senaryo geçti (50 doğrulama).
 | Şema dışı yanıtta fallback | Geçti | 5 |
 | Taşıma hatasında fallback | Geçti | 10 |
 | Bağlantı tanılama kodları | Geçti | 8 |
-| Bağlantı testi modeli de doğrular | Geçti | 5 |
+| Bağlantı testi modeli de doğrular | Geçti | 8 |
 | Offline local-first garantisi | Geçti | 5 |
 
 ## Ölçülen davranış

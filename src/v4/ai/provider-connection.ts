@@ -29,9 +29,9 @@ function result(
 
 /**
  * Sağlayıcıların model listesi biçimleri farklıdır:
- *   Gemini  -> { models: [{ name: "models/gemini-2.5-flash" }] }
+ *   Gemini  -> { models: [{ name: "models/gemini-2.5-flash", supportedGenerationMethods: [...] }] }
  *   OpenAI  -> { data:   [{ id:   "gpt-4.1-mini" }] }
- *   Ollama  -> { models: [{ name: "llama3.2:latest" }] }
+ *   Ollama  -> { models: [{ name: "qwen2.5:1.5b", capabilities: ["completion"] }] }
  * Okunamayan bir gövde sessizce boş liste döner; model denetimi o durumda
  * atlanır ve bağlantı testi eski davranışına düşer (yanlış negatif üretmez).
  */
@@ -39,20 +39,29 @@ async function listModelNames(response: { json?: () => Promise<unknown> }): Prom
   if (typeof response.json !== 'function') return [];
   try {
     const body = await response.json() as {
-      models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>;
+      models?: Array<{ name?: string; supportedGenerationMethods?: string[]; capabilities?: string[] }>;
       data?: Array<{ id?: string }>;
     };
     return [
-      // Listede olmak yetmez: model generateContent'i desteklemiyorsa üretim
-      // çağrısı 404 döner. Yalnız gerçekten kullanılabilir modeller sayılır.
-      ...(body.models || [])
-        .filter(item => !item?.supportedGenerationMethods || item.supportedGenerationMethods.includes('generateContent'))
-        .map(item => String(item?.name || '')),
+      // Listede olmak yetmez: model üretim yapamıyorsa çağrı hata döner.
+      // Gemini bunu supportedGenerationMethods, Ollama capabilities ile bildirir.
+      // Örnek: nomic-embed-text yalnız "embedding" yapar, plan üretemez.
+      ...(body.models || []).filter(canGenerate).map(item => String(item?.name || '')),
       ...(body.data || []).map(item => String(item?.id || ''))
     ].filter(Boolean);
   } catch {
     return [];
   }
+}
+
+/**
+ * Alan yoksa modelin üretim yapabildiği varsayılır: bilinmeyen bir sağlayıcı
+ * biçimi yüzünden çalışan bir modeli reddetmek, yanlış negatif üretirdi.
+ */
+function canGenerate(item: { supportedGenerationMethods?: string[]; capabilities?: string[] }): boolean {
+  if (item?.supportedGenerationMethods) return item.supportedGenerationMethods.includes('generateContent');
+  if (item?.capabilities) return item.capabilities.some(value => value === 'completion' || value === 'chat');
+  return true;
 }
 
 /** Hata mesajında gösterilecek birkaç somut model adı; kullanıcı kopyalayıp yapıştırabilsin. */

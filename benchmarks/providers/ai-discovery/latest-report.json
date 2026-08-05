@@ -230,7 +230,7 @@
       "title": "Bağlantı testi modeli de doğrular",
       "intent": "Anahtar geçerli olsa bile seçili model hesapta yoksa kapı açılmamalı; aksi hâlde üretim çağrısı 404 verir.",
       "passed": true,
-      "assertionCount": 5,
+      "assertionCount": 8,
       "failedAssertions": [],
       "assertions": [
         {
@@ -251,6 +251,18 @@
         },
         {
           "label": "Tanınmayan liste biçiminde bağlantı engellenmez",
+          "passed": true
+        },
+        {
+          "label": "Ollama embedding modeli üretim için reddedilir",
+          "passed": true
+        },
+        {
+          "label": "Embedding modeli öneri listesinde gösterilmez",
+          "passed": true
+        },
+        {
+          "label": "Ollama completion modeli kabul edilir",
           "passed": true
         }
       ]
