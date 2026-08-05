@@ -5,6 +5,7 @@ import {
   generateExpansionCards,
   clearExpansionCache
 } from '../../src/v4/application/idea-expansion-service.js';
+import { getExpansionCategories } from '../../src/v4/idea-expansion/categories.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const project = () => analyzeIdea('Şehir içi bisiklet rotası öneren bir mobil uygulama') as ProjectDocumentV5;
@@ -42,10 +43,19 @@ describe('generateExpansionCards', () => {
   });
 
   it('sağlayıcı yokken seedTitles ile fallback üretir', async () => {
-    const result = await generateExpansionCards(project(), 'trust', { settings: offlineSettings });
+    const target = project();
+    const result = await generateExpansionCards(target, 'trust', { settings: offlineSettings });
     assert.equal(result.mode, 'fallback');
     assert.ok(result.cards.length >= 2, 'başlangıç başlıkları kart olarak sunulmalı');
     assert.ok(result.fallbackReason, 'fallback nedeni bildirilmeli');
+
+    const category = getExpansionCategories(target).find(item => item.id === 'trust');
+    assert.ok(category, 'trust kategorisi bulunmalı');
+    assert.deepEqual(
+      result.cards.map(c => c.title),
+      category.seedTitles,
+      'fallback kartları yalnız kategorinin kendi seedTitles değerlerinden üretilmeli, uydurulmamalı'
+    );
   });
 
   it('AI hata verirse fallback üretir, hata yutulmaz', async () => {
