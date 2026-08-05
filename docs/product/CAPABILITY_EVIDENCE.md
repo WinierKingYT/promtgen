@@ -2,6 +2,8 @@
 
 Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle “stable” ilanı yapılamaz; her yetenek makinece denetlenen terfi kapısını geçmelidir. Statik belge geçmiş kanıt commit'ini gösterir; güncel commit eşleşmesi yalnız CI tarafından üretilen `release-evidence.json` ile doğrulanır.
 
+Terfi kapısı iki boyuttan oluşur. **Yetenek kanıtı** boyutu (test, senaryo, kullanıcı, kurtarma) bu belgede raporlanır. **Sürüm bağlamı** boyutu (kanıt commit'inin güncel build ile eşleşmesi) burada raporlanamaz, çünkü statik belge üretiminin commit bağlamı yoktur. Bu nedenle aşağıdaki tabloda “Kanıt tam” yazması **Stable ilanı değildir**: hiçbir yetenek CI dışında Stable'a terfi edemez.
+
 ## Stable terfi kapısı
 
 - En az bir üretim entegrasyon, browser E2E veya native E2E kanıtı.
@@ -10,11 +12,13 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 - Sıfır açık kritik kusur.
 - Belgelenmiş kurtarma veya geri alma yolu.
 - En az 5 gerçek kullanıcı katılımcısı.
-- Doğrulanan commit ile güncel build/CI commit'inin eşleşmesi.
+- Doğrulanan commit ile güncel build/CI commit'inin eşleşmesi. _(yalnız CI; bu belgede doğrulanmaz)_
 
 ## Kanıt tablosu
 
-| Yetenek | İlan | Otomatik kanıt | Senaryo | Kullanıcı | Kurtarma | Son commit | Stable kapısı |
+Son sütun yalnız yetenek kanıtı boyutunu gösterir; sürüm bağlamı boyutu dahil değildir.
+
+| Yetenek | İlan | Otomatik kanıt | Senaryo | Kullanıcı | Kurtarma | Son commit | Yetenek kanıt kapısı |
 |---|---|---|---|---:|---|---|---|
 | Açıklanabilir Plan Kalite Kapısı | candidate-stable | integration-test: tests/v4/readiness-service.test.ts<br>browser-e2e: tests/e2e/smoke.spec.ts | 10/10 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
 | Web/SaaS Planlama Paketi | candidate-stable | integration-test: tests/v4/web-saas-domain-pack.test.ts<br>browser-e2e: tests/e2e/guided-workflow.spec.ts | 5/5 (100%) | 0 | docs/release/rollback.md | 2acd7ba | Bloklu |
@@ -32,70 +36,59 @@ Bu belge doğrudan `src/v4/capability-registry.ts` kaynağından üretilir. Elle
 
 ## Açık terfi engelleri
 
+Bunlar kanıt üretilerek kapatılabilen engellerdir. Hepsi kapansa bile Stable ilanı için CI'ın sürüm bağlamı doğrulaması gerekir.
+
 ### Açıklanabilir Plan Kalite Kapısı
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Web/SaaS Planlama Paketi
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Backend/API Planlama Paketi
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Canonical Yaşayan Plan ve Revizyon Yönetimi
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Görev Teslim Kanıtı
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Plan–Kod Hizalama
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Local-First Depolama ve Yedekleme
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Uzman Perspektifleri
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Mimari Karşılaştırma Şablonu
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### AI Sağlayıcı Entegrasyonu
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### İzole Codex Worktree Yürütmesi
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Dosya Envanteri ve Güvenlik Filtresi
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ### Gelişmiş Dışa Aktarım
 
 - En az 5 kullanıcıdan kanıt gerekli.
-- Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.
 
 ## Proje desteği özeti
 

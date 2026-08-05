@@ -28,8 +28,11 @@ describe('Product Capability Claims Honesty Audit (Category 1)', () => {
         assert.ok(existsSync(path.resolve(evidence.testId)), `Evidence exists for ${cap.id}: ${evidence.testId}`);
       }
       if (cap.maturity === 'stable') {
+        // Sürüm bağlamı boyutu burada doğrulanamaz: birim testin commit bağlamı
+        // yoktur. Onu CI'da gerçek GITHUB_SHA ile scripts/check-capability-evidence.ts
+        // denetler. Burada yeteneğin kendi kanıtı tam olmalıdır.
         const eligibility = evaluateStableEligibility(cap);
-        assert.equal(eligibility.eligible, true, `Stable capability ${cap.id} passes the promotion gate`);
+        assert.deepEqual(eligibility.capabilityBlockers, [], `Stable capability ${cap.id} passes the evidence gate`);
         for (const platform of cap.platforms) {
           assert.equal(cap.platformMaturity[platform], 'stable', `${cap.id} is stable on ${platform}`);
           assert.ok(cap.evidence.some(item => item.platforms.includes(platform)), `${cap.id} has ${platform} evidence`);
@@ -38,8 +41,10 @@ describe('Product Capability Claims Honesty Audit (Category 1)', () => {
       if (cap.maturity === 'candidate-stable') {
         const eligibility = evaluateStableEligibility(cap);
         assert.equal(eligibility.eligible, false, `${cap.id} remains candidate-stable while evidence is incomplete`);
+        // Yetenek boyutunda gerçek bir engel olmalı. Yalnız sürüm bağlamı
+        // engeliyle candidate-stable kalmak, kanıt eksikliğini gizlerdi.
         assert.ok(
-          eligibility.blockers.some(blocker => /benchmark|kullanıcı/i.test(blocker)),
+          eligibility.capabilityBlockers.some(blocker => /benchmark|kullanıcı/i.test(blocker)),
           `${cap.id} exposes benchmark or user evidence blockers`
         );
       }
@@ -92,6 +97,42 @@ describe('Product Capability Claims Honesty Audit (Category 1)', () => {
     });
     assert.equal(stale.metrics.commitEvidenceCurrent, false);
     assert.ok(stale.blockers.some(blocker => /eşleşmiyor/i.test(blocker)));
+  });
+
+  it('separates capability evidence blockers from release context blockers', () => {
+    const source = getCapability('canonical-planning');
+    assert.ok(source);
+
+    for (const capability of CAPABILITY_REGISTRY) {
+      const eligibility = evaluateStableEligibility(capability);
+      // blockers, iki boyutun birleşimidir; terfi kararı hiçbir engeli kaybetmez.
+      assert.deepEqual(
+        eligibility.blockers,
+        [...eligibility.capabilityBlockers, ...eligibility.releaseContextBlockers],
+        `${capability.id} blockers are the union of both dimensions`
+      );
+      assert.equal(eligibility.eligible, eligibility.blockers.length === 0);
+      // Commit bağlamı verilmediğinde build/CI engeli YALNIZ sürüm boyutunda çıkar.
+      // Yetenek boyutuna sızarsa statik belge her yeteneği yanlışlıkla eksik gösterir.
+      assert.ok(
+        !eligibility.capabilityBlockers.some(blocker => /build\/CI commit|eşleşmiyor/i.test(blocker)),
+        `${capability.id} keeps commit context out of capability blockers`
+      );
+      assert.deepEqual(
+        eligibility.releaseContextBlockers,
+        ['Güncel build/CI commit bağlamı olmadan Stable kanıtı doğrulanamaz.'],
+        `${capability.id} reports the missing build context exactly once`
+      );
+    }
+
+    // Gerçek commit bağlamı verildiğinde sürüm boyutu temizlenir; yetenek boyutu değişmez.
+    const verified = source.promotionEvidence.lastVerifiedCommit || 'abcdef1';
+    const withContext = evaluateStableEligibility(source, {
+      currentCommitSha: verified,
+      verifiedCommitSha: verified
+    });
+    assert.deepEqual(withContext.releaseContextBlockers, []);
+    assert.deepEqual(withContext.capabilityBlockers, evaluateStableEligibility(source).capabilityBlockers);
   });
 
   it('README public claims map to the registry and avoid forbidden overclaims', () => {
