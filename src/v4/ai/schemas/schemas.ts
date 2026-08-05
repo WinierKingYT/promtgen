@@ -115,3 +115,46 @@ export type DiscoveryOutput = z.infer<typeof discoverySchema>;
 export type IdeaLabOutput = z.infer<typeof ideaLabSchema>;
 export type ArchitectureReviewOutput = z.infer<typeof architectureReviewSchema>;
 export type SectionRegenerationOutput = z.infer<typeof sectionRegenerationSchema>;
+
+export const IDEA_EXPANSION_SCHEMA_ID = 'idea-expansion-v1';
+export const MINIMUM_EXPANSION_CARDS = 3;
+
+export const expansionCardSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().min(1).max(1200),
+  kind: z.enum(['feature', 'decision', 'risk', 'question', 'architecture']),
+  effort: z.enum(['low', 'medium', 'high']),
+  impact: z.enum(['low', 'medium', 'high']),
+  mvpHint: z.enum(['mvp-adayı', 'sonraya'])
+}).strict();
+
+/**
+ * Kartları kullanılabilir ve kullanılamaz diye ayırır. Tek bozuk kart yüzünden
+ * kategori boş kalmasın diye discovery'deki kurtarma deseni burada da geçerlidir.
+ * Hiçbir alan tamamlanmaz; bozuk kart yalnızca dışarıda bırakılır.
+ */
+export function partitionExpansionCards(value: unknown): { usable: unknown[]; dropped: unknown[] } {
+  if (!Array.isArray(value)) return { usable: [], dropped: [] };
+  const usable: unknown[] = [];
+  const dropped: unknown[] = [];
+  for (const item of value) {
+    (expansionCardSchema.safeParse(item).success ? usable : dropped).push(item);
+  }
+  return { usable, dropped };
+}
+
+/**
+ * Kurtarma bir kaçış kapısı değildir: geriye yeterli kart kalmıyorsa ham dizi
+ * döner, şema reddeder ve tur dürüstçe seedTitles'a düşer.
+ */
+function dropUnusableCards(value: unknown): unknown {
+  const { usable } = partitionExpansionCards(value);
+  return usable.length >= MINIMUM_EXPANSION_CARDS ? usable : value;
+}
+
+export const ideaExpansionSchema = z.object({
+  cards: z.preprocess(dropUnusableCards, z.array(expansionCardSchema).min(MINIMUM_EXPANSION_CARDS).max(10))
+}).strict();
+
+export type IdeaExpansionOutput = z.infer<typeof ideaExpansionSchema>;
