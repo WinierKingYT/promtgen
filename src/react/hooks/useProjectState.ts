@@ -9,6 +9,7 @@ import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { ProjectInventoryReport } from '../../v4/project-analyzer.js';
 import { prepareInitialProject } from '../../v4/application/project-creation-service.js';
 import { commitProjectCandidate, saveInitialProject } from '../../v4/application/command-transaction.js';
+import { isCanonicalChangeCommand } from '../../v4/application/command-policy.js';
 import {
   assertRecoveryPreviewFresh,
   restorePortablePackageAsNewRevision,
@@ -20,16 +21,6 @@ type Project = ProjectDocumentV5;
 
 const repository = createPlatformRepository();
 const credentialVault = createCredentialVault();
-const DOCUMENT_ONLY_COMMANDS = new Set([
-  'AddDiscoveryTurn', 'UpdateSuggestionStatus', 'ProposeChangeImpact', 'ResolveImpactContradiction',
-  'RejectChangeImpact', 'CreatePlanningScenario', 'DiscardPlanningScenario', 'SelectPlanningScenario',
-  'GenerateSectionPatches', 'UpdateSectionPatchStatus', 'MarkSectionPatchesStale', 'UpdateIdeaDiscussion',
-  'UpdateConceptAgreement', 'GenerateRequirementDrafts', 'UpdateRequirementDraft', 'RemoveRequirementDraft',
-  'RestoreIdeaDocumentRevision',
-  'ProposeIdeaAlignmentImpact', 'DeferPlanAlignment', 'RestoreAlignedIdeaRevision',
-  'CreatePlanCodeAlignmentSuggestion',
-  'StartExecutionSession', 'RecordExecutionResult', 'RecordExport', 'UpdateProject'
-]);
 
 export function useProjectState() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -59,7 +50,7 @@ export function useProjectState() {
           projectId: currentProject.id,
           expectedDocumentRevision: currentProject.documentRevision,
           expectedCanonicalRevision: currentProject.canonicalRevision,
-          canonicalChange: !DOCUMENT_ONLY_COMMANDS.has(commandType),
+          canonicalChange: isCanonicalChangeCommand(commandType),
           createdAt
         })
       : await saveInitialProject(repository, project, commandId, createdAt);
