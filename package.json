@@ -54,6 +54,7 @@
     "check:architecture-comparator-benchmark": "tsx scripts/architecture-comparator-benchmark.ts --check",
     "benchmark:storage-durability": "tsx scripts/storage-durability-benchmark.ts",
     "check:storage-durability-benchmark": "tsx scripts/storage-durability-benchmark.ts --check",
+    "benchmark:idea-expansion": "tsx scripts/idea-expansion-quality-benchmark.ts",
     "benchmark:expert-perspectives": "tsx scripts/expert-perspectives-benchmark.ts",
     "check:expert-perspectives-benchmark": "tsx scripts/expert-perspectives-benchmark.ts --check",
     "comparison:benchmark": "tsx scripts/comparison-benchmark.ts",
