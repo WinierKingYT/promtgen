@@ -1,0 +1,138 @@
+{
+  "summary": {
+    "providerId": "ollama",
+    "model": "qwen2.5:7b",
+    "totalRuns": 9,
+    "aiRuns": 9,
+    "aiRatio": 1,
+    "averageCards": 8.44,
+    "averageDurationMs": 11711,
+    "totalDropped": 0,
+    "thresholds": {
+      "aiRatio": 0.75,
+      "averageCards": 5
+    },
+    "modePassed": true,
+    "cardsPassed": true,
+    "passed": true
+  },
+  "runs": [
+    {
+      "ideaKey": "web",
+      "ideaName": "Ekip içi karar defteri",
+      "categoryId": "core-depth",
+      "categoryLabel": "Ana akışı derinleştir",
+      "mode": "local-ai",
+      "cards": 8,
+      "rawCards": 8,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 11318,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "web",
+      "ideaName": "Ekip içi karar defteri",
+      "categoryId": "narrow",
+      "categoryLabel": "Kapsamı daralt",
+      "mode": "local-ai",
+      "cards": 10,
+      "rawCards": 10,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 15357,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "web",
+      "ideaName": "Ekip içi karar defteri",
+      "categoryId": "a11y",
+      "categoryLabel": "Erişilebilirlik",
+      "mode": "local-ai",
+      "cards": 8,
+      "rawCards": 8,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 10882,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "mobile",
+      "ideaName": "Yürüyüş günlüğü",
+      "categoryId": "core-depth",
+      "categoryLabel": "Ana akışı derinleştir",
+      "mode": "local-ai",
+      "cards": 8,
+      "rawCards": 8,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 12461,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "mobile",
+      "ideaName": "Yürüyüş günlüğü",
+      "categoryId": "narrow",
+      "categoryLabel": "Kapsamı daralt",
+      "mode": "local-ai",
+      "cards": 8,
+      "rawCards": 8,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 9560,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "mobile",
+      "ideaName": "Yürüyüş günlüğü",
+      "categoryId": "notifications",
+      "categoryLabel": "Bildirimler",
+      "mode": "local-ai",
+      "cards": 8,
+      "rawCards": 8,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 9730,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "ai",
+      "ideaName": "Belge özetleyici",
+      "categoryId": "core-depth",
+      "categoryLabel": "Ana akışı derinleştir",
+      "mode": "local-ai",
+      "cards": 8,
+      "rawCards": 8,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 12044,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "ai",
+      "ideaName": "Belge özetleyici",
+      "categoryId": "narrow",
+      "categoryLabel": "Kapsamı daralt",
+      "mode": "local-ai",
+      "cards": 8,
+      "rawCards": 8,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 10688,
+      "fallbackReason": null
+    },
+    {
+      "ideaKey": "ai",
+      "ideaName": "Belge özetleyici",
+      "categoryId": "human-approval",
+      "categoryLabel": "İnsan onayı",
+      "mode": "local-ai",
+      "cards": 10,
+      "rawCards": 10,
+      "dropped": 0,
+      "attempts": 1,
+      "durationMs": 13363,
+      "fallbackReason": null
+    }
+  ]
+}
