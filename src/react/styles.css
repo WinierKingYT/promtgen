@@ -1,6 +1,60 @@
 @import "tailwindcss";
 
-:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e8ecf7; background: #090d18; --bg:#090d18; --panel:#101625; --panel-2:#151c2d; --line:#273149; --muted:#8d98ae; --violet:#8b7cf6; --violet-2:#b0a5ff; --mint:#5eead4; --danger:#fb7185; }
+:root {
+  /*
+   * Tek token katmanı. Daha önce üç ayrı :root vardı (koyu kuşak, --studio-*,
+   * --pg-*) ve üçü de body'yi yeniden tanımlıyordu; kazanan dosya sırasındaki
+   * sonuncusuydu. Hangi kuralın geçerli olduğu artık konuma değil niyete bağlı.
+   */
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Ürün tokenleri — alt proje B bu değerleri değiştirecek. */
+  --pg-bg:#f7f7f5;
+  --pg-surface:#ffffff;
+  --pg-surface-soft:#f1f2ef;
+  --pg-text:#171a18;
+  --pg-muted:#66706a;
+  --pg-faint:#939c96;
+  --pg-border:#e2e5e1;
+  --pg-border-strong:#cfd5d0;
+  --pg-accent:#5b42d6;
+  --pg-accent-hover:#4932c2;
+  --pg-accent-soft:#efecff;
+  --pg-success:#16765f;
+  --pg-success-soft:#e7f5f0;
+  --pg-warning:#9a5d0d;
+  --pg-warning-soft:#fff4df;
+  --pg-danger:#b83245;
+  --pg-danger-soft:#fff0f2;
+  --pg-shadow:0 22px 65px rgba(24,32,27,.1);
+  --pg-sidebar:236px;
+
+  /*
+   * MİRAS — 246 yerde kullanılıyor, alt proje B'de çözülecek.
+   * Değerler bilerek aynen korunuyor: bunları --pg-* karşılıklarına bağlamak
+   * rengi değiştirir (--mint #5eead4 ≠ --pg-success #16765f) ve bu alt
+   * projenin "ekran değişmesin" sözleşmesini bozar.
+   */
+  --bg:#090d18;
+  --panel:#101625;
+  --line:#273149;
+  --muted:#8d98ae;
+  --violet:#8b7cf6;
+  --violet-2:#b0a5ff;
+  --mint:#5eead4;
+  --danger:#fb7185;
+  --studio-canvas:#f5f6f2;
+  --studio-muted-surface:#eef1ec;
+  --studio-text:#18221e;
+  --studio-muted:#66736d;
+  --studio-line:#dfe5df;
+  --studio-accent:#146b59;
+  --studio-accent-strong:#0e5748;
+  --studio-accent-soft:#e5f2ed;
+  --studio-danger:#b43d42;
+  --studio-shadow:0 18px 60px rgba(22,44,35,.08);
+}
 * { box-sizing: border-box; }
 html { overflow-x:hidden; }
 body { margin:0; min-width:320px; min-height:100vh; background: radial-gradient(circle at 70% 0%, #1b1a3c 0, transparent 30%), var(--bg); }
@@ -552,7 +606,6 @@ details summary { display:flex;align-items:center;gap:5px;cursor:pointer;color:#
 @media (max-width:780px) { .change-impact-grid,.trace-detail,.scenario-grid,.scenario-form,.section-patch-diff,.requirement-fields { grid-template-columns:1fr; }.change-impact-actions { display:grid;grid-template-columns:1fr; }.change-impact-actions button,.composer-mode-switch button { min-height:44px; }.trace-map>header,.requirement-quality>header,.requirement-empty { align-items:stretch;flex-direction:column; }.trace-map-controls>* { width:100%; }.trace-type-filters { width:100%; }.trace-type-filters button { flex:1; }.trace-detail dl { grid-template-columns:1fr; }.scenario-form label,.scenario-form label:nth-child(2),.scenario-form label:nth-child(3),.scenario-form label:nth-child(4),.scenario-form>button,.requirement-fields .wide { grid-column:1; }.section-regeneration>header,.section-patch-apply { align-items:stretch;flex-direction:column; }.section-patch-apply button,.requirement-empty button { width:100%; }.requirement-quality-counts { justify-content:flex-start; } }
 
 /* PromtGen Studio — conversation-first production UI */
-:root { color-scheme:light;--studio-canvas:#f5f6f2;--studio-surface:#fff;--studio-muted-surface:#eef1ec;--studio-text:#18221e;--studio-muted:#66736d;--studio-line:#dfe5df;--studio-accent:#146b59;--studio-accent-strong:#0e5748;--studio-accent-soft:#e5f2ed;--studio-danger:#b43d42;--studio-shadow:0 18px 60px rgba(22,44,35,.08); }
 body { color:var(--studio-text);background:var(--studio-canvas); }
 button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid rgba(20,107,89,.28);outline-offset:2px; }
 .primary,.studio-primary { border:0!important;border-radius:11px;padding:11px 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--studio-accent);color:#fff;box-shadow:none;font-weight:750; }
@@ -602,28 +655,6 @@ textarea,select { border-color:var(--studio-line);background:#fff;color:var(--st
 /* ========================================================================== */
 /* PromtGen Idea Studio — page architecture reset                             */
 /* ========================================================================== */
-:root {
-  color-scheme:light;
-  --pg-bg:#f7f7f5;
-  --pg-surface:#ffffff;
-  --pg-surface-soft:#f1f2ef;
-  --pg-text:#171a18;
-  --pg-muted:#66706a;
-  --pg-faint:#939c96;
-  --pg-border:#e2e5e1;
-  --pg-border-strong:#cfd5d0;
-  --pg-accent:#5b42d6;
-  --pg-accent-hover:#4932c2;
-  --pg-accent-soft:#efecff;
-  --pg-success:#16765f;
-  --pg-success-soft:#e7f5f0;
-  --pg-warning:#9a5d0d;
-  --pg-warning-soft:#fff4df;
-  --pg-danger:#b83245;
-  --pg-danger-soft:#fff0f2;
-  --pg-shadow:0 22px 65px rgba(24,32,27,.1);
-  --pg-sidebar:236px;
-}
 html,body,#root { min-width:320px;min-height:100%;background:var(--pg-bg);color:var(--pg-text); }
 .pg-onboarding-shell,.pg-studio-shell { min-height:100dvh;color:var(--pg-text);background:var(--pg-bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
 .pg-onboarding-shell button,.pg-studio-shell button,.pg-onboarding-shell summary,.pg-studio-shell summary { cursor:pointer; }
