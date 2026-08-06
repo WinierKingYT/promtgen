@@ -1,4 +1,5 @@
 import type { ConceptSummary, ProjectDocumentV5, SuggestionItem } from '../contracts.js';
+import { selectTurnBundle } from './proposal-bundle-selectors.js';
 
 export type IdeaCoachStepId = 'problem' | 'user' | 'value' | 'mvp' | 'risks' | 'approval';
 export type IdeaEvidenceStatus = 'unknown' | 'draft' | 'confirmed' | 'contradicted' | 'decision-required';
@@ -159,8 +160,15 @@ function turnFieldsFor(project: ProjectDocumentV5, activeStep: IdeaCoachStepId):
   };
 }
 
+/**
+ * Koçun karar sayıları konuşma turunu anlatır. Keşif panosundan eklenen
+ * kartlar turun bir parçası değildir ve kendi panelinde karara bağlanır;
+ * buraya karışırlarsa "kritik karar" rozeti kullanıcının hiç sorulmamış
+ * kartlarını sayar.
+ */
 function latestOpenItems(project: ProjectDocumentV5): SuggestionItem[] {
-  return [...project.proposalStore.bundles].reverse().find(bundle => bundle.status === 'open')?.items || [];
+  const bundle = selectTurnBundle(project);
+  return bundle?.status === 'open' ? bundle.items : [];
 }
 
 function isCriticalDecision(item: SuggestionItem): boolean {

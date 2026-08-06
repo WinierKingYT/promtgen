@@ -36,6 +36,7 @@ import type { CredentialVault } from '../v4/credential-vault.js';
 import type { TaskCompilationResult } from '../v4/task-compiler.js';
 import { prepareDiscoveryTurnProject } from '../v4/application/discovery-service.js';
 import { buildIdeaCoachState, ensureIdeaCoachWorkspace } from '../v4/application/idea-coach-service.js';
+import { selectTurnBundle } from '../v4/application/proposal-bundle-selectors.js';
 import {
   applyDiscoveryAnswerDraft,
   createDiscoveryAnswerDraft,
@@ -106,8 +107,10 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     setDiscoveryAnswerDraft(null);
   }, [project.id]);
 
-  const currentBundle = [...project.proposalStore.bundles].reverse().find(bundle => bundle.status === 'open')
-    || project.proposalStore.bundles.at(-1);
+  // Yalnız konuşma turunun paketi. Keşif panosundan eklenen kartlar kendi
+  // paketinde durur ve kendi panelinde karara bağlanır; bu listeye karışırlarsa
+  // tur kapanınca sessizce ertelenirler.
+  const currentBundle = selectTurnBundle(project);
   const bundleResolved = currentBundle?.status === 'resolved';
   const pendingItems = bundleResolved ? [] : currentBundle?.items || [];
   const acceptedCount = pendingItems.filter(item => item.status === 'accepted' || item.status === 'edited').length;
@@ -353,7 +356,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           project={project}
           coach={coach}
           settings={providerSettings}
-          onAddCard={(next, message) => void persistCandidate(next, message, 'AddExpansionCard')}
+          onPersist={(next, message, commandType) => void persistCandidate(next, message, commandType)}
           onNotice={notify}
         />
       </main>}

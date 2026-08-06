@@ -99,6 +99,68 @@ test.describe('Keşif panosu', () => {
     await expect(page.locator('.toast')).not.toContainText('fikre eklendi');
   });
 
+  test('eklenen kartlar kendi karar listesine düşer; hepsi karara bağlanmadan uygulanamaz', async ({ page }) => {
+    await stubExpansionProvider(page, AI_CARDS);
+    await page.goto('/');
+    await startIdea(page);
+
+    await page.getByRole('tab', { name: 'Keşif' }).click();
+    const board = page.getByRole('region', { name: 'Keşif panosu' });
+    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
+    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })
+      .getByRole('button', { name: 'Fikre ekle' }).click();
+    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[1].title })
+      .getByRole('button', { name: 'Fikre ekle' }).click();
+
+    const decisions = page.getByRole('region', { name: 'Eklediğin kartlar' });
+    await expect(decisions.locator('li')).toHaveCount(2);
+    const apply = decisions.getByRole('button', { name: 'Kararları uygula' });
+
+    // Bekleyen kart varsa applyApprovedChanges sessizce hiçbir şey yapmaz;
+    // düğme bu kapıyı gizlemek yerine görünür kılmalı.
+    await expect(decisions).toContainText('2 kart hâlâ karar bekliyor');
+    await expect(apply).toBeDisabled();
+
+    await decisions.locator('li', { hasText: AI_CARDS[0].title })
+      .getByRole('button', { name: 'Kabul et' }).click();
+    await expect(decisions.locator('li', { hasText: AI_CARDS[0].title })).toContainText('Kabul edildi');
+    await expect(decisions).toContainText('1 kart hâlâ karar bekliyor');
+    await expect(apply).toBeDisabled();
+
+    await decisions.locator('li', { hasText: AI_CARDS[1].title })
+      .getByRole('button', { name: 'Reddet' }).click();
+    await expect(apply).toBeEnabled();
+
+    await apply.click();
+    await expect(page.locator('.toast')).toContainText('1 kart plana taşındı');
+    // Paket karara bağlandı: yeni kartlar için taze bir paket açılır, bu liste boşalır.
+    await expect(page.getByRole('region', { name: 'Eklediğin kartlar' })).toHaveCount(0);
+  });
+
+  test('eklenen kart konuşma turunun kritik karar sayısına karışmaz', async ({ page }) => {
+    await stubExpansionProvider(page, AI_CARDS);
+    await page.goto('/');
+    await startIdea(page);
+
+    // Kart 'decision' türünde ve affectedSections=['scope'] taşır; turun paketine
+    // düşseydi bu rozet kullanıcıya hiç sorulmamış bir kartı kritik karar sayardı.
+    const criticalBadge = page.locator('.pg-scope-snapshot div', { hasText: 'Kritik karar' }).locator('b');
+    const before = await criticalBadge.innerText();
+
+    await page.getByRole('tab', { name: 'Keşif' }).click();
+    const board = page.getByRole('region', { name: 'Keşif panosu' });
+    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
+    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[1].title })
+      .getByRole('button', { name: 'Fikre ekle' }).click();
+
+    // Kart gerçekten eklendi: sayının değişmemesi başarısız bir eklemeden gelmiyor.
+    await expect(page.getByRole('region', { name: 'Eklediğin kartlar' }))
+      .toContainText(AI_CARDS[1].title);
+
+    await page.getByRole('tab', { name: 'Özet' }).click();
+    await expect(criticalBadge).toHaveText(before);
+  });
+
   test('Özet sekmesi bozulmaz', async ({ page }) => {
     await stubReadyProvider(page);
     await page.goto('/');
