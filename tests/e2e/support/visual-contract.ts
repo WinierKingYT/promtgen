@@ -8,6 +8,7 @@ import type { Page } from '@playwright/test';
 export const TRACKED_PROPERTIES = [
   'color',
   'background-color',
+  'background-image',
   'font-family',
   'font-size',
   'font-weight',
