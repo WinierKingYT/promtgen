@@ -3,9 +3,23 @@ import type { ExpansionCard } from './idea-expansion-service.js';
 import { captureDiscussionBundle } from './idea-discussion-service.js';
 import {
   EXPANSION_BUNDLE_TITLE,
+  findExpansionItemByTitle,
   nextExpansionBundleId,
   selectExpansionBundle
 } from './proposal-bundle-selectors.js';
+
+/**
+ * Kart daha önce eklenmişse kullanıcıya verdiği kararı hatırlatırız. Kararı
+ * değiştirmek isteyen kullanıcı kartı yeniden eklemez; kaydın kendisini fikir
+ * defterinden düzenler. Aksi hâlde aynı içerik plana ikinci kez girer.
+ */
+const ALREADY_ADDED_REASON: Record<string, string> = {
+  pending: 'Bu kart zaten fikir defterinde karar bekliyor.',
+  accepted: 'Bu kartı daha önce kabul ettin; içeriği plana geçti.',
+  edited: 'Bu kartı daha önce düzenleyerek kabul ettin; içeriği plana geçti.',
+  deferred: 'Bu kartı daha önce erteledin; kararı fikir defterinden değiştirebilirsin.',
+  rejected: 'Bu kartı daha önce reddettin; kararı fikir defterinden değiştirebilirsin.'
+};
 
 function openExpansionBundle(project: ProjectDocumentV5): SuggestionBundle {
   // Kartlar turun seçenek paketine karışmaz. Kullanıcı bu kartları kendisi
@@ -57,12 +71,20 @@ export function addExpansionCardAsSuggestion(
   card: ExpansionCard,
   categoryLabel: string
 ): ExpansionIntakeResult {
+  const title = card.title.trim();
+  // Denetim paketten önce gelir: yalnız açık pakete bakılsaydı karara bağlanmış
+  // bir kart taze pakette yeniden aday olurdu. Bkz. proposal-bundle-selectors.ts.
+  const previous = findExpansionItemByTitle(project, title);
+  if (previous) {
+    return {
+      project,
+      added: false,
+      reason: ALREADY_ADDED_REASON[previous.status] || 'Bu kart zaten fikir defterinde duruyor.'
+    };
+  }
+
   const next = structuredClone(project);
   const bundle = openExpansionBundle(next);
-  const title = card.title.trim();
-  if (bundle.items.some(item => item.title === title)) {
-    return { project, added: false, reason: 'Bu kart zaten fikir defterinde duruyor.' };
-  }
 
   const assessed = card.origin === 'ai';
   const item: SuggestionItem = {

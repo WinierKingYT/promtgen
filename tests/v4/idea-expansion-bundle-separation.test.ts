@@ -127,6 +127,67 @@ describe('keşif kartları turun öneri paketinden ayrılır', () => {
     );
   });
 
+  it('plana geçmiş kart ikinci kez eklenemez', () => {
+    // Paket dönüşümlü olduğu için mükerrer denetimi "o anki paket" ile sınırlı
+    // kalırsa apply sonrası taze paket boş listeye bakar: kart plana ikinci kez
+    // girer ve `decisions` mükerrer büyür.
+    const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const bundle = selectExpansionBundle(once.project)!;
+    const decided = updateSuggestionStatus(once.project, bundle.id, bundle.items[0].id, 'accepted');
+    const applied = applyApprovedChanges(decided, bundle.id) as ProjectDocumentV5;
+
+    const again = addExpansionCardAsSuggestion(applied, card(), 'Güven ve gizlilik');
+    assert.equal(again.added, false, 'plana geçmiş kart yeniden aday yapılmamalı');
+    assert.equal(again.project, applied, 'değişiklik yoksa aynı belge dönmeli');
+    assert.match(again.reason, /kabul/i, 'neden, kartın daha önce kabul edildiğini söylemeli');
+  });
+
+  it('reddedilmiş kart ikinci kez eklenemez ve kararı hatırlatılır', () => {
+    const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const bundle = selectExpansionBundle(once.project)!;
+    const decided = updateSuggestionStatus(once.project, bundle.id, bundle.items[0].id, 'rejected');
+    const applied = applyApprovedChanges(decided, bundle.id) as ProjectDocumentV5;
+
+    const again = addExpansionCardAsSuggestion(applied, card(), 'Güven ve gizlilik');
+    assert.equal(again.added, false);
+    assert.match(again.reason, /reddet/i, 'kullanıcı hangi kararı verdiğini görebilmeli');
+  });
+
+  it('mükerrer denetimi kategoriye takılmaz: aynı başlık başka kategoriden de gelemez', () => {
+    // Parmak izi kategori taşır; denetim parmak izine bağlansaydı aynı kart
+    // başka bir başlık altından ikinci kez plana girebilirdi.
+    const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const again = addExpansionCardAsSuggestion(once.project, card({ id: 'card-9' }), 'Ölçüm');
+    assert.equal(again.added, false);
+  });
+
+  it('kabul edilen kart yeniden eklenemediği için plana mükerrer karar düşmez', () => {
+    const first = addExpansionCardAsSuggestion(project(), card({ kind: 'decision' }), 'Güven ve gizlilik');
+    const bundle = selectExpansionBundle(first.project)!;
+    const applied = applyApprovedChanges(
+      updateSuggestionStatus(first.project, bundle.id, bundle.items[0].id, 'accepted'),
+      bundle.id
+    ) as ProjectDocumentV5;
+    assert.equal(applied.decisions.length, 1);
+
+    const again = addExpansionCardAsSuggestion(applied, card({ kind: 'decision' }), 'Güven ve gizlilik');
+    assert.equal(again.added, false);
+    assert.equal(again.project.decisions.length, 1, 'aynı karar plana iki kez yazılmamalı');
+  });
+
+  it('eklenen her kartın fikir defterinde karşılığı vardır', () => {
+    // İki defter ayrışırsa bekleyen bir öneri hiçbir kaydı olmadan asılı kalır.
+    const first = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const second = addExpansionCardAsSuggestion(first.project, card({ id: 'card-2', title: 'İkinci kart' }), 'Ölçüm');
+    const expansionItems = second.project.proposalStore.bundles
+      .filter(isExpansionBundle)
+      .flatMap(bundle => bundle.items);
+    const recordTexts = new Set((second.project.ideaDiscussion?.records || []).map(record => record.text));
+    for (const item of expansionItems) {
+      assert.ok(recordTexts.has(item.title), `"${item.title}" için fikir defterinde kayıt olmalı`);
+    }
+  });
+
   it('tur paketi seçicisi keşif paketini asla tur sanmaz', () => {
     const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
     const turn = selectTurnBundle(once.project)!;
