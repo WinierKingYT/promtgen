@@ -229,7 +229,7 @@ tek tek elle koşulur.
 | Referans yanlış anı yakalar | Referans commit'i CSS değişikliği içermez |
 | Dinamik sınıf adı ölü sanılıp silinir | Harness o elemanın stil farkını yakalar |
 | Bileşik global kural yanlış çözülür | Harness yakalar; hedef hesaplanmış değerdir |
-| Tailwind kaldırılınca `sr-only` bozulur | `pg-sr-only` de harness kapsamında (LiveAnnouncer her ekranda) |
+| Tailwind kaldırılınca `sr-only` bozulur | `pg-sr-only` harness kapsamında: `LiveAnnouncer` yalnız `notice` doluyken render ediliyor, bu yüzden 8. ekran (`.toast` görünürken) onu da yakalar |
 
 Geri alma: A yalnız `styles.css`, `vite.config.ts`, `package.json`, `index.html` ve
 `LiveAnnouncer.tsx` dosyalarına dokunur. Uygulama mantığına dokunmaz; `git revert` yeterlidir.
