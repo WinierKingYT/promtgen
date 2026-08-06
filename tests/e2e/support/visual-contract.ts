@@ -31,14 +31,29 @@ export interface ElementStyle {
 }
 
 /**
- * `document.body` altındaki tüm elemanları belge sırasında gezer. El seçimi
- * seçici listesi kullanılmaz: hiçbir eleman gözden kaçmaz. Markup bu alt
- * projede değişmediği için sıra kararlıdır.
+ * `<html>`'i tek bir üst-eleman olarak yakalar, sonra `document.body`
+ * altındaki tüm elemanları eskisi gibi belge sırasında gezer. El seçimi
+ * seçici listesi kullanılmaz: hiçbir body elemanı gözden kaçmaz. Markup bu
+ * alt projede değişmediği için sıra kararlıdır.
+ *
+ * Daha önce yalnız `document.body`'den başlıyordu; bu, `<html>`'i hiç
+ * yakalamıyordu. `:root` özgüllüğü (0,1,0) `html,body,#root` kuralındaki
+ * `html` tip seçicisinden (0,0,1) yüksek olduğu için `:root`'taki bildirimler
+ * `<html>` üzerinde kazanır — bu kör nokta styles.css'teki eski `:root`'un
+ * `color`/`background` bildirimlerinin `<html>`'i (body'yi değil) etkilediğini
+ * gözden kaçırmasına yol açmıştı.
+ *
+ * `<html>`'i `document.documentElement`'ten başlayarak *gezmek* (walk) yerine
+ * ayrı yakalanır: `document.documentElement`'in çocukları `<head>` ve
+ * `<body>`'dir, bu yüzden oradan gezinmek `<meta>`/`<title>`/`<script>`/
+ * `<link>` gibi görünüm sözleşmesiyle ilgisiz onlarca `<head>` elemanını da
+ * listeye katardı (denendi: ekran başına 90 → 107 gibi +17 eleman). Onun
+ * yerine yalnız `<html>` düğümünün kendisi eklenir, `<head>`'e hiç inilmez.
  */
 export async function captureComputedStyles(page: Page): Promise<ElementStyle[]> {
   return page.evaluate((properties: string[]) => {
     const result: ElementStyle[] = [];
-    const walk = (node: Element) => {
+    const capture = (node: Element) => {
       const computed = window.getComputedStyle(node);
       const styles: Record<string, string> = {};
       for (const property of properties) styles[property] = computed.getPropertyValue(property);
@@ -47,8 +62,12 @@ export async function captureComputedStyles(page: Page): Promise<ElementStyle[]>
         className: typeof node.className === 'string' ? node.className : '',
         styles
       });
+    };
+    const walk = (node: Element) => {
+      capture(node);
       for (const child of Array.from(node.children)) walk(child);
     };
+    capture(document.documentElement);
     walk(document.body);
     return result;
   }, [...TRACKED_PROPERTIES]);
