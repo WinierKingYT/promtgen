@@ -7,6 +7,7 @@ import type {
   ProjectDocumentV5,
   SuggestionBundle
 } from '../contracts.js';
+import { isExpansionBundle } from './proposal-bundle-selectors.js';
 
 const VALID_MODES = new Set<IdeaDiscussionMode>(['explore', 'challenge', 'compare', 'clarify']);
 const VALID_STATUSES = new Set<IdeaRecordStatus>(['pending', 'accepted', 'deferred', 'rejected']);
@@ -259,6 +260,30 @@ export function updateIdeaRecord(
   return next;
 }
 
+/**
+ * Keşif kartı iki defterde birden durur. Kullanıcı kararı fikir defterinde
+ * verdiğinde öneri `pending` kalıyordu: Keşif panosu "karar bekliyor" demeye
+ * devam ediyor, uygulama kapısı hiç açılmıyor ve kayıt listeden düştüğü için
+ * kart hiçbir yerden karara bağlanamıyordu. Toplu erteleme (`deferRemaining`,
+ * dönüşümün ertelenebilir kayıtları) aynı kapana giriyordu.
+ *
+ * Yön tek taraflıdır: yalnız hâlâ karar bekleyen defter, karar vereni izler.
+ * Tersi olsaydı defterin toplu "ertele" hareketi kullanıcının açık reddini
+ * sessizce silerdi. Eşleme kaydın kendi paketiyle sınırlıdır; tur paketlerinin
+ * kararı mevcut apply akışında verilir ve buraya hiç uğramaz.
+ */
+function mirrorDecisionOntoExpansionItem(
+  project: ProjectDocumentV5,
+  record: IdeaDiscussionRecord,
+  status: IdeaRecordStatus
+): void {
+  if (status === 'pending' || !record.sourceBundleId) return;
+  const bundle = project.proposalStore?.bundles?.find(item => item.id === record.sourceBundleId);
+  if (!bundle || !isExpansionBundle(bundle)) return;
+  const item = bundle.items.find(entry => entry.title.trim() === record.text.trim());
+  if (item?.status === 'pending') item.status = status;
+}
+
 export function updateIdeaRecordStatus(
   project: ProjectDocumentV5,
   recordId: string,
@@ -272,6 +297,7 @@ export function updateIdeaRecordStatus(
     throw new Error('Açık soru kabul edilmeden önce cevaplanmalı.');
   }
   record.status = status;
+  mirrorDecisionOntoExpansionItem(next, record, status);
   record.resolvedAt = status === 'pending' ? undefined : new Date().toISOString();
   next.ideaDiscussion.updatedAt = new Date().toISOString();
   return next;

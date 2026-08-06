@@ -8,6 +8,7 @@ import {
   selectTurnBundle
 } from '../../src/v4/application/proposal-bundle-selectors.js';
 import { buildIdeaCoachState } from '../../src/v4/application/idea-coach-service.js';
+import { updateIdeaRecordStatus } from '../../src/v4/application/idea-discussion-service.js';
 import type { ExpansionCard } from '../../src/v4/application/idea-expansion-service.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
@@ -186,6 +187,59 @@ describe('keşif kartları turun öneri paketinden ayrılır', () => {
     for (const item of expansionItems) {
       assert.ok(recordTexts.has(item.title), `"${item.title}" için fikir defterinde kayıt olmalı`);
     }
+  });
+
+  it('fikir defterinden verilen karar keşif kartını askıda bırakmaz', () => {
+    // Aynı kart iki defterde duruyor. Kullanıcı kararı fikir defterinde verirse
+    // öneri `pending` kalıyordu: Keşif panosu "karar bekliyor" demeye devam
+    // ediyor, uygula düğmesi hiç açılmıyor ve kayıt artık listede olmadığı için
+    // kart hiçbir yerden karara bağlanamıyordu.
+    const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const record = once.project.ideaDiscussion!.records.find(item => item.text === card().title)!;
+    const decided = updateIdeaRecordStatus(once.project, record.id, 'rejected');
+
+    const bundle = selectExpansionBundle(decided);
+    assert.equal(bundle!.items[0].status, 'rejected', 'öneri, defterde verilen kararı izlemeli');
+    assert.equal(
+      bundle!.items.filter(item => item.status === 'pending').length,
+      0,
+      'Keşif panosu artık bekleyen kart göstermemeli'
+    );
+  });
+
+  it('bekleyen kayıtların toplu ertelenmesi kartı askıda bırakmaz', () => {
+    const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const record = once.project.ideaDiscussion!.records.find(item => item.text === card().title)!;
+    const deferred = updateIdeaRecordStatus(once.project, record.id, 'deferred');
+    assert.equal(selectExpansionBundle(deferred)!.items[0].status, 'deferred');
+  });
+
+  it('karara bağlanmış kartı defterin toplu kararı ezmez', () => {
+    // Yön tek taraflıdır: yalnız hâlâ karar bekleyen defter, karar vereni izler.
+    // Aksi hâlde kullanıcının açık reddi toplu bir "ertele" ile sessizce silinir.
+    const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const bundle = selectExpansionBundle(once.project)!;
+    const rejected = updateSuggestionStatus(once.project, bundle.id, bundle.items[0].id, 'rejected');
+    const record = rejected.ideaDiscussion!.records.find(item => item.text === card().title)!;
+    const bulk = updateIdeaRecordStatus(rejected, record.id, 'deferred');
+
+    assert.equal(
+      selectExpansionBundle(bulk)!.items[0].status,
+      'rejected',
+      'kullanıcının açık kararı korunmalı'
+    );
+  });
+
+  it('tur paketinin kayıtları keşif kartlarına dokunmaz', () => {
+    // Aynalama yalnız keşif paketlerine bakar; tur kaydının kararı, başlığı
+    // tesadüfen eşleşen bir keşif kartını değiştirmemeli.
+    const once = addExpansionCardAsSuggestion(project(), card(), 'Güven ve gizlilik');
+    const turn = selectTurnBundle(once.project)!;
+    const turnRecord = once.project.ideaDiscussion!.records
+      .find(item => item.sourceBundleId === turn.id);
+    if (!turnRecord) return;
+    const decided = updateIdeaRecordStatus(once.project, turnRecord.id, 'rejected');
+    assert.equal(selectExpansionBundle(decided)!.items[0].status, 'pending');
   });
 
   it('tur paketi seçicisi keşif paketini asla tur sanmaz', () => {
