@@ -3,7 +3,9 @@ import { describe, it, beforeEach } from 'node:test';
 import { analyzeIdea } from '../../src/v4/planning-engine.js';
 import {
   generateExpansionCards,
-  clearExpansionCache
+  clearExpansionCache,
+  selectVisibleExpansionResult,
+  type ExpansionResult
 } from '../../src/v4/application/idea-expansion-service.js';
 import { getExpansionCategories } from '../../src/v4/idea-expansion/categories.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
@@ -40,6 +42,10 @@ describe('generateExpansionCards', () => {
     assert.equal(result.mode, 'local-ai');
     assert.equal(result.cards.length, 4);
     assert.equal(result.categoryId, 'trust');
+    assert.ok(
+      result.cards.every(item => item.origin === 'ai'),
+      'model çıktısı kartları AI kökenli olarak işaretlenmeli'
+    );
   });
 
   it('sağlayıcı yokken seedTitles ile fallback üretir', async () => {
@@ -56,6 +62,16 @@ describe('generateExpansionCards', () => {
       category.seedTitles,
       'fallback kartları yalnız kategorinin kendi seedTitles değerlerinden üretilmeli, uydurulmamalı'
     );
+
+    assert.ok(
+      result.cards.every(item => item.origin === 'local-seed'),
+      'yerel kartlar kökenini kendi üzerinde taşımalı; tüketici tahmin etmemeli'
+    );
+    for (const item of result.cards) {
+      assert.equal(item.effort, undefined, 'değerlendirilmemiş efor uydurulmamalı');
+      assert.equal(item.impact, undefined, 'değerlendirilmemiş etki uydurulmamalı');
+      assert.equal(item.mvpHint, undefined, 'değerlendirilmemiş MVP etiketi uydurulmamalı');
+    }
   });
 
   it('AI hata verirse fallback üretir, hata yutulmaz', async () => {
@@ -89,5 +105,31 @@ describe('generateExpansionCards', () => {
     await generateExpansionCards(target, 'trust', { settings: aiSettings, provider });
     await generateExpansionCards(target, 'trust', { settings: aiSettings, provider, refresh: true });
     assert.equal(calls.count, 2);
+  });
+});
+
+describe('selectVisibleExpansionResult', () => {
+  const resultFor = (categoryId: string): ExpansionResult => ({
+    categoryId,
+    cards: [{ id: `${categoryId}-1`, title: `${categoryId} kartı`, description: '…', kind: 'feature', origin: 'ai' }],
+    mode: 'local-ai',
+    fallbackReason: null
+  });
+
+  it('etkin kategoriye ait sonucu gösterir', () => {
+    const result = resultFor('trust');
+    assert.equal(selectVisibleExpansionResult('trust', result), result);
+  });
+
+  it('geç gelen başka kategorinin sonucunu göstermez', () => {
+    // Yavaş "trust" isteği, önbellekli "money" seçildikten sonra çözülürse
+    // kartlar yanlış başlığın altına düşerdi; "Fikre ekle" de yanlış kategori
+    // etiketini fingerprint'e ve tartışma kaydına yazardı.
+    assert.equal(selectVisibleExpansionResult('money', resultFor('trust')), null);
+  });
+
+  it('hiçbir kategori seçili değilken sonuç göstermez', () => {
+    assert.equal(selectVisibleExpansionResult(null, resultFor('trust')), null);
+    assert.equal(selectVisibleExpansionResult('trust', null), null);
   });
 });
