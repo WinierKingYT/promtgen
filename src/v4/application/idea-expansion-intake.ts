@@ -52,6 +52,30 @@ const LOCAL_SEED_REASON =
 /** Öneri kaydına düşen efor/etki değeri; AI kartlarında model yargısıdır. */
 const UNASSESSED_LEVEL: SuggestionItem['effort'] = 'medium';
 
+/**
+ * Kartın hangi plan bölümlerini etkilediği türünden gelir.
+ *
+ * Sabit `['scope']` her kartı yalnız bir kapsam maddesi yapıyordu: kabul edilen
+ * bir "MVP adayı" özellik kartı hiçbir zaman gereksinime dönüşmüyordu ve
+ * fikir→plan dönüşümü gereksinimleri `conceptSummary.confirmedFeatures`'tan
+ * ürettiği için orada da yakalanmıyordu — kart kapsam bölümünde ölü bir madde
+ * olarak kalıyordu. Aynı sabit, kararı ve riski de kapsama sızdırıyordu.
+ *
+ * Paketi uygulayan akış karar ve risk kayıtlarını zaten türden üretir; buradaki
+ * liste yalnız hangi bölüm metnine dokunulacağını söyler. Soru bir plan öğesi
+ * değildir: yeri fikir defteridir, plana hiçbir bölüm yazmaz.
+ *
+ * (Bu modül plana yazan hiçbir işlevi çağırmaz; kartı yalnız `pending` öneri
+ * yapar. Bunu tests/v4/architecture/ai-runtime-ownership.test.ts denetler.)
+ */
+const SECTIONS_BY_KIND: Record<string, string[]> = {
+  feature: ['scope', 'requirements'],
+  decision: ['decisions'],
+  architecture: ['architecture'],
+  risk: ['risks'],
+  question: []
+};
+
 export interface ExpansionIntakeResult {
   project: ProjectDocumentV5;
   /** Kart yeni bir öneri olarak eklendiyse true; zaten varsa false. */
@@ -101,7 +125,7 @@ export function addExpansionCardAsSuggestion(
     impact: (assessed ? card.impact as SuggestionItem['impact'] : undefined) || UNASSESSED_LEVEL,
     recommended: false,
     recommendationReason: assessed ? '' : LOCAL_SEED_REASON,
-    affectedSections: ['scope'],
+    affectedSections: SECTIONS_BY_KIND[card.kind] || ['scope'],
     dependencies: [],
     status: 'pending'
   };
