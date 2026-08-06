@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach } from 'node:test';
-import { analyzeIdea } from '../../src/v4/planning-engine.js';
+import { analyzeIdea, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
+import { addExpansionCardAsSuggestion } from '../../src/v4/application/idea-expansion-intake.js';
+import { selectExpansionBundle } from '../../src/v4/application/proposal-bundle-selectors.js';
 import {
   generateExpansionCards,
   clearExpansionCache,
@@ -105,6 +107,58 @@ describe('generateExpansionCards', () => {
     await generateExpansionCards(target, 'trust', { settings: aiSettings, provider });
     await generateExpansionCards(target, 'trust', { settings: aiSettings, provider, refresh: true });
     assert.equal(calls.count, 2);
+  });
+});
+
+/**
+ * Karara bağlanmış bir kart panoda yeniden aday olarak görünmemeli. İstem
+ * reddedilenleri bağlamda görüyor ama bu modelin uymasına bağlı bir söz;
+ * başlangıç kartları ise sabit başlıklar olduğu için her açılışta aynen geri
+ * geliyordu. Kullanıcı kartı ekleyemeyeceği hâlde "Fikre ekle" düğmesini
+ * görüyor, bastığında "daha önce reddettin" uyarısı alıyordu.
+ */
+describe('karara bağlanmış kartlar panoda tekrar gösterilmez', () => {
+  beforeEach(() => clearExpansionCache());
+
+  const decidedProject = (title: string, status: 'accepted' | 'rejected' | 'deferred') => {
+    const once = addExpansionCardAsSuggestion(
+      project(),
+      { id: 'x', title, description: `${title} açıklaması`, kind: 'feature', origin: 'ai' },
+      'Güven ve gizlilik'
+    );
+    const bundle = selectExpansionBundle(once.project)!;
+    return updateSuggestionStatus(once.project, bundle.id, bundle.items[0].id, status) as ProjectDocumentV5;
+  };
+
+  for (const status of ['accepted', 'rejected', 'deferred'] as const) {
+    it(`${status} kart AI sonucundan düşürülür`, async () => {
+      const calls = { count: 0 };
+      const result = await generateExpansionCards(decidedProject('B', status), 'trust', {
+        settings: aiSettings, provider: okProvider(calls)
+      });
+      assert.deepEqual(result.cards.map(item => item.title), ['A', 'C', 'D']);
+      assert.equal(result.hiddenCount, 1, 'kaç kartın gizlendiği çağırana bildirilmeli');
+    });
+  }
+
+  it('başlangıç kartları da düşürülür: sabit başlıklar her açılışta geri gelmemeli', async () => {
+    const category = getExpansionCategories(project()).find(item => item.id === 'trust')!;
+    const seedTitle = category.seedTitles[0];
+    const result = await generateExpansionCards(decidedProject(seedTitle, 'rejected'), 'trust', {
+      settings: offlineSettings, provider: failingProvider
+    });
+    assert.equal(result.mode, 'fallback');
+    assert.ok(!result.cards.some(item => item.title === seedTitle), 'reddedilen başlangıç kartı geri gelmemeli');
+    assert.equal(result.hiddenCount, 1);
+  });
+
+  it('karar verilmemişse hiçbir kart düşürülmez', async () => {
+    const calls = { count: 0 };
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: okProvider(calls)
+    });
+    assert.equal(result.cards.length, 4);
+    assert.equal(result.hiddenCount, 0);
   });
 });
 

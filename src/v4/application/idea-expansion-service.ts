@@ -3,6 +3,7 @@ import type { ProviderSettings } from '../provider-settings.js';
 import type { StructuredProvider } from '../ai/provider-adapters.js';
 import { runRegisteredAITask } from '../ai/runtime.js';
 import { getExpansionCategories, type ExpansionCategory } from '../idea-expansion/categories.js';
+import { findExpansionItemByTitle } from './proposal-bundle-selectors.js';
 import type { IdeaExpansionOutput } from '../ai/schemas/schemas.js';
 
 /** Kartın nereden geldiği kartın kendisinde taşınır; tüketici tahmin etmez. */
@@ -29,6 +30,27 @@ export interface ExpansionResult {
   cards: ExpansionCard[];
   mode: 'local-ai' | 'cloud-ai' | 'fallback';
   fallbackReason: string | null;
+  /** Daha önce karara bağlandığı için gizlenen kart sayısı. */
+  hiddenCount: number;
+}
+
+/**
+ * Karara bağlanmış kart panoda yeniden aday olarak gösterilmez.
+ *
+ * İstem reddedilen kayıtları bağlamda görüyor ama bu modelin uymasına bağlı bir
+ * söz; başlangıç kartları ise sabit başlıklar olduğu için her açılışta aynen
+ * geri geliyordu. Kullanıcı ekleyemeyeceği bir kartın "Fikre ekle" düğmesini
+ * görüyor, bastığında "daha önce reddettin" uyarısı alıyordu.
+ *
+ * Ölçüt intake ile aynı: başlık. İki yer aynı anahtarı kullanmazsa panonun
+ * gösterdiği kart ile alımın kabul ettiği kart ayrışır.
+ */
+function hideDecidedCards(project: ProjectDocumentV5, cards: ExpansionCard[]): {
+  cards: ExpansionCard[];
+  hiddenCount: number;
+} {
+  const visible = cards.filter(card => !findExpansionItemByTitle(project, card.title));
+  return { cards: visible, hiddenCount: cards.length - visible.length };
 }
 
 /**
@@ -112,20 +134,24 @@ export async function generateExpansionCards(
         seedTitles: category.seedTitles
       }
     });
+    const visible = hideDecidedCards(project, run.output.cards.map(card => ({ ...card, origin: 'ai' as const })));
     result = {
       categoryId,
-      cards: run.output.cards.map(card => ({ ...card, origin: 'ai' as const })),
+      cards: visible.cards,
       mode: run.provenance.mode === 'cloud-ai' ? 'cloud-ai' : 'local-ai',
-      fallbackReason: null
+      fallbackReason: null,
+      hiddenCount: visible.hiddenCount
     };
   } catch (error) {
     // Sağlayıcı yok, şema tutmadı veya zaman aşımı: pano yine açılır ama
     // bunun AI üretimi olmadığı açıkça bildirilir.
+    const visible = hideDecidedCards(project, seedCards(category));
     result = {
       categoryId,
-      cards: seedCards(category),
+      cards: visible.cards,
       mode: 'fallback',
-      fallbackReason: error instanceof Error ? error.message : 'AI çağrısı başarısız.'
+      fallbackReason: error instanceof Error ? error.message : 'AI çağrısı başarısız.',
+      hiddenCount: visible.hiddenCount
     };
   }
 
