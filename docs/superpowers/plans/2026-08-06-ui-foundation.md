@@ -16,9 +16,23 @@
 - **Miras değişkenler `--pg-*` karşılıklarına bağlanmayacak.** Değerleri birebir korunacak; çözümleme alt proje B'nin işi.
 - Yorumlar ve kullanıcıya görünen metin **Türkçe**.
 - Commit mesajları Türkçe, conventional-commit biçiminde, ASCII gövdeli (depo deseni).
-- Her görev sonunda şu kapılar yeşil olmalı: `npx tsc --noEmit`, `npm run lint` (0 hata), `npm run build`, `npx playwright test`.
+- **Ortam:** bu makinede npm script'lerinin ve `npx`'in başlattığı cmd alt kabuğu `node`'u bulamıyor
+  (`'vite' is not recognized`). Bütün araçlar doğrudan çağrılır:
+
+  | Kapı | Komut |
+  | --- | --- |
+  | Derleme | `node node_modules/vite/bin/vite.js build` |
+  | Tip denetimi | `node node_modules/typescript/bin/tsc --noEmit` |
+  | Lint | `node node_modules/eslint/bin/eslint.js src/v4 src/react tests/v4 --ext .js,.ts,.tsx` |
+  | Birim testleri | `node scripts/run-v4-tests.mjs` |
+  | E2E | `node node_modules/@playwright/test/cli.js test` |
+  | Önizleme | `node node_modules/vite/bin/vite.js preview --port 4173` |
+
+- Önizleme sunucusu 4173'te **kontrolcü tarafından açık tutulur**; başlatma. Her CSS değişikliğinden
+  sonra yalnız derlemeyi tekrarla, sunucu diskten okuduğu için yeniden başlatmaya gerek yok.
+- Her görev sonunda yeşil olması gerekenler: tip denetimi çıktısız, lint **0 hata** (95 uyarı mevcut
+  ve beklenen), derleme başarılı, E2E tamamı geçer.
 - `npm run verify` bu makinede tam koşmaz (cargo kurulu değil); kapılar tek tek koşulur.
-- E2E için: `npx vite build` sonra `npx vite preview --port 4173` arka planda, ardından `npx playwright test`. `npm run test:e2e` iç içe kabuk yüzünden bu makinede çalışmıyor.
 
 ---
 
@@ -251,10 +265,20 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   await page.getByRole('button', { name: 'Plan', exact: true }).click();
   captured['plan'] = await captureComputedStyles(page);
 
-  if (UPDATE || !existsSync(BASELINE_PATH)) {
+  // Referans yazımı yalnız açık bayrakla olur. Aksi hâlde "referans yoksa üret
+  // ve geç" yolu, hiçbir şey iddia etmeyen bir testtir: referans silindiğinde
+  // sessizce yeşile döner ve sözleşmeyi denetlemeyi bırakır.
+  if (UPDATE) {
     writeFileSync(BASELINE_PATH, `${JSON.stringify(captured, null, 2)}\n`, 'utf8');
     test.info().annotations.push({ type: 'baseline', description: 'referans yazıldı' });
     return;
+  }
+  if (!existsSync(BASELINE_PATH)) {
+    throw new Error(
+      `Görsel sözleşme referansı yok: ${BASELINE_PATH}\n`
+      + 'Önce şu komutla üret:\n'
+      + '  UPDATE_VISUAL_BASELINE=1 node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts'
+    );
   }
 
   const baseline: Record<string, ElementStyle[]> = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
@@ -273,17 +297,22 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
 
 - [ ] **Step 3: Referansı üret ve testin gerçekten çalıştığını gör**
 
-Önce derle, sonra önizleme sunucusunu **ayrı bir kabukta / arka planda** başlat (Windows PowerShell'de `&` çalışmaz; sunucuyu ayrı çalıştır), sonra testi koştur:
+Önizleme sunucusu kontrolcü tarafından 4173'te açık tutuluyor; başlatma. Derle, sonra referansı **açık bayrakla** üret:
 
 ```bash
-npx vite build
-# ayrı kabuk: npx vite preview --port 4173
-npx playwright test tests/e2e/visual-contract.spec.ts
+node node_modules/vite/bin/vite.js build
+UPDATE_VISUAL_BASELINE=1 node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 ```
 
-Sunucu bir kez ayağa kalktıktan sonra bu plandaki her `npx playwright test` çağrısı için açık kalır; yalnız `npx vite build` her CSS değişikliğinden sonra tekrarlanır.
-
 Beklenen: PASS, `tests/e2e/visual-contract.baseline.json` oluşmuş olmalı.
+
+Ardından bayraksız koş — artık gerçekten karşılaştırıyor olmalı:
+
+```bash
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
+```
+
+Beklenen: PASS.
 
 Dosyanın sekiz anahtar taşıdığını doğrula:
 
@@ -304,8 +333,8 @@ Referans doğruysa test her zaman geçer; bu, testin hiçbir şeyi kontrol etmed
 Sonra:
 
 ```bash
-npx vite build
-npx playwright test tests/e2e/visual-contract.spec.ts
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 ```
 
 Beklenen: FAIL, mesajda şuna benzer bir satır:
@@ -319,8 +348,8 @@ Mutasyonu geri al, yeniden derle, testin tekrar geçtiğini gör:
 
 ```bash
 git checkout src/react/styles.css
-npx vite build
-npx playwright test tests/e2e/visual-contract.spec.ts
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 ```
 
 Beklenen: PASS.
@@ -328,9 +357,9 @@ Beklenen: PASS.
 - [ ] **Step 5: Diğer kapıların bozulmadığını doğrula**
 
 ```bash
-npx tsc --noEmit
-npm run lint
-npx playwright test
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/eslint/bin/eslint.js src/v4 src/react tests/v4 --ext .js,.ts,.tsx
+node node_modules/@playwright/test/cli.js test
 ```
 
 Beklenen: tsc çıktısız, lint 0 hata, tüm E2E testleri geçer (mevcut 31 + yeni 1 = 32).
@@ -448,8 +477,8 @@ Silinecek bildirimler: eski `:root`'taki `color:#e8ecf7` ve `background:#090d18`
 - [ ] **Step 3: Testi koştur**
 
 ```bash
-npx vite build
-npx playwright test tests/e2e/visual-contract.spec.ts
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 ```
 
 Beklenen: PASS.
@@ -471,10 +500,10 @@ Not: `#0b1020` kaldırılan koyu temadan kalma; uygulama açık temada çalış�
 - [ ] **Step 5: Bütün kapıları koştur**
 
 ```bash
-npx tsc --noEmit
-npm run lint
-npm run build
-npx playwright test
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/eslint/bin/eslint.js src/v4 src/react tests/v4 --ext .js,.ts,.tsx
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test
 ```
 
 Beklenen: tsc çıktısız, lint 0 hata, build başarılı, 32 E2E testi geçer.
@@ -569,8 +598,8 @@ select {
 - [ ] **Step 3: Testi koştur**
 
 ```bash
-npx vite build
-npx playwright test tests/e2e/visual-contract.spec.ts
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 ```
 
 Beklenen: PASS.
@@ -580,10 +609,10 @@ FAIL alırsan mesaj hangi elemanın hangi özelliğinin kaydığını söyler. S
 - [ ] **Step 4: Bütün kapıları koştur**
 
 ```bash
-npx tsc --noEmit
-npm run lint
-npm run build
-npx playwright test
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/eslint/bin/eslint.js src/v4 src/react tests/v4 --ext .js,.ts,.tsx
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test
 ```
 
 Beklenen: tsc çıktısız, lint 0 hata, build başarılı, 32 E2E testi geçer.
@@ -660,8 +689,8 @@ Bir seçici hem ölü hem canlı sınıf içeriyorsa (`.start-card, .pg-map-head
 - [ ] **Step 3: Testi koştur**
 
 ```bash
-npx vite build
-npx playwright test tests/e2e/visual-contract.spec.ts
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 ```
 
 Beklenen: PASS.
@@ -679,10 +708,10 @@ Referans: iş başlamadan önce 739 satırdı.
 - [ ] **Step 5: Bütün kapıları koştur**
 
 ```bash
-npx tsc --noEmit
-npm run lint
-npm run build
-npx playwright test
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/eslint/bin/eslint.js src/v4 src/react tests/v4 --ext .js,.ts,.tsx
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test
 ```
 
 Beklenen: tsc çıktısız, lint 0 hata, build başarılı, 32 E2E testi geçer.
@@ -769,14 +798,19 @@ Dosyanın geri kalanına dokunma.
 `package.json`: `tailwindcss` ve `@tailwindcss/vite` girdileri silinir, ardından:
 
 ```bash
-npm install
+npm install --ignore-scripts
 ```
+
+`--ignore-scripts` bu ortam için zorunlu: `esbuild`'in postinstall'ı npm'in başlattığı cmd alt
+kabuğunda `node`'u bulamıyor ve kurulumu düşürüyor. Paket zaten kurulu olduğu için postinstall'ı
+tekrar koşturmaya gerek yok; yalnız `node_modules` ağacından Tailwind çıkarılıyor. Kurulumun
+sağlığını bir sonraki adımdaki derleme kanıtlar.
 
 - [ ] **Step 4: Testi koştur**
 
 ```bash
-npx vite build
-npx playwright test tests/e2e/visual-contract.spec.ts
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 ```
 
 Beklenen: PASS.
@@ -801,12 +835,12 @@ ls -la dist/assets/*.css
 - [ ] **Step 6: Bütün kapıları koştur**
 
 ```bash
-npx tsc --noEmit
-npm run test:all
-npm run lint
-npm run check:product-docs
-npm run build
-npx playwright test
+node node_modules/typescript/bin/tsc --noEmit
+node scripts/run-v4-tests.mjs
+node node_modules/eslint/bin/eslint.js src/v4 src/react tests/v4 --ext .js,.ts,.tsx
+node node_modules/tsx/dist/cli.mjs scripts/product-docs.ts --check
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test
 ```
 
 Beklenen: tsc çıktısız, 348 birim testi ve 6 güvenlik testi geçer, lint 0 hata, ürün belgeleri eşleşir, build başarılı, 32 E2E testi geçer.
