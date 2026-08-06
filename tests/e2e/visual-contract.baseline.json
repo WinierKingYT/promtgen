@@ -1,6 +1,28 @@
 {
   "başlangıç": [
     {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
       "tag": "body",
       "className": "",
       "styles": {
@@ -1982,6 +2004,28 @@
     }
   ],
   "ayarlar-diyaloğu": [
+    {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
     {
       "tag": "body",
       "className": "",
@@ -5768,6 +5812,28 @@
     }
   ],
   "stüdyo-geliştir": [
+    {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
     {
       "tag": "body",
       "className": "",
@@ -10038,6 +10104,28 @@
     }
   ],
   "stüdyo-keşif": [
+    {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
     {
       "tag": "body",
       "className": "",
@@ -14528,6 +14616,28 @@
     }
   ],
   "toast-ve-duyurucu": [
+    {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
     {
       "tag": "body",
       "className": "",
@@ -19657,6 +19767,28 @@
   ],
   "stüdyo-özet": [
     {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
       "tag": "body",
       "className": "",
       "styles": {
@@ -23927,6 +24059,28 @@
   ],
   "fikir-özeti": [
     {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
       "tag": "body",
       "className": "",
       "styles": {
@@ -26766,6 +26920,28 @@
     }
   ],
   "plan": [
+    {
+      "tag": "html",
+      "className": "",
+      "styles": {
+        "color": "rgb(23, 26, 24)",
+        "background-color": "rgb(247, 247, 245)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(23, 26, 24)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
     {
       "tag": "body",
       "className": "",

@@ -3,8 +3,21 @@
 :root {
   /*
    * Tek token katmanı. Daha önce üç ayrı :root vardı (koyu kuşak, --studio-*,
-   * --pg-*) ve üçü de body'yi yeniden tanımlıyordu; kazanan dosya sırasındaki
-   * sonuncusuydu. Hangi kuralın geçerli olduğu artık konuma değil niyete bağlı.
+   * --pg-*); kazanan dosya sırasındaki sonuncusuydu. Hangi kuralın geçerli
+   * olduğu artık konuma değil niyete bağlı.
+   *
+   * Yalnızca koyu kuşağın :root'u `color` ve `background` de tanımlıyordu
+   * (`--studio-*` ve `--pg-*` blokları yalnızca color-scheme ve custom
+   * property tanımlıyordu; ikisi de body'ye hiç dokunmadı). O iki bildirim
+   * burada silindi — ama "zaten eziliyordu" diye değil: :root'un özgüllüğü
+   * (0,1,0), aşağıdaki `html,body,#root` kuralındaki `html` tip seçicisinin
+   * özgüllüğünden (0,0,1) yüksektir, yani :root bu iki bildirimle <html>
+   * üzerinde KAZANIYORDU — `body` üzerinde değil, bu yüzden document.body'den
+   * başlayan eski görsel sözleşme testi bunu hiç görmüyordu (artık
+   * document.documentElement'ten başlıyor). Silinmeleri <html>'in
+   * hesaplanan rengini ve arka planını bilerek değiştiriyor: aynı commit'teki
+   * açık temaya geçişle (theme-color #f7f7f5) tutarlı, kabul edilmiş bir
+   * görünüm değişikliği — geri alınacak bir kusur değil.
    */
   color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -31,7 +44,9 @@
   --pg-sidebar:236px;
 
   /*
-   * MİRAS — 246 yerde kullanılıyor, alt proje B'de çözülecek.
+   * MİRAS — bu 18 değişken için src/react/styles.css + src/main.js'te
+   * ölçülen var() çağrı yeri sayısı: 301 (script ile sayıldı, Görev 2
+   * düzeltme raporunda dökümü var). Alt proje B'de çözülecek.
    * Değerler bilerek aynen korunuyor: bunları --pg-* karşılıklarına bağlamak
    * rengi değiştirir (--mint #5eead4 ≠ --pg-success #16765f) ve bu alt
    * projenin "ekran değişmesin" sözleşmesini bozar.
