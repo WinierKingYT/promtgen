@@ -6,7 +6,7 @@ import {
   diffScreen,
   type ElementStyle
 } from './support/visual-contract.js';
-import { stubReadyProvider, stubExpansionProvider, type StubbedExpansionCard } from './support/provider.js';
+import { stubExpansionProvider, type StubbedExpansionCard } from './support/provider.js';
 
 const BASELINE_PATH = resolve('tests/e2e/visual-contract.baseline.json');
 /** Referansı bilerek yeniden üretmek için: UPDATE_VISUAL_BASELINE=1 */
@@ -79,6 +79,11 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // dondurulur ve referans hiçbir zaman tekrarlanabilir olmaz. Bu satır
   // sayesinde referans, geçişin ortası değil, oturmuş son durumu kaydeder.
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  // Sahte saat sayfa yüklenmeden önce kurulur ki erken zamanlayıcılar
+  // (yükleme, sağlayıcı kontrolü) normal akışında çalışsın — `install()`
+  // tek başına saati dondurmaz, yalnız `pauseAt`/`fastForward`/`runFor`
+  // çağrıldığında zaman durur. Toast penceresinden hemen önce dondurulacak.
+  await page.clock.install();
   await stubExpansionProvider(page, CARDS);
   const captured: Record<string, ElementStyle[]> = {};
 
@@ -89,8 +94,9 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // sayfa yüklenir yüklenmez henüz sonuçlanmamış olabilir. Bu bekleme
   // olmadan yakalama anı kontrolün tamamlanma anıyla yarışır: nokta bazen
   // henüz "yerel" (turuncu), bazen "AI hazır" (yeşil) durumda yakalanır.
-  // stubReadyProvider zaten kontrolü her zaman başarıyla sonuçlandırdığı
-  // için burada beklenen nihai durum her zaman `is-ai`dir. `toHaveCSS`
+  // stubExpansionProvider, stubReadyProvider'ı içeriden çağırarak (provider.ts:61)
+  // kontrolü zaten her zaman başarıyla sonuçlandırıyor; burada ayrıca
+  // çağrılmaz. Bu yüzden beklenen nihai durum her zaman `is-ai`dir. `toHaveCSS`
   // kullanılır (yalnız sınıf adı değil): sınıf DOM'a class-adı olarak
   // yazılsa bile computed style'ın aynı anda oturduğunun garantisi
   // yalnız hesaplanan stili doğrudan beklemekle sağlanır.
@@ -122,13 +128,24 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
 
   // Kart ekleyince hem .toast hem LiveAnnouncer DOM'a girer; ikisi de
   // ancak bu durumda ölçülebilir.
+  //
+  // Bildirim window.setTimeout(..., 3200) ile kapanıyor (Workspace.tsx:140).
+  // 233 elemanlık bir hesaplanmış-stil taraması yüklü bir CI işçisinde bu
+  // 3.2 saniyelik pencereyi aşabilir; taramanın ortasında bildirim kaybolursa
+  // test, gerçek bir gerilemeyle ayırt edilemeyen sahte bir eleman-sayısı
+  // farkıyla düşer. Saat burada dondurulur ki zamanlayıcı gerçek geçen
+  // süreden tamamen bağımsız olsun; tarama bittikten sonra saat kasıtlı
+  // olarak 3300ms ileri alınarak bildirim deterministik biçimde kapatılır.
+  await page.clock.pauseAt(new Date());
   await page.getByRole('region', { name: 'Keşif panosu' })
     .locator('.pg-expansion-card', { hasText: CARDS[0].title })
     .getByRole('button', { name: 'Fikre ekle' }).click();
   await expect(page.locator('.toast')).toBeVisible();
   await expect(page.locator('[role="status"][aria-live="polite"]')).toHaveCount(1);
   captured['toast-ve-duyurucu'] = await captureComputedStyles(page);
+  await page.clock.fastForward(3300);
   await expect(page.locator('.toast')).toHaveCount(0);
+  await page.clock.resume();
 
   await page.getByRole('tab', { name: 'Özet' }).click();
   await expect(page.getByRole('list', { name: 'Fikir geliştirme aşamaları' })).toBeVisible();
@@ -158,6 +175,20 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   }
 
   const baseline: Record<string, ElementStyle[]> = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+  // Kesik ya da bozuk bir referans (örn. `{}`, ya da yarım kalmış bir yazma)
+  // yalnızca `Object.entries(baseline)` üzerinden gezilirse sessizce sıfır
+  // fark üretip yeşile döner — :161-163'teki yorumun engellemeye çalıştığı
+  // çürümenin bir adım ötesi. Anahtar kümeleri birebir eşleşmezse (eksik ya
+  // da fazladan ekran) sözleşme adıyla bozuk sayılır ve gürültülü düşer.
+  const baselineScreens = Object.keys(baseline).sort();
+  const capturedScreens = Object.keys(captured).sort();
+  if (baselineScreens.join('|') !== capturedScreens.join('|')) {
+    throw new Error(
+      'Görsel sözleşme referansı eksik ya da bozuk — ekran kümeleri eşleşmiyor.\n'
+      + `Referanstaki ekranlar (${baselineScreens.length}): ${baselineScreens.join(', ') || '(hiçbiri)'}\n`
+      + `Yakalanan ekranlar (${capturedScreens.length}): ${capturedScreens.join(', ')}`
+    );
+  }
   const problems: string[] = [];
   for (const [screen, expectedStyles] of Object.entries(baseline)) {
     const actual = captured[screen];
