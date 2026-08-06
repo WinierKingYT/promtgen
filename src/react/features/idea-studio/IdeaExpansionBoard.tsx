@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { LoaderCircle, Plus, RotateCcw, TriangleAlert } from 'lucide-react';
-import type { ProjectDocumentV5 } from '../../../v4/contracts.js';
+import { Check, Clock, LoaderCircle, Plus, RotateCcw, TriangleAlert, X } from 'lucide-react';
+import type { ProjectDocumentV5, SuggestionStatus } from '../../../v4/contracts.js';
 import type { ProviderSettings } from '../../../v4/provider-settings.js';
 import { getExpansionCategories } from '../../../v4/idea-expansion/categories.js';
 import {
@@ -10,11 +10,29 @@ import {
   type ExpansionResult
 } from '../../../v4/application/idea-expansion-service.js';
 import { addExpansionCardAsSuggestion } from '../../../v4/application/idea-expansion-intake.js';
+import { selectExpansionBundle } from '../../../v4/application/proposal-bundle-selectors.js';
+import { resolveIdeaRecordsForBundle } from '../../../v4/application/idea-discussion-service.js';
+import { applyApprovedChanges, updateSuggestionStatus } from '../../../v4/planning-engine.js';
 
-export function IdeaExpansionBoard({ project, settings, onAddCard, onNotice }: {
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'Karar bekliyor',
+  accepted: 'Kabul edildi',
+  edited: 'Düzenlenerek kabul edildi',
+  deferred: 'Ertelendi',
+  rejected: 'Reddedildi'
+};
+
+const DECISIONS: { status: SuggestionStatus; label: string; Icon: typeof Check }[] = [
+  { status: 'accepted', label: 'Kabul et', Icon: Check },
+  { status: 'deferred', label: 'Ertele', Icon: Clock },
+  { status: 'rejected', label: 'Reddet', Icon: X }
+];
+
+export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
   project: ProjectDocumentV5;
   settings: ProviderSettings;
-  onAddCard: (project: ProjectDocumentV5, message: string) => void;
+  /** Kalıcılaştırılacak yeni belge; komut türü, komut politikası kapısını belirler. */
+  onPersist: (project: ProjectDocumentV5, message: string, commandType: string) => void;
   onNotice: (message: string) => void;
 }) {
   const categories = getExpansionCategories(project);
@@ -48,7 +66,38 @@ export function IdeaExpansionBoard({ project, settings, onAddCard, onNotice }: {
       onNotice(intake.reason);
       return;
     }
-    onAddCard(intake.project, `"${card.title}" fikre eklendi.`);
+    onPersist(intake.project, `"${card.title}" fikre eklendi.`, 'AddExpansionCard');
+  };
+
+  // Kartlar kendi paketinde durur ve kararları burada verilir; konuşma turunun
+  // paneline hiç uğramaz. Bkz. proposal-bundle-selectors.ts.
+  const bundle = selectExpansionBundle(project);
+  const decisionItems = bundle?.items || [];
+  const pendingCount = decisionItems.filter(item => item.status === 'pending').length;
+  const acceptedCount = decisionItems.filter(item => item.status === 'accepted' || item.status === 'edited').length;
+
+  const decide = (suggestionId: string, status: SuggestionStatus) => {
+    if (!bundle) return;
+    onPersist(
+      updateSuggestionStatus(project, bundle.id, suggestionId, status),
+      '',
+      'UpdateSuggestionStatus'
+    );
+  };
+
+  const applyDecisions = () => {
+    // applyApprovedChanges bekleyen kart varsa sessizce hiçbir şey yapmaz. Bu
+    // kapı bekleyenleri toplu "ertelendi" damgalayarak aşılmaz: kullanıcı
+    // kartları kendi ekledi, kararı da kendi vermeli.
+    if (!bundle || pendingCount > 0) return;
+    const resolved = resolveIdeaRecordsForBundle(project, bundle.id);
+    onPersist(
+      applyApprovedChanges(resolved, bundle.id),
+      acceptedCount
+        ? `${acceptedCount} kart plana taşındı.`
+        : 'Kartlar karara bağlandı; plana geçen olmadı.',
+      'ApplyApprovedChanges'
+    );
   };
 
   return <section className="pg-expansion-board" aria-label="Keşif panosu">
@@ -95,5 +144,38 @@ export function IdeaExpansionBoard({ project, settings, onAddCard, onNotice }: {
         </footer>
       </article>)}
     </div>}
+
+    {bundle && decisionItems.length > 0 && <section className="pg-expansion-decisions" aria-label="Eklediğin kartlar">
+      <header>
+        <div><b>Eklediğin kartlar</b><small>Her kartı karara bağla; sonra kabul ettiklerin plana geçer.</small></div>
+        <button
+          type="button"
+          onClick={applyDecisions}
+          disabled={pendingCount > 0}
+          title={pendingCount > 0 ? 'Önce bütün kartları karara bağla.' : 'Kabul ettiğin kartları plana taşı.'}
+        >Kararları uygula</button>
+      </header>
+      {pendingCount > 0 && <p className="pg-expansion-hint" role="status">
+        {pendingCount} kart hâlâ karar bekliyor. Hepsi karara bağlanınca uygulayabilirsin.
+      </p>}
+      <ul>
+        {decisionItems.map(item => <li key={item.id} className={`is-${item.status}`}>
+          <div className="pg-expansion-decision-head">
+            <b>{item.title}</b>
+            <small>{STATUS_LABEL[item.status] || item.status}</small>
+          </div>
+          <p>{item.editedDescription || item.description}</p>
+          <div className="pg-expansion-decision-actions">
+            {DECISIONS.map(({ status, label, Icon }) => <button
+              key={status}
+              type="button"
+              className={item.status === status ? 'is-active' : ''}
+              aria-pressed={item.status === status}
+              onClick={() => decide(item.id, status)}
+            ><Icon size={13}/> {label}</button>)}
+          </div>
+        </li>)}
+      </ul>
+    </section>}
   </section>;
 }

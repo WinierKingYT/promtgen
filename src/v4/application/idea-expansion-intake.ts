@@ -1,18 +1,20 @@
 import type { ProjectDocumentV5, SuggestionBundle, SuggestionItem } from '../contracts.js';
 import type { ExpansionCard } from './idea-expansion-service.js';
 import { captureDiscussionBundle } from './idea-discussion-service.js';
-
-const EXPANSION_BUNDLE_TITLE = 'Keşifden eklenenler';
+import {
+  EXPANSION_BUNDLE_TITLE,
+  nextExpansionBundleId,
+  selectExpansionBundle
+} from './proposal-bundle-selectors.js';
 
 function openExpansionBundle(project: ProjectDocumentV5): SuggestionBundle {
-  // Projede aynı anda en fazla bir "open" paket olması bekleniyor (bkz.
-  // idea-coach-service.ts). Zaten açık bir paket varsa kartı oraya ekleriz;
-  // yeni, ayrı bir açık paket oluşturmak, açık paketi tekilmiş gibi okuyan
-  // diğer tüketicilerin kartı hiç görmemesine yol açar.
-  const existing = project.proposalStore.bundles.find(bundle => bundle.status === 'open');
+  // Kartlar turun seçenek paketine karışmaz. Kullanıcı bu kartları kendisi
+  // ekledi; bir konuşma turunun kapanması onları erteleyemez. Ayrımın neden
+  // paket kimliğinde taşındığı için bkz. proposal-bundle-selectors.ts.
+  const existing = selectExpansionBundle(project);
   if (existing) return existing;
   const bundle: SuggestionBundle = {
-    id: `bundle-expansion-${project.proposalStore.bundles.length + 1}`,
+    id: nextExpansionBundleId(project),
     title: EXPANSION_BUNDLE_TITLE,
     phase: project.lifecycle.activePhase,
     status: 'open',

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { analyzeIdea } from '../../src/v4/planning-engine.js';
 import { addExpansionCardAsSuggestion } from '../../src/v4/application/idea-expansion-intake.js';
+import { selectExpansionBundle } from '../../src/v4/application/proposal-bundle-selectors.js';
 import type { ExpansionCard } from '../../src/v4/application/idea-expansion-service.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
@@ -27,11 +28,15 @@ const seedCard: ExpansionCard = {
   origin: 'local-seed'
 };
 
-const openBundle = (next: ProjectDocumentV5) =>
-  next.proposalStore.bundles.find(bundle => bundle.status === 'open');
+/**
+ * Kartlar turun paketine değil kendi keşif paketine düşer; "ilk açık paket"
+ * artık analyzeIdea'nın tur paketidir. Ayrımın gerekçesi için bkz.
+ * proposal-bundle-selectors.ts ve idea-expansion-bundle-separation.test.ts.
+ */
+const openBundle = (next: ProjectDocumentV5) => selectExpansionBundle(next)!;
 
 describe('addExpansionCardAsSuggestion', () => {
-  it('kartı bekleyen öneri olarak açık pakete ekler', () => {
+  it('kartı bekleyen öneri olarak keşif paketine ekler', () => {
     const { project: next, added } = addExpansionCardAsSuggestion(project(), card, 'Güven ve gizlilik');
     assert.equal(added, true);
     const bundle = openBundle(next);

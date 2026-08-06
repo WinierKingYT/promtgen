@@ -112,11 +112,12 @@ export function IdeaStudioHeader({
   </header>;
 }
 
-export function IdeaSnapshot({ project, coach, settings, onAddCard, onNotice }: {
+export function IdeaSnapshot({ project, coach, settings, onPersist, onNotice }: {
   project: ProjectDocumentV5;
   coach: IdeaCoachState;
   settings: ProviderSettings;
-  onAddCard: (project: ProjectDocumentV5, message: string) => void;
+  /** Keşif panosunun ürettiği belge; komut türü çağırana kadar taşınır. */
+  onPersist: (project: ProjectDocumentV5, message: string, commandType: string) => void;
   /** Kalıcı bir değişiklik olmadan kullanıcıya durum bildirmek için. */
   onNotice: (message: string) => void;
 }) {
@@ -132,7 +133,7 @@ export function IdeaSnapshot({ project, coach, settings, onAddCard, onNotice }: 
       <button type="button" role="tab" aria-selected={tab === 'expansion'} onClick={() => setTab('expansion')}>Keşif</button>
     </div>
     {tab === 'expansion'
-      ? <IdeaExpansionBoard project={project} settings={settings} onAddCard={onAddCard} onNotice={onNotice}/>
+      ? <IdeaExpansionBoard project={project} settings={settings} onPersist={onPersist} onNotice={onNotice}/>
       : <>
         <ol className="pg-coach-steps" aria-label="Fikir geliştirme aşamaları">
           {coach.steps.map(step => <li key={step.id} className={`is-${step.state}`}><i/>{step.label}</li>)}
