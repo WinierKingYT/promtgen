@@ -25,7 +25,7 @@ export default defineConfig({
       manifest: {
         name: 'PromtGen · Yaşayan Proje Mimarı', short_name: 'PromtGen',
         description: 'Local-first AI destekli proje planlama çalışma alanı',
-        theme_color: '#0b1020', background_color: '#0b1020', display: 'standalone',
+        theme_color: '#f7f7f5', background_color: '#f7f7f5', display: 'standalone',
         icons: [{ src: '/pwa-192.svg', sizes: '192x192', type: 'image/svg+xml' }, { src: '/pwa-512.svg', sizes: '512x512', type: 'image/svg+xml' }]
       }
     })
