@@ -70,29 +70,57 @@
   --studio-danger:#b43d42;
   --studio-shadow:0 18px 60px rgba(22,44,35,.08);
 }
+/*
+ * Her global eleman tek kez tanımlanır. Daha önce body üç, textarea ve select
+ * ikişer kez tanımlıydı; hesaplanmış sonuç dosyadaki son kuraldan geliyordu.
+ * Aşağıdaki değerler o hesaplanmış sonucun kendisidir, ilk tanımın değil.
+ * :root artık <html> için color/background tanımlamadığından (bkz. Görev 2),
+ * min-width/min-height/background/color bildirimleri <html>'in de görünen
+ * değerlerini belirliyor; button/textarea/select ile h1/h1 span de aynı
+ * gerekçeyle buraya, önceki tekrarlı konumlarından toplandı.
+ */
 * { box-sizing: border-box; }
-html { overflow-x:hidden; }
-body { margin:0; min-width:320px; min-height:100vh; background: radial-gradient(circle at 70% 0%, #1b1a3c 0, transparent 30%), var(--bg); }
-img,svg { max-width:100%; }
+html { overflow-x: hidden; }
+html, body, #root { min-width: 320px; min-height: 100%; background: var(--pg-bg); color: var(--pg-text); }
+body { margin: 0; }
+img, svg { max-width: 100%; }
+button, textarea, select { font: inherit; }
+button { color: inherit; cursor: pointer; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+h1 { margin: 14px 0 18px; font-size: clamp(43px, 7vw, 82px); line-height: .96; letter-spacing: -.055em; }
+h1 span { color: var(--violet-2); }
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--studio-line);
+  border-radius: 10px;
+  padding: 13px;
+  background: #fff;
+  color: var(--studio-text);
+  line-height: 1.55;
+}
+
+select {
+  border: 1px solid var(--studio-line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fff;
+  color: var(--studio-text);
+}
 .skip-link { position:fixed;top:8px;left:8px;z-index:1000;transform:translateY(-160%);padding:10px 14px;border-radius:8px;background:#fff;color:#111827;font-weight:800;transition:transform .15s; }
 .skip-link:focus { transform:translateY(0); }
-button, textarea, select { font:inherit; }
-button { color:inherit; }
 button:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline:3px solid color-mix(in srgb, var(--violet) 72%, white); outline-offset:2px; }
-button:disabled { opacity:.45; cursor:not-allowed; }
-button { cursor:pointer; }
 .loading { min-height:100vh; display:grid; place-content:center; justify-items:center; gap:12px; color:var(--muted); }
 .loading svg { color:var(--mint); animation:pulse 1.5s infinite; }
 .start-shell { min-height:100vh; display:grid; grid-template-rows:auto 1fr auto; padding:28px clamp(18px,4vw,64px); }
 .start-mark { display:flex; align-items:center; gap:9px; font:700 12px/1 monospace; letter-spacing:.14em; color:var(--mint); }
 .start-card { align-self:center; width:min(870px,100%); margin:40px auto; }
 .eyebrow,.meta,.rail-label { font-size:11px; font-weight:800; letter-spacing:.13em; color:var(--violet-2); }
-h1 { margin:14px 0 18px; font-size:clamp(43px,7vw,82px); line-height:.96; letter-spacing:-.055em; }
-h1 span { color:var(--violet-2); }
 .lead { max-width:660px; color:#aab4c8; font-size:18px; line-height:1.65; }
 .idea-box { display:block; margin-top:34px; padding:20px; border:1px solid #3b4762; border-radius:18px; background:color-mix(in srgb,var(--panel) 88%,transparent); box-shadow:0 30px 80px #0006; }
 .idea-box>span { display:block; margin-bottom:10px; font-size:13px; font-weight:750; color:#c7cede; }
-textarea { width:100%; resize:vertical; border:1px solid var(--line); border-radius:10px; padding:13px; color:#eef1fb; background:#0b1120; line-height:1.55; }
 .idea-box textarea { border:0; padding:2px; background:transparent; font-size:18px; }
 .idea-footer { display:flex; justify-content:space-between; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
 .provider-gate { margin-top:16px; border-radius:12px; padding:12px 14px; font-size:13px; }
@@ -111,7 +139,6 @@ textarea { width:100%; resize:vertical; border:1px solid var(--line); border-rad
 .provider-gate-actions { display:flex; align-items:center; gap:10px; margin-top:10px; }
 .start-actions { display:flex; align-items:center; gap:12px; margin-top:16px; }
 .start-actions>label { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
-select { border:1px solid var(--line); border-radius:8px; padding:9px 10px; background:#101727; color:#e8ecf7; }
 .file-action,.text-button { border:1px solid var(--line); border-radius:9px; padding:10px 13px; background:var(--panel); }
 .primary { border:0!important; border-radius:9px; padding:11px 16px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:750; background:var(--violet); color:#0c0d16; box-shadow:0 10px 30px #8b7cf633; }
 .start-actions .primary { margin-left:auto; }
@@ -621,10 +648,8 @@ details summary { display:flex;align-items:center;gap:5px;cursor:pointer;color:#
 @media (max-width:780px) { .change-impact-grid,.trace-detail,.scenario-grid,.scenario-form,.section-patch-diff,.requirement-fields { grid-template-columns:1fr; }.change-impact-actions { display:grid;grid-template-columns:1fr; }.change-impact-actions button,.composer-mode-switch button { min-height:44px; }.trace-map>header,.requirement-quality>header,.requirement-empty { align-items:stretch;flex-direction:column; }.trace-map-controls>* { width:100%; }.trace-type-filters { width:100%; }.trace-type-filters button { flex:1; }.trace-detail dl { grid-template-columns:1fr; }.scenario-form label,.scenario-form label:nth-child(2),.scenario-form label:nth-child(3),.scenario-form label:nth-child(4),.scenario-form>button,.requirement-fields .wide { grid-column:1; }.section-regeneration>header,.section-patch-apply { align-items:stretch;flex-direction:column; }.section-patch-apply button,.requirement-empty button { width:100%; }.requirement-quality-counts { justify-content:flex-start; } }
 
 /* PromtGen Studio — conversation-first production UI */
-body { color:var(--studio-text);background:var(--studio-canvas); }
 button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid rgba(20,107,89,.28);outline-offset:2px; }
 .primary,.studio-primary { border:0!important;border-radius:11px;padding:11px 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--studio-accent);color:#fff;box-shadow:none;font-weight:750; }
-textarea,select { border-color:var(--studio-line);background:#fff;color:var(--studio-text); }
 
 /* Sade başlangıç */
 .welcome-shell { min-height:100vh;display:flex;flex-direction:column;background:radial-gradient(circle at 50% 4%,rgba(209,232,222,.66),transparent 34%),var(--studio-canvas); }
@@ -670,7 +695,6 @@ textarea,select { border-color:var(--studio-line);background:#fff;color:var(--st
 /* ========================================================================== */
 /* PromtGen Idea Studio — page architecture reset                             */
 /* ========================================================================== */
-html,body,#root { min-width:320px;min-height:100%;background:var(--pg-bg);color:var(--pg-text); }
 .pg-onboarding-shell,.pg-studio-shell { min-height:100dvh;color:var(--pg-text);background:var(--pg-bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
 .pg-onboarding-shell button,.pg-studio-shell button,.pg-onboarding-shell summary,.pg-studio-shell summary { cursor:pointer; }
 .pg-onboarding-shell button:focus-visible,.pg-studio-shell button:focus-visible,.pg-onboarding-shell textarea:focus-visible,.pg-studio-shell textarea:focus-visible,.pg-onboarding-shell summary:focus-visible,.pg-studio-shell summary:focus-visible { outline:3px solid color-mix(in srgb,var(--pg-accent) 35%,transparent);outline-offset:2px; }
