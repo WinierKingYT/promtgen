@@ -23,6 +23,22 @@ görünüyor; kullanıcı istediği an gezinemiyor.
 - Geri alma: `TASK_REGISTRY`'den `idea-expansion` kaydı ve `Keşif` sekmesi
   kaldırıldığında ürün önceki davranışına döner; veri kaybı olmaz.
 
+### Ek karar — 2026-08-06: kartın plana eşlenmesi
+
+Planda kartlar sabit `affectedSections: ['scope']` ile ekleniyordu. Ölçüldüğünde
+kabul edilen bir "MVP adayı" özellik kartının plana yalnız bir kapsam maddesi
+olarak düştüğü, hiçbir zaman gereksinime dönüşmediği görüldü; fikir→plan
+dönüşümü gereksinimleri `conceptSummary.confirmedFeatures`'tan ürettiği için
+kart orada da yakalanmıyordu. Aynı sabit kararı ve riski de kapsama sızdırıyordu.
+
+Eşleme kartın türünden gelecek şekilde değiştirildi (kullanıcı onayı):
+`feature → scope + requirements`, `decision → decisions`,
+`architecture → architecture`, `risk → risks`, `question → hiçbiri`.
+
+Bu, panonun kendi yan etkisini değiştirmez: kart hâlâ yalnız `pending` öneri
+olarak eklenir ve plana geçiş mevcut kabul/uygula kapısından geçer. Değişen tek
+şey, kullanıcı kartı kabul ettiğinde planın doğru bölümüne yazılmasıdır.
+
 ## 3. Unit/integration ve E2E kabul testleri
 
 Plan: docs/superpowers/plans/2026-08-06-idea-expansion-board.md
