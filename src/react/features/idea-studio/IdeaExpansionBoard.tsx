@@ -129,6 +129,14 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
         <TriangleAlert size={15}/> AI bağlı değil; yalnız başlangıç önerileri gösteriliyor.
       </p>}
 
+      {/* Kart sayısı sessizce azalmaz: gizlenenin nedeni ekranda yazılı olur,
+          yoksa kullanıcı kategoriyi "az öneri üretti" sanır. */}
+      {!loading && !!cards?.hiddenCount && <p className="pg-expansion-hint" role="status">
+        {cards.cards.length
+          ? `${cards.hiddenCount} öneriyi daha önce karara bağladığın için gizledim.`
+          : 'Bu başlıktaki önerilerin hepsini daha önce karara bağladın. Yenile diyerek yeni öneri isteyebilirsin.'}
+      </p>}
+
       {!loading && cards?.cards.map(card => <article key={card.id} className="pg-expansion-card">
         <h4>{card.title}</h4>
         <p>{card.description}</p>

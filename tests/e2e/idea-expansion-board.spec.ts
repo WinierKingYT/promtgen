@@ -161,6 +161,29 @@ test.describe('Keşif panosu', () => {
     await expect(criticalBadge).toHaveText(before);
   });
 
+  test('karara bağlanan kart panoya geri dönmez', async ({ page }) => {
+    await stubExpansionProvider(page, AI_CARDS);
+    await page.goto('/');
+    await startIdea(page);
+
+    await page.getByRole('tab', { name: 'Keşif' }).click();
+    const board = page.getByRole('region', { name: 'Keşif panosu' });
+    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
+    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })
+      .getByRole('button', { name: 'Fikre ekle' }).click();
+
+    const decisions = page.getByRole('region', { name: 'Eklediğin kartlar' });
+    await decisions.locator('li', { hasText: AI_CARDS[0].title })
+      .getByRole('button', { name: 'Reddet' }).click();
+    await expect(decisions.locator('li', { hasText: AI_CARDS[0].title })).toContainText('Reddedildi');
+
+    // Aynı kategoriyi yenile: model kartı yine üretse bile pano onu göstermemeli.
+    await board.getByRole('button', { name: 'Yenile' }).click();
+    await expect(board.locator('.pg-expansion-card', { hasText: AI_CARDS[1].title })).toBeVisible();
+    await expect(board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })).toHaveCount(0);
+    await expect(board).toContainText('daha önce karara bağladığın için gizledim');
+  });
+
   test('Özet sekmesi bozulmaz', async ({ page }) => {
     await stubReadyProvider(page);
     await page.goto('/');
