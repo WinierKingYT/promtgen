@@ -112,11 +112,13 @@ export function IdeaStudioHeader({
   </header>;
 }
 
-export function IdeaSnapshot({ project, coach, settings, onAddCard }: {
+export function IdeaSnapshot({ project, coach, settings, onAddCard, onNotice }: {
   project: ProjectDocumentV5;
   coach: IdeaCoachState;
   settings: ProviderSettings;
   onAddCard: (project: ProjectDocumentV5, message: string) => void;
+  /** Kalıcı bir değişiklik olmadan kullanıcıya durum bildirmek için. */
+  onNotice: (message: string) => void;
 }) {
   const conceptConfirmed = Boolean(project.ideaLabSession?.conceptSummary?.userConfirmed);
   const [tab, setTab] = useState<'summary' | 'expansion'>('summary');
@@ -130,7 +132,7 @@ export function IdeaSnapshot({ project, coach, settings, onAddCard }: {
       <button type="button" role="tab" aria-selected={tab === 'expansion'} onClick={() => setTab('expansion')}>Keşif</button>
     </div>
     {tab === 'expansion'
-      ? <IdeaExpansionBoard project={project} settings={settings} onAddCard={onAddCard}/>
+      ? <IdeaExpansionBoard project={project} settings={settings} onAddCard={onAddCard} onNotice={onNotice}/>
       : <>
         <ol className="pg-coach-steps" aria-label="Fikir geliştirme aşamaları">
           {coach.steps.map(step => <li key={step.id} className={`is-${step.state}`}><i/>{step.label}</li>)}

@@ -132,13 +132,14 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     messageEndRef.current?.scrollIntoView({ block: 'nearest' });
   }, [project.messages.length, generating, discoveryAnswerDraft]);
 
+  const notify = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(''), 3200);
+  };
   const persistCandidate = async (next: Project, message?: string, commandType = 'UpdateProject') => {
     const persisted = await onPersist(next, commandType);
     if (!persisted) return false;
-    if (message) {
-      setNotice(message);
-      window.setTimeout(() => setNotice(''), 3200);
-    }
+    if (message) notify(message);
     return true;
   };
   const commit = (next: Project, message?: string, commandType = 'UpdateProject') => {
@@ -353,6 +354,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           coach={coach}
           settings={providerSettings}
           onAddCard={(next, message) => void persistCandidate(next, message, 'AddExpansionCard')}
+          onNotice={notify}
         />
       </main>}
 
