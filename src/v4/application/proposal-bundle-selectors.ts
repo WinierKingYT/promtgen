@@ -1,4 +1,4 @@
-import type { ProjectDocumentV5, SuggestionBundle } from '../contracts.js';
+import type { ProjectDocumentV5, SuggestionBundle, SuggestionItem } from '../contracts.js';
 
 /**
  * Öneri paketleri iki farklı işi taşır ve karıştırılmamalıdır:
@@ -38,6 +38,34 @@ export function selectTurnBundle(project: ProjectDocumentV5): SuggestionBundle |
 export function selectExpansionBundle(project: ProjectDocumentV5): SuggestionBundle | null {
   const bundles = project.proposalStore?.bundles || [];
   return [...bundles].reverse().find(bundle => isExpansionBundle(bundle) && bundle.status === 'open') || null;
+}
+
+/**
+ * Aynı kartın daha önce eklenmiş hâli — hangi keşif paketinde olursa olsun.
+ *
+ * Paketler dönüşümlüdür: bir paket karara bağlanınca sonraki kart taze bir
+ * pakete düşer. Mükerrer denetimi yalnız açık pakete bakarsa apply sonrası boş
+ * bir listeye bakar ve kart ikinci kez aday olur; kabul edilirse plana ikinci
+ * bir karar yazılır ve fikir defteri parmak izine göre tekilleştirdiği için o
+ * öneriye hiç kayıt düşmez — iki defter ayrışır.
+ *
+ * Eşleme başlık üzerinden yapılır, parmak izi üzerinden değil: parmak izi
+ * kategori taşır, dolayısıyla aynı kart başka bir başlık altından ikinci kez
+ * geçebilirdi. Fikir defteri de kaydı başlıkla tekilleştirir; iki defterin
+ * aynı anahtarı kullanması ayrışmayı baştan engeller.
+ */
+export function findExpansionItemByTitle(
+  project: ProjectDocumentV5,
+  title: string
+): SuggestionItem | null {
+  const needle = title.trim();
+  if (!needle) return null;
+  for (const bundle of project.proposalStore?.bundles || []) {
+    if (!isExpansionBundle(bundle)) continue;
+    const match = bundle.items.find(item => item.title.trim() === needle);
+    if (match) return match;
+  }
+  return null;
 }
 
 /** Yeni keşif paketi için çakışmayan kimlik. */
