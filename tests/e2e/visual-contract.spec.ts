@@ -136,7 +136,13 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // farkıyla düşer. Saat burada dondurulur ki zamanlayıcı gerçek geçen
   // süreden tamamen bağımsız olsun; tarama bittikten sonra saat kasıtlı
   // olarak 3300ms ileri alınarak bildirim deterministik biçimde kapatılır.
-  await page.clock.pauseAt(new Date());
+  // pauseAt verilen ana ileri sarar; geriye saramaz. Node'un `new Date()`
+  // degeri burada yaris yaratiyordu: damga Node'da uretilip CDP uzerinden
+  // tarayiciya varana dek tarayicinin saati o ani gecebiliyor ve cagri
+  // "Cannot fast-forward to the past" ile dusuyordu. Damgayi sayfanin kendi
+  // saatinden okuyup bir saniye pay birakmak yarisi kapatir; ileri sarilan bu
+  // pencerede daha hicbir bildirim zamanlayicisi kurulmus degil.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.getByRole('region', { name: 'Keşif panosu' })
     .locator('.pg-expansion-card', { hasText: CARDS[0].title })
     .getByRole('button', { name: 'Fikre ekle' }).click();
