@@ -19678,7 +19678,7 @@
     },
     {
       "tag": "div",
-      "className": "sr-only fixed -top-96 -left-96 w-1 h-1 overflow-hidden opacity-0 pointer-events-none",
+      "className": "pg-sr-only",
       "styles": {
         "color": "rgb(23, 26, 24)",
         "background-color": "rgba(0, 0, 0, 0)",

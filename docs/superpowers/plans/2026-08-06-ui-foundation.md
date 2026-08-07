@@ -750,7 +750,7 @@ Claude-Session: https://claude.ai/code/session_01Pk1PMuxgQDqfANjHHQBgLe"
 - Consumes: Görev 4'ün temizlenmiş stil dosyası
 - Produces: Tailwind'siz build; `.pg-sr-only` sınıfı
 
-- [ ] **Step 1: `.pg-sr-only`'yi yaz**
+- [x] **Step 1: `.pg-sr-only`'yi yaz**
 
 `styles.css`'e, global eleman kurallarının hemen altına ekle. Değerler Tailwind'in `sr-only fixed -top-96 -left-96 w-1 h-1 overflow-hidden opacity-0 pointer-events-none` bileşiminin hesaplanmış sonucudur:
 
@@ -777,7 +777,7 @@ Claude-Session: https://claude.ai/code/session_01Pk1PMuxgQDqfANjHHQBgLe"
 }
 ```
 
-- [ ] **Step 2: `LiveAnnouncer.tsx`'i değiştir**
+- [x] **Step 2: `LiveAnnouncer.tsx`'i değiştir**
 
 Satır 16'daki `className` değerini değiştir:
 
@@ -787,7 +787,7 @@ Satır 16'daki `className` değerini değiştir:
 
 Dosyanın geri kalanına dokunma.
 
-- [ ] **Step 3: Tailwind'i kaldır**
+- [x] **Step 3: Tailwind'i kaldır**
 
 `src/react/styles.css` satır 1'deki `@import "tailwindcss";` satırını sil.
 
@@ -806,7 +806,7 @@ kabuğunda `node`'u bulamıyor ve kurulumu düşürüyor. Paket zaten kurulu old
 tekrar koşturmaya gerek yok; yalnız `node_modules` ağacından Tailwind çıkarılıyor. Kurulumun
 sağlığını bir sonraki adımdaki derleme kanıtlar.
 
-- [ ] **Step 4: Testi koştur**
+- [x] **Step 4: Testi koştur**
 
 ```bash
 node node_modules/vite/bin/vite.js build
@@ -817,7 +817,7 @@ Beklenen: PASS.
 
 `toast-ve-duyurucu` ekranı `LiveAnnouncer`'ı da yakalıyor (kart eklendiğinde `notice` dolduğu için DOM'a giriyor). `.pg-sr-only` Tailwind bileşiminden farklı hesaplanırsa test tam orada düşer ve hangi özelliğin kaydığını söyler.
 
-- [ ] **Step 5: Tailwind'in gerçekten gittiğini doğrula**
+- [x] **Step 5: Tailwind'in gerçekten gittiğini doğrula**
 
 ```bash
 grep -rn "tailwind" package.json vite.config.ts src/ || echo "temiz"
@@ -832,7 +832,7 @@ Beklenen: kaynak dosyalarda hiçbir eşleşme yok.
 ls -la dist/assets/*.css
 ```
 
-- [ ] **Step 6: Bütün kapıları koştur**
+- [x] **Step 6: Bütün kapıları koştur**
 
 ```bash
 node node_modules/typescript/bin/tsc --noEmit
@@ -845,7 +845,7 @@ node node_modules/@playwright/test/cli.js test
 
 Beklenen: tsc çıktısız, 348 birim testi ve 6 güvenlik testi geçer, lint 0 hata, ürün belgeleri eşleşir, build başarılı, 32 E2E testi geçer.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add package.json package-lock.json vite.config.ts src/react/styles.css src/react/components/LiveAnnouncer.tsx
