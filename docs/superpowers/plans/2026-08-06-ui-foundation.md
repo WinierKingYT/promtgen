@@ -71,7 +71,7 @@ Bu görev **hiçbir CSS değişikliği içermez**. Referans, değişmiş bir dur
 - Consumes: `tests/e2e/support/provider.ts`'ten `stubReadyProvider(page)`, `stubExpansionProvider(page, cards)`, `StubbedExpansionCard`
 - Produces: `captureComputedStyles(page): Promise<ElementStyle[]>`, `diffScreen(screen, expected, actual): string[]`, `TRACKED_PROPERTIES: readonly string[]`, `interface ElementStyle { tag: string; className: string; styles: Record<string,string> }`
 
-- [ ] **Step 1: Yardımcıyı yaz**
+- [x] **Step 1: Yardımcıyı yaz**
 
 `tests/e2e/support/visual-contract.ts`:
 
@@ -155,7 +155,7 @@ export function diffScreen(screen: string, expected: ElementStyle[], actual: Ele
 }
 ```
 
-- [ ] **Step 2: Testi yaz**
+- [x] **Step 2: Testi yaz**
 
 `tests/e2e/visual-contract.spec.ts`:
 
@@ -295,7 +295,7 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
 });
 ```
 
-- [ ] **Step 3: Referansı üret ve testin gerçekten çalıştığını gör**
+- [x] **Step 3: Referansı üret ve testin gerçekten çalıştığını gör**
 
 Önizleme sunucusu kontrolcü tarafından 4173'te açık tutuluyor; başlatma. Derle, sonra referansı **açık bayrakla** üret:
 
@@ -322,7 +322,7 @@ node -e "const b=require('./tests/e2e/visual-contract.baseline.json');console.lo
 
 Beklenen: sekiz ekran, her biri onlarca eleman. Herhangi biri 0 veya 1 eleman içeriyorsa o ekran gerçekten açılmamıştır — düzelt, referansı sil (`rm tests/e2e/visual-contract.baseline.json`) ve adımı tekrarla.
 
-- [ ] **Step 4: Testin gerçekten düşebildiğini kanıtla**
+- [x] **Step 4: Testin gerçekten düşebildiğini kanıtla**
 
 Referans doğruysa test her zaman geçer; bu, testin hiçbir şeyi kontrol etmediği anlamına da gelebilir. Geçici bir mutasyonla kanıtla — `src/react/styles.css`'in **en sonuna** ekle:
 
@@ -354,7 +354,7 @@ node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
 
 Beklenen: PASS.
 
-- [ ] **Step 5: Diğer kapıların bozulmadığını doğrula**
+- [x] **Step 5: Diğer kapıların bozulmadığını doğrula**
 
 ```bash
 node node_modules/typescript/bin/tsc --noEmit
@@ -364,7 +364,7 @@ node node_modules/@playwright/test/cli.js test
 
 Beklenen: tsc çıktısız, lint 0 hata, tüm E2E testleri geçer (mevcut 31 + yeni 1 = 32).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/e2e/support/visual-contract.ts tests/e2e/visual-contract.spec.ts tests/e2e/visual-contract.baseline.json
@@ -398,7 +398,7 @@ Claude-Session: https://claude.ai/code/session_01Pk1PMuxgQDqfANjHHQBgLe"
 - Consumes: Görev 1'in `tests/e2e/visual-contract.baseline.json` dosyası
 - Produces: `styles.css`'in başında tek `:root`; sonraki görevler bu bloğu varsayar
 
-- [ ] **Step 1: Bugünkü değerleri oku**
+- [x] **Step 1: Bugünkü değerleri oku**
 
 Üç bloğu da ekrana al, hiçbir değeri ezberden yazma:
 
@@ -406,7 +406,7 @@ Claude-Session: https://claude.ai/code/session_01Pk1PMuxgQDqfANjHHQBgLe"
 sed -n '3p;555p;605,626p' src/react/styles.css
 ```
 
-- [ ] **Step 2: Tek `:root` yaz**
+- [x] **Step 2: Tek `:root` yaz**
 
 `styles.css`'in **başına** (satır 3'ün yerine) aşağıdaki bloğu koy; satır 555 ve 605–626'daki `:root` bloklarını sil.
 
@@ -474,7 +474,7 @@ Silinecek değişkenler (sıfır referans): `--panel-2`, `--studio-surface`.
 
 Silinecek bildirimler: eski `:root`'taki `color:#e8ecf7` ve `background:#090d18`. Bunlar zaten dosyanın ilerisindeki `html,body,#root` kuralıyla eziliyor — testin işi bunu doğrulamak. `font-family` **silinmez**: kabukların dışında render edilen `.toast` ve `.loading` onu `:root`'tan miras alıyor.
 
-- [ ] **Step 3: Testi koştur**
+- [x] **Step 3: Testi koştur**
 
 ```bash
 node node_modules/vite/bin/vite.js build
@@ -485,7 +485,7 @@ Beklenen: PASS.
 
 FAIL alırsan mesaj hangi özelliğin kaydığını söyler. Referansı **güncelleme** — kaymayı düzelt. Örneğin `color` kaydıysa `:root`'tan sildiğin bir bildirim aslında ezilmiyormuş demektir; geri koy.
 
-- [ ] **Step 4: Tema renklerini düzelt**
+- [x] **Step 4: Tema renklerini düzelt**
 
 `index.html` satır 6:
 
@@ -497,7 +497,7 @@ FAIL alırsan mesaj hangi özelliğin kaydığını söyler. Referansı **günce
 
 Not: `#0b1020` kaldırılan koyu temadan kalma; uygulama açık temada çalışıyor. Bu değerler hesaplanmış stil değil, tarayıcı krom rengi — görsel sözleşme testi bunları görmez, bu yüzden gözle doğrulanır.
 
-- [ ] **Step 5: Bütün kapıları koştur**
+- [x] **Step 5: Bütün kapıları koştur**
 
 ```bash
 node node_modules/typescript/bin/tsc --noEmit
@@ -508,7 +508,7 @@ node node_modules/@playwright/test/cli.js test
 
 Beklenen: tsc çıktısız, lint 0 hata, build başarılı, 32 E2E testi geçer.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/react/styles.css index.html vite.config.ts
@@ -543,7 +543,7 @@ Claude-Session: https://claude.ai/code/session_01Pk1PMuxgQDqfANjHHQBgLe"
 - Consumes: Görev 2'nin tek `:root` bloğu
 - Produces: eleman başına tek kural; Görev 4 bu kuralların dışındaki sınıfları siler
 
-- [ ] **Step 1: Bugünkü tanımları oku**
+- [x] **Step 1: Bugünkü tanımları oku**
 
 ```bash
 grep -n "^body\|^html,body\|^textarea\|^select\|^textarea,select" src/react/styles.css
@@ -551,7 +551,7 @@ grep -n "^body\|^html,body\|^textarea\|^select\|^textarea,select" src/react/styl
 
 Beklenen: `body` üç yerde, `textarea` ve `select` ikişer yerde.
 
-- [ ] **Step 2: Üçünü de tek kurala indir**
+- [x] **Step 2: Üçünü de tek kurala indir**
 
 Kural: **korunacak değer, bugün ekranda görünen değerdir** — dosyadaki ilk tanım değil. Aşağıdaki üç kural bunu uygular; eski tanımları sil ve bunları token bloğunun hemen altına koy.
 
@@ -595,7 +595,7 @@ select {
 
 `h1`'in `clamp(43px,7vw,82px)` boyutu koyu tema için yazılmıştı ama bugün ekranda o görünüyor; bu alt proje onu **korur**. Doğru olup olmadığı alt proje B'nin kararı.
 
-- [ ] **Step 3: Testi koştur**
+- [x] **Step 3: Testi koştur**
 
 ```bash
 node node_modules/vite/bin/vite.js build
@@ -606,7 +606,7 @@ Beklenen: PASS.
 
 FAIL alırsan mesaj hangi elemanın hangi özelliğinin kaydığını söyler. Sık görülen sebep: birleştirilen kurallardan birinde `background` kısayolu, ötekinin `background-color`'ını da sıfırlıyor. Referansı güncelleme; kuralı düzelt.
 
-- [ ] **Step 4: Bütün kapıları koştur**
+- [x] **Step 4: Bütün kapıları koştur**
 
 ```bash
 node node_modules/typescript/bin/tsc --noEmit
@@ -617,7 +617,7 @@ node node_modules/@playwright/test/cli.js test
 
 Beklenen: tsc çıktısız, lint 0 hata, build başarılı, 32 E2E testi geçer.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/react/styles.css
@@ -651,7 +651,7 @@ Claude-Session: https://claude.ai/code/session_01Pk1PMuxgQDqfANjHHQBgLe"
 - Consumes: Görev 3'ün tekilleşmiş global kuralları
 - Produces: yalnız JSX'te kullanılan sınıfları içeren stil dosyası
 
-- [ ] **Step 1: Ölü sınıf listesini yeniden üret**
+- [x] **Step 1: Ölü sınıf listesini yeniden üret**
 
 Listeyi ezberden kullanma; kod bu plandan sonra değişmiş olabilir:
 
@@ -680,13 +680,13 @@ welcome-submit workspace-grid
 
 Dinamik sınıf riski incelendi: koddaki tüm şablon-değişmez `className` kullanımları `` `sabit-taban ${değişken}` `` biçiminde, yani taban sınıf her zaman literal olarak yazılı ve yukarıdaki arama onu bulur. Değişkenden üreyen ekler (`status-`, `state-`, `risk-`, `outcome-` önekli olanlar) bu listede yok. Yine de artık kalan risk Step 3'teki test tarafından karşılanır.
 
-- [ ] **Step 2: Kuralları sil**
+- [x] **Step 2: Kuralları sil**
 
 Listedeki her sınıf için, `styles.css`'te o sınıfı içeren **tüm** seçicileri sil — hem tek başına (`.start-card { … }`) hem birleşik olanları (`.start-card h2 { … }`, `.start-shell .start-card { … }`).
 
 Bir seçici hem ölü hem canlı sınıf içeriyorsa (`.start-card, .pg-map-head { … }`) yalnız ölü kısmı seçici listesinden çıkar, kuralı silme.
 
-- [ ] **Step 3: Testi koştur**
+- [x] **Step 3: Testi koştur**
 
 ```bash
 node node_modules/vite/bin/vite.js build
@@ -697,7 +697,7 @@ Beklenen: PASS.
 
 FAIL alırsan bir sınıf yanlışlıkla ölü sanılmıştır — mesajdaki eleman hangi kuralı kaybettiğini gösterir. O sınıfın kuralını geri koy ve neden aramada görünmediğini not et.
 
-- [ ] **Step 4: Kazanımı ölç**
+- [x] **Step 4: Kazanımı ölç**
 
 ```bash
 wc -l src/react/styles.css
@@ -705,7 +705,7 @@ wc -l src/react/styles.css
 
 Referans: iş başlamadan önce 739 satırdı.
 
-- [ ] **Step 5: Bütün kapıları koştur**
+- [x] **Step 5: Bütün kapıları koştur**
 
 ```bash
 node node_modules/typescript/bin/tsc --noEmit
@@ -716,7 +716,7 @@ node node_modules/@playwright/test/cli.js test
 
 Beklenen: tsc çıktısız, lint 0 hata, build başarılı, 32 E2E testi geçer.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/react/styles.css
