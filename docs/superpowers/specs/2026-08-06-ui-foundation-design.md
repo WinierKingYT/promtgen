@@ -45,9 +45,19 @@ Diğer ölçümler:
 - Miras değişkenlere **246 referans** var: koyu kuşak 153 (`--line` 65, `--muted` 34, `--mint` 27,
   `--violet-2` 10, `--violet` 8, `--danger` 5, `--panel` 3, `--bg` 1), `--studio-*` kuşağı 93.
   Hâlâ kullanılan 18 miras değişken var; `--panel-2` ve `--studio-surface` hiç kullanılmıyor.
-- Tailwind v4 kurulu ve vite eklentisi etkin, ama tüm kod tabanında tek kullanıcısı var:
-  `LiveAnnouncer.tsx:16`'daki `sr-only` div'i. Üretilen CSS 163 KB, el yazımı `styles.css` 161 KB —
-  Tailwind'in katkısı ~2 KB.
+- Tailwind v4 kurulu ve vite eklentisi etkin. Yardımcı sınıflarının tüm kod tabanındaki tek
+  kullanıcısı `LiveAnnouncer.tsx:16`'daki `sr-only` div'i. Üretilen CSS 163 KB, el yazımı
+  `styles.css` 161 KB.
+
+  **Düzeltme (uygulama sırasında ölçüldü):** Bu ölçüm yalnız yardımcı sınıfları sayıyordu ve
+  bu yüzden yanıltıcıydı. `@import "tailwindcss"` aynı zamanda **Preflight**'ı — global bir
+  reset'i — getiriyor ve uygulamanın bugünkü görünümü ona dayanıyor. Tailwind çıkarılınca
+  görsel sözleşme testi 1285 farkla düştü: 1170 `line-height` (Preflight'ın `1.5` mirası),
+  41 `font-weight`, 21 `font-size`, 27 `padding`/`margin`, 14 `font-family` (form denetimleri
+  `Arial`'a düştü), 6 `border-color`. Yani Tailwind'in katkısı ~2 KB değil; kaldırılması
+  Preflight'ın hesaplanmış sonucunu birebir üreten elle yazılmış bir taban sıfırlama
+  gerektiriyor. Bu blok `@layer base` içinde yazıldı, çünkü Tailwind de Preflight'ı orada
+  yayınlıyordu ve kaskad düzeninin korunması gerekiyor.
 - E2E'de 43 seçici CSS sınıf adına, 145'i rol/metin'e bağlı.
 - CI `ubuntu-latest`'te E2E koşuyor; geliştirme Windows'ta yapılıyor.
 
