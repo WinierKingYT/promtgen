@@ -7,6 +7,7 @@ import {
   type ElementStyle
 } from './support/visual-contract.js';
 import { stubExpansionProvider, type StubbedExpansionCard } from './support/provider.js';
+import { advanceToDecisionTurn, completeConceptAgreement, resolveDecisionTurn } from './support/idea-flow.js';
 
 const BASELINE_PATH = resolve('tests/e2e/visual-contract.baseline.json');
 /** Referansı bilerek yeniden üretmek için: UPDATE_VISUAL_BASELINE=1 */
@@ -163,6 +164,63 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
 
   await page.getByRole('button', { name: 'Plan', exact: true }).click();
   captured['plan'] = await captureComputedStyles(page);
+
+  // Yukarıdaki `plan` ekranı planın kendisi değil, "önce fikrin sınırlarını
+  // onayla" kapısıdır: canonicalPlanningOpen bir gereksinim/karar/görev ya da
+  // sourceIdeaRevisionId ister (Workspace.tsx:131). Yaşayan plan ve arkasındaki
+  // araç panelleri bu yüzden bugüne dek hiç ölçülmedi. Kapı, ürünün kendi
+  // onay akışıyla açılır — durum doğrudan enjekte edilmez, çünkü sözleşmenin
+  // değeri gerçekten render edilen ekranı kaydetmesinden gelir.
+  // Kapıyı açmak için önce fikrin kendi akışı yürütülür. Bu üç cevap turu
+  // yalnız bir araç değil, başlı başına kapsam: DiscoveryAnswerReview ve
+  // karar destesi de ancak burada render ediliyor. Akış eski yakalamalar
+  // bittikten sonra koşulur ki onların durumu değişmesin.
+  await page.getByRole('button', { name: 'Fikir', exact: true }).click();
+  await advanceToDecisionTurn(page);
+  captured['karar-destesi'] = await captureComputedStyles(page);
+  await resolveDecisionTurn(page);
+
+  await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
+  await expect(page.getByLabel('Sistem yorumu')).toBeVisible();
+  captured['fikir-özeti-düzenleyici'] = await captureComputedStyles(page);
+  await completeConceptAgreement(page);
+  await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+  const preview = page.getByRole('region', { name: 'Plan dönüşümü önizlemesi' });
+  await expect(preview).toContainText('Gereksinim taslağı');
+  await preview.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
+  await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+  // Dönüşümün hemen ardından ayrı bir `plan-yaşayan` ekranı yakalanmıyor.
+  // Denendi ve bilerek çıkarıldı: o anda bölüm listesi hâlâ yerleşiyor ve
+  // etkinlik koşudan koşuya farklı düğmeye düşüyor — beş koşunun üçü, etkin
+  // bölümün ikonlarını vurgulu yerine soluk yakaladı. Etkin düğmenin
+  // hesaplanmış rengini beklemek de yetmedi; yakalamaya kadar geçen sürede
+  // yeniden yerleşiyor.
+  //
+  // Kayıp yok: aşağıdaki `plan-gelişmiş-araçlar` aynı plan iskeletinin üstüne
+  // beş paneli ekleyen bir üst kümedir ve o noktada yerleşme bitmiş oluyor.
+  // Bölüm açıkça seçilir ki o ekran da belirli bir bölümle yakalansın.
+  const sectionNav = page.getByRole('navigation', { name: 'Plan bölümleri' });
+  await sectionNav.getByRole('button').first().click();
+  await expect(sectionNav.locator('button.is-active')).toHaveCount(1);
+
+  // Beş panel (StorageHealthPanel, TraceabilityMap, PlanningScenarioPanel,
+  // PlanCodeAlignmentPanel, SectionRegenerationPanel) tek bir `<details>`
+  // arkasında ve `LazyFeatureBoundary` ile geç yükleniyor (Workspace.tsx:388).
+  // Açılırı tıklamak beşini birden kapsama alır.
+  //
+  // Bekleme geç yüklemenin *içeriğine* bağlanır, açılırın kendisine değil:
+  // `<summary>` tıklanır tıklanmaz `details` açılır ama panellerin modülü
+  // henüz inmemiş olabilir; o aralıkta yakalama Suspense yedeğini kaydeder.
+  await page.locator('summary', { hasText: 'Gelişmiş plan araçları' }).click();
+  // Çapa TraceabilityMap'in arama alanı: aynı lazy paketin içinde ve koşulsuz
+  // render ediliyor, yani modülün gerçekten indiğini kanıtlar. StorageHealthPanel'in
+  // başlıkları koşullu olduğu için bekleme çapası olmaya uygun değil.
+  await expect(page.getByLabel('İzlenebilirlik kaydı ara')).toBeVisible();
+  captured['plan-gelişmiş-araçlar'] = await captureComputedStyles(page);
+
+  await page.getByRole('button', { name: 'Geçmiş' }).click();
+  await expect(page.getByRole('heading', { name: "Plan revision'larını karşılaştır" })).toBeVisible();
+  captured['revizyon-geçmişi'] = await captureComputedStyles(page);
 
   // Referans yazımı yalnız açık bayrakla olur. Aksi hâlde "referans yoksa üret
   // ve geç" yolu, hiçbir şey iddia etmeyen bir testtir: referans silindiğinde
