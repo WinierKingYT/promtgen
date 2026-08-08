@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Yalnız `src/react/styles.css` değişir.** Uygulama mantığına, markup'a, sınıf adlarına dokunulmaz. Tek istisna yok.
+- **Kaynak değişikliği yalnız `src/react/styles.css`'te olur.** Uygulama mantığına, markup'a, sınıf adlarına, teste dokunulmaz. `tests/e2e/visual-contract.baseline.json` bunun dışındadır: o kaynak değil, üretilen bir kayıttır ve her görevde `UPDATE_VISUAL_BASELINE=1` ile yeniden üretilir.
 - **`--pg-*` token değerleri değişmez.** B onları kullanır, yeniden tanımlamaz.
 - **Yeni token eklenmez.** Karşılığı olmayan yerlerde `color-mix()` kullanılır (kod tabanında zaten var: `.pg-onboarding-shell button:focus-visible`).
 - **`!important` korunur.** Bir bildirimde varsa, hedefinde de kalır.
@@ -638,16 +638,33 @@ grep -oE '#[0-9a-fA-F]{3,8}\b' src/react/styles.css | sort | uniq -c | sort -rn 
 
 Kalan sabit renkler beklenen kısa listeye inmiş olmalı: `#fff` (birincil eylem metni), `rgba(255,255,255,.95)` (yapışkan şerit), `rgba(24,32,27,.45)` (perde) ve `pg` bloğunun kendi birkaç değeri. Uzun bir koyu renk listesi kalmışsa bir yüzey atlanmış demektir — hangisi olduğunu bul ve o görevi tamamla.
 
-- [ ] **Step 5: Bütün kapıları koştur**
-
-Görev 3 Step 5'teki komut dizisinin aynısı. Referans bu görevde değişmemeli: hiçbir görünüm değişikliği yapılmadı, yalnız ölü tanım silindi. Sözleşme **PASS** vermeli.
-
-Sözleşme bu görevde düşerse, silinen bir tanım hâlâ kullanılıyordu demektir. Dur ve bul.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Sözleşmeyi koştur ve iki farkı ayırt et**
 
 ```bash
-git add src/react/styles.css
+node node_modules/vite/bin/vite.js build
+node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
+```
+
+Bu görevde **tam olarak bir tür fark beklenir**: font stack'i tekilleştirmesi nedeniyle `font-family` değişimi. Referansta bugün 2.454 eleman `Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`, 118 eleman ise `BlinkMacSystemFont` içeren varyantı taşıyor. Tekilleştirme o 118 elemanın `font-family` dizesini değiştirir.
+
+Bu fark **kozmetiktir**: her iki stack'te de `Inter` ilk sırada ve yüklü, yani çözümlenen yazı tipi aynı. Yalnız bildirilen dize değişiyor.
+
+`font-family` **dışında** tek bir fark bile çıkarsa, silinen bir tanım hâlâ kullanılıyordu demektir. Dur ve bul — referansı güncelleme.
+
+Fark yalnız `font-family` ise referansı güncelle:
+
+```bash
+UPDATE_VISUAL_BASELINE=1 node node_modules/@playwright/test/cli.js test tests/e2e/visual-contract.spec.ts
+```
+
+- [ ] **Step 6: Bütün kapıları koştur**
+
+Görev 3 Step 5'teki komut dizisinin aynısı.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/react/styles.css tests/e2e/visual-contract.baseline.json
 git commit -m "refactor(css): miras token blogunu sil ve font stack'ini tekillestir
 
 Gorev 1 ve 2 butun miras var() cagrilarini kaldirmisti; geriye kalan
@@ -660,8 +677,9 @@ olcegin 21 basamakli olmasi ve bu ayri bir tasarim karari.
 Ekranda koyu yuzey kalmadigi olculdu: referanstaki butun elemanlarin
 background-color ve border-color degerleri tarandi, sonuc sifir.
 
-Gorsel sozlesme bu commit'te DEGISMEDI ve PASS veriyor - yalniz olu tanim
-silindi, gorunum degismedi.
+Sozlesmedeki tek fark font-family: 118 elemanin bildirdigi dize degisti.
+Kozmetik - her iki stack'te de Inter ilk sirada ve yuklu, cozumlenen yazi
+tipi ayni. font-family disinda tek bir fark cikmadi.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
