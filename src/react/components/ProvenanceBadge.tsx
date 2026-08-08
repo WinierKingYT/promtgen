@@ -8,37 +8,24 @@ interface ProvenanceBadgeProps {
   className?: string;
 }
 
+/** Rozetin görünümü `.pg-provenance-badge` kurallarında; daha önce Tailwind yardımcı sınıflarıydı. */
+const LABELS: Record<ProvenanceKind, { icon: string; text: string }> = {
+  canonical: { icon: '✓', text: 'Onaylı plan' },
+  'ai-proposed': { icon: '🤖', text: 'AI Önerisi' },
+  'local-rule': { icon: '⚙️', text: 'Yerel Kural Motoru' },
+  degraded: { icon: '⚠️', text: 'Yedek Kural Motoru (Fallback)' }
+};
+
 export const ProvenanceBadge: React.FC<ProvenanceBadgeProps> = ({ kind, providerName, className = '' }) => {
-  switch (kind) {
-    case 'canonical':
-      return (
-        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 ${className}`}>
-          <span>✓</span>
-          <span>Onaylı plan</span>
-        </span>
-      );
-    case 'ai-proposed':
-      return (
-        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/30 ${className}`}>
-          <span>🤖</span>
-          <span>{providerName ? `AI Önerisi (${providerName})` : 'AI Önerisi'}</span>
-        </span>
-      );
-    case 'local-rule':
-      return (
-        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 ${className}`}>
-          <span>⚙️</span>
-          <span>Yerel Kural Motoru</span>
-        </span>
-      );
-    case 'degraded':
-      return (
-        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-orange-500/10 text-orange-300 border border-orange-500/30 ${className}`}>
-          <span>⚠️</span>
-          <span>Yedek Kural Motoru (Fallback)</span>
-        </span>
-      );
-    default:
-      return null;
-  }
+  const label = LABELS[kind];
+  if (!label) return null;
+
+  const text = kind === 'ai-proposed' && providerName ? `AI Önerisi (${providerName})` : label.text;
+
+  return (
+    <span className={`pg-provenance-badge is-${kind} ${className}`}>
+      <span>{label.icon}</span>
+      <span>{text}</span>
+    </span>
+  );
 };
