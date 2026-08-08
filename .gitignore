@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .worktrees/
+.claude/worktrees/
 .superpowers/
 /src-tauri/target/
 /graphify-out/
