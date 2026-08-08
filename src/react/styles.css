@@ -696,6 +696,21 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-onboarding-topbar>button { min-width:42px;min-height:38px;border:0;border-radius:9px;background:transparent;color:var(--pg-muted);font-size:11px;font-weight:750; }.pg-onboarding-topbar>button:hover { background:var(--pg-surface-soft); }
 .pg-runtime-pill { min-height:32px;display:flex;align-items:center;gap:7px;border:1px solid var(--pg-border);border-radius:999px;padding:7px 11px;background:rgba(255,255,255,.7);color:var(--pg-muted);font-size:10px; }
 .pg-runtime-pill i { width:7px;height:7px;border-radius:50%;background:var(--pg-success); }.pg-runtime-pill.is-local i { background:#d38a25; }
+
+/*
+ * Köken rozeti. Daha önce ProvenanceBadge doğrudan Tailwind yardımcı
+ * sınıflarıyla kuruluyordu; Tailwind kalkınca bu rozet biçimsiz kaldı.
+ * Değerler Tailwind CLI'ya aynı bileşim verilerek ölçüldü, ezberden
+ * yazılmadı: --spacing 0.25rem olduğu için gap-1.5=.375rem, px-2=.5rem,
+ * py-0.5=.125rem; text-xs .75rem/calc(1/.75); font-semibold 600.
+ * Renkler Tailwind'in ürettiği oklch değerlerinin birebir aynısı.
+ */
+.pg-provenance-badge { display:inline-flex;align-items:center;gap:.375rem;padding:.125rem .5rem;border:1px solid;border-radius:.25rem;font-size:.75rem;line-height:calc(1 / .75);font-weight:600; }
+.pg-provenance-badge.is-canonical { background-color:color-mix(in oklab,oklch(69.6% .17 162.48) 10%,transparent);border-color:color-mix(in oklab,oklch(69.6% .17 162.48) 30%,transparent);color:oklch(76.5% .177 163.223); }
+.pg-provenance-badge.is-ai-proposed { background-color:color-mix(in oklab,oklch(62.7% .265 303.9) 10%,transparent);border-color:color-mix(in oklab,oklch(62.7% .265 303.9) 30%,transparent);color:oklch(82.7% .119 306.383); }
+.pg-provenance-badge.is-local-rule { background-color:color-mix(in oklab,oklch(76.9% .188 70.08) 10%,transparent);border-color:color-mix(in oklab,oklch(76.9% .188 70.08) 30%,transparent);color:oklch(87.9% .169 91.605); }
+.pg-provenance-badge.is-degraded { background-color:color-mix(in oklab,oklch(70.5% .213 47.604) 10%,transparent);border-color:color-mix(in oklab,oklch(70.5% .213 47.604) 30%,transparent);color:oklch(83.7% .128 66.29); }
+
 .pg-onboarding-center { width:min(760px,calc(100% - 40px));margin:auto;padding:48px 0 72px; }
 .pg-onboarding-copy { text-align:center; }.pg-onboarding-copy>span { color:var(--pg-accent);font-size:10px;font-weight:800;letter-spacing:.14em; }.pg-onboarding-copy h1 { margin:14px 0 15px;color:var(--pg-text);font-size:clamp(40px,5.2vw,66px);line-height:1.02;letter-spacing:-.065em; }.pg-onboarding-copy p { max-width:610px;margin:0 auto;color:var(--pg-muted);font-size:16px;line-height:1.65; }
 .pg-start-composer { margin-top:36px;border:1px solid var(--pg-border-strong);border-radius:20px;padding:18px 18px 12px;background:var(--pg-surface);box-shadow:var(--pg-shadow);transition:border-color .2s,box-shadow .2s; }.pg-start-composer:focus-within { border-color:#9a8deb;box-shadow:0 24px 70px rgba(91,66,214,.13); }
