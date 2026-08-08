@@ -51,11 +51,8 @@ describe('AI production runtime ownership', () => {
     for (const path of [
       'src/react/Workspace.tsx',
       'src/react/hooks/useProjectState.ts',
-      'src/react/components/IdeaLabComponents.tsx',
-      'src/react/components/IdeaAmplifierPanel.tsx',
       'src/react/components/PlanningScenarioPanel.tsx',
       'src/react/components/ProviderSettingsDialog.tsx',
-      'src/react/components/RuntimeHealthDialog.tsx',
       'src/v4/benchmarks/discovery-benchmark.ts'
     ]) {
       assert.doesNotMatch(read(path), /from ['"][^'"]*ai-discovery(?:\.js)?['"]/);
@@ -67,13 +64,9 @@ describe('AI production runtime ownership', () => {
       'src/react/hooks/useProjectState.ts',
       'src/react/Workspace.tsx',
       'src/react/components/StartScreen.tsx',
-      'src/react/components/PortfolioOverview.tsx',
       'src/react/components/ProjectInventoryModal.tsx',
       'src/react/components/RevisionHistoryDialog.tsx',
-      'src/react/components/IdeaAmplifierPanel.tsx',
-      'src/react/components/IdeaLabComponents.tsx',
       'src/react/components/ProviderSettingsDialog.tsx',
-      'src/react/components/RuntimeHealthDialog.tsx',
       'src/react/components/WorkspaceChrome.tsx',
       'src/v4/planning-engine.d.ts'
     ]) {
@@ -86,7 +79,6 @@ describe('AI production runtime ownership', () => {
     assert.match(startScreen, /from ['"]\.\/ProjectInventoryModal\.js['"]/);
     assert.match(startScreen, /<ProjectInventoryModal/);
     assert.match(startScreen, /pg-onboarding-projects/);
-    assert.doesNotMatch(startScreen, /<PortfolioOverview/);
     assert.doesNotMatch(read('src/v4/portfolio-engine.d.ts'), /\bany\b/);
   });
 

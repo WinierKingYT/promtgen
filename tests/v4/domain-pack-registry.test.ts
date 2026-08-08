@@ -158,8 +158,7 @@ test('production consumers depend on the registry, not individual packs', () => 
     'src/v4/module-registry.js',
     'src/v4/application/readiness-service.ts',
     'src/v4/review-engine.js',
-    'src/v4/task-compiler.js',
-    'src/react/components/DomainPackCard.tsx'
+    'src/v4/task-compiler.js'
   ];
   for (const relativePath of consumerPaths) {
     const content = fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
