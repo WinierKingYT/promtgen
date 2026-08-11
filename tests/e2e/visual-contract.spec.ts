@@ -65,6 +65,17 @@ async function openExpansionCards(page: Page) {
   const board = page.getByRole('region', { name: 'Keşif panosu' });
   await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
   await expect(board.locator('.pg-expansion-card', { hasText: CARDS[0].title })).toBeVisible();
+  // Panel başlığındaki "Yenile" düğmesi `disabled={loading}` taşır
+  // (IdeaExpansionBoard.tsx:119); `loading` kartlarla aynı render'da false'a
+  // döner ama `:disabled`in `opacity:.45` kuralı (styles.css:152) bunun
+  // hesaplanmış karşılığıdır — DOM özelliği doğru olsa da tarayıcının bu
+  // boyama değerini yeniden hesaplaması, ana iş parçacığı bu testteki gibi
+  // art arda büyük DOM taramalarıyla meşgulken bir adım geriden gelebilir
+  // (tam sözleşme koşusunda deneyle doğrulandı: kart görünür olsa da düğme
+  // hâlâ soluk yakalanabiliyordu). Kartın görünürlüğü yalnız içeriğin
+  // geldiğini kanıtlar, düğmenin oturmuş opaklığını değil; bu yüzden ikisi
+  // ayrı ayrı beklenir.
+  await expect(board.getByRole('button', { name: 'Yenile', exact: true })).toHaveCSS('opacity', '1');
 }
 
 /**
@@ -144,25 +155,65 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // saatinden okuyup bir saniye pay birakmak yarisi kapatir; ileri sarilan bu
   // pencerede daha hicbir bildirim zamanlayicisi kurulmus degil.
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
-  await page.getByRole('region', { name: 'Keşif panosu' })
+  const fikreEkleDugmesi = page.getByRole('region', { name: 'Keşif panosu' })
     .locator('.pg-expansion-card', { hasText: CARDS[0].title })
-    .getByRole('button', { name: 'Fikre ekle' }).click();
+    .getByRole('button', { name: 'Fikre ekle' });
+  await fikreEkleDugmesi.click();
   await expect(page.locator('.toast')).toBeVisible();
   await expect(page.locator('[role="status"][aria-live="polite"]')).toHaveCount(1);
+  // Tıklama, imleci gerçekten bu düğmenin üstünde bırakıyor, bu yüzden
+  // `:hover` kuralı (styles.css:549, `.pg-expansion-card footer button:hover`)
+  // eninde sonunda uygulanıyor — fare orada kaldığı sürece bu, geçici değil
+  // kalıcı/oturmuş durumdur. Ama tarayıcının bu hover'ı hesaplanmış boyamaya
+  // yansıtması, `.pg-view-tabs`teki sınıf/boyama gecikmesiyle aynı ailede:
+  // durum (burada native `:hover` sözde-sınıfı, orada React'in yazdığı sınıf)
+  // doğru olsa da yeniden boyama bir adım geride kalabiliyor — özellikle ana
+  // iş parçacığı bu testteki gibi art arda büyük hesaplanmış-stil taramalarıyla
+  // meşgulken (gerçek sözleşme koşusunda deneyle doğrulandı: referans hover
+  // rengini beklerken bazı koşular düğmeyi hâlâ hover-öncesi renginde
+  // yakalıyordu). Toast/duyurucu görünürlüğü yalnız bildirim tarafının
+  // geldiğini kanıtlar, düğmenin hover boyamasının oturduğunu değil.
+  await expect(fikreEkleDugmesi).toHaveCSS('background-color', 'rgb(73, 50, 194)');
   captured['toast-ve-duyurucu'] = await captureComputedStyles(page);
   await page.clock.fastForward(3300);
   await expect(page.locator('.toast')).toHaveCount(0);
   await page.clock.resume();
 
-  await page.getByRole('tab', { name: 'Özet' }).click();
+  const ozetSekmesi = page.getByRole('tab', { name: 'Özet' });
+  await ozetSekmesi.click();
   await expect(page.getByRole('list', { name: 'Fikir geliştirme aşamaları' })).toBeVisible();
+  // `.pg-map-tabs button[aria-selected="true"]` (styles.css:545) `.pg-view-tabs
+  // button.is-active` ile aynı ailede: sekmenin `aria-selected` özniteliği
+  // tıklamanın React state güncellemesiyle DOM'a anında yazılıyor, ama
+  // tarayıcının o özniteliğe karşılık gelen hesaplanmış boyamayı (arkaplan/
+  // renk/gölge) yeniden hesaplaması aynı anda bitmiyor (deneyle doğrulandı:
+  // tam sözleşme koşusunda dört ardışık denemenin dördünde de bu sekme çifti
+  // ters yakalandı). Aşağıdaki liste beklemesi yalnız içerik tarafının
+  // (özet panelinin) yerleştiğini kanıtlar, sekme çubuğunun stilini değil.
+  await expect(ozetSekmesi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   captured['stüdyo-özet'] = await captureComputedStyles(page);
 
-  await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
+  const fikirOzetiSekmesi = page.getByRole('button', { name: 'Fikir Özeti', exact: true });
+  await fikirOzetiSekmesi.click();
   await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
+  // Aynı `.pg-view-tabs` yarışı — fikir-özeti-düzenleyici'deki (aşağıda,
+  // ikinci ziyaret) ile birebir aynı mekanizma, burada ise ilk ziyarette.
+  // Deneyle doğrulandı: tam sözleşme koşusunda dört ardışık denemenin
+  // dördünde de bu sekme başlık beklemesinden sonra hâlâ oturmamış
+  // yakalanıyordu.
+  await expect(fikirOzetiSekmesi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   captured['fikir-özeti'] = await captureComputedStyles(page);
 
-  await page.getByRole('button', { name: 'Plan', exact: true }).click();
+  const planSekmesi = page.getByRole('button', { name: 'Plan', exact: true });
+  await planSekmesi.click();
+  // Bu ekranda tıklamadan sonra hiçbir bekleme yoktu — en kötü durum: aynı
+  // `.pg-view-tabs` yarışı burada hiçbir şeyle kapatılmıyordu. Deneyle
+  // doğrulandı: tam sözleşme koşusunda dört ardışık denemenin dördünde de
+  // sekme, tıklamadan hemen sonra hâlâ önceki (Fikir Özeti'nin) boyamasını
+  // taşıyordu. Bu ekranın kendi içerik tarafı için ayrı bir bekleme yok
+  // (Plan görünümü "kapı" ekranı, aşağıdaki yorum bunu açıklıyor) — o yüzden
+  // sekmenin hesaplanmış rengi burada TEK bekleme.
+  await expect(planSekmesi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   captured['plan'] = await captureComputedStyles(page);
 
   // Yukarıdaki `plan` ekranı planın kendisi değil, "önce fikrin sınırlarını
@@ -180,7 +231,21 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   captured['karar-destesi'] = await captureComputedStyles(page);
   await resolveDecisionTurn(page);
 
-  await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
+  const fikirOzetiTabi = page.getByRole('button', { name: 'Fikir Özeti', exact: true });
+  await fikirOzetiTabi.click();
+  // `.pg-view-tabs` sekmesinin `is-active` sınıfı, tıklamanın React state
+  // güncellemesiyle DOM'a anında yazılıyor — deneyle doğrulandı: tıklamadan
+  // hemen sonra `className` zaten doğru (yeni sekmede `is-active`, eskisinde
+  // yok) olsa da, tarayıcının o sınıfa karşılık gelen hesaplanmış stili
+  // (renk/arkaplan/gölge) yeniden hesaplaması aynı anda bitmiyor; en az bir
+  // `requestAnimationFrame`e kadar sekmeler önceki (bazen ters) görünümü
+  // koruyabiliyor. Aşağıdaki "Sistem yorumu" beklemesi bu gecikmeyi kapatmaz,
+  // çünkü o yalnız içerik tarafının (guide görünümünün) yerleştiğini
+  // kanıtlar, sekme çubuğunun stilini değil — ikisi aynı `view` state'inden
+  // türese de tarayıcı tarafında ayrı ayrı yerleşiyorlar. Sekmenin kendi
+  // hesaplanmış `background-color`'ını doğrudan bekleyerek yakalama, sekme
+  // çubuğunun da gerçekten oturmuş halini kaydeder.
+  await expect(fikirOzetiTabi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByLabel('Sistem yorumu')).toBeVisible();
   captured['fikir-özeti-düzenleyici'] = await captureComputedStyles(page);
   await completeConceptAgreement(page);
@@ -216,6 +281,25 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // render ediliyor, yani modülün gerçekten indiğini kanıtlar. StorageHealthPanel'in
   // başlıkları koşullu olduğu için bekleme çapası olmaya uygun değil.
   await expect(page.getByLabel('İzlenebilirlik kaydı ara')).toBeVisible();
+  // TraceabilityMap'in beklemesi yalnız KENDİ lazy modülünün indiğini
+  // kanıtlar — StorageHealthPanel aynı pakette ama kendi verisini bağımsız
+  // çeker (StorageHealthPanel.tsx:63-98, `useEffect(() => { void refresh() })`,
+  // kendi zamanlamasında). `refresh()` bitmeden `health` hâlâ `null`dur ve
+  // özet satırı `CircleAlert` ikonunu gösterir; bittiğinde `Check`e döner
+  // (StorageHealthPanel.tsx:162). Bu ikonlar lucide'de farklı sayıda
+  // alt-şekil taşıyor, yani bu yalnız bir boyama farkı değil — eleman
+  // SAYISINI değiştiriyor (deneyle doğrulandı: 15 ardışık koşudan birinde
+  // `eleman sayısı değişti — beklenen 315, gelen 317` ile düştü). Bu test
+  // ortamında masaüstü (Tauri) yolu hiç erişilmez (`isDesktopStorageAvailable()`
+  // gerçek bir Tauri çalışma zamanı ister, bu e2e ortamında yok) ve web dalı
+  // `refresh()` başarılı olduğunda `health`i koşulsuz `{ok:true,...}` yapıyor
+  // — yani bu ortamda ulaşılabilir tek çözülmüş durum "sağlıklı"dır; bu
+  // yüzden belirli bir sonucu değil, herhangi bir sonucu bekleyen genel bir
+  // işaretçi yerine doğrudan o duruma bakmak güvenli. Seçici özellikle
+  // `svg.health-ok`'u hedefler — `.panel-summary` içinde `Database` ve
+  // `ChevronDown` ikonları da var; genel bir `svg` seçici üçünü birden
+  // eşleştirip strict-mode ihlaline yol açardı.
+  await expect(page.locator('.storage-health-panel .panel-summary svg.health-ok')).toBeVisible();
   captured['plan-gelişmiş-araçlar'] = await captureComputedStyles(page);
 
   await page.getByRole('button', { name: 'Geçmiş' }).click();
