@@ -193,18 +193,13 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // yakalandı). Aşağıdaki liste beklemesi yalnız içerik tarafının (özet
   // panelinin) yerleştiğini kanıtlar, düğmenin stilini değil.
   await expect(ortakAnlayisDugmesi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  captured['stüdyo-özet'] = await captureComputedStyles(page);
-
-  const ortakAnlayisDugmesiTekrar = page.getByRole('button', { name: 'Ortak Anlayış', exact: true });
-  await ortakAnlayisDugmesiTekrar.click();
-  await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
-  // Aynı `.pg-view-tabs` yarışı — fikir-özeti-düzenleyici'deki (aşağıda,
-  // ikinci ziyaret) ile birebir aynı mekanizma. Bu tıklama artık zaten etkin
-  // olan aşamaya düşüyor (özet bir önceki adımda buraya taşındı), yani React
-  // burada state'i değiştirmiyor ve boyama zaten oturmuş durumda; bekleme
-  // yine de bu ekranın kendi çapası olarak kalıyor.
-  await expect(ortakAnlayisDugmesiTekrar).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   captured['fikir-özeti'] = await captureComputedStyles(page);
+
+  // `stüdyo-özet` ekranı Alt Proje C'de silindi: Özet içeriği Ortak Anlayış
+  // aşamasına taşınınca bu yakalama `fikir-özeti` ile bayt bayt aynı ekranı
+  // ölçmeye başladı (ikisi de 89.593 karakter). İkinci tıklama zaten etkin
+  // düğmeye gidiyordu, React no-op'a düşüyordu, bekleme hiçbir şeyi
+  // korumuyordu. Liste 12 → 11 benzersiz ekrana indi.
 
   const planSekmesi = page.getByRole('button', { name: 'Plan', exact: true });
   await planSekmesi.click();
