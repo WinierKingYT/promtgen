@@ -13,7 +13,8 @@
 - **Aşama modeli tek kaynaktan türer:** `IdeaStudioView` (`src/react/features/idea-studio/IdeaStudioPrimitives.tsx:25`). `PHASE_REGISTRY` ve `GuidedHeaderBar` silinir. `lifecycle.activePhase` verisi `planning-engine` tarafından yazılmaya devam eder ama gezinmeyi **beslemez**.
 - **Sınıf adları değişmez.** `pg-*` adlandırması ve E2E seçicilerinin `data-testid`'e taşınması alt proje D'nin işi. C markup'ı yeniden düzenler, adlandırmayı değil.
 - **Hiçbir içerik iki yerde durmaz.** Her taşıma için "eski yerde yok" iddiası zorunludur; bu iddia olmadan görev tamamlanmış sayılmaz.
-- **Görsel sözleşme bu alt projede kapı değil, kayıt tutucudur.** Her görevde önce `tests/e2e/visual-contract.spec.ts` gezinmesi onarılır, sonra `UPDATE_VISUAL_BASELINE=1` ile referans yenilenir. Fark sayısı reddetme gerekçesi değildir; **ekran listesinin değişmemesi** gerekçedir (12 ekran, 12 ekran kalır).
+- **Görsel sözleşme bu alt projede kapı değil, kayıt tutucudur.** Her görevde önce `tests/e2e/visual-contract.spec.ts` gezinmesi onarılır, sonra `UPDATE_VISUAL_BASELINE=1` ile referans yenilenir. Fark sayısı reddetme gerekçesi değildir; **ekran listesinin değişmemesi** gerekçedir.
+  - **Sayı Task 4'te 12 → 11'e indi ve orada sabittir.** Task 4 Özet içeriğini Ortak Anlayış aşamasına taşıyınca `stüdyo-özet` ile `fikir-özeti` aynı ekranı ölçmeye başladı — ölçüldü ve bayt bayt aynı çıktılar (89.593 karakter). 12 anahtar tutmak sayıyı korurdu ama kapsamı değil: 12 anahtar, 11 benzersiz ekran. Kopya silindi. **Ekran listesi Task 5'ten itibaren 11'de sabittir**; bir anahtarın kaybolması ya da eklenmesi hâlâ commit'i durdurur.
 - **E2E kırılmaları susturulmaz.** `tests/e2e/guided-workflow.spec.ts` iddiaları yeni davranışa göre güncellenir; `.skip`, `test.fixme` veya gevşetilmiş seçici kullanılmaz.
 - **Kilit koşulu değişmez:** `canonicalPlanningOpen = view === 'plan' && Boolean(project.sourceIdeaRevisionId || hasCanonicalPlan)` (`src/react/Workspace.tsx:131`). Yalnız sunumu değişir.
 - **Her görev kendi çevrimini kapatır:** değiştir → birim testleri → E2E → sözleşme gezinmesini onar → referansı yenile → `npm run typecheck && npm run lint` → commit.
@@ -432,13 +433,13 @@ Sonra referansı yenile:
 Run: `UPDATE_VISUAL_BASELINE=1 npx playwright test visual-contract`
 Sonra doğrula: `npx playwright test visual-contract` → PASS
 
-Ekran sayısının 12 kaldığını kontrol et:
+Ekran sayısını kontrol et:
 
 ```bash
 node -e "console.log(Object.keys(require('./tests/e2e/visual-contract.baseline.json')).length)"
 ```
 
-Expected: `12`
+Expected: `12` (Task 4'ten önce; Task 5 ve sonrası için `11`)
 
 - [ ] **Step 9: Bütün kapılar ve commit**
 
@@ -608,7 +609,7 @@ Expected (düzeltmelerden sonra): PASS.
 - `:184` `getByRole('list', { name: 'Fikir geliştirme aşamaları' })` beklemesi **korunur** — liste artık Ortak Anlayış'ta ama adı aynı, ve bu bekleme yerleşimin oturmasını garantiliyor.
 - `:196` `getByRole('button', { name: 'Fikir Özeti', exact: true })` → `{ name: 'Ortak Anlayış', exact: true }`
 
-**Ekran adlarını değiştirme.** `stüdyo-özet` ve `stüdyo-keşif` anahtarları aynı kalır; ekran listesi 12'de sabittir.
+**`stüdyo-keşif` adını değiştirme.** `stüdyo-özet` anahtarı ise bu görevde **silinir**: içerik Ortak Anlayış'a taşınınca `fikir-özeti` ile aynı ekranı ölçmeye başlıyor. Ölçüldü, bayt bayt aynı. Liste 12 → **11**'e iner ve oradan sonra sabittir.
 
 Run: `npx playwright test visual-contract`
 Expected: test **çöküyor değil, fark üretiyor**. Çöküyorsa gezinme onarımı eksiktir.
@@ -622,7 +623,7 @@ Sonra: `npx playwright test visual-contract` → PASS
 node -e "console.log(Object.keys(require('./tests/e2e/visual-contract.baseline.json')).sort().join('\n'))"
 ```
 
-Expected: 12 satır, Task 3 sonrası listeyle **birebir aynı**. Bir ekran kaybolduysa gezinme yanlış onarılmıştır — **DUR ve sor**.
+Expected: **11** satır — Task 3 sonrası listeden yalnız `stüdyo-özet` eksik, başka hiçbir fark yok. Beklenenden başka bir ekran kaybolduysa ya da yeni bir ad belirdiyse gezinme yanlış onarılmıştır — **DUR ve sor**.
 
 - [ ] **Step 10: Bütün kapılar ve commit**
 
@@ -919,7 +920,7 @@ Expected: PASS.
 
 `plan-gelişmiş-araçlar` ekranı artık açılabilir bir açılır olmadığı için **yakalanamayabilir**. `tests/e2e/visual-contract.spec.ts` içinde o ekranı yakalayan bloğu bul.
 
-Ekran adını **koru**: aynı ad altında artık `pg-plan-context` sütununun tamamı yakalanır (senaryolar + koşullu paneller). Açılırı açan tıklama satırı silinir; ekran anahtarı `plan-gelişmiş-araçlar` olduğu gibi kalır ki liste 12'de sabit kalsın.
+Ekran adını **koru**: aynı ad altında artık `pg-plan-context` sütununun tamamı yakalanır (senaryolar + koşullu paneller). Açılırı açan tıklama satırı silinir; ekran anahtarı `plan-gelişmiş-araçlar` olduğu gibi kalır ki liste 11'de sabit kalsın.
 
 > **Kayıt:** Ekran adı artık içeriğini birebir anlatmıyor. Yeniden adlandırma sözleşme referansının tamamını yeniden anlamlandırır ve C'nin ekran-listesi sabitini bozar; bu yüzden ad C'de korunur, D'de düzeltilir.
 
@@ -935,7 +936,7 @@ Sonra: `npx playwright test visual-contract` → PASS
 node -e "console.log(Object.keys(require('./tests/e2e/visual-contract.baseline.json')).length)"
 ```
 
-Expected: `12`
+Expected: `12` (Task 4'ten önce; Task 5 ve sonrası için `11`)
 
 - [ ] **Step 8: Bütün kapılar ve commit**
 
