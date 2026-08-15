@@ -56,6 +56,7 @@ import {
   IdeaStudioSidebar,
   type IdeaStudioView
 } from './features/idea-studio/IdeaStudioPrimitives.js';
+import { IdeaUnderstandingSummary } from './features/idea-studio/IdeaUnderstandingSummary.js';
 
 type Project = ProjectDocumentV5;
 
@@ -359,7 +360,6 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         </section>
         <IdeaSnapshot
           project={project}
-          coach={coach}
           settings={providerSettings}
           onPersist={(next, message, commandType) => void persistCandidate(next, message, commandType)}
           onNotice={notify}
@@ -367,7 +367,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       </main>}
 
       {view === 'guide' && <main id="pg-primary-content" className="pg-document-workspace" tabIndex={-1}>
-        <header className="pg-document-title"><span>FİKİR ÖZETİ</span><h1>Ortak anlayışımızı kontrol et</h1><p>Konuşmadan çıkardığımız kullanıcıyı, problemi, değeri ve MVP sınırını düzeltip onayla.</p></header>
+        <header className="pg-document-title"><span>ORTAK ANLAYIŞ</span><h1>Ortak anlayışımızı kontrol et</h1><p>Konuşmadan çıkardığımız kullanıcıyı, problemi, değeri ve MVP sınırını düzeltip onayla.</p></header>
+        <IdeaUnderstandingSummary project={project} coach={coach}/>
         <IdeaGuidePanel project={project} onCommit={commit} onConvert={convertIdeaToPlan} onOpenPlan={() => setView('plan')}/>
       </main>}
 

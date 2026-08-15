@@ -61,8 +61,8 @@ async function openStudio(page: Page) {
 }
 
 async function openExpansionCards(page: Page) {
-  await page.getByRole('tab', { name: 'Keşif' }).click();
   const board = page.getByRole('region', { name: 'Keşif panosu' });
+  await expect(board).toBeVisible();
   await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
   await expect(board.locator('.pg-expansion-card', { hasText: CARDS[0].title })).toBeVisible();
   // Panel başlığındaki "Yenile" düğmesi `disabled={loading}` taşır
@@ -179,29 +179,31 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   await expect(page.locator('.toast')).toHaveCount(0);
   await page.clock.resume();
 
-  const ozetSekmesi = page.getByRole('tab', { name: 'Özet' });
-  await ozetSekmesi.click();
+  // Özet artık kendi aşamasında (Ortak Anlayış) durur; içeriğe gitmek bir
+  // sekme değil, tam bir aşama geçişidir — aynı dış gezinme düğmesiyle
+  // (`.pg-view-tabs`, IdeaStudioHeader) yapılır.
+  const ortakAnlayisDugmesi = page.getByRole('button', { name: 'Ortak Anlayış', exact: true });
+  await ortakAnlayisDugmesi.click();
   await expect(page.getByRole('list', { name: 'Fikir geliştirme aşamaları' })).toBeVisible();
-  // `.pg-map-tabs button[aria-selected="true"]` (styles.css:545) `.pg-view-tabs
-  // button.is-active` ile aynı ailede: sekmenin `aria-selected` özniteliği
-  // tıklamanın React state güncellemesiyle DOM'a anında yazılıyor, ama
-  // tarayıcının o özniteliğe karşılık gelen hesaplanmış boyamayı (arkaplan/
-  // renk/gölge) yeniden hesaplaması aynı anda bitmiyor (deneyle doğrulandı:
-  // tam sözleşme koşusunda dört ardışık denemenin dördünde de bu sekme çifti
-  // ters yakalandı). Aşağıdaki liste beklemesi yalnız içerik tarafının
-  // (özet panelinin) yerleştiğini kanıtlar, sekme çubuğunun stilini değil.
-  await expect(ozetSekmesi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  // `.pg-view-tabs button.is-active` (styles.css:545): tıklamanın React
+  // state güncellemesiyle `aria-current` özniteliği DOM'a anında yazılıyor,
+  // ama tarayıcının buna karşılık gelen hesaplanmış boyamayı (arkaplan/renk/
+  // gölge) yeniden hesaplaması aynı anda bitmiyor (deneyle doğrulandı: tam
+  // sözleşme koşusunda dört ardışık denemenin dördünde de bu düğme ters
+  // yakalandı). Aşağıdaki liste beklemesi yalnız içerik tarafının (özet
+  // panelinin) yerleştiğini kanıtlar, düğmenin stilini değil.
+  await expect(ortakAnlayisDugmesi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   captured['stüdyo-özet'] = await captureComputedStyles(page);
 
-  const fikirOzetiSekmesi = page.getByRole('button', { name: 'Fikir Özeti', exact: true });
-  await fikirOzetiSekmesi.click();
+  const ortakAnlayisDugmesiTekrar = page.getByRole('button', { name: 'Ortak Anlayış', exact: true });
+  await ortakAnlayisDugmesiTekrar.click();
   await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
   // Aynı `.pg-view-tabs` yarışı — fikir-özeti-düzenleyici'deki (aşağıda,
-  // ikinci ziyaret) ile birebir aynı mekanizma, burada ise ilk ziyarette.
-  // Deneyle doğrulandı: tam sözleşme koşusunda dört ardışık denemenin
-  // dördünde de bu sekme başlık beklemesinden sonra hâlâ oturmamış
-  // yakalanıyordu.
-  await expect(fikirOzetiSekmesi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  // ikinci ziyaret) ile birebir aynı mekanizma. Bu tıklama artık zaten etkin
+  // olan aşamaya düşüyor (özet bir önceki adımda buraya taşındı), yani React
+  // burada state'i değiştirmiyor ve boyama zaten oturmuş durumda; bekleme
+  // yine de bu ekranın kendi çapası olarak kalıyor.
+  await expect(ortakAnlayisDugmesiTekrar).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   captured['fikir-özeti'] = await captureComputedStyles(page);
 
   const planSekmesi = page.getByRole('button', { name: 'Plan', exact: true });
@@ -209,7 +211,7 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // Bu ekranda tıklamadan sonra hiçbir bekleme yoktu — en kötü durum: aynı
   // `.pg-view-tabs` yarışı burada hiçbir şeyle kapatılmıyordu. Deneyle
   // doğrulandı: tam sözleşme koşusunda dört ardışık denemenin dördünde de
-  // sekme, tıklamadan hemen sonra hâlâ önceki (Fikir Özeti'nin) boyamasını
+  // sekme, tıklamadan hemen sonra hâlâ önceki (Ortak Anlayış'ın) boyamasını
   // taşıyordu. Bu ekranın kendi içerik tarafı için ayrı bir bekleme yok
   // (Plan görünümü "kapı" ekranı, aşağıdaki yorum bunu açıklıyor) — o yüzden
   // sekmenin hesaplanmış rengi burada TEK bekleme.
@@ -231,8 +233,8 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   captured['karar-destesi'] = await captureComputedStyles(page);
   await resolveDecisionTurn(page);
 
-  const fikirOzetiTabi = page.getByRole('button', { name: 'Fikir Özeti', exact: true });
-  await fikirOzetiTabi.click();
+  const ortakAnlayisDugmesiIkinci = page.getByRole('button', { name: 'Ortak Anlayış', exact: true });
+  await ortakAnlayisDugmesiIkinci.click();
   // `.pg-view-tabs` sekmesinin `is-active` sınıfı, tıklamanın React state
   // güncellemesiyle DOM'a anında yazılıyor — deneyle doğrulandı: tıklamadan
   // hemen sonra `className` zaten doğru (yeni sekmede `is-active`, eskisinde
@@ -245,7 +247,7 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // türese de tarayıcı tarafında ayrı ayrı yerleşiyorlar. Sekmenin kendi
   // hesaplanmış `background-color`'ını doğrudan bekleyerek yakalama, sekme
   // çubuğunun da gerçekten oturmuş halini kaydeder.
-  await expect(fikirOzetiTabi).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(ortakAnlayisDugmesiIkinci).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByLabel('Sistem yorumu')).toBeVisible();
   captured['fikir-özeti-düzenleyici'] = await captureComputedStyles(page);
   await completeConceptAgreement(page);

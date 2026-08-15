@@ -154,7 +154,7 @@ test.describe('PromtGen V4 Smoke Tests', () => {
     // Konsept alanları kullanıcının cevaplarından dolar; sistem hiçbirini uydurmaz.
     await advanceToDecisionTurn(page);
     await resolveDecisionTurn(page);
-    await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
+    await page.getByRole('button', { name: 'Ortak Anlayış', exact: true }).click();
     await completeConceptAgreement(page);
     await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
     await page.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();

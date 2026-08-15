@@ -61,7 +61,7 @@ export async function completeConceptAgreement(page: Page) {
 
 /**
  * Konsept özeti ilk sohbet turunda oluşturulur; analyzeIdea hiçbir alanı
- * kendiliğinden doldurmaz. Fikir Özeti düzenleyicisi ancak bu turdan sonra
+ * kendiliğinden doldurmaz. Ortak Anlayış düzenleyicisi ancak bu turdan sonra
  * görünür, dolayısıyla özeti kullanan her senaryo önce bir tur çalıştırmalıdır.
  */
 export async function runCoachTurn(page: Page) {

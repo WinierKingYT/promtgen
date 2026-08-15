@@ -8,7 +8,6 @@ import {
   Menu,
   Plus,
   Settings2,
-  ShieldAlert,
   Sparkles,
 } from 'lucide-react';
 import type {
@@ -31,7 +30,7 @@ const VIEW_ITEMS: Array<{
   icon: typeof Lightbulb;
 }> = [
   { id: 'develop', label: 'Fikir', detail: 'Konuş ve şekillendir', icon: Lightbulb },
-  { id: 'guide', label: 'Fikir Özeti', detail: 'Ortak anlayışı kontrol et', icon: FileText },
+  { id: 'guide', label: 'Ortak Anlayış', detail: 'Ortak anlayışı kontrol et', icon: FileText },
   { id: 'plan', label: 'Plan', detail: 'Uygulama planına geç', icon: ListChecks }
 ];
 
@@ -122,44 +121,16 @@ export function IdeaStudioHeader({
   </header>;
 }
 
-export function IdeaSnapshot({ project, coach, settings, onPersist, onNotice }: {
+export function IdeaSnapshot({ project, settings, onPersist, onNotice }: {
   project: ProjectDocumentV5;
-  coach: IdeaCoachState;
   settings: ProviderSettings;
   /** Keşif panosunun ürettiği belge; komut türü çağırana kadar taşınır. */
   onPersist: (project: ProjectDocumentV5, message: string, commandType: string) => void;
   /** Kalıcı bir değişiklik olmadan kullanıcıya durum bildirmek için. */
   onNotice: (message: string) => void;
 }) {
-  const conceptConfirmed = Boolean(project.ideaLabSession?.conceptSummary?.userConfirmed);
-  const [tab, setTab] = useState<'summary' | 'expansion'>('summary');
-  return <aside className="pg-idea-map" aria-label="Fikir özeti">
-    <div className="pg-map-head">
-      <div><span>Onaylanmış anlayış</span><h2>Fikir özeti</h2></div>
-      <strong className={conceptConfirmed ? 'is-confirmed' : 'is-draft'}>{conceptConfirmed ? 'Onaylandı' : 'Taslak'}</strong>
-    </div>
-    <div className="pg-map-tabs" role="tablist" aria-label="Fikir paneli görünümü">
-      <button type="button" role="tab" aria-selected={tab === 'summary'} onClick={() => setTab('summary')}>Özet</button>
-      <button type="button" role="tab" aria-selected={tab === 'expansion'} onClick={() => setTab('expansion')}>Keşif</button>
-    </div>
-    {tab === 'expansion'
-      ? <IdeaExpansionBoard project={project} settings={settings} onPersist={onPersist} onNotice={onNotice}/>
-      : <>
-        <ol className="pg-coach-steps" aria-label="Fikir geliştirme aşamaları">
-          {coach.steps.map(step => <li key={step.id} className={`is-${step.state}`}><i/>{step.label}</li>)}
-        </ol>
-        <div className="pg-map-fields">
-          {coach.evidence.map(item => <section key={item.id} className={`is-${item.status}`}>
-            <span>{item.label}<b>{item.statusLabel}</b></span>
-            <p>{item.displayText}</p>
-          </section>)}
-        </div>
-        <section className="pg-scope-snapshot">
-          <div><span>Kritik karar</span><b>{coach.criticalDecisionCount}</b></div>
-          <div><span>Ertelenebilir</span><b>{coach.deferrableDecisionCount}</b></div>
-        </section>
-        <p className="pg-map-note"><ShieldAlert size={15}/> Taslak alanlar henüz kesinleşmedi; fikir özetini onayladığında sabitlenir.</p>
-      </>}
+  return <aside className="pg-idea-map" aria-label="Keşif">
+    <IdeaExpansionBoard project={project} settings={settings} onPersist={onPersist} onNotice={onNotice}/>
   </aside>;
 }
 

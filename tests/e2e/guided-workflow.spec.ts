@@ -16,7 +16,7 @@ async function startIdea(page: Page, idea = IDEA) {
 }
 
 async function openGuide(page: Page) {
-  await page.getByRole('button', { name: 'Fikir Özeti', exact: true }).click();
+  await page.getByRole('button', { name: 'Ortak Anlayış', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
 }
 
@@ -62,11 +62,25 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
   });
 
+  test('ikinci sekme seviyesi kalkti: Ozet Ortak Anlayis`ta, Kesif Fikir`de', async ({ page }) => {
+    await startIdea(page);
+    // Fikir aşamasında: Keşif tam panel, sekme yok, Özet yok.
+    await expect(page.getByRole('tab', { name: 'Keşif' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Özet' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Keşif panosu' })).toBeVisible();
+    await expect(page.locator('.pg-map-fields')).toHaveCount(0);
+
+    // Ortak Anlayış aşamasında: özet burada, Keşif panosu yok.
+    await page.getByRole('button', { name: 'Ortak Anlayış', exact: true }).click();
+    await expect(page.locator('.pg-map-fields')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Keşif panosu' })).toHaveCount(0);
+  });
+
   test('opens a conversation-first studio and preserves it across reload', async ({ page }) => {
     await startIdea(page, 'S&box içinde oyuncuyla bağ kuran bir at sistemi yapmak istiyorum.');
     await expect(page.getByRole('navigation', { name: 'Proje aşamaları' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fikir', exact: true })).toHaveAttribute('aria-current', 'step');
-    await expect(page.getByRole('complementary', { name: 'Fikir özeti' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Keşif' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Fikir geliştirme sohbeti' })).toBeVisible();
 
     await page.reload();

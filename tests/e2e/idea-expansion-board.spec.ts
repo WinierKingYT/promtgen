@@ -49,7 +49,6 @@ test.describe('Keşif panosu', () => {
     await page.goto('/');
     await startIdea(page);
 
-    await page.getByRole('tab', { name: 'Keşif' }).click();
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board.getByRole('button', { name: 'Güven ve gizlilik' })).toBeVisible();
     await expect(board.getByRole('button', { name: 'Kapsamı daralt' })).toBeVisible();
@@ -66,8 +65,8 @@ test.describe('Keşif panosu', () => {
     await page.goto('/');
     await startIdea(page);
 
-    await page.getByRole('tab', { name: 'Keşif' }).click();
     const board = page.getByRole('region', { name: 'Keşif panosu' });
+    await expect(board).toBeVisible();
     await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
 
     // seedTitles fallback'i bu başlığı asla üretemez: kart model yolundan geldi.
@@ -85,8 +84,8 @@ test.describe('Keşif panosu', () => {
     await page.goto('/');
     await startIdea(page);
 
-    await page.getByRole('tab', { name: 'Keşif' }).click();
     const board = page.getByRole('region', { name: 'Keşif panosu' });
+    await expect(board).toBeVisible();
     await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
 
     const firstCard = board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title });
@@ -104,8 +103,8 @@ test.describe('Keşif panosu', () => {
     await page.goto('/');
     await startIdea(page);
 
-    await page.getByRole('tab', { name: 'Keşif' }).click();
     const board = page.getByRole('region', { name: 'Keşif panosu' });
+    await expect(board).toBeVisible();
     await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
     await board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })
       .getByRole('button', { name: 'Fikre ekle' }).click();
@@ -144,10 +143,12 @@ test.describe('Keşif panosu', () => {
 
     // Kart 'decision' türünde ve affectedSections=['scope'] taşır; turun paketine
     // düşseydi bu rozet kullanıcıya hiç sorulmamış bir kartı kritik karar sayardı.
+    // Rozet artık yalnız Ortak Anlayış aşamasında render edilir.
+    await page.getByRole('button', { name: 'Ortak Anlayış', exact: true }).click();
     const criticalBadge = page.locator('.pg-scope-snapshot div', { hasText: 'Kritik karar' }).locator('b');
     const before = await criticalBadge.innerText();
 
-    await page.getByRole('tab', { name: 'Keşif' }).click();
+    await page.getByRole('button', { name: 'Fikir', exact: true }).click();
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
     await board.locator('.pg-expansion-card', { hasText: AI_CARDS[1].title })
@@ -157,7 +158,7 @@ test.describe('Keşif panosu', () => {
     await expect(page.getByRole('region', { name: 'Eklediğin kartlar' }))
       .toContainText(AI_CARDS[1].title);
 
-    await page.getByRole('tab', { name: 'Özet' }).click();
+    await page.getByRole('button', { name: 'Ortak Anlayış', exact: true }).click();
     await expect(criticalBadge).toHaveText(before);
   });
 
@@ -166,8 +167,8 @@ test.describe('Keşif panosu', () => {
     await page.goto('/');
     await startIdea(page);
 
-    await page.getByRole('tab', { name: 'Keşif' }).click();
     const board = page.getByRole('region', { name: 'Keşif panosu' });
+    await expect(board).toBeVisible();
     await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
     await board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })
       .getByRole('button', { name: 'Fikre ekle' }).click();
@@ -184,17 +185,17 @@ test.describe('Keşif panosu', () => {
     await expect(board).toContainText('daha önce karara bağladığın için gizledim');
   });
 
-  test('Özet sekmesi bozulmaz', async ({ page }) => {
+  test('Özet ve Keşif ayrı aşamalarda durur, birbirini bozmaz', async ({ page }) => {
     await stubReadyProvider(page);
     await page.goto('/');
     await startIdea(page);
 
-    // "Fikir özeti" başlığı iki sekmede de duran .pg-map-head içinde yaşar;
-    // buradaki iddia yalnız Özet panelinde bulunan içeriğe bakmalı.
-    await page.getByRole('tab', { name: 'Keşif' }).click();
+    // Fikir aşamasında yalnız Keşif panosu var; özet listesi burada değil.
     await expect(page.getByRole('list', { name: 'Fikir geliştirme aşamaları' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Keşif panosu' })).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Özet' }).click();
+    // Ortak Anlayış aşamasında özet var, Keşif panosu yok.
+    await page.getByRole('button', { name: 'Ortak Anlayış', exact: true }).click();
     await expect(page.getByRole('list', { name: 'Fikir geliştirme aşamaları' })).toBeVisible();
     await expect(page.locator('.pg-map-note')).toContainText('Taslak alanlar henüz kesinleşmedi');
     await expect(page.getByRole('region', { name: 'Keşif panosu' })).toHaveCount(0);
