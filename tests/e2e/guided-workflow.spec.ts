@@ -186,6 +186,32 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(advanced.locator('.scenario-panel')).toHaveCount(0);
   });
 
+  test('izlenebilirlik ve kod hizalamasi bos durumda gorunmez', async ({ page }) => {
+    await startIdea(page);
+    await advanceToDecisionTurn(page);
+    await resolveDecisionTurn(page);
+    await openGuide(page);
+    await completeConceptAgreement(page);
+    await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+    const preview = page.getByRole('region', { name: 'Plan dönüşümü önizlemesi' });
+    await expect(preview).toContainText('Gereksinim taslağı');
+    await preview.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    // Fikstür projesi yalnız fikir sohbeti -> onay -> dönüşüm akışından geçer;
+    // bu akış ne trace link/requirementId bağlantısı (tasks ve testCases boş
+    // kalır) ne de taranmış bir proje envanteri üretir. İkisi de bağlam
+    // sütununda görünmez.
+    await expect(page.locator('.pg-plan-context .trace-map')).toHaveCount(0);
+    await expect(page.locator('.pg-plan-context .plan-code-alignment')).toHaveCount(0);
+
+    // Eski yerinde de yoklar — details.pg-advanced-tools artık yalnız
+    // StorageHealthPanel taşıyor.
+    const advanced = page.locator('details.pg-advanced-tools');
+    await expect(advanced.locator('.trace-map')).toHaveCount(0);
+    await expect(advanced.locator('.plan-code-alignment')).toHaveCount(0);
+  });
+
   test('idea document revisions remain comparable and restore as a new revision', async ({ page }) => {
     await startIdea(page);
     await runCoachTurn(page);

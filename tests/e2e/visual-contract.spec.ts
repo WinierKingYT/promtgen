@@ -265,19 +265,24 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   await sectionNav.getByRole('button').first().click();
   await expect(sectionNav.locator('button.is-active')).toHaveCount(1);
 
-  // Beş panel (StorageHealthPanel, TraceabilityMap, PlanningScenarioPanel,
-  // PlanCodeAlignmentPanel, SectionRegenerationPanel) tek bir `<details>`
-  // arkasında ve `LazyFeatureBoundary` ile geç yükleniyor (Workspace.tsx:388).
-  // Açılırı tıklamak beşini birden kapsama alır.
+  // Alt Proje C Task 6 ile TraceabilityMap ve PlanCodeAlignmentPanel bu
+  // `<details>`ten çıkıp bağlam sütununa taşındı (Workspace.tsx) ve orada
+  // yalnız kendi görünürlük koşulları (hasTraceabilityLinks/hasProjectInventory)
+  // doğruyken render ediliyor. Bu fikstür projesi ikisini de üretmediği için
+  // (bkz. guided-workflow.spec.ts: 'izlenebilirlik ve kod hizalamasi bos
+  // durumda gorunmez') artık `<details className="pg-advanced-tools">` içinde
+  // yalnız StorageHealthPanel kalıyor; o da `LazyFeatureBoundary` ile geç
+  // yükleniyor (Workspace.tsx).
   //
   // Bekleme geç yüklemenin *içeriğine* bağlanır, açılırın kendisine değil:
-  // `<summary>` tıklanır tıklanmaz `details` açılır ama panellerin modülü
-  // henüz inmemiş olabilir; o aralıkta yakalama Suspense yedeğini kaydeder.
+  // `<summary>` tıklanır tıklanmaz `details` açılır ama panelin modülü henüz
+  // inmemiş olabilir; o aralıkta yakalama Suspense yedeğini kaydeder.
   await page.locator('summary', { hasText: 'Gelişmiş plan araçları' }).click();
-  // Çapa TraceabilityMap'in arama alanı: aynı lazy paketin içinde ve koşulsuz
-  // render ediliyor, yani modülün gerçekten indiğini kanıtlar. StorageHealthPanel'in
-  // başlıkları koşullu olduğu için bekleme çapası olmaya uygun değil.
-  await expect(page.getByLabel('İzlenebilirlik kaydı ara')).toBeVisible();
+  // Çapa StorageHealthPanel'in özet düğmesi: `health` verisi asenkron
+  // çözülmeden önce de koşulsuz render ediliyor (StorageHealthPanel.tsx),
+  // yani onu beklemek modülün gerçekten indiğini kanıtlar — sağlık ikonunun
+  // hangi duruma oturduğunu değil (o, aşağıda ayrıca beklenir).
+  await expect(page.locator('.storage-health-panel .panel-summary')).toBeVisible();
   // TraceabilityMap'in beklemesi yalnız KENDİ lazy modülünün indiğini
   // kanıtlar — StorageHealthPanel aynı pakette ama kendi verisini bağımsız
   // çeker (StorageHealthPanel.tsx:63-98, `useEffect(() => { void refresh() })`,

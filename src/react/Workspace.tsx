@@ -57,6 +57,7 @@ import {
   type IdeaStudioView
 } from './features/idea-studio/IdeaStudioPrimitives.js';
 import { IdeaUnderstandingSummary } from './features/idea-studio/IdeaUnderstandingSummary.js';
+import { hasProjectInventory, hasTraceabilityLinks } from '../v4/application/plan-panel-visibility.js';
 
 type Project = ProjectDocumentV5;
 
@@ -131,6 +132,11 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
   const planUnlocked = Boolean(project.sourceIdeaRevisionId || hasCanonicalPlan);
   const canonicalPlanningOpen = view === 'plan' && planUnlocked;
+  // Boş panel göstermeyiz: harita ancak bağlantı varken, kod hizalaması
+  // ancak envanter taranmışken anlamlı. Koşullar saf modülde tanımlı ve
+  // iki yönde test edilmiş durumda.
+  const traceabilityVisible = useMemo(() => hasTraceabilityLinks(project), [project]);
+  const alignmentVisible = useMemo(() => hasProjectInventory(project), [project]);
   const lockedViews = planUnlocked
     ? undefined
     : { plan: 'Fikrin sınırlarını Ortak Anlayış aşamasında onayladığında açılır.' } as const;
@@ -404,7 +410,13 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
               <aside className="pg-plan-context">
                 <h2>Bu sürüm</h2><dl><div><dt>Gereksinim</dt><dd>{project.requirements.length}</dd></div><div><dt>Karar</dt><dd>{project.decisions.length}</dd></div><div><dt>Görev</dt><dd>{project.tasks.length}</dd></div><div><dt>Risk</dt><dd>{project.risks.length}</dd></div></dl>
                 <LazyFeatureBoundary label="Planlama senaryoları" resetKey={project.documentRevision}><PlanningScenarioPanel project={project} onCommit={commit}/></LazyFeatureBoundary>
-                <details className="pg-advanced-tools"><summary><MoreHorizontal size={16}/> Gelişmiş plan araçları</summary><LazyFeatureBoundary label="Gelişmiş plan araçları" resetKey={project.documentRevision}><StorageHealthPanel project={project} onCommit={persistCandidate}/><TraceabilityMap project={project}/><PlanCodeAlignmentPanel project={project} onCommit={commit}/></LazyFeatureBoundary></details>
+                {traceabilityVisible && <LazyFeatureBoundary label="İzlenebilirlik haritası" resetKey={project.canonicalRevision}>
+                  <TraceabilityMap project={project}/>
+                </LazyFeatureBoundary>}
+                {alignmentVisible && <LazyFeatureBoundary label="Plan–kod hizalaması" resetKey={project.documentRevision}>
+                  <PlanCodeAlignmentPanel project={project} onCommit={commit}/>
+                </LazyFeatureBoundary>}
+                <details className="pg-advanced-tools"><summary><MoreHorizontal size={16}/> Gelişmiş plan araçları</summary><LazyFeatureBoundary label="Gelişmiş plan araçları" resetKey={project.documentRevision}><StorageHealthPanel project={project} onCommit={persistCandidate}/></LazyFeatureBoundary></details>
               </aside>
             </div>
           </>}
