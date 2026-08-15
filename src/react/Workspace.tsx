@@ -128,7 +128,11 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const showDecisionTurn = !['problem', 'user', 'value'].includes(coach.activeStep)
     && pendingItems.some(item => item.status === 'pending');
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
-  const canonicalPlanningOpen = view === 'plan' && Boolean(project.sourceIdeaRevisionId || hasCanonicalPlan);
+  const planUnlocked = Boolean(project.sourceIdeaRevisionId || hasCanonicalPlan);
+  const canonicalPlanningOpen = view === 'plan' && planUnlocked;
+  const lockedViews = planUnlocked
+    ? undefined
+    : { plan: 'Fikrin sınırlarını Ortak Anlayış aşamasında onayladığında açılır.' } as const;
 
   useEffect(() => setSectionDraft(active?.content || ''), [activeSection, project.id, active?.content]);
   useEffect(() => {
@@ -273,6 +277,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         onMenu={() => setSidebarOpen(true)}
         onExit={onNew}
         onHistory={() => setHistoryOpen(true)}
+        lockedViews={lockedViews}
       />
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setView('plan')}/>
 
@@ -368,7 +373,14 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
 
       {view === 'plan' && <main id="pg-primary-content" className="pg-plan-workspace" tabIndex={-1}>
         {!canonicalPlanningOpen
-          ? <div className="pg-plan-gate"><header><span>PLANA GEÇİŞ</span><h1>Önce fikrin sınırlarını onayla</h1><p>Plan; yalnız onayladığın kullanıcı, problem, MVP kapsamı ve kararlar üzerinden oluşturulur.</p></header><IdeaGuidePanel project={project} onCommit={commit} onConvert={convertIdeaToPlan} onOpenPlan={() => setView('plan')}/></div>
+          ? <div className="pg-plan-gate">
+              <header>
+                <span>PLANA GEÇİŞ</span>
+                <h1>Önce fikrin sınırlarını onayla</h1>
+                <p>Plan; yalnız onayladığın kullanıcı, problem, MVP kapsamı ve kararlar üzerinden oluşturulur. Onayı Ortak Anlayış aşamasında verirsin.</p>
+              </header>
+              <button type="button" className="is-primary" onClick={() => setView('guide')}>Ortak Anlayış'a git <ArrowRight size={16}/></button>
+            </div>
           : <>
             <header className="pg-plan-header">
               <div><span>PLAN SÜRÜMÜ</span><h1>Yaşayan plan</h1><p>{project.planningDepth.rationale} Önceki sürümler korunur.</p></div>

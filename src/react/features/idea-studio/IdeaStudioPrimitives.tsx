@@ -83,7 +83,8 @@ export function IdeaStudioHeader({
   onView,
   onMenu,
   onExit,
-  onHistory
+  onHistory,
+  lockedViews
 }: {
   project: ProjectDocumentV5;
   view: IdeaStudioView;
@@ -91,6 +92,12 @@ export function IdeaStudioHeader({
   onMenu: () => void;
   onExit: () => void;
   onHistory: () => void;
+  /**
+   * Kilitli aşamalar ve kilidin nedeni. Kilit yalnız görünümü kapatmaz,
+   * kullanıcıya ne yapması gerektiğini de söyler — aksi hâlde tıklanamayan
+   * bir düğme bozukluk gibi okunur.
+   */
+  lockedViews?: Partial<Record<IdeaStudioView, string>>;
 }) {
   return <header className="pg-studio-header">
     <div className="pg-project-heading">
@@ -98,15 +105,18 @@ export function IdeaStudioHeader({
       <button type="button" className="pg-back-button" aria-label="Başlangıca dön" onClick={onExit}><ArrowLeft size={18}/></button>
       <span><b>{project.identity.name || 'Yeni fikir'}</b><small>Yerel taslak · d{project.documentRevision}</small></span>
     </div>
-    <nav className="pg-view-tabs" aria-label="Fikrinle ne yapmak istiyorsun?">
-      {VIEW_ITEMS.map(({ id, label, detail, icon: Icon }) => <button
-        type="button"
-        key={id}
-        className={view === id ? 'is-active' : ''}
-        aria-current={view === id ? 'step' : undefined}
-        title={detail}
-        onClick={() => onView(id)}
-      ><Icon size={16}/><span>{label}</span></button>)}
+    <nav className="pg-view-tabs" aria-label="Proje aşamaları">
+      {VIEW_ITEMS.map(({ id, label, detail, icon: Icon }) => {
+        const lockReason = lockedViews?.[id];
+        return <button
+          type="button"
+          key={id}
+          className={`${view === id ? 'is-active' : ''}${lockReason ? ' is-locked' : ''}`.trim()}
+          aria-current={view === id ? 'step' : undefined}
+          title={lockReason || detail}
+          onClick={() => onView(id)}
+        ><Icon size={16}/><span>{label}</span></button>;
+      })}
     </nav>
     <button type="button" className="pg-history-button" onClick={onHistory}>Geçmiş</button>
   </header>;

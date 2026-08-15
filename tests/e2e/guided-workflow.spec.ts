@@ -35,9 +35,36 @@ test.describe('PromtGen idea studio production workflow', () => {
     await page.reload();
   });
 
+  test('plan asamasi kilitliyken nedenini soyler ve kopya panel icermez', async ({ page }) => {
+    await startIdea(page);
+    const planButton = page.getByRole('button', { name: 'Plan', exact: true });
+
+    // Kilit bir kontrol durumu değil, içerik: düğme ETKİN kalır. `disabled`
+    // olsa klavyeyle odaklanamaz ve nedeni duyurulmazdı; `aria-disabled` olsa
+    // ekran okuyucuya "devre dışı" derdi — oysa tıklamak çalışıyor ve nedeni
+    // öğrenmenin yolu tam da o. Kilit; soluk sınıf, title ve kapı metniyle
+    // anlatılıyor.
+    await expect(planButton).toBeEnabled();
+    await expect(planButton).toHaveClass(/is-locked/);
+    await expect(planButton).toHaveAttribute(
+      'title',
+      'Fikrin sınırlarını Ortak Anlayış aşamasında onayladığında açılır.'
+    );
+
+    await planButton.click();
+    const gate = page.locator('.pg-plan-gate');
+    await expect(gate).toBeVisible();
+    await expect(gate).toContainText('Onayı Ortak Anlayış aşamasında verirsin.');
+    // Kapı artık IdeaGuidePanel'i kopyalamıyor: onay paneli tek yerde durur.
+    await expect(gate.locator('.idea-guide')).toHaveCount(0);
+    // Kapıdan çıkış yolu var ve doğru aşamaya gidiyor.
+    await gate.getByRole('button', { name: /Ortak Anlayış'a git/ }).click();
+    await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
+  });
+
   test('opens a conversation-first studio and preserves it across reload', async ({ page }) => {
     await startIdea(page, 'S&box içinde oyuncuyla bağ kuran bir at sistemi yapmak istiyorum.');
-    await expect(page.getByRole('navigation', { name: 'Fikrinle ne yapmak istiyorsun?' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Proje aşamaları' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fikir', exact: true })).toHaveAttribute('aria-current', 'step');
     await expect(page.getByRole('complementary', { name: 'Fikir özeti' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Fikir geliştirme sohbeti' })).toBeVisible();
