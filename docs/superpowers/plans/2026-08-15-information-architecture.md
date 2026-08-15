@@ -273,13 +273,27 @@ Bugün plan kilitliyken `pg-plan-gate` içinde `IdeaGuidePanel` render ediliyor 
   test('plan asamasi kilitliyken nedenini soyler ve kopya panel icermez', async ({ page }) => {
     const planButton = page.getByRole('button', { name: 'Plan', exact: true });
 
-    await expect(planButton).toBeDisabled();
+    // Kilit bir kontrol durumu değil, içerik: düğme ETKİN kalır. `disabled`
+    // olsa klavyeyle odaklanamaz ve nedeni duyurulmazdı; `aria-disabled` olsa
+    // ekran okuyucuya "devre dışı" derdi — oysa tıklamak çalışıyor ve nedeni
+    // öğrenmenin yolu tam da o. Kilit; soluk sınıf, title ve kapı metniyle
+    // anlatılıyor.
+    await expect(planButton).toBeEnabled();
+    await expect(planButton).toHaveClass(/is-locked/);
     await expect(planButton).toHaveAttribute(
       'title',
       'Fikrin sınırlarını Ortak Anlayış aşamasında onayladığında açılır.'
     );
+
+    await planButton.click();
+    const gate = page.locator('.pg-plan-gate');
+    await expect(gate).toBeVisible();
+    await expect(gate).toContainText('Onayı Ortak Anlayış aşamasında verirsin.');
     // Kapı artık IdeaGuidePanel'i kopyalamıyor: onay paneli tek yerde durur.
-    await expect(page.locator('.pg-plan-gate .idea-guide')).toHaveCount(0);
+    await expect(gate.locator('.idea-guide')).toHaveCount(0);
+    // Kapıdan çıkış yolu var ve doğru aşamaya gidiyor.
+    await gate.getByRole('button', { name: /Ortak Anlayış'a git/ }).click();
+    await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
   });
 ```
 
@@ -314,13 +328,31 @@ Expected: FAIL — `Plan` düğmesi bugün `disabled` değil.
           key={id}
           className={`${view === id ? 'is-active' : ''}${lockReason ? ' is-locked' : ''}`.trim()}
           aria-current={view === id ? 'step' : undefined}
-          disabled={Boolean(lockReason)}
           title={lockReason || detail}
           onClick={() => onView(id)}
         ><Icon size={16}/><span>{label}</span></button>;
       })}
     </nav>
 ```
+
+> **Ne `disabled` ne `aria-disabled` — kilit bir kontrol durumu değil, içerik.**
+>
+> `disabled` bir düğme klavyeyle odaklanamaz ve `title`'ı ekran okuyucuya
+> duyurulmaz; kilidin nedeni tam da ona en çok ihtiyacı olan kullanıcıya
+> ulaşmaz. `aria-disabled="true"` ise ekran okuyucuya "bu kontrol devre dışı"
+> der — ama değil: tıklamak çalışıyor ve kilidin nedenini öğrenmenin yolu tam
+> da o. Attribute yalan söyler.
+>
+> Doğru markup: düğme **etkin**. Kilitli olma bilgisi üç yerden geliyor —
+> görsel olarak `.is-locked` soluklaştırması, ekran okuyucuya etkin düğmenin
+> erişilebilir açıklaması olan `title`, ve tıklayınca inilen kapı ekranındaki
+> **metin**. Kapı ekranı bu yüzden silinmez; kilidin okunabilir yüzü odur.
+>
+> Bunu Playwright yakaladı: `aria-disabled="true"` taşıyan bir elemana
+> `.click()` eylemlenebilirlik beklemesinde asılıyor
+> (`getAriaDisabled = isNativelyDisabled || hasExplicitAriaDisabled`).
+> `force: true` ile bastırmak yanlış olurdu — araç gerçek bir anlam hatasını
+> bildiriyordu.
 
 > `aria-label` 'Fikrinle ne yapmak istiyorsun?' yerine 'Proje aşamaları' oldu. 'Fikir geliştirme aşamaları' **kullanılamaz** — o ad `pg-coach-steps` listesinde zaten var (`IdeaStudioPrimitives.tsx:138`) ve Task 4'te aynı ekrana taşınıyor; iki eleman aynı erişilebilir adı taşıyamaz.
 
@@ -362,11 +394,11 @@ Fonksiyon imzasına `lockedViews` parametresini eklemeyi unutma (85–94. satır
 `src/react/styles.css` içinde `.pg-view-tabs button` kuralının hemen ardına ekle:
 
 ```css
-/* Kilitli aşama: silik ama okunur. Tıklanamazlığı imleç ve opaklık
-   birlikte anlatır; nedeni title taşır. */
+/* Kilitli aşama: silik ama okunur ve hâlâ tıklanabilir — tıklama kilidin
+   nedenini yazan kapı ekranına indirir. Bu yüzden `cursor: not-allowed`
+   KULLANILMAZ: tıklamanın bir karşılığı var, imleç aksini söylememeli. */
 .pg-view-tabs button.is-locked {
   opacity: .55;
-  cursor: not-allowed;
 }
 ```
 
