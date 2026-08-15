@@ -29,9 +29,14 @@ type WebQuarantineSummary = Awaited<ReturnType<typeof listWebQuarantinedProjects
 type BackupSummary = DesktopBackupSummary | WebBackupSummary;
 type QuarantineSummary = DesktopQuarantineSummary | WebQuarantineSummary;
 
+/** Diğer bileşenlerin (örn. ProviderSettingsDialog) kendi kopyasını
+ * yazmadan aynı imzayı paylaşması için dışa açılıyor — iki tanım aynı
+ * anlama gelse de birbirinden kayabilirdi. */
+export type StorageHealthCommit = (project: ProjectDocumentV5, message?: string, commandType?: string) => Promise<boolean | void> | boolean | void;
+
 interface StorageHealthPanelProps {
   project: ProjectDocumentV5;
-  onCommit: (project: ProjectDocumentV5, message?: string, commandType?: string) => Promise<boolean | void> | boolean | void;
+  onCommit: StorageHealthCommit;
 }
 
 function formatBytes(value: number) {

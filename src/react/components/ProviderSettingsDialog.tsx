@@ -8,29 +8,40 @@ import type { ProviderSettings } from '../../v4/provider-settings.js';
 import type { CredentialVault } from '../../v4/credential-vault.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import { IconButton } from './WorkspaceChrome.js';
-import { StorageHealthPanel } from './StorageHealthPanel.js';
+import { StorageHealthPanel, type StorageHealthCommit } from './StorageHealthPanel.js';
 
-interface ProviderSettingsDialogProps {
+interface ProviderSettingsDialogBaseProps {
   open: boolean;
   settings: ProviderSettings;
   onSave: (settings: ProviderSettings) => void;
   onClose: () => void;
   credentialVault: CredentialVault;
-  /**
-   * Depolama sağlığı paneli hiçbir aşamaya ait olmadığı için sistem
-   * tarafında duruyor. Panel yedek geri yükleyebildiği için diyaloğun
-   * proje kalıcılığına erişmesi gerekiyor — bu, ayarlar diyaloğunun
-   * bilinçli olarak genişletilmiş sorumluluğudur (Alt Proje C).
-   *
-   * İkisi de opsiyonel: bu diyalog henüz proje yokken de açılıyor
-   * (StartScreen → App.tsx, `activeProject` null iken). O yolda depolama
-   * sağlığı anlamsız — gösterilecek proje yok — bu yüzden panel yalnız
-   * ikisi de sağlandığında render edilir; diyaloğun geri kalanı (sağlayıcı
-   * seçimi, bağlantı testi, kaydetme) projesiz de tam çalışır.
-   */
-  project?: ProjectDocumentV5;
-  onProjectCommit?: (project: ProjectDocumentV5, message?: string, commandType?: string) => Promise<boolean | void> | boolean | void;
 }
+
+/**
+ * Depolama sağlığı paneli hiçbir aşamaya ait olmadığı için sistem
+ * tarafında duruyor. Panel yedek geri yükleyebildiği için diyaloğun
+ * proje kalıcılığına erişmesi gerekiyor — bu, ayarlar diyaloğunun
+ * bilinçli olarak genişletilmiş sorumluluğudur (Alt Proje C).
+ *
+ * `project` ve `onProjectCommit` birlikte verilir ya da hiç verilmez —
+ * bağımsız iki opsiyonel olsaydı, `project` geçip `onProjectCommit`'i
+ * unutmak derlemede hiçbir hataya yol açmadan paneli sessizce
+ * kaybederdi (tam da bu alt projenin kapatmaya çalıştığı hata türü).
+ * Bu birleşim onu derleme zamanında yakalar; alttaki `{project &&
+ * onProjectCommit && ...}` çalışma zamanı korumasını gereksiz kılmaz,
+ * tamamlar.
+ *
+ * Boş dal (`project?: never`) bu diyalog henüz proje yokken de açıldığı
+ * için var (StartScreen → App.tsx, `activeProject` null iken). O yolda
+ * depolama sağlığı anlamsız — gösterilecek proje yok — diyaloğun geri
+ * kalanı (sağlayıcı seçimi, bağlantı testi, kaydetme) projesiz de tam
+ * çalışır.
+ */
+type ProviderSettingsDialogProps = ProviderSettingsDialogBaseProps & (
+  | { project: ProjectDocumentV5; onProjectCommit: StorageHealthCommit }
+  | { project?: never; onProjectCommit?: never }
+);
 
 export function ProviderSettingsDialog({ open, settings, onSave, onClose, credentialVault, project, onProjectCommit }: ProviderSettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
