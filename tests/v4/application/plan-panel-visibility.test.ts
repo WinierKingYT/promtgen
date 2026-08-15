@@ -13,6 +13,38 @@ describe('plan paneli görünürlük koşulları', () => {
     assert.equal(hasTraceabilityLinks(baseProject()), false);
   });
 
+  it('kayıtlar var ama aralarında bağlantı yoksa izlenebilirlik görünmez', () => {
+    const project = baseProject();
+    // Kasıtlı olarak traceLinks eklenmiyor: düğüm sayısı > 0 ama kenar
+    // sayısı 0 olan durumu izole eder. `nodes.length > 0` gibi yanlış bir
+    // ölçüt kullanan bir implementasyon bu testte yakalanmalı — modülün
+    // kendi docstring'inin uyardığı tam senaryo budur.
+    project.decisions.push({
+      id: 'dec-1',
+      title: 'Karar',
+      decision: 'Test kararı alındı',
+      rationale: 'Test gerekçesi',
+      alternatives: [],
+      consequences: [],
+      status: 'accepted',
+      sourceSuggestionId: '',
+      affectedSectionIds: []
+    } as never);
+    project.requirements.push({
+      id: 'req-1',
+      title: 'Gereksinim',
+      statement: 'Test gereksinimi',
+      kind: 'functional',
+      priority: 'must',
+      acceptanceCriteria: [],
+      sourceObjectiveIds: [],
+      sourceSuggestionIds: [],
+      status: 'accepted'
+    } as never);
+
+    assert.equal(hasTraceabilityLinks(project), false);
+  });
+
   it('kanonik kayıtlar arasında bağlantı oluşunca izlenebilirlik görünür', () => {
     const project = baseProject();
     // Decision ve Requirement kontratları (src/v4/contracts.ts) birbirine
