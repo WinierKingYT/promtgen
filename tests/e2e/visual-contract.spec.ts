@@ -265,43 +265,37 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   await sectionNav.getByRole('button').first().click();
   await expect(sectionNav.locator('button.is-active')).toHaveCount(1);
 
-  // Alt Proje C Task 6 ile TraceabilityMap ve PlanCodeAlignmentPanel bu
-  // `<details>`ten çıkıp bağlam sütununa taşındı (Workspace.tsx) ve orada
-  // yalnız kendi görünürlük koşulları (hasTraceabilityLinks/hasProjectInventory)
-  // doğruyken render ediliyor. Bu fikstür projesi ikisini de üretmediği için
-  // (bkz. guided-workflow.spec.ts: 'izlenebilirlik ve kod hizalamasi bos
-  // durumda gorunmez') artık `<details className="pg-advanced-tools">` içinde
-  // yalnız StorageHealthPanel kalıyor; o da `LazyFeatureBoundary` ile geç
-  // yükleniyor (Workspace.tsx).
+  // Alt Proje C Task 6 ile TraceabilityMap ve PlanCodeAlignmentPanel
+  // `<details className="pg-advanced-tools">`ten çıkıp bağlam sütununa
+  // taşındı (Workspace.tsx) ve orada yalnız kendi görünürlük koşulları
+  // (hasTraceabilityLinks/hasProjectInventory) doğruyken render ediliyor. Bu
+  // fikstür projesi ikisini de üretmediği için (bkz. guided-workflow.spec.ts:
+  // 'izlenebilirlik ve kod hizalamasi bos durumda gorunmez') o `<details>`te
+  // yalnız StorageHealthPanel kalmıştı. Task 7 ile o da açılırdan çıkıp
+  // ayarlar diyaloğuna taşındı (ProviderSettingsDialog.tsx) ve `<details
+  // className="pg-advanced-tools">` tamamen silindi — artık açılan, tıklanan
+  // bir şey yok.
   //
-  // Bekleme geç yüklemenin *içeriğine* bağlanır, açılırın kendisine değil:
-  // `<summary>` tıklanır tıklanmaz `details` açılır ama panelin modülü henüz
-  // inmemiş olabilir; o aralıkta yakalama Suspense yedeğini kaydeder.
-  await page.locator('summary', { hasText: 'Gelişmiş plan araçları' }).click();
-  // Çapa StorageHealthPanel'in özet düğmesi: `health` verisi asenkron
-  // çözülmeden önce de koşulsuz render ediliyor (StorageHealthPanel.tsx),
-  // yani onu beklemek modülün gerçekten indiğini kanıtlar — sağlık ikonunun
-  // hangi duruma oturduğunu değil (o, aşağıda ayrıca beklenir).
-  await expect(page.locator('.storage-health-panel .panel-summary')).toBeVisible();
-  // TraceabilityMap'in beklemesi yalnız KENDİ lazy modülünün indiğini
-  // kanıtlar — StorageHealthPanel aynı pakette ama kendi verisini bağımsız
-  // çeker (StorageHealthPanel.tsx:63-98, `useEffect(() => { void refresh() })`,
-  // kendi zamanlamasında). `refresh()` bitmeden `health` hâlâ `null`dur ve
-  // özet satırı `CircleAlert` ikonunu gösterir; bittiğinde `Check`e döner
-  // (StorageHealthPanel.tsx:162). Bu ikonlar lucide'de farklı sayıda
-  // alt-şekil taşıyor, yani bu yalnız bir boyama farkı değil — eleman
-  // SAYISINI değiştiriyor (deneyle doğrulandı: 15 ardışık koşudan birinde
-  // `eleman sayısı değişti — beklenen 315, gelen 317` ile düştü). Bu test
-  // ortamında masaüstü (Tauri) yolu hiç erişilmez (`isDesktopStorageAvailable()`
-  // gerçek bir Tauri çalışma zamanı ister, bu e2e ortamında yok) ve web dalı
-  // `refresh()` başarılı olduğunda `health`i koşulsuz `{ok:true,...}` yapıyor
-  // — yani bu ortamda ulaşılabilir tek çözülmüş durum "sağlıklı"dır; bu
-  // yüzden belirli bir sonucu değil, herhangi bir sonucu bekleyen genel bir
-  // işaretçi yerine doğrudan o duruma bakmak güvenli. Seçici özellikle
-  // `svg.health-ok`'u hedefler — `.panel-summary` içinde `Database` ve
-  // `ChevronDown` ikonları da var; genel bir `svg` seçici üçünü birden
-  // eşleştirip strict-mode ihlaline yol açardı.
-  await expect(page.locator('.storage-health-panel .panel-summary svg.health-ok')).toBeVisible();
+  // Ekran adı (`plan-gelişmiş-araçlar`) bilerek korunuyor: yeniden adlandırma
+  // sözleşme referansının tamamını yeniden anlamlandırır ve C'nin
+  // ekran-listesi sabitini (11 anahtar) bozar; ad D'de düzeltilir. İçerik
+  // artık `pg-plan-context` sütununun tamamı — senaryo laboratuvarı ve (bu
+  // fikstürde render edilmeyen) koşullu paneller.
+  //
+  // Eski bekleme StorageHealthPanel'in KENDİ asenkron `refresh()`ine
+  // (StorageHealthPanel.tsx:63-98) ve lucide ikonunun (Check/CircleAlert,
+  // farklı alt-şekil sayısı) hangi durumda oturduğuna bağlıydı — panel
+  // gittiği için o risk de gitti. Geriye kalan tek her-zaman-render-edilen
+  // panel PlanningScenarioPanel (`.scenario-panel`, Workspace.tsx) ve o,
+  // StorageHealthPanel'in aksine mount olduktan sonra kendi başına asenkron
+  // veri çekmiyor (bkz. PlanningScenarioPanel.tsx — tüm state senkron, proje
+  // prop'undan türetiliyor). Riski taşıyan tek şey LazyFeatureBoundary'nin
+  // Suspense'i: modül inene kadar yedek (fallback) DOM'da durur, gerçek
+  // `.scenario-panel` değil. Aşağıdaki bekleme doğrudan o gerçek içeriği
+  // hedefliyor — yedek görünürken geçmez, yalnız modül gerçekten inip
+  // içerik yerleşince geçer; bu yüzden sütunu gerçekten "settle" eden çapa
+  // budur.
+  await expect(page.locator('.pg-plan-context .scenario-panel')).toBeVisible();
   captured['plan-gelişmiş-araçlar'] = await captureComputedStyles(page);
 
   await page.getByRole('button', { name: 'Geçmiş' }).click();

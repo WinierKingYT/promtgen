@@ -180,10 +180,10 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('.pg-plan-editor .section-regeneration')).toBeVisible();
     await expect(page.locator('.pg-plan-context .scenario-panel')).toBeVisible();
 
-    // Eski yerinde yok.
-    const advanced = page.locator('details.pg-advanced-tools');
-    await expect(advanced.locator('.section-regeneration')).toHaveCount(0);
-    await expect(advanced.locator('.scenario-panel')).toHaveCount(0);
+    // Eski yerinde yok — açılır (details.pg-advanced-tools) Task 7 ile
+    // tamamen silindi, son sakini StorageHealthPanel de ayarlar diyaloğuna
+    // taşındı.
+    await expect(page.locator('details.pg-advanced-tools')).toHaveCount(0);
   });
 
   test('izlenebilirlik ve kod hizalamasi bos durumda gorunmez', async ({ page }) => {
@@ -205,11 +205,38 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('.pg-plan-context .trace-map')).toHaveCount(0);
     await expect(page.locator('.pg-plan-context .plan-code-alignment')).toHaveCount(0);
 
-    // Eski yerinde de yoklar — details.pg-advanced-tools artık yalnız
-    // StorageHealthPanel taşıyor.
-    const advanced = page.locator('details.pg-advanced-tools');
-    await expect(advanced.locator('.trace-map')).toHaveCount(0);
-    await expect(advanced.locator('.plan-code-alignment')).toHaveCount(0);
+    // Eski yerinde de yoklar — details.pg-advanced-tools Task 7 ile tamamen
+    // silindi (son sakini StorageHealthPanel ayarlar diyaloğuna taşındı).
+    await expect(page.locator('details.pg-advanced-tools')).toHaveCount(0);
+  });
+
+  test('depolama sagligi ayarlar diyalogunda, planda degil', async ({ page }) => {
+    await startIdea(page);
+    await advanceToDecisionTurn(page);
+    await resolveDecisionTurn(page);
+    await openGuide(page);
+    await completeConceptAgreement(page);
+    await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+    const preview = page.getByRole('region', { name: 'Plan dönüşümü önizlemesi' });
+    await expect(preview).toContainText('Gereksinim taslağı');
+    await preview.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    // Depolama sağlığı artık plan bağlamının parçası değil — ne bağlam
+    // sütununda ne de eski açılırda (details.pg-advanced-tools Task 7 ile
+    // tamamen silindi).
+    await expect(page.locator('.pg-plan-context .storage-health-panel')).toHaveCount(0);
+    await expect(page.locator('details.pg-advanced-tools')).toHaveCount(0);
+
+    // Ayarlar diyaloğu iki yerden açılabiliyor: proje yokken StartScreen'den
+    // (App.tsx — depolama sağlığı orada anlamsız, proje yok) ve stüdyodan
+    // ('Ayarlar' düğmesi, IdeaStudioPrimitives.tsx:74 — Workspace.tsx'in
+    // diyaloğu, proje burada var). "Planda değil" iddiası ancak plan
+    // görünümü zaten açıkken, projeli diyalogtan doğrulanınca anlamlı olur;
+    // bu yüzden StartScreen'in 'AI ayarları' düğmesi değil, buradaki
+    // 'Ayarlar' düğmesi kullanılıyor.
+    await page.getByRole('button', { name: 'Ayarlar', exact: true }).click();
+    await expect(page.getByRole('dialog').locator('.storage-health-panel')).toBeVisible();
   });
 
   test('idea document revisions remain comparable and restore as a new revision', async ({ page }) => {

@@ -6,7 +6,9 @@ import { testProviderConnection } from '../../v4/ai/provider-connection.js';
 import type { ProviderConnectionResult } from '../../v4/ai/provider-connection.js';
 import type { ProviderSettings } from '../../v4/provider-settings.js';
 import type { CredentialVault } from '../../v4/credential-vault.js';
+import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 import { IconButton } from './WorkspaceChrome.js';
+import { StorageHealthPanel } from './StorageHealthPanel.js';
 
 interface ProviderSettingsDialogProps {
   open: boolean;
@@ -14,9 +16,23 @@ interface ProviderSettingsDialogProps {
   onSave: (settings: ProviderSettings) => void;
   onClose: () => void;
   credentialVault: CredentialVault;
+  /**
+   * Depolama sağlığı paneli hiçbir aşamaya ait olmadığı için sistem
+   * tarafında duruyor. Panel yedek geri yükleyebildiği için diyaloğun
+   * proje kalıcılığına erişmesi gerekiyor — bu, ayarlar diyaloğunun
+   * bilinçli olarak genişletilmiş sorumluluğudur (Alt Proje C).
+   *
+   * İkisi de opsiyonel: bu diyalog henüz proje yokken de açılıyor
+   * (StartScreen → App.tsx, `activeProject` null iken). O yolda depolama
+   * sağlığı anlamsız — gösterilecek proje yok — bu yüzden panel yalnız
+   * ikisi de sağlandığında render edilir; diyaloğun geri kalanı (sağlayıcı
+   * seçimi, bağlantı testi, kaydetme) projesiz de tam çalışır.
+   */
+  project?: ProjectDocumentV5;
+  onProjectCommit?: (project: ProjectDocumentV5, message?: string, commandType?: string) => Promise<boolean | void> | boolean | void;
 }
 
-export function ProviderSettingsDialog({ open, settings, onSave, onClose, credentialVault }: ProviderSettingsDialogProps) {
+export function ProviderSettingsDialog({ open, settings, onSave, onClose, credentialVault, project, onProjectCommit }: ProviderSettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const [draftSettings, setDraftSettings] = useState(settings);
@@ -108,6 +124,7 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
       <label className="memory-toggle"><input type="checkbox" checked={draftSettings.useLocalMemory === true} onChange={event => setDraftSettings({ ...draftSettings, useLocalMemory: event.target.checked })} /><span><b>Yerel proje tercihlerimi kullan</b><small>Geçmiş projelerin ham metni paylaşılmaz. Yalnız toplulaştırılmış plan derinliği, karar türü, bölüm ve modül eğilimleri yeni AI turlarına eklenir.</small></span></label>
       <div className="privacy-callout"><ShieldCheck size={18} /><span><b>{draftSettings.providerId === 'ollama' || draftSettings.providerId === 'offline' ? 'Bağlam cihazda kalır' : 'Kontrollü bağlam paylaşımı'}</b><small>{provider.credentialRequired ? 'Web anahtarı oturum belleğinde; masaüstü anahtarı işletim sistemi kasasında tutulur.' : 'API anahtarı veya bulut bağlantısı gerektirmez.'}</small></span></div>
       {result && <div className={`connection-result ${result.ok ? 'ok' : 'error'}`} role="status">{result.ok ? <Check size={16} /> : <CircleAlert size={16} />}<span>{result.message}<small>{result.providerId} · {result.latencyMs} ms{result.errorCode ? ` · ${result.errorCode}` : ''}</small></span></div>}
+      {project && onProjectCommit && <StorageHealthPanel project={project} onCommit={onProjectCommit}/>}
       <div className="dialog-actions"><button onClick={test} disabled={testing}>{testing ? <LoaderCircle className="spin" size={16} /> : <Wifi size={16} />} Bağlantıyı test et</button><button className="primary" onClick={save}><Save size={16} /> Ayarları kaydet</button></div>
     </dialog>
   );

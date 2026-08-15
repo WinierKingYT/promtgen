@@ -4,7 +4,6 @@ import {
   Check,
   Download,
   LoaderCircle,
-  MoreHorizontal,
   Save,
   Send,
   Sparkles
@@ -64,7 +63,6 @@ type Project = ProjectDocumentV5;
 const ProviderSettingsDialog = lazy(() => import('./components/ProviderSettingsDialog.js').then(module => ({ default: module.ProviderSettingsDialog })));
 const RevisionHistoryDialog = lazy(() => import('./components/RevisionHistoryDialog.js').then(module => ({ default: module.RevisionHistoryDialog })));
 const FinalizePlanDialog = lazy(() => import('./components/FinalizePlanDialog.js').then(module => ({ default: module.FinalizePlanDialog })));
-const StorageHealthPanel = lazy(() => import('./components/StorageHealthPanel.js').then(module => ({ default: module.StorageHealthPanel })));
 const TraceabilityMap = lazy(() => import('./components/TraceabilityMap.js').then(module => ({ default: module.TraceabilityMap })));
 const PlanningScenarioPanel = lazy(() => import('./components/PlanningScenarioPanel.js').then(module => ({ default: module.PlanningScenarioPanel })));
 const SectionRegenerationPanel = lazy(() => import('./components/SectionRegenerationPanel.js').then(module => ({ default: module.SectionRegenerationPanel })));
@@ -416,14 +414,13 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 {alignmentVisible && <LazyFeatureBoundary label="Plan–kod hizalaması" resetKey={project.documentRevision}>
                   <PlanCodeAlignmentPanel project={project} onCommit={commit}/>
                 </LazyFeatureBoundary>}
-                <details className="pg-advanced-tools"><summary><MoreHorizontal size={16}/> Gelişmiş plan araçları</summary><LazyFeatureBoundary label="Gelişmiş plan araçları" resetKey={project.documentRevision}><StorageHealthPanel project={project} onCommit={persistCandidate}/></LazyFeatureBoundary></details>
               </aside>
             </div>
           </>}
       </main>}
     </div>
 
-    {settingsOpen && <LazyFeatureBoundary label="AI sağlayıcı ayarları" resetKey={settingsOpen}><ProviderSettingsDialog open settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)} credentialVault={credentialVault}/></LazyFeatureBoundary>}
+    {settingsOpen && <LazyFeatureBoundary label="AI sağlayıcı ayarları" resetKey={settingsOpen}><ProviderSettingsDialog open settings={providerSettings} onSave={onProviderSettings} onClose={() => setSettingsOpen(false)} credentialVault={credentialVault} project={project} onProjectCommit={persistCandidate}/></LazyFeatureBoundary>}
     {historyOpen && <LazyFeatureBoundary label="Revision geçmişi" resetKey={historyOpen}><RevisionHistoryDialog open project={project} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)}/></LazyFeatureBoundary>}
     {finalizationBlockers.length > 0 && <LazyFeatureBoundary label="Plan finalizasyonu" resetKey={finalizationBlockers.length}><FinalizePlanDialog blockers={finalizationBlockers} onClose={() => setFinalizationBlockers([])}/></LazyFeatureBoundary>}
     <LiveAnnouncer message={notice}/>
