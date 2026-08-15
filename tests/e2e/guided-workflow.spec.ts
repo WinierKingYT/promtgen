@@ -164,6 +164,28 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.getByRole('navigation', { name: 'Plan bölümleri' })).toBeVisible();
   });
 
+  test('bolum yeniden uretimi editorde, senaryolar baglam sutununda', async ({ page }) => {
+    await startIdea(page);
+    await advanceToDecisionTurn(page);
+    await resolveDecisionTurn(page);
+    await openGuide(page);
+    await completeConceptAgreement(page);
+    await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+    const preview = page.getByRole('region', { name: 'Plan dönüşümü önizlemesi' });
+    await expect(preview).toContainText('Gereksinim taslağı');
+    await preview.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    // Yeni yerlerinde — açılır açılmadan görünürler.
+    await expect(page.locator('.pg-plan-editor .section-regeneration')).toBeVisible();
+    await expect(page.locator('.pg-plan-context .scenario-panel')).toBeVisible();
+
+    // Eski yerinde yok.
+    const advanced = page.locator('details.pg-advanced-tools');
+    await expect(advanced.locator('.section-regeneration')).toHaveCount(0);
+    await expect(advanced.locator('.scenario-panel')).toHaveCount(0);
+  });
+
   test('idea document revisions remain comparable and restore as a new revision', async ({ page }) => {
     await startIdea(page);
     await runCoachTurn(page);
