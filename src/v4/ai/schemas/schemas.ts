@@ -111,6 +111,51 @@ export const sectionRegenerationSchema = z.object({
   }).strict()).min(1).max(12)
 }).strict();
 
+export const SOLUTION_DISCOVERY_SCHEMA_ID = 'solution-discovery-v1';
+
+/**
+ * Teknik konu — Idea tarafındaki `Concern` ile aynı soyutlama, teknik alanda.
+ * `dependsOnTitles` kimlik değil başlık taşır: model henüz kimlikleri bilmez ve
+ * uydurmasına izin verilirse bağımlılık grafiği kırılır.
+ */
+export const technicalConcernSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().min(1).max(2000),
+  category: z.string().trim().min(1).max(80),
+  importance: z.enum(['critical', 'important', 'optional']),
+  whyItMatters: z.string().trim().min(1).max(1200),
+  questions: z.array(shortText).max(5).default([]),
+  uncertainty: z.number().min(0).max(1),
+  downstreamImpact: z.number().min(0).max(1),
+  dependsOnTitles: z.array(shortText).max(4).default([])
+}).strict();
+
+/**
+ * Teknoloji **adayı** — karar değil. `derivedFrom*` alanları boş bırakılabilir;
+ * çekirdek onları doğrular ve gerekçesiz geri dönülemez adayı reddeder. Şemanın
+ * bunu zorlaması yanlış olurdu: model o zaman uydurmayı öğrenirdi.
+ */
+export const technologyCandidateSchema = z.object({
+  concernTitle: z.string().trim().min(1).max(160),
+  title: z.string().trim().min(1).max(160),
+  category: z.string().trim().min(1).max(80),
+  rationale: z.string().trim().min(1).max(1200),
+  tradeoffs: z.array(shortText).max(6).default([]),
+  reversibility: z.enum(['reversible', 'costly', 'irreversible']),
+  derivedFromIdeaDecisionIds: z.array(shortText).max(6).default([]),
+  derivedFromIdeaConcernIds: z.array(shortText).max(6).default([])
+}).strict();
+
+export const solutionDiscoverySchema = z.object({
+  reply: z.string().trim().min(1).max(4000).default(''),
+  technicalConcerns: z.array(technicalConcernSchema).min(1).max(8),
+  candidates: z.array(technologyCandidateSchema).max(10).default([]),
+  openQuestions: z.array(shortText).max(8).default([]),
+  uncertainty: z.array(shortText).max(3).default([])
+}).strict();
+
+export type SolutionDiscoveryOutput = z.infer<typeof solutionDiscoverySchema>;
+
 export type DiscoveryOutput = z.infer<typeof discoverySchema>;
 export type IdeaLabOutput = z.infer<typeof ideaLabSchema>;
 export type ArchitectureReviewOutput = z.infer<typeof architectureReviewSchema>;
