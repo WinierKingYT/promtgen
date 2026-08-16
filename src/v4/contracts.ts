@@ -109,12 +109,31 @@ export interface StageApproval {
  * `concerns` alanı bilerek burada yok: Concern modeli ayrı bir adımda
  * geliyor. Bu iskelet yalnız kapsayıcıyı ve onay durumunu kuruyor.
  */
+/**
+ * Proje çerçevelemesi — "ne tasarlıyoruz?" sorusunun cevabı.
+ *
+ * Sabit `Problem → Kullanıcı → Değer → MVP` sırası bir startup/SaaS keşif
+ * modelidir ve her projeye uymaz: "Unity'de at sistemi" için "hedef kullanıcı
+ * kim?" yanlış ilk sorudur. Bu yüzden önce ne tasarladığımız belirlenir,
+ * sorular ondan sonra ona göre seçilir.
+ *
+ * `source` ayrımı V3'ün "AI konuşur, kullanıcı karar verir" kuralının burada
+ * karşılığı: AI çerçevelemeyi tahmin edebilir ama onaylanmış saymaz.
+ */
+export interface ProjectFraming {
+  kind: 'product' | 'feature' | 'system' | 'unknown'
+  /** AI'nin ürettiği serbest alan etiketi — 'game', 'commerce', 'backend'. */
+  domain: string
+  /** Çalıştığı ortam — 'Unity', 'web', 'CLI'. */
+  environment: string
+  source: 'inferred' | 'confirmed'
+}
+
 export interface IdeaDesign {
   approval: StageApproval
   concerns: Concern[]
   concernDecisions: ConcernDecision[]
-  /** Ne tasarlıyoruz — ürün mü, mevcut bir sisteme özellik mi, alt sistem mi. */
-  framing: string
+  framing: ProjectFraming
   openQuestions: string[]
 }
 

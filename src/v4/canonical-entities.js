@@ -473,7 +473,15 @@ export function normalizeProjectDocument(project) {
         approval: stageApproval(next.ideaDesign?.approval),
         concerns: concernList(next.ideaDesign?.concerns),
         concernDecisions: concernDecisionList(next.ideaDesign?.concernDecisions),
-        framing: typeof next.ideaDesign?.framing === 'string' ? next.ideaDesign.framing : '',
+        framing: {
+            kind: ['product', 'feature', 'system', 'unknown'].includes(next.ideaDesign?.framing?.kind)
+                ? next.ideaDesign.framing.kind
+                : 'unknown',
+            domain: typeof next.ideaDesign?.framing?.domain === 'string' ? next.ideaDesign.framing.domain : '',
+            environment: typeof next.ideaDesign?.framing?.environment === 'string' ? next.ideaDesign.framing.environment : '',
+            // Onaylanmadıysa çıkarım sayılır; AI tahmini kullanıcı kararı yerine geçmez.
+            source: next.ideaDesign?.framing?.source === 'confirmed' ? 'confirmed' : 'inferred'
+        },
         openQuestions: Array.isArray(next.ideaDesign?.openQuestions) ? next.ideaDesign.openQuestions : []
     };
     next.solutionDesign = {

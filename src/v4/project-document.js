@@ -144,7 +144,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
             approval: { status: 'draft', approvedAtRevision: null, approvedAt: null, reopenedReason: null },
             concerns: [],
             concernDecisions: [],
-            framing: '',
+            framing: { kind: 'unknown', domain: '', environment: '', source: 'inferred' },
             openQuestions: []
         },
         solutionDesign: {
