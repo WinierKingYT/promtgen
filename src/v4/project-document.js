@@ -108,7 +108,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
     const initialIdea = String(idea || '').trim();
     const state = {
         schemaVersion: 5,
-        schemaRevision: 5,
+        schemaRevision: 6,
         id: projectId(),
         documentRevision: 1,
         canonicalRevision: 1,
@@ -139,6 +139,17 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
             reviewedAt: null,
             deferredAt: null
         },
+        // Ürün Modeli V3 aşama kapsayıcıları; yeni belge ikisiyle birlikte doğar.
+        ideaDesign: {
+            approval: { status: 'draft', approvedAtRevision: null, approvedAt: null, reopenedReason: null },
+            framing: '',
+            openQuestions: []
+        },
+        solutionDesign: {
+            approval: { status: 'draft', approvedAtRevision: null, approvedAt: null, reopenedReason: null },
+            platform: '',
+            openQuestions: []
+        },
         ideaDiscussion: { mode: 'explore', records: [], updatedAt: createdAt },
         impactAnalyses: [], planningScenarios: [], sectionPatchProposals: [], implementationEvidencePackages: [],
         modules: { active: [{ id: 'core.planning', version: '1.0.0', enabledAtRevision: 1, config: {} }], dismissed: [], localManifests: [] }, metadata: { canonicalModelVersion: 1 }
@@ -168,7 +179,7 @@ export function validateProjectDocument(state) {
     const errors = [];
     if (!state || typeof state !== 'object') return { valid: false, errors: ['Proje durumu nesne olmalı.'] };
     if (state.schemaVersion !== 5) errors.push('schemaVersion 5 olmalı.');
-    if (state.schemaRevision !== 5) errors.push('schemaRevision 5 olmalı.');
+    if (state.schemaRevision !== 6) errors.push('schemaRevision 6 olmalı.');
     if (!state.id || typeof state.id !== 'string') errors.push('Proje kimliği eksik.');
     if (!Number.isInteger(state.documentRevision) || state.documentRevision < 1) errors.push('documentRevision pozitif tam sayı olmalı.');
     if (!Number.isInteger(state.canonicalRevision) || state.canonicalRevision < 1) errors.push('canonicalRevision pozitif tam sayı olmalı.');

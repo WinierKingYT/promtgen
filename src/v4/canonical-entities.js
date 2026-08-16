@@ -55,7 +55,13 @@ export function normalizeDecision(value = {}, index = 0) {
         consequences: list(source.consequences),
         status: ['proposed', 'accepted', 'superseded'].includes(source.status) ? source.status : 'accepted',
         sourceSuggestionId: text(source.sourceSuggestionId),
-        affectedSectionIds: list(source.affectedSectionIds || source.affectedSections)
+        affectedSectionIds: list(source.affectedSectionIds || source.affectedSections),
+        // V3 aşama sınıflandırması. Eski belgelerden gelen kararlar SESSIZCE
+        // sınıflandırılmaz: AI tahminiyle "bu fikir kararı, şu teknik karar"
+        // demek, kullanıcının hiç vermediği bir kararı ona atfetmek olurdu.
+        stage: ['idea', 'technical', 'legacy-unclassified'].includes(source.stage)
+            ? source.stage
+            : 'legacy-unclassified'
     };
 }
 
@@ -448,10 +454,28 @@ export function normalizeProjectDocument(project) {
     const next = structuredClone(project);
     const sourceSchemaRevision = Math.max(1, Number(next.schemaRevision || 1));
     next.schemaVersion = 5;
-    next.schemaRevision = 5;
+    next.schemaRevision = 6;
     next.documentRevision = Math.max(1, Number(next.documentRevision || next.revision || 1));
     next.canonicalRevision = Math.max(1, Math.min(next.documentRevision, Number(next.canonicalRevision || next.revision || 1)));
     delete next.revision;
+    // Ürün Modeli V3 aşama kapsayıcıları. Eklemeli: hiçbir eski alan
+    // silinmiyor, bu yüzden V3 öncesi belgeler yüklenirken bedava göç ediyor.
+    const stageApproval = (existing) => ({
+        status: ['draft', 'discovery', 'review', 'approved'].includes(existing?.status) ? existing.status : 'draft',
+        approvedAtRevision: Number.isInteger(existing?.approvedAtRevision) ? existing.approvedAtRevision : null,
+        approvedAt: typeof existing?.approvedAt === 'string' ? existing.approvedAt : null,
+        reopenedReason: typeof existing?.reopenedReason === 'string' ? existing.reopenedReason : null
+    });
+    next.ideaDesign = {
+        approval: stageApproval(next.ideaDesign?.approval),
+        framing: typeof next.ideaDesign?.framing === 'string' ? next.ideaDesign.framing : '',
+        openQuestions: Array.isArray(next.ideaDesign?.openQuestions) ? next.ideaDesign.openQuestions : []
+    };
+    next.solutionDesign = {
+        approval: stageApproval(next.solutionDesign?.approval),
+        platform: typeof next.solutionDesign?.platform === 'string' ? next.solutionDesign.platform : '',
+        openQuestions: Array.isArray(next.solutionDesign?.openQuestions) ? next.solutionDesign.openQuestions : []
+    };
     const previousReadiness = next.readiness || {};
     const readinessDimensions = ['completeness', 'consistency', 'traceability', 'riskCoverage', 'implementationReadiness'];
     const previousChecks = Array.isArray(previousReadiness.checks) ? previousReadiness.checks : [];
@@ -590,7 +614,7 @@ export function normalizeProjectDocument(project) {
     next.revisions = Array.isArray(next.revisions) ? next.revisions.map(revision => {
         const snapshot = revision.snapshot && typeof revision.snapshot === 'object' ? structuredClone(revision.snapshot) : {};
         snapshot.schemaVersion = 5;
-        snapshot.schemaRevision = 5;
+        snapshot.schemaRevision = 6;
         snapshot.documentRevision = Math.max(1, Number(snapshot.documentRevision || snapshot.revision || revision.number || 1));
         snapshot.canonicalRevision = Math.max(1, Number(snapshot.canonicalRevision || snapshot.revision || revision.number || 1));
         delete snapshot.revision;

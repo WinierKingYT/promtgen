@@ -173,7 +173,7 @@ export async function createPromtgenPackageArchive(
     format: 'promtgen',
     formatVersion: 3,
     schemaVersion: 5,
-    schemaRevision: 5,
+    schemaRevision: 6,
     projectId: project.id,
     revision: bundle.source.canonicalRevision,
     canonicalRevision: bundle.source.canonicalRevision,

@@ -19,7 +19,7 @@ const ARRAY_FIELDS = [
 ];
 
 export const LATEST_SCHEMA_VERSION = 5;
-export const LATEST_SCHEMA_REVISION = 5;
+export const LATEST_SCHEMA_REVISION = 6;
 
 export function migrateLegacyToV5(input) {
     if (!input || typeof input !== 'object') return failure(input, 'Geçersiz proje verisi.');

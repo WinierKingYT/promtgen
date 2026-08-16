@@ -2,6 +2,66 @@ export type PlanningDepthLevel = 'quick' | 'standard' | 'advanced' | 'enterprise
 export type ProjectLifecycleStatus = 'active' | 'finalized' | 'archived'
 export type PlanningPhase = 'IDEA_EXPANSION' | 'DISCOVERY' | 'IDEA_LAB' | 'CONCEPT_CONFIRMATION' | 'SHAPING' | 'DESIGN' | 'PLANNING' | 'REVIEW' | 'READY'
 export type SuggestionStatus = 'pending' | 'accepted' | 'edited' | 'deferred' | 'rejected'
+
+/**
+ * Ürün Modeli V3 aşama modeli (bkz. docs/product/PRODUCT_MODEL_V3.md).
+ *
+ * Bu, `PlanningPhase`'in (9 faz) yerini almak üzere gelen TEK canonical aşama
+ * modelidir. İkisi bir süre birlikte yaşayacak; birbirine bağlantısız iki
+ * model bırakmamak için `planningPhaseToStage()` eşlemesi zorunludur
+ * (`application/project-stages.ts`). Alt Proje C'nin dersi buydu: üç ayrı
+ * aşama modeli, üçü birbirine bağlı değil.
+ */
+export type ProjectStage = 'idea' | 'solution' | 'plan' | 'handoff'
+
+/** Bir aşamanın kendi içindeki ilerlemesi. */
+export type StageStatus = 'draft' | 'discovery' | 'review' | 'approved'
+
+/**
+ * Kararın hangi aşamaya ait olduğu. `legacy-unclassified`, V3 öncesi
+ * belgelerden gelen ve **sessizce sınıflandırılmayan** kararlar içindir:
+ * kullanıcının hiç vermediği bir kararı ona atfetmemek için AI tahmini
+ * kullanılmaz.
+ */
+export type DecisionStage = 'idea' | 'technical' | 'legacy-unclassified'
+
+export interface StageApproval {
+  status: StageStatus
+  /** Onay anındaki canonicalRevision; onaylanmadıysa null. */
+  approvedAtRevision: number | null
+  approvedAt: string | null
+  /**
+   * Onay yeniden açıldıysa nedeni. Geri dönüş sessiz olmaz: kullanıcı kapsamı
+   * maddi olarak değiştirdiğinde hangi onayın neden açıldığı yazılır.
+   */
+  reopenedReason: string | null
+}
+
+/**
+ * Fikir tasarımı. V3'te `Idea → Plan` doğrudan geçişi kaldırıldığı için bu
+ * aşamanın kendi onayı vardır ve Solution Design ondan önce onaylanamaz.
+ *
+ * `concerns` alanı bilerek burada yok: Concern modeli ayrı bir adımda
+ * geliyor. Bu iskelet yalnız kapsayıcıyı ve onay durumunu kuruyor.
+ */
+export interface IdeaDesign {
+  approval: StageApproval
+  /** Ne tasarlıyoruz — ürün mü, mevcut bir sisteme özellik mi, alt sistem mi. */
+  framing: string
+  openQuestions: string[]
+}
+
+/**
+ * Teknik çözüm tasarımı. "Ne yapıyoruz?" sorusundan "bunu nasıl kuracağız?"
+ * sorusuna geçilen yer. Bugün bu aşama hiç yok; teknik kararlar ya
+ * konuşulmuyor ya da gereksinimlerin içine gömülüyor.
+ */
+export interface SolutionDesign {
+  approval: StageApproval
+  platform: string
+  openQuestions: string[]
+}
+
 export type PlanSectionStatus = 'empty' | 'draft' | 'ready' | 'stale'
 
   export interface GenerationProvenance {
@@ -298,6 +358,8 @@ export interface Requirement {
 }
 
 export interface Decision {
+  /** V3 aşama sınıflandırması; eski belgelerde `legacy-unclassified`. */
+  stage?: DecisionStage
   id: string
   title: string
   decision: string
@@ -680,7 +742,7 @@ export interface PlanRevision {
 
 export interface ProjectDocumentV5 {
   schemaVersion: 5
-  schemaRevision: 5
+  schemaRevision: 6
   id: string
   documentRevision: number
   canonicalRevision: number
@@ -742,6 +804,8 @@ export interface ProjectDocumentV5 {
   exports: ExportRecord[]
   commandLog: CommandLogRecord[]
   dismissedSuggestionFingerprints: string[]
+  ideaDesign: IdeaDesign
+  solutionDesign: SolutionDesign
   ideaLabSession?: IdeaLabSession
   ideaDocumentRevisions: IdeaDocumentRevision[]
   sourceIdeaRevisionId: string | null

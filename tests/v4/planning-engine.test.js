@@ -19,7 +19,7 @@ assert.ok(expanded.proposalStore.bundles.length > 0, 'DISCOVERY fazında öneri 
 let project = analyzeIdea('Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması yapmak istiyorum.');
 assert.equal(project.lifecycle.activePhase, 'DISCOVERY', 'Uzun fikir doğrudan DISCOVERY fazını başlatmalı');
 assert.equal(project.schemaVersion, 5);
-assert.equal(project.schemaRevision, 5);
+assert.equal(project.schemaRevision, 6);
 assert.ok(project.proposalStore.bundles[0].items.length >= 3 && project.proposalStore.bundles[0].items.length <= 5);
 assert.ok(project.proposalStore.bundles[0].items.every(item => item.status === 'pending'));
 
