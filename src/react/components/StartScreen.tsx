@@ -46,10 +46,15 @@ interface StartScreenProps {
   onRecheckProvider: () => void;
 }
 
+// Örnekler ürün sözleşmesinin `candidate-stable` alanlarından seçilir
+// (web-app, internal-tool). Oyun örneği bilerek kaldırıldı: product-contract
+// game-3d ve multiplayer-game'i `unsupported`, game-2d'yi `experimental`
+// sayıyor — onboarding'in en görünür metni ürünün en zayıf alanına
+// yönlendirmemeli.
 const STARTERS = [
   'Yeni bir web uygulaması fikrim var',
   'Mevcut projeme özellik eklemek istiyorum',
-  'Bir oyun sistemi tasarlamak istiyorum'
+  'İç ekibimiz için bir operasyon aracı yapmak istiyorum'
 ];
 
 export function StartScreen({
@@ -176,7 +181,7 @@ export function StartScreen({
                 void handleCreate();
               }
             }}
-            placeholder="Örneğin: S&box için oyuncunun güvenini kazanabildiği, yetiştirilebilen bir at sistemi yapmak istiyorum…"
+            placeholder="Örneğin: küçük ekiplerin fatura takibini kolaylaştıran bir araç yapmak istiyorum…"
           />
           <div className="pg-start-composer-footer">
             <div>
