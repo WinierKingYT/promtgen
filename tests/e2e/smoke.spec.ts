@@ -175,32 +175,39 @@ test.describe('PromtGen V4 Smoke Tests', () => {
   });
 });
 
-// Sağlayıcı stub'ı KULLANMAZ: yerel motorun bağımsız çalıştığını doğrular.
-test.describe('Yerel fikir motoru', () => {
-  test('sağlayıcı yokken fikri engellemez ve yerel çalışma biçimini açıklar', async ({ page }) => {
+// FEATURE_FREEZE "Kayıtlı istisna 1": sağlayıcı olmadan Planner başlamaz.
+// Gerekçe ölçülmüştü — yerel kural motoru iki tamamen farklı fikir için birebir
+// aynı tradeoff metriklerini ve risk metinlerini üretiyordu. Bu iki test o
+// kapının iki yönünü de kanıtlar; ikisi birlikte olmadan kapı kanıtlanmış olmaz.
+const GECERLI_FIKIR =
+  'Küçük ekiplerin toplantı notlarından karar ve aksiyon çıkaran bir web uygulaması yapmak istiyorum';
+
+test.describe('AI sağlayıcı kapısı', () => {
+  test('saglayici yokken Planner baslamaz ve nedeni yazilir', async ({ page }) => {
     await page.route('**/api/tags', route => route.abort());
     await page.goto('/');
 
-    await expect(page.getByRole('status').filter({ hasText: 'Yerel fikir motoru' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Sağlayıcı bekleniyor' })).toBeVisible();
     await expect(page.getByText(/Yerleşik GLM-5.2 etkinleştirilmeyi bekliyor/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'GLM-5.2’yi etkinleştir' })).toBeVisible();
 
-    await page.getByLabel('Ne yapmak istiyorsun?').fill(
-      'Küçük ekiplerin toplantı notlarından karar ve aksiyon çıkaran bir web uygulaması yapmak istiyorum'
-    );
-    await expect(page.getByRole('button', { name: 'Fikri geliştir' })).toBeEnabled();
-    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
-    await expect(page.getByRole('heading', { name: 'Fikrini birlikte şekillendirelim' })).toBeVisible();
+    // Fikir uzunluk eşiğini geçse bile kapı kapalı kalmalı: kilidin sebebi
+    // metnin kısalığı değil, sağlayıcının yokluğu.
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(GECERLI_FIKIR);
+    await expect(page.getByRole('button', { name: 'Fikri geliştir' })).toBeDisabled();
   });
 
-  test('sağlayıcı doğrulanınca kapı açılır', async ({ page }) => {
+  test('saglayici dogrulaninca kapi acilir ve fikir gelistirilebilir', async ({ page }) => {
     await stubReadyProvider(page);
     await page.goto('/');
 
     await expect(page.getByRole('status').filter({ hasText: /Ollama/ })).toBeVisible();
-    await page.getByLabel('Ne yapmak istiyorsun?').fill(
-      'Küçük ekiplerin toplantı notlarından karar ve aksiyon çıkaran bir web uygulaması yapmak istiyorum'
-    );
+    await page.getByLabel('Ne yapmak istiyorsun?').fill(GECERLI_FIKIR);
     await expect(page.getByRole('button', { name: 'Fikri geliştir' })).toBeEnabled();
+
+    // Kapının açıldığını yalnız `enabled` ile kanıtlamak yetmez — kapı hiç
+    // olmasaydı da enabled olurdu. Gerçekten geçildiğini görmek gerekiyor.
+    await page.getByRole('button', { name: 'Fikri geliştir' }).click();
+    await expect(page.getByRole('heading', { name: 'Fikrini birlikte şekillendirelim' })).toBeVisible();
   });
 });

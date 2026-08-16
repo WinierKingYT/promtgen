@@ -44,10 +44,18 @@ async function startIdea(page: Page) {
 }
 
 test.describe('Keşif panosu', () => {
-  test('sağlayıcı yokken açılır, kategorileri ve başlangıç uyarısını gösterir', async ({ page }) => {
-    await page.route('**/api/tags', route => route.abort());
+  test('saglayici oturum icinde duserse yerel karta duser ve bunu soyler', async ({ page }) => {
+    // Kapı (FEATURE_FREEZE "Kayıtlı istisna 1") sağlayıcısız başlamayı engelliyor,
+    // bu yüzden önce doğrulanmış sağlayıcıyla girilir. Test edilen durum artık
+    // "hiç sağlayıcı yok" değil — oturum içinde sağlayıcının düşmesi. Kapı ürün
+    // vaadini, buradaki fallback ise dayanıklılığı koruyor; ikisi farklı şeyler.
+    await stubReadyProvider(page);
     await page.goto('/');
     await startIdea(page);
+
+    // Fikir alanına girildikten sonra sağlayıcı kaybolur.
+    await page.route('**/api/tags', route => route.abort());
+    await page.route('**/api/chat', route => route.abort());
 
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board.getByRole('button', { name: 'Güven ve gizlilik' })).toBeVisible();

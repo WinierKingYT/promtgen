@@ -145,12 +145,12 @@ export function StartScreen({
           </div>
         </article>)}
       </div>
-      <button type="button" className="pg-onboarding-settings" aria-label="AI ayarları" onClick={onOpenSettings}><Settings2 size={17}/><span><b>Çalışma biçimi</b><small>{aiReady ? getProviderMeta(providerSettings.providerId).label : 'Yerel mod kullanılabilir'}</small></span></button>
+      <button type="button" className="pg-onboarding-settings" aria-label="AI ayarları" onClick={onOpenSettings}><Settings2 size={17}/><span><b>Çalışma biçimi</b><small>{aiReady ? getProviderMeta(providerSettings.providerId).label : 'Sağlayıcı bağlı değil'}</small></span></button>
     </aside>
 
     <section className="pg-onboarding-main">
       <header className="pg-onboarding-topbar">
-        <div className={`pg-runtime-pill ${aiReady ? 'is-ai' : 'is-local'}`} role="status"><i/>{checkingProvider ? 'Bağlantı kontrol ediliyor' : aiReady ? `${getProviderMeta(providerSettings.providerId).label} hazır` : 'Yerel fikir motoru'}</div>
+        <div className={`pg-runtime-pill ${aiReady ? 'is-ai' : 'is-local'}`} role="status"><i/>{checkingProvider ? 'Bağlantı kontrol ediliyor' : aiReady ? `${getProviderMeta(providerSettings.providerId).label} hazır` : 'Sağlayıcı bekleniyor'}</div>
         <button type="button" onClick={() => {
           const next = language === 'tr' ? 'en' : 'tr';
           setLanguage(next);
@@ -188,7 +188,14 @@ export function StartScreen({
               <label title="Dosya veya belge ekle"><FolderOpen size={17}/><span>Bağlam ekle</span><input type="file" multiple hidden onChange={event => appendFiles(event.target.files)}/></label>
               {(files.length > 0 || nativeInventory) && <button type="button" className="pg-context-count" onClick={() => setInventoryOpen(true)}><Check size={14}/>{nativeInventory ? nativeInventory.totals.included : files.length} dosya</button>}
             </div>
-            <button type="button" className="pg-start-submit" disabled={idea.trim().length < 10 || creating} onClick={() => void handleCreate()}>{creating ? <LoaderCircle className="spin" size={19}/> : <ArrowRight size={19}/>}<span>{creating ? 'Fikir alanı hazırlanıyor' : 'Fikri geliştir'}</span></button>
+            {/* Kapı, FEATURE_FREEZE "Kayıtlı istisna 1"in gereği. Gerekçe ölçülmüş:
+                sağlayıcısız yerel kural motoru iki tamamen farklı fikir için
+                (toplantı notu uygulaması ve serbest çalışan fatura takibi) birebir
+                aynı tradeoff metriklerini ve risk metinlerini üretiyordu. Kapı
+                yalnız proje oluşturma öncesinde çalışır; oturum içinde sağlayıcı
+                düşerse deterministic fallback devrede kalır — o dayanıklılık,
+                bu kapı ise ürün vaadi. */}
+            <button type="button" className="pg-start-submit" disabled={idea.trim().length < 10 || creating || !aiReady} onClick={() => void handleCreate()}>{creating ? <LoaderCircle className="spin" size={19}/> : <ArrowRight size={19}/>}<span>{creating ? 'Fikir alanı hazırlanıyor' : 'Fikri geliştir'}</span></button>
           </div>
         </div>
 
@@ -197,7 +204,7 @@ export function StartScreen({
         </div>
 
         {!aiReady && readiness && <div className="pg-local-mode-note" role="note">
-          <Sparkles size={17}/><span><b>{builtInAiNeedsKey ? 'Yerleşik GLM-5.2 etkinleştirilmeyi bekliyor.' : 'AI bağlantısı olmadan da başlayabilirsin.'}</b><small>{builtInAiNeedsKey ? 'NVIDIA anahtarını yalnız bir kez ekle; masaüstü uygulaması sonraki açılışlarda güvenli kasadan otomatik kullanır.' : 'Yerel motor sorular ve yapılandırılmış seçenekler üretir. İstersen daha sonra bir AI sağlayıcısı bağlayabilirsin.'}</small></span><button type="button" onClick={onOpenSettings}>{builtInAiNeedsKey ? 'GLM-5.2’yi etkinleştir' : 'AI bağla'}</button><button type="button" onClick={onRecheckProvider} disabled={checkingProvider}>Kontrol et</button>
+          <Sparkles size={17}/><span><b>{builtInAiNeedsKey ? 'Yerleşik GLM-5.2 etkinleştirilmeyi bekliyor.' : 'Başlamak için bir AI sağlayıcısı bağla.'}</b><small>{builtInAiNeedsKey ? 'NVIDIA anahtarını yalnız bir kez ekle; masaüstü uygulaması sonraki açılışlarda güvenli kasadan otomatik kullanır.' : 'Fikrini sana özel şekilde açabilmek için gerçek bir modele ihtiyacımız var; yerel kural motoru farklı fikirler için aynı sonuçları üretiyor.'}</small></span><button type="button" onClick={onOpenSettings}>{builtInAiNeedsKey ? 'GLM-5.2’yi etkinleştir' : 'AI bağla'}</button><button type="button" onClick={onRecheckProvider} disabled={checkingProvider}>Kontrol et</button>
         </div>}
 
         <details className="pg-import-options">
