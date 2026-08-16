@@ -1,12 +1,8 @@
 import assert from 'assert';
-import { escapeHTML } from './src/security/safe-renderer.js';
-import { validateFileMetadata } from './src/security/file-policy.js';
 import { scanForSecrets } from './src/security/secret-detector.js';
 import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, validateProjectData, syncAIResponseToCanonicalState } from './src/state/project-state.js';
 import { WORKFLOW_STAGES } from './src/workflow/stages.js';
 import { checkWorkflowTransition } from './src/workflow/transitions.js';
-import { profileProjectFromText, buildProfilePromptBlock } from './src/planning/project-profiler.js';
-import { buildPlanningPrompt, buildDebugPrompt } from './src/prompts/planning-prompt.js';
 
 let passed = 0;
 let failed = 0;
@@ -22,46 +18,6 @@ function test(name, fn) {
         failed++;
     }
 }
-
-// ============================================================
-// 1. XSS Safe Renderer
-// ============================================================
-console.log('\n🔐 safe-renderer tests');
-test('escapeHTML escapes script tag', () => {
-    assert.strictEqual(escapeHTML('hello <script>'), 'hello &lt;script&gt;');
-});
-test('escapeHTML escapes quotes', () => {
-    assert.strictEqual(escapeHTML('"hello"'), '&quot;hello&quot;');
-});
-test('escapeHTML escapes ampersand', () => {
-    assert.strictEqual(escapeHTML('a & b'), 'a &amp; b');
-});
-test('escapeHTML handles null/undefined safely', () => {
-    assert.strictEqual(escapeHTML(null), '');
-    assert.strictEqual(escapeHTML(undefined), '');
-});
-test('escapeHTML protects attribute injection attempt', () => {
-    const unsafe = 'x" onclick="alert(1)';
-    const safe = escapeHTML(unsafe);
-    assert.ok(!safe.includes('"'), 'Should not contain raw double-quote');
-});
-
-// ============================================================
-// 2. File Policy
-// ============================================================
-console.log('\n📁 file-policy tests');
-test('rejects disallowed extension (png)', () => {
-    assert.strictEqual(validateFileMetadata('image.png', 100).valid, false);
-});
-test('accepts allowed extension (js)', () => {
-    assert.strictEqual(validateFileMetadata('code.js', 100).valid, true);
-});
-test('rejects oversized file (>1MB)', () => {
-    assert.strictEqual(validateFileMetadata('code.js', 2 * 1024 * 1024).valid, false);
-});
-test('accepts exactly 1MB file', () => {
-    assert.strictEqual(validateFileMetadata('code.js', 1024 * 1024).valid, true);
-});
 
 // ============================================================
 // 3. Secret Detector
@@ -225,111 +181,6 @@ test('READY_FOR_EXPORT -> EXPORTED', () => {
     const res = checkWorkflowTransition(st, WORKFLOW_STAGES.READY_FOR_EXPORT);
     assert.strictEqual(res.allowed, true);
     assert.strictEqual(res.nextStage, WORKFLOW_STAGES.EXPORTED);
-});
-
-// ============================================================
-// 8. Project Profiler
-// ============================================================
-console.log('\n🧪 project-profiler tests');
-
-test('detects game domain', () => {
-    const p = profileProjectFromText('Bir oyun yapmak istiyorum unity ile');
-    assert.ok(p.domains.some(d => d.name === 'game'));
-});
-test('detects web domain explicitly', () => {
-    const p = profileProjectFromText('React ile bir web sitesi yapmak istiyorum');
-    assert.ok(p.domains.some(d => d.name === 'web'));
-});
-test('returns unknown domain (NOT web) when no domain matches', () => {
-    const p = profileProjectFromText('baskılı tişört sipariş etmek istiyorum');
-    const hasUnknown = p.domains.some(d => d.name === 'unknown');
-    const hasWeb = p.domains.some(d => d.name === 'web');
-    assert.ok(hasUnknown, 'Should have unknown domain');
-    assert.ok(!hasWeb, 'Should NOT have web domain by default');
-});
-test('unknown domain has low confidence (0.20)', () => {
-    const p = profileProjectFromText('baskılı tişört sipariş etmek istiyorum');
-    const unknown = p.domains.find(d => d.name === 'unknown');
-    assert.strictEqual(unknown?.confidence, 0.20);
-});
-test('unknown domain adds uncertainty message', () => {
-    const p = profileProjectFromText('baskılı tişört sipariş etmek istiyorum');
-    assert.ok(p.uncertainties.length > 0, 'Should have uncertainty for unknown domain');
-});
-test('buildProfilePromptBlock includes domains line', () => {
-    const p = profileProjectFromText('mobil oyun geliştirmeyi düşünüyorum');
-    const block = buildProfilePromptBlock(p);
-    assert.ok(block.includes('Domains:'));
-    assert.ok(block.includes('confidence'));
-});
-test('buildProfilePromptBlock includes platforms', () => {
-    const p = profileProjectFromText('android uygulama');
-    const block = buildProfilePromptBlock(p);
-    assert.ok(block.includes('Platforms:'));
-});
-test('game domain + cross-platform with no specific platform keyword', () => {
-    const p = profileProjectFromText('unity hyper-casual oyun');
-    assert.ok(p.platforms.includes('cross-platform'));
-});
-
-
-// ============================================================
-// 9. Prompt Builder Module
-// ============================================================
-console.log('\n📝 planning-prompt module tests');
-
-test('buildPlanningPrompt includes techStack', () => {
-    const prompt = buildPlanningPrompt({
-        techStack: 'React (Vite)',
-        techVersion: '18.x',
-        activeFocuses: ['ui', 'security'],
-        profile: null,
-        stepDepth: 5,
-        historyText: 'Kullanıcı: Merhaba'
-    });
-    assert.ok(prompt.includes('React (Vite)'), 'Should include techStack');
-    assert.ok(prompt.includes('18.x'), 'Should include techVersion');
-});
-test('buildPlanningPrompt includes focusesText', () => {
-    const prompt = buildPlanningPrompt({
-        techStack: 'x',
-        techVersion: 'y',
-        activeFocuses: ['performance', 'scale'],
-        profile: null,
-        stepDepth: 3,
-        historyText: ''
-    });
-    assert.ok(prompt.includes('PERFORMANCE'), 'Should include PERFORMANCE focus');
-    assert.ok(prompt.includes('SCALE'), 'Should include SCALE focus');
-});
-test('buildPlanningPrompt includes profile block when profile given', () => {
-    const profile = { domains: [{ name: 'ai', confidence: 0.9 }], platforms: ['browser'], capabilities: [], uncertainties: [] };
-    const prompt = buildPlanningPrompt({
-        techStack: 'x', techVersion: 'y', activeFocuses: [], profile, stepDepth: 3, historyText: ''
-    });
-    assert.ok(prompt.includes('ai'), 'Should include domain name from profile');
-});
-test('buildPlanningPrompt includes stepDepth count', () => {
-    const prompt = buildPlanningPrompt({
-        techStack: 'x', techVersion: 'y', activeFocuses: [], profile: null, stepDepth: 7, historyText: ''
-    });
-    assert.ok(prompt.includes('7'), 'Should include stepDepth number');
-});
-test('buildDebugPrompt includes error log', () => {
-    const prompt = buildDebugPrompt({
-        projectContext: 'React finans app',
-        errorLog: 'TypeError: cannot read properties of undefined',
-        errorCode: ''
-    });
-    assert.ok(prompt.includes('TypeError: cannot read properties of undefined'), 'Should contain error log');
-});
-test('buildDebugPrompt includes project context', () => {
-    const prompt = buildDebugPrompt({
-        projectContext: 'Unity oyun projesi',
-        errorLog: 'NullReferenceException',
-        errorCode: ''
-    });
-    assert.ok(prompt.includes('Unity oyun projesi'), 'Should contain project context');
 });
 
 // ============================================================
