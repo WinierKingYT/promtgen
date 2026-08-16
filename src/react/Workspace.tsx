@@ -48,6 +48,8 @@ import {
 } from '../v4/application/idea-plan-conversion-service.js';
 import { legacyPlanUnlocked } from '../v4/application/project-stages.js';
 import { StageRail } from './components/StageRail.js';
+import { IdeaStagePanel } from './components/IdeaStagePanel.js';
+import { stageWorkAvailable } from '../v4/application/conversion-v2.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
 import {
@@ -131,6 +133,10 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     && pendingItems.some(item => item.status === 'pending');
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
   const planUnlocked = legacyPlanUnlocked(project);
+  // Panel yalnız aşama modeline girmiş belgelerde görünür. Konusu olmayan bir
+  // projede "sıradaki konu" paneli boş bir form gibi durur ve kullanıcı neyi
+  // cevapladığını anlamaz; keşif turu konuları yazdığında panel belirir.
+  const stagePanelVisible = stageWorkAvailable(project);
   const canonicalPlanningOpen = view === 'plan' && planUnlocked;
   // Boş panel göstermeyiz: harita ancak bağlantı varken, kod hizalaması
   // ancak envanter taranmışken anlamlı. Koşullar saf modülde tanımlı ve
@@ -304,7 +310,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setView('plan')}/>
       <StageRail project={project}/>
 
-      {view === 'develop' && <main id="pg-primary-content" className="pg-idea-workspace" tabIndex={-1}>
+      {view === 'develop' && <main id="pg-primary-content" className={`pg-idea-workspace${stagePanelVisible ? ' has-stage-panel' : ''}`} tabIndex={-1}>
         <section className="pg-conversation-column" aria-label="Fikir geliştirme sohbeti">
           <div className="pg-thread" role="log" aria-live="polite" aria-label="Fikir geliştirme konuşması">
             <header className="pg-thread-welcome">
@@ -380,6 +386,17 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><small>Çıkarımlar önce taslak olarak gösterilir; sen onaylamadan kesinleşmez.</small></div>
           </form>
         </section>
+        {stagePanelVisible && (
+          <IdeaStagePanel
+            project={project}
+            // Bildirimi yalnız `persistCandidate` gönderir: o, kayıt GERÇEKTEN
+            // başarılı olduğunda duyuruyor. Ayrıca çağırmak hem bildirimi
+            // ikiye katlıyordu hem de kayıt düşse bile "kaydedildi" derdi.
+            onCommand={(result, commandType) => {
+              void persistCandidate(result.project, result.notice || undefined, commandType);
+            }}
+          />
+        )}
         <IdeaSnapshot
           project={project}
           settings={providerSettings}

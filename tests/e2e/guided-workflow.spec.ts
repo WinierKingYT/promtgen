@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
-import { buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
+import { buildOpenConcernFixture, buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
 import {
   advanceToDecisionTurn,
   completeConceptAgreement,
@@ -34,6 +34,54 @@ test.describe('PromtGen idea studio production workflow', () => {
       });
     });
     await page.reload();
+  });
+
+  test('asama paneli konuyu gercekten karara baglar', async ({ page }) => {
+    // V3 motorunun kullanıcıyla buluştuğu nokta. Altı adımda kurulan model
+    // bu panel gelene kadar hiçbir yerden çağrılamıyordu.
+    await seedProject(page, buildOpenConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const panel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await expect(panel).toContainText('At kalıcı bir karakter mi');
+    // Kullanıcıya NEDEN sorulduğu da söylenir.
+    await expect(panel).toContainText('kayıt, ilerleme ve ölüm sistemini');
+    // Bedeli olmayan seçenek karşılaştırılamaz.
+    await expect(panel).toContainText('Kayıt sistemi gerektirir');
+
+    await panel.getByRole('radio', { name: /Kalıcı karakter/ }).check();
+    await panel.getByRole('button', { name: 'Karara bağla' }).click();
+
+    // Konu kapandı: aynı soru bir daha sorulmaz, aşama artık onaya hazır.
+    await expect(panel).toContainText('Fikir tasarımı yeterince net');
+    await expect(panel).toContainText('Bloklayan konu: 0');
+  });
+
+  test('asama paneli bos karari REDDEDER ve nedenini soyler', async ({ page }) => {
+    // Sessiz başarısızlık kullanıcıya "kaydedildi" izlenimi verirdi.
+    await seedProject(page, buildOpenConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const panel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await panel.getByRole('button', { name: 'Karara bağla' }).click();
+
+    await expect(panel.getByRole('alert')).toContainText('boş bırakılamaz');
+    await expect(panel).toContainText('At kalıcı bir karakter mi');
+  });
+
+  test('konu ertelenince kapsam disi sayilmaz', async ({ page }) => {
+    await seedProject(page, buildOpenConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const panel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await panel.getByRole('button', { name: 'Sonraya bırak' }).click();
+
+    // İki eşleşme beklenir: görünür toast ve ekran okuyucu bölgesi. Görünür
+    // olanı doğruluyoruz; ikisi de kasıtlı.
+    await expect(page.locator('.toast')).toContainText('kapsam dışı sayılmadı');
   });
 
   test('golden path: fikir onaylanmis projede rayi ilerlemis gosterir', async ({ page }) => {

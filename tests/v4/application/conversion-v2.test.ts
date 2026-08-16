@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   conversionSources,
   stageConversionBlockers,
+  stageWorkAvailable,
   usesStageModel
 } from '../../../src/v4/application/conversion-v2.js';
 import { previewIdeaPlanConversion } from '../../../src/v4/application/idea-plan-conversion-service.js';
@@ -39,8 +40,25 @@ describe('Aşama modeline girmiş mi', () => {
     assert.equal(usesStageModel(legacyProject()), false);
   });
 
-  it('konu kesfedilmisse asama modelindedir', () => {
+  it('konu KESFEDILMIS olmasi yetmez - sistem onerdi, kullanici girmedi', () => {
+    // Bunu ölçüt saysaydık, kullanıcı tek bir keşif turu çalıştırdığı anda
+    // ürünün akışı altından değişir ve planı iki yeni onayın ardında bulurdu.
+    const document = legacyProject();
+    document.ideaDesign.concerns = [normalizeConcern({ id: 'ic', title: 'Sahiplik', status: 'open' })];
+
+    assert.equal(usesStageModel(document), false);
+    assert.deepEqual(stageConversionBlockers(document), []);
+  });
+
+  it('konu karara baglanmissa asama modelindedir', () => {
     assert.equal(usesStageModel(stageProject({ idea: false })), true);
+  });
+
+  it('ERTELEMEK de bir eylemdir', () => {
+    const document = legacyProject();
+    document.ideaDesign.concerns = [normalizeConcern({ id: 'ic', title: 'Zırh', status: 'deferred' })];
+
+    assert.equal(usesStageModel(document), true);
   });
 
   it('onay sureci baslamissa da asama modelindedir', () => {
@@ -67,9 +85,14 @@ describe('Conversion V2 kapısı', () => {
 
   it('fikir tarafinda engel varsa ONCE o bildirilir', () => {
     // Sırası gelmemiş bir işi göstermek kullanıcıyı yanlış yere gönderir.
+    // Kullanıcı bir konuyu karara bağlayarak yola girmiş, ama başka bir
+    // kritik konu hâlâ açık.
     const blockers = stageConversionBlockers(stageProject({
       idea: false,
-      concerns: [{ id: 'ic', title: 'Kayıt', importance: 'critical', status: 'open' }]
+      concerns: [
+        { id: 'ic-verilmis', title: 'Sahiplik', status: 'decided' },
+        { id: 'ic-acik', title: 'Kayıt', importance: 'critical', status: 'open' }
+      ]
     }));
 
     assert.match(blockers[0], /Fikir tasarımında 1 engel/);
@@ -150,5 +173,27 @@ describe('Dönüşüm kaynakları', () => {
     document.solutionDesign.openQuestions = ['Hangi cihaz?'];
 
     assert.deepEqual(conversionSources(document).openQuestions, ['Kaç kullanıcı?', 'Hangi cihaz?']);
+  });
+});
+
+describe('Panel ne zaman görünür', () => {
+  it('cevaplanacak konu varken gorunur - kullanici o yola BOYLE girer', () => {
+    // Girmiş olmasını beklemek, kapıyı ardından kilitlemek olurdu.
+    const document = legacyProject();
+    document.ideaDesign.concerns = [normalizeConcern({ id: 'ic', title: 'Sahiplik', status: 'open' })];
+
+    assert.equal(usesStageModel(document), false);
+    assert.equal(stageWorkAvailable(document), true);
+  });
+
+  it('hic konu yokken gorunmez - bos form neyi cevapladigini anlatmaz', () => {
+    assert.equal(stageWorkAvailable(legacyProject()), false);
+  });
+
+  it('teknik konu da paneli acar', () => {
+    const document = legacyProject();
+    document.solutionDesign.concerns = [normalizeConcern({ id: 'tc', title: 'Depolama', status: 'open' })];
+
+    assert.equal(stageWorkAvailable(document), true);
   });
 });

@@ -20,18 +20,37 @@ import type { Concern, ProjectDocumentV5 } from '../contracts.js';
 /**
  * Belge aşama modeline girmiş mi?
  *
- * Ölçüt davranışsal: konu keşfedilmiş ya da onay süreci başlamışsa V3
- * akışındadır. Bir bayrak alanı tutmuyoruz çünkü bayrak, belgenin gerçek
- * durumundan sapabilirdi.
+ * Ölçüt **kullanıcının eylemi**, sistemin eylemi değil: bir konuyu karara
+ * bağlamak, ertelemek, kapsam dışı bırakmak ya da bir onay sürecini başlatmak.
+ *
+ * Konuların **var olması** yetmez. Keşif turu her turda konu üretiyor; bunu
+ * ölçüt saysaydık, kullanıcı tek bir keşif turu çalıştırdığı anda ürünün akışı
+ * altından değişir ve planı iki yeni onayın ardında bulurdu. Konu üretmek
+ * sistemin yolu **önermesi**; o yola girmek kullanıcının kararı.
+ *
+ * Bayrak alanı tutmuyoruz çünkü bayrak, belgenin gerçek durumundan sapabilirdi.
  */
 export function usesStageModel(project: ProjectDocumentV5): boolean {
   const idea = project.ideaDesign;
   const solution = project.solutionDesign;
   if (!idea || !solution) return false;
-  return idea.concerns.length > 0
-    || solution.concerns.length > 0
-    || idea.approval.status !== 'draft'
-    || solution.approval.status !== 'draft';
+  if (idea.approval.status !== 'draft' || solution.approval.status !== 'draft') return true;
+  return [...idea.concerns, ...solution.concerns].some(concern => concern.status !== 'open');
+}
+
+/**
+ * Aşama paneli gösterilsin mi?
+ *
+ * `usesStageModel`'den ayrı bir soru: panel, kullanıcının o yola **girmesini**
+ * sağlayan şey. Girmiş olmasını beklemek, kapıyı ardından kilitlemek olurdu.
+ * Ölçüt "cevaplanacak somut bir konu var mı" — boş bir form kullanıcıya neyi
+ * cevapladığını anlatmaz.
+ */
+export function stageWorkAvailable(project: ProjectDocumentV5): boolean {
+  if (!project.ideaDesign || !project.solutionDesign) return false;
+  return usesStageModel(project)
+    || project.ideaDesign.concerns.length > 0
+    || project.solutionDesign.concerns.length > 0;
 }
 
 /**

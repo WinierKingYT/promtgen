@@ -184,3 +184,39 @@ export function buildStageFixture(): ProjectDocumentV5 {
 
   return project;
 }
+
+
+/**
+ * Fikir aşamasında, cevap bekleyen bir konusu olan belge.
+ *
+ * Aşama panelinin gerçekten çalıştığını doğrulamak için gerekiyor: konusu
+ * olmayan bir projede panel hiç görünmez ve test yalnız "görünmüyor" yarısını
+ * kanıtlayabilirdi.
+ */
+export function buildOpenConcernFixture(): ProjectDocumentV5 {
+  const project = createProjectDocument({
+    idea: 'Unity’de at sistemi yapmak istiyorum',
+    name: 'At sistemi'
+  }) as ProjectDocumentV5;
+
+  project.ideaDesign.framing = { kind: 'system', domain: 'game', environment: 'Unity', source: 'confirmed' };
+  project.ideaDesign.concerns = [
+    normalizeConcern({
+      id: 'ic-sahiplik',
+      title: 'Sahiplik',
+      category: 'Kapsam',
+      importance: 'critical',
+      status: 'open',
+      whyItMatters: 'Bu karar kayıt, ilerleme ve ölüm sistemini birden belirliyor.',
+      questions: ['At kalıcı bir karakter mi, yoksa bir ulaşım aracı mı?'],
+      options: [
+        { id: 'o-kalici', title: 'Kalıcı karakter', description: '', tradeoffs: ['Kayıt sistemi gerektirir'] },
+        { id: 'o-ulasim', title: 'Sadece ulaşım aracı', description: '', tradeoffs: ['Bağ kurma hissi zayıflar'] }
+      ],
+      uncertainty: 0.9,
+      downstreamImpact: 0.9
+    })
+  ];
+
+  return project;
+}

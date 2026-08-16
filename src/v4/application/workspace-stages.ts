@@ -1,7 +1,7 @@
 import { coachProgress, nextCoachTurn } from './adaptive-idea-coach.js';
 import { ideaApprovalReadiness } from './idea-approval.js';
 import { currentStage, legacyPlanUnlocked, stageGate } from './project-stages.js';
-import { usesStageModel } from './conversion-v2.js';
+import { stageWorkAvailable } from './conversion-v2.js';
 import { solutionApprovalReadiness } from './solution-approval.js';
 import { readinessLines } from './stage-approval.js';
 import type { ProjectDocumentV5, ProjectStage } from '../contracts.js';
@@ -140,5 +140,5 @@ function currentStageLines(project: ProjectDocumentV5, stage: ProjectStage): str
  * söyler ve gösterilir.
  */
 function railApplies(project: ProjectDocumentV5): boolean {
-  return usesStageModel(project) || !legacyPlanUnlocked(project);
+  return stageWorkAvailable(project) || !legacyPlanUnlocked(project);
 }
