@@ -52,7 +52,10 @@ Gereksinimler: Node.js 20+, masaüstü geliştirme için Rust ve Tauri sistem ba
 | Ollama | Kurulum + `ollama serve` çalışır durumda + indirilmiş model | Cihazda kalır |
 | NVIDIA / Gemini / OpenAI | Kendi API anahtarın | Sağlayıcıya gider |
 
-Anahtar cihazda saklanır (webde oturum belleği, masaüstünde OS anahtar zinciri) ve plan belgesine yazılmaz.
+Anahtar cihazda saklanır ve plan belgesine yazılmaz. Webde sekme oturumu
+boyunca durur: sayfayı yenilediğinde bağlantı kopmaz, sekmeyi kapattığında
+silinir. Masaüstünde işletim sisteminin anahtar zincirine yazılır ve kalıcıdır —
+anahtarı bir kez girip bir daha uğraşmak istemiyorsan masaüstü sürümünü kullan.
 
 ```bash
 npm install
