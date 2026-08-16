@@ -46,6 +46,7 @@ import {
   applyIdeaPlanConversion,
   type IdeaPlanConversionPreview
 } from '../v4/application/idea-plan-conversion-service.js';
+import { legacyPlanUnlocked } from '../v4/application/project-stages.js';
 import { StageRail } from './components/StageRail.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
@@ -129,7 +130,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const showDecisionTurn = !['problem', 'user', 'value'].includes(coach.activeStep)
     && pendingItems.some(item => item.status === 'pending');
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
-  const planUnlocked = Boolean(project.sourceIdeaRevisionId || hasCanonicalPlan);
+  const planUnlocked = legacyPlanUnlocked(project);
   const canonicalPlanningOpen = view === 'plan' && planUnlocked;
   // Boş panel göstermeyiz: harita ancak bağlantı varken, kod hizalaması
   // ancak envanter taranmışken anlamlı. Koşullar saf modülde tanımlı ve

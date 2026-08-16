@@ -1,6 +1,7 @@
 import { coachProgress, nextCoachTurn } from './adaptive-idea-coach.js';
 import { ideaApprovalReadiness } from './idea-approval.js';
-import { currentStage, stageGate } from './project-stages.js';
+import { currentStage, legacyPlanUnlocked, stageGate } from './project-stages.js';
+import { usesStageModel } from './conversion-v2.js';
 import { solutionApprovalReadiness } from './solution-approval.js';
 import { readinessLines } from './stage-approval.js';
 import type { ProjectDocumentV5, ProjectStage } from '../contracts.js';
@@ -100,6 +101,7 @@ function stateOf(stage: ProjectStage, active: ProjectStage, open: boolean): Stag
  * yolun kapalı olduğunu anlayamaz. Kilidin nedeni de yazılır.
  */
 export function stageRail(project: ProjectDocumentV5): StageRailEntry[] {
+  if (!railApplies(project)) return [];
   const active = currentStage(project);
 
   return ORDER.map(stage => {
@@ -123,4 +125,20 @@ function currentStageLines(project: ProjectDocumentV5, stage: ProjectStage): str
   if (stage === 'idea') return readinessLines(ideaApprovalReadiness(project));
   if (stage === 'solution') return readinessLines(solutionApprovalReadiness(project));
   return [];
+}
+
+/**
+ * Ray ne zaman gösterilir?
+ *
+ * Aşama modeline girmiş belgelerde her zaman. Girmemiş olanlarda **yalnız
+ * henüz canonical planı yoksa** — çünkü eski akışla üretilmiş bir planı olan
+ * belgede ray "PLAN kilitli: fikir tasarımı onaylanmadı" derdi, oysa plan
+ * çalışıyor ve erişilebilir. Ekranın iki yarısının birbiriyle çelişmesi,
+ * ilerleme göstergesi hiç olmamasından kötüdür.
+ *
+ * Yeni bir proje ise doğal olarak fikir aşamasındadır; orada ray doğru şeyi
+ * söyler ve gösterilir.
+ */
+function railApplies(project: ProjectDocumentV5): boolean {
+  return usesStageModel(project) || !legacyPlanUnlocked(project);
 }

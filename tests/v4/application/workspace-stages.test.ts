@@ -150,3 +150,39 @@ describe('İlerleme — anket değil', () => {
     assert.deepEqual(byId(rail, 'solution')?.lines, []);
   });
 });
+
+describe('Ray ne zaman görünür — çelişki yasağı', () => {
+  it('yeni projede gorunur: fikir asamasindadir, ray dogruyu soyler', () => {
+    assert.ok(stageRail(project()).length > 0);
+  });
+
+  it('ESKI akisla plani olan belgede HIC gorunmez', () => {
+    // Ray "PLAN kilitli: fikir tasarımı onaylanmadı" derdi; oysa plan
+    // çalışıyor ve erişilebilir. Ekranın iki yarısının çelişmesi, ilerleme
+    // göstergesi hiç olmamasından kötüdür.
+    const document = project();
+    document.decisions = [{
+      id: 'd1', title: 'Kimlik', decision: 'E-posta', rationale: '', alternatives: [],
+      consequences: [], status: 'accepted', sourceSuggestionId: '', affectedSectionIds: []
+    }];
+
+    assert.deepEqual(stageRail(document), []);
+  });
+
+  it('asama modeline girmis belgede plani olsa bile gorunur', () => {
+    const document = project({ concerns: [{ id: 'c', title: 'Sahiplik', status: 'decided' }] });
+    document.decisions = [{
+      id: 'd1', title: 'Kimlik', decision: 'E-posta', rationale: '', alternatives: [],
+      consequences: [], status: 'accepted', sourceSuggestionId: '', affectedSectionIds: []
+    }];
+
+    assert.ok(stageRail(document).length > 0);
+  });
+
+  it('eski fikir revizyonundan uretilmis plan da rayi susturur', () => {
+    const document = project();
+    document.sourceIdeaRevisionId = 'rev-1';
+
+    assert.deepEqual(stageRail(document), []);
+  });
+});

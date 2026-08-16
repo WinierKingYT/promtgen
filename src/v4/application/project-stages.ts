@@ -122,3 +122,19 @@ export function reopenStage(approval: StageApproval, reason: string): StageAppro
     reopenedReason: reason
   };
 }
+
+/**
+ * Eski akışta plan aşamasının açılma koşulu.
+ *
+ * Bu koşul UI'da yaşıyordu ve V3 aşama rayı geldiğinde ekranın iki yarısı
+ * çelişti: ray "plan kilitli" derken Plan sekmesi açıktı. Koşul artık tek
+ * yerde duruyor ki iki taraf da aynı şeyi okusun.
+ */
+export function legacyPlanUnlocked(project: ProjectDocumentV5): boolean {
+  return Boolean(
+    project.sourceIdeaRevisionId
+    || project.requirements?.length
+    || project.decisions?.length
+    || project.tasks?.length
+  );
+}
