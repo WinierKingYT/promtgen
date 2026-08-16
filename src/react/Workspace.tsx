@@ -133,8 +133,23 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   // Boş panel göstermeyiz: harita ancak bağlantı varken, kod hizalaması
   // ancak envanter taranmışken anlamlı. Koşullar saf modülde tanımlı ve
   // iki yönde test edilmiş durumda.
-  const traceabilityVisible = useMemo(() => hasTraceabilityLinks(project), [project]);
-  const alignmentVisible = useMemo(() => hasProjectInventory(project), [project]);
+  //
+  // İkisi de canonicalPlanningOpen ile kapılı — ama gerçek sebep yalnız
+  // traceabilityVisible: hasTraceabilityLinks, buildTraceabilityView'i
+  // çağırır ve bu, düğüm başına revisionHistory'yi filtreler/sıralar/
+  // JSON.stringify eder (traceability-view.ts). project kimliği her
+  // persist'te değişir — her sohbet mesajında, plan aşaması hiç açık
+  // olmasa bile. Kapı olmadan bu O(düğüm × revizyon) tarama Fikir
+  // aşamasında bile her render'da çalışırdı. hasProjectInventory ucuz;
+  // ona aynı kapı yalnız simetri ve tutarlılık için uygulanıyor.
+  const traceabilityVisible = useMemo(
+    () => canonicalPlanningOpen && hasTraceabilityLinks(project),
+    [canonicalPlanningOpen, project]
+  );
+  const alignmentVisible = useMemo(
+    () => canonicalPlanningOpen && hasProjectInventory(project),
+    [canonicalPlanningOpen, project]
+  );
   const lockedViews = planUnlocked
     ? undefined
     : { plan: 'Fikrin sınırlarını Ortak Anlayış aşamasında onayladığında açılır.' } as const;
