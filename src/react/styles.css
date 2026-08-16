@@ -501,9 +501,18 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-view-tabs { display:flex;gap:4px;border:1px solid var(--pg-border);border-radius:12px;padding:4px;background:#eceeeb; }.pg-view-tabs button { min-height:36px;display:flex;align-items:center;gap:6px;border:0;border-radius:8px;padding:7px 13px;background:transparent;color:var(--pg-muted);font-size:10px;font-weight:650; }
 /* Kilitli aşama: silik ama okunur ve hâlâ tıklanabilir — tıklama kilidin
    nedenini yazan kapı ekranına indirir. Bu yüzden `cursor: not-allowed`
-   KULLANILMAZ: tıklamanın bir karşılığı var, imleç aksini söylememeli. */
+   KULLANILMAZ: tıklamanın bir karşılığı var, imleç aksini söylememeli.
+   opacity:.55 ile miras alınan --pg-muted rengi #eceeeb zemine karşı
+   2.06:1'e düşüyordu (klavye kullanıcısı için kilit nedeninin tek kalıcı
+   işareti, çünkü native `title` yalnız hover'da tetiklenir). --pg-muted
+   yerine daha koyu --pg-text token'ı kullanılıp opaklık .62'ye çıkarıldı:
+   sonuç 4.65:1, AA'nın metin için istediği 4.5:1'i geçiyor. Yalnız
+   opaklıkla (renk --pg-muted kalsaydı) tavan opacity:1'de bile 4.40:1'de
+   kalıyordu — kilitsiz/pasif durumla aynı, yani hem hedefi tutturmuyor hem
+   de görsel ayrımı siliyordu. */
 .pg-view-tabs button.is-locked {
-  opacity: .55;
+  color: var(--pg-text);
+  opacity: .62;
 }
 .pg-view-tabs button.is-active { background:white;color:var(--pg-text);box-shadow:0 1px 5px rgba(20,30,24,.08); }.pg-view-tabs button.is-active svg { color:var(--pg-accent); }
 .pg-history-button { justify-self:end;min-height:38px;border:1px solid var(--pg-border);border-radius:9px;padding:8px 11px;background:white;color:var(--pg-muted);font-size:10px; }
