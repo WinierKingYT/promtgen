@@ -47,6 +47,7 @@ import {
   type IdeaPlanConversionPreview
 } from '../v4/application/idea-plan-conversion-service.js';
 import { legacyPlanUnlocked } from '../v4/application/project-stages.js';
+import { nextCoachTurn } from '../v4/application/adaptive-idea-coach.js';
 import { StageRail } from './components/StageRail.js';
 import { IdeaStagePanel } from './components/IdeaStagePanel.js';
 import { stageWorkAvailable } from '../v4/application/conversion-v2.js';
@@ -137,6 +138,12 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   // projede "sıradaki konu" paneli boş bir form gibi durur ve kullanıcı neyi
   // cevapladığını anlamaz; keşif turu konuları yazdığında panel belirir.
   const stagePanelVisible = stageWorkAvailable(project);
+  // Aşama paneli bir konuyu soruyorsa soru ONUNDUR: sabit koç sorusu ve
+  // "şu an yanıtladığın soru" etiketi gizlenir. Aksi hâlde ekranda iki farklı
+  // soru durur ve kullanıcı hangisini cevapladığını bilemez.
+  const stageOwnsQuestion = stagePanelVisible
+    && project.ideaDesign.approval.status !== 'approved'
+    && nextCoachTurn(project).kind === 'concern';
   const canonicalPlanningOpen = view === 'plan' && planUnlocked;
   // Boş panel göstermeyiz: harita ancak bağlantı varken, kod hizalaması
   // ancak envanter taranmışken anlamlı. Koşullar saf modülde tanımlı ve
@@ -335,6 +342,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
               draft={discoveryAnswerDraft}
               coach={coach}
               showDecisionTurn={showDecisionTurn}
+              stageOwnsQuestion={stageOwnsQuestion}
               pendingItems={pendingItems}
               disabled={generating}
               onChoose={prompt => void sendMessage(prompt, '')}
@@ -361,7 +369,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           </div>
 
           <form className="pg-chat-composer" onSubmit={event => { event.preventDefault(); void sendMessage(messageDraft); }}>
-            <div className="pg-focused-question"><span>Şu an yanıtladığın soru</span><b>{coach.activeQuestion}</b></div>
+            {!stageOwnsQuestion && <div className="pg-focused-question"><span>Şu an yanıtladığın soru</span><b>{coach.activeQuestion}</b></div>}
             {hasCanonicalPlan && <div className="pg-composer-mode">
               <button type="button" className={!changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(false)}>Fikri tartış</button>
               <button type="button" className={changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(true)}>Plan etkisini incele</button>

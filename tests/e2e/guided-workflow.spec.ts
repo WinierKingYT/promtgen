@@ -45,6 +45,12 @@ test.describe('PromtGen idea studio production workflow', () => {
 
     const panel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
     await expect(panel).toContainText('At kalıcı bir karakter mi');
+
+    // Panel üçüncü sütun olarak geliyor; ızgara iki sütunlu kalsaydı sohbet
+    // ile panel üst üste binerdi. Sınıf adı değil, hesaplanan düzen doğrulanır.
+    const columns = await page.locator('main.pg-idea-workspace')
+      .evaluate(element => getComputedStyle(element).gridTemplateColumns);
+    expect(columns.split(' ').length).toBe(3);
     // Kullanıcıya NEDEN sorulduğu da söylenir.
     await expect(panel).toContainText('kayıt, ilerleme ve ölüm sistemini');
     // Bedeli olmayan seçenek karşılaştırılamaz.
@@ -56,6 +62,18 @@ test.describe('PromtGen idea studio production workflow', () => {
     // Konu kapandı: aynı soru bir daha sorulmaz, aşama artık onaya hazır.
     await expect(panel).toContainText('Fikir tasarımı yeterince net');
     await expect(panel).toContainText('Bloklayan konu: 0');
+  });
+
+  test('ayni anda IKI soru sorulmaz', async ({ page }) => {
+    // V3'ün çekirdek kuralı: her turda tek soru. İki farklı soru aynı anda
+    // ekranda durursa kullanıcı hangisini cevapladığını bilemez.
+    await seedProject(page, buildOpenConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    await expect(page.getByRole('complementary', { name: 'Fikir tasarımı' })).toContainText('At kalıcı bir karakter mi');
+    await expect(page.locator('.pg-coach-focus')).toHaveCount(0);
+    await expect(page.locator('.pg-focused-question')).toHaveCount(0);
   });
 
   test('asama paneli bos karari REDDEDER ve nedenini soyler', async ({ page }) => {

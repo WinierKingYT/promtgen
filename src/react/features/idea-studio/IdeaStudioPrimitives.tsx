@@ -192,6 +192,7 @@ export function IdeaCoachTurn({
   draft,
   coach,
   showDecisionTurn,
+  stageOwnsQuestion,
   pendingItems,
   disabled,
   onChoose,
@@ -203,6 +204,13 @@ export function IdeaCoachTurn({
   draft: DiscoveryAnswerDraft | null;
   coach: IdeaCoachState;
   showDecisionTurn: boolean;
+  /**
+   * Aşama paneli o an bir konuyu soruyorsa buradaki sabit koç sorusu
+   * gösterilmez. İki farklı soru aynı anda ekranda durursa kullanıcı hangisini
+   * cevapladığını bilemez — V3'ün "her turda tek soru" kuralı tam olarak bunu
+   * yasaklıyor.
+   */
+  stageOwnsQuestion: boolean;
   pendingItems: SuggestionItem[];
   disabled: boolean;
   onChoose: (prompt: string) => void;
@@ -225,6 +233,8 @@ export function IdeaCoachTurn({
     /></div>}
     {showDecisionTurn
       ? <IdeaDecisionCards items={pendingItems} onStatus={onStatus}/>
-      : <IdeaCoachFocus coach={coach} disabled={disabled} onChoose={onChoose}/>}
+      : stageOwnsQuestion
+        ? null
+        : <IdeaCoachFocus coach={coach} disabled={disabled} onChoose={onChoose}/>}
   </>;
 }
