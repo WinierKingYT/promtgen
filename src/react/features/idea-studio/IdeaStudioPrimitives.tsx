@@ -104,7 +104,11 @@ export function IdeaStudioHeader({
       <button type="button" className="pg-back-button" aria-label="Başlangıca dön" onClick={onExit}><ArrowLeft size={18}/></button>
       <span><b>{project.identity.name || 'Yeni fikir'}</b><small>Yerel taslak · d{project.documentRevision}</small></span>
     </div>
-    <nav className="pg-view-tabs" aria-label="Proje aşamaları">
+    {/* Bunlar aşama değil, **görünüm**. Aşamalar V3'te `StageRail`'in işi
+        (FİKİR · ÇÖZÜM · PLAN · DEVİR); buradaki sekmeler aynı belgeye üç farklı
+        pencereden bakmayı sağlıyor. İkisine de "Proje aşamaları" demek dördüncü
+        bir aşama modeli uydurmak olurdu — Alt Proje C'nin dersi tam buydu. */}
+    <nav className="pg-view-tabs" aria-label="Çalışma görünümleri">
       {VIEW_ITEMS.map(({ id, label, detail, icon: Icon }) => {
         const lockReason = lockedViews?.[id];
         return <button

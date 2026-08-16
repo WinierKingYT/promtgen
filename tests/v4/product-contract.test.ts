@@ -9,7 +9,7 @@ describe('Focused Planner product contract', () => {
   it('has one primary user, one bounded promise, and an explicit Planner/Labs split', () => {
     assert.match(PRODUCT_CONTRACT.primaryUser['tr-TR'], /bireysel geliştirici/i);
     assert.match(PRODUCT_CONTRACT.positioning['tr-TR'], /local-first/i);
-    assert.deepEqual(PRODUCT_CONTRACT.coreNavigation, ['Projeler', 'Yeni Plan', 'Yaşayan Plan', 'Revizyonlar', 'Export']);
+    assert.deepEqual(PRODUCT_CONTRACT.coreNavigation, ['Projeler', 'Yeni Proje', 'Yaşayan Plan', 'Revizyonlar', 'Export']);
     assert.ok(PRODUCT_CONTRACT.labsNavigation.includes('Codex Yürütmesi'));
     assert.doesNotMatch(PRODUCT_CONTRACT.positioning['tr-TR'], /herhangi bir proje|kusursuz|tam otomatik/i);
   });

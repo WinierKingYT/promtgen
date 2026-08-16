@@ -46,6 +46,7 @@ import {
   applyIdeaPlanConversion,
   type IdeaPlanConversionPreview
 } from '../v4/application/idea-plan-conversion-service.js';
+import { StageRail } from './components/StageRail.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
 import {
@@ -300,6 +301,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         lockedViews={lockedViews}
       />
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setView('plan')}/>
+      <StageRail project={project}/>
 
       {view === 'develop' && <main id="pg-primary-content" className="pg-idea-workspace" tabIndex={-1}>
         <section className="pg-conversation-column" aria-label="Fikir geliştirme sohbeti">

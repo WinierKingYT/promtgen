@@ -36,6 +36,31 @@ test.describe('PromtGen idea studio production workflow', () => {
     await page.reload();
   });
 
+  test('asama rayi dort asamayi gosterir; kilitli olan gizlenmez, nedeni yazilir', async ({ page }) => {
+    await startIdea(page);
+    const rail = page.getByRole('navigation', { name: 'Proje aşamaları' });
+
+    await expect(rail).toContainText('FİKİR');
+    await expect(rail).toContainText('ÇÖZÜM');
+    await expect(rail).toContainText('PLAN');
+    await expect(rail).toContainText('DEVİR');
+
+    // Kilitli aşama gizlenmez: kullanıcı nereye gittiğini görmeli ve kilidin
+    // nedenini okuyabilmeli.
+    await expect(rail.locator('.pg-stage.is-locked').first()).toBeVisible();
+    await expect(rail).toContainText('Fikir tasarımı henüz onaylanmadı.');
+  });
+
+  test('asama rayinda yuzde ya da ic model terimi gorunmez', async ({ page }) => {
+    await startIdea(page);
+    const text = await page.getByRole('navigation', { name: 'Proje aşamaları' }).innerText();
+
+    // `Hazırlık 98/100` sahte kesinlik veriyordu; kullanıcı da `Concern Map`
+    // veya `Canonical Revision` öğrenmek zorunda değil.
+    expect(text).not.toMatch(/%|\d+\s*\/\s*\d+/);
+    expect(text).not.toMatch(/concern|canonical|revision|schema/i);
+  });
+
   test('plan asamasi kilitliyken nedenini soyler ve kopya panel icermez', async ({ page }) => {
     await startIdea(page);
     const planButton = page.getByRole('button', { name: 'Plan', exact: true });
@@ -80,6 +105,7 @@ test.describe('PromtGen idea studio production workflow', () => {
   test('opens a conversation-first studio and preserves it across reload', async ({ page }) => {
     await startIdea(page, 'S&box içinde oyuncuyla bağ kuran bir at sistemi yapmak istiyorum.');
     await expect(page.getByRole('navigation', { name: 'Proje aşamaları' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Çalışma görünümleri' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fikir', exact: true })).toHaveAttribute('aria-current', 'step');
     await expect(page.getByRole('complementary', { name: 'Keşif' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Fikir geliştirme sohbeti' })).toBeVisible();

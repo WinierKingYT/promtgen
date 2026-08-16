@@ -51,7 +51,8 @@ export const PRODUCT_CONTRACT = Object.freeze({
     'Gereksinimleri doğrulanabilir geliştirme görevlerine bağlayamamak.',
     'AI kodlama araçlarına çelişkili veya eksik görev bağlamı vermek.'
   ],
-  coreNavigation: ['Projeler', 'Yeni Plan', 'Yaşayan Plan', 'Revizyonlar', 'Export'],
+  // `Yeni Plan` yanlıştı: kullanıcı ilk aşamada plan yapmıyor, proje tasarlıyor.
+  coreNavigation: ['Projeler', 'Yeni Proje', 'Yaşayan Plan', 'Revizyonlar', 'Export'],
   labsNavigation: ['Görev Teslim Kanıtı', 'Proje Analizörü', 'Codex Yürütmesi', 'Mimari Karşılaştırma', 'Uzman Perspektifleri'],
   coreExports: ['PROJECT_BRIEF.md', 'REQUIREMENTS.md', 'DECISIONS.md', 'TASKS.md', 'AGENTS.md', 'project.promtgen'],
   supportedProjects: [

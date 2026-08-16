@@ -5,7 +5,7 @@ Sözleşme kimliği: `promtgen-focused-planner` · sürüm: `2`
 ## Çekirdek navigasyon
 
 - Projeler
-- Yeni Plan
+- Yeni Proje
 - Yaşayan Plan
 - Revizyonlar
 - Export

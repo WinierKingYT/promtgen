@@ -569,3 +569,23 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 @media (prefers-reduced-motion:reduce) {
   .pg-sidebar { transition:none; }.pg-thinking i { animation:none;opacity:.7; }
 }
+
+/* Aşama rayı — FİKİR · ÇÖZÜM · PLAN · DEVİR.
+   Kilitli aşama gizlenmez, solgunlaşır: kullanıcı nereye gittiğini görmeli. */
+.pg-stage-rail { padding:10px 16px;border-bottom:1px solid var(--pg-border);background:var(--pg-surface); }
+.pg-stage-rail ol { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;list-style:none;margin:0;padding:0; }
+.pg-stage { min-width:0;border:1px solid var(--pg-border);border-radius:12px;padding:9px 11px;background:white; }
+.pg-stage.is-current { border-color:var(--pg-accent);background:var(--pg-accent-soft); }
+.pg-stage.is-locked { opacity:0.62; }
+.pg-stage-head { display:flex;align-items:center;gap:6px;color:var(--pg-muted);font-size:10px;letter-spacing:0.08em; }
+.pg-stage.is-current .pg-stage-head { color:var(--pg-accent); }
+.pg-stage-caption { margin:6px 0 0;color:var(--pg-text);font-size:12px;line-height:1.4; }
+.pg-stage-lock { margin:6px 0 0;color:var(--pg-muted);font-size:11px;line-height:1.4; }
+.pg-stage-groups,.pg-stage-lines { list-style:none;margin:8px 0 0;padding:0;display:grid;gap:3px; }
+.pg-stage-groups li { display:flex;align-items:center;gap:5px;color:var(--pg-faint);font-size:11px; }
+.pg-stage-groups li.is-done { color:var(--pg-muted); }
+.pg-stage-groups li.is-active { color:var(--pg-accent);font-weight:700; }
+.pg-stage-lines li { color:var(--pg-muted);font-size:11px;line-height:1.4; }
+@media (max-width:900px) {
+  .pg-stage-rail ol { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
