@@ -180,6 +180,12 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('.pg-plan-editor .section-regeneration')).toBeVisible();
     await expect(page.locator('.pg-plan-context .scenario-panel')).toBeVisible();
 
+    // Her panel taşımadığı sütunda da yok — "iki yerde durmaz" iddiası canlı
+    // koordinatlara bağlı kalsın diye, silinen details.pg-advanced-tools'a
+    // değil karşı sütuna bakar.
+    await expect(page.locator('.pg-plan-context .section-regeneration')).toHaveCount(0);
+    await expect(page.locator('.pg-plan-editor .scenario-panel')).toHaveCount(0);
+
     // Eski yerinde yok — açılır (details.pg-advanced-tools) Task 7 ile
     // tamamen silindi, son sakini StorageHealthPanel de ayarlar diyaloğuna
     // taşındı.
