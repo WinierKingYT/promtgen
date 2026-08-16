@@ -1,7 +1,7 @@
 # Arayüz Yenileme — Alt Proje C: Bilgi Mimarisi
 
 **Tarih:** 2026-08-15
-**Durum:** Onaylandı, uygulanmayı bekliyor
+**Durum:** Uygulandı
 **Öncülleri:** [Alt Proje A — CSS Temeli](2026-08-06-ui-foundation-design.md),
 [Alt Proje B — Görsel Dil Tutarlılığı](2026-08-08-visual-language-consistency-design.md)
 
