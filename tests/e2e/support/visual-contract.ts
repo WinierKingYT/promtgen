@@ -1,9 +1,24 @@
 import type { Page } from '@playwright/test';
 
 /**
- * Görünümü belirleyen ve platformdan bağımsız olan özellikler. Font çizimine
- * (anti-aliasing) bağlı hiçbir şey yok: bu yüzden Windows'ta üretilen referans
- * ubuntu CI'da da geçerlidir.
+ * Görünümü belirleyen ve platformdan bağımsız olan özellikler.
+ *
+ * **`margin` bilerek listede yok.** Bu yorum bir zamanlar listenin tamamının
+ * platformdan bağımsız olduğunu iddia ediyordu; CI bunu yalanladı. Windows'ta
+ * üretilen referans ubuntu koşusunda 78 fark veriyordu ve **78'inin de tek
+ * kaynağı `margin`'di** — diğer 14 özellikte sıfır fark vardı. Farklar
+ * `auto` ile ortalanmış elemanlardan geliyor: `getComputedStyle` `auto`'yu
+ * çözülmüş piksele çevirir (`0px 309.484px 0px 309.469px` → `0px 300.047px`),
+ * ve o piksel kapsayıcı genişliğinin, dolayısıyla font metriğinin yan
+ * ürünüdür. Yazılmış bir stil değil, yerleşimin sonucudur.
+ *
+ * Bu yüzden `margin` sözleşmenin ölçemeyeceği bir şeydi: değişmesi bir
+ * regresyona değil, farklı bir yazı tipi kurulumuna işaret ediyordu. Sinyal
+ * kaybı ölçülü — bilerek yapılan bir margin değişikliği artık yakalanmaz,
+ * ama zaten yakalanan her margin farkı yanlış alarmdı.
+ *
+ * Bu hata 2026-08-07'den (1390be0) beri vardı; unit testi daha önce düştüğü
+ * için Playwright işi hiç koşamıyor ve hata görünmüyordu.
  */
 export const TRACKED_PROPERTIES = [
   'color',
@@ -18,7 +33,6 @@ export const TRACKED_PROPERTIES = [
   'border-color',
   'border-radius',
   'padding',
-  'margin',
   'gap',
   'box-shadow',
   'opacity'
