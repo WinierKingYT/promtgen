@@ -1,11 +1,18 @@
-import { blockingConcerns, isResolved } from './concerns.js';
 import { reopenStage } from './project-stages.js';
-import type {
-  Concern,
-  ConcernDecision,
-  ProjectDocumentV5,
-  StageApproval
-} from '../contracts.js';
+import {
+  refusalReason,
+  structuralObstacles,
+  summarizeReadiness
+} from './stage-approval.js';
+import type { ApprovalReadiness } from './stage-approval.js';
+import type { ProjectDocumentV5, StageApproval } from '../contracts.js';
+
+export type {
+  ApprovalObstacle,
+  ApprovalObstacleKind,
+  ApprovalReadiness
+} from './stage-approval.js';
+export { readinessLines } from './stage-approval.js';
 
 /**
  * Idea Approval Gate — V3'ün birinci kapısı.
@@ -14,133 +21,22 @@ import type {
  * Kritik FİKİR kararları çözülmeden Solution Design onaylanamaz.
  * ```
  *
- * Kapı bir yüzde göstermez. `Hazırlık 98/100` sahte kesinlik veriyordu:
- * yüzde, neyin eksik olduğunu söylemeden eksiksizlik iddia eder. Bunun yerine
- * kapı **engel listesi** döndürür; her engelin somut bir sahibi ve somut bir
- * düzeltmesi vardır. Sıfır engel = geçilebilir.
+ * Yapısal denetimler `stage-approval` çekirdeğinde; burada fikir aşamasına özgü
+ * onay ve yeniden açma davranışı var.
  *
  * **Kapsam sınırı — dürüstlük notu.** Buradaki çelişki denetimi *yapısaldır*:
- * belgenin kendi içinde tutarsız olduğu, kanıtlanabilir durumları yakalar
- * (kaydı olmayan karar, var olmayan konuya bağlı cevap, bilinmeyen seçenek,
- * bayat öncül). Anlamsal çelişki — *"bu karar başka bir kararınızla
- * çelişiyor"* — AI'nin işidir ve sisteme yeni bir `Concern` olarak girer,
- * buradan değil. Kapının yakalayamadığı şeyi yakalıyormuş gibi göstermek,
- * yüzdeden daha zararlı olurdu.
- */
-
-export type ApprovalObstacleKind =
-  | 'blocking-concern'
-  | 'undocumented-decision'
-  | 'orphan-decision'
-  | 'unknown-option'
-  | 'stale-answer';
-
-export interface ApprovalObstacle {
-  kind: ApprovalObstacleKind;
-  /** Engelin sahibi olan konu; yörüngesiz kararda kararın işaret ettiği kimlik. */
-  concernId: string;
-  /** Kullanıcıya gösterilecek cümle; jargon değil, yapılacak iş. */
-  message: string;
-}
-
-export interface ApprovalReadiness {
-  obstacles: ApprovalObstacle[];
-  /** Çözülmemiş kritik karar sayısı. */
-  blocking: number;
-  /** Çözülmemiş ama bloklamayan önemli konular; bilgi amaçlı. */
-  unresolvedImportant: number;
-  /** Ertelenenler kaybolmaz; "sonra" da bir karardır ve sayılır. */
-  deferred: number;
-  canApprove: boolean;
-}
-
-function decisionsByConcern(decisions: readonly ConcernDecision[]): Map<string, ConcernDecision> {
-  const map = new Map<string, ConcernDecision>();
-  for (const decision of decisions) {
-    if (decision.concernId) map.set(decision.concernId, decision);
-  }
-  return map;
-}
-
-/**
- * Fikir tasarımının onaya hazır olup olmadığı.
- *
- * Salt okunur: belgeyi değiştirmez, yalnız neyin engel olduğunu söyler.
+ * belgenin kendi içinde tutarsız olduğu, kanıtlanabilir durumları yakalar.
+ * Anlamsal çelişki — *"bu karar başka bir kararınızla çelişiyor"* — AI'nin
+ * işidir ve sisteme yeni bir `Concern` olarak girer, buradan değil. Kapının
+ * yakalayamadığı şeyi yakalıyormuş gibi göstermek, yüzdeden daha zararlı
+ * olurdu.
  */
 export function ideaApprovalReadiness(project: ProjectDocumentV5): ApprovalReadiness {
-  const concerns: readonly Concern[] = project.ideaDesign?.concerns || [];
-  const decisions: readonly ConcernDecision[] = project.ideaDesign?.concernDecisions || [];
-  const byConcern = decisionsByConcern(decisions);
-  const known = new Set(concerns.map(concern => concern.id));
-  const obstacles: ApprovalObstacle[] = [];
-
-  for (const concern of blockingConcerns(concerns)) {
-    obstacles.push({
-      kind: 'blocking-concern',
-      concernId: concern.id,
-      message: `“${concern.title}” konusunda henüz karar verilmedi.`
-    });
-  }
-
-  for (const concern of concerns) {
-    const decision = byConcern.get(concern.id);
-
-    // "Karar verildi" demek kararı var etmez: kaydı olmayan bir karar
-    // sonradan hiçbir gereksinime bağlanamaz, yani izlenebilirlik zinciri
-    // daha ilk halkasında kopar.
-    if (concern.status === 'decided' && !decision) {
-      obstacles.push({
-        kind: 'undocumented-decision',
-        concernId: concern.id,
-        message: `“${concern.title}” karara bağlanmış görünüyor ama kararın kaydı yok.`
-      });
-      continue;
-    }
-    if (!decision) continue;
-
-    if (decision.chosenOptionId && !concern.options.some(option => option.id === decision.chosenOptionId)) {
-      obstacles.push({
-        kind: 'unknown-option',
-        concernId: concern.id,
-        message: `“${concern.title}” için seçilen seçenek artık listede yok.`
-      });
-    }
-
-    const staleDependency = concern.dependsOn
-      .map(id => byConcern.get(id))
-      .find(dependency => dependency && dependency.decidedAtRevision > decision.decidedAtRevision);
-
-    // Önkoşul sonradan yeniden karara bağlandıysa, buradaki cevap artık
-    // geçerli olmayan bir öncüle dayanıyor. Kullanıcı yeniden onaylayabilir;
-    // ama sessizce geçerli sayılamaz.
-    if (staleDependency) {
-      obstacles.push({
-        kind: 'stale-answer',
-        concernId: concern.id,
-        message: `“${concern.title}” cevabı, sonradan değişen bir karara dayanıyor; teyit gerekiyor.`
-      });
-    }
-  }
-
-  for (const decision of decisions) {
-    // Konu silinmiş ama cevabı duruyorsa, kullanıcının artık sorulmayan bir
-    // soruya verdiği cevabı onaylamış oluruz.
-    if (!known.has(decision.concernId)) {
-      obstacles.push({
-        kind: 'orphan-decision',
-        concernId: decision.concernId,
-        message: 'Bir cevap, artık var olmayan bir konuya bağlı.'
-      });
-    }
-  }
-
-  return {
-    obstacles,
-    blocking: obstacles.filter(item => item.kind === 'blocking-concern').length,
-    unresolvedImportant: concerns.filter(concern => concern.importance === 'important' && !isResolved(concern)).length,
-    deferred: concerns.filter(concern => concern.status === 'deferred').length,
-    canApprove: obstacles.length === 0
-  };
+  const concerns = project.ideaDesign?.concerns || [];
+  return summarizeReadiness(
+    concerns,
+    structuralObstacles(concerns, project.ideaDesign?.concernDecisions || [])
+  );
 }
 
 export type ApprovalResult =
@@ -160,7 +56,7 @@ export function approveIdeaDesign(
 ): ApprovalResult {
   const readiness = ideaApprovalReadiness(project);
   if (!readiness.canApprove) {
-    return { approved: false, reason: refusalReason(readiness), readiness };
+    return { approved: false, reason: refusalReason('Fikir tasarımında', readiness), readiness };
   }
 
   return {
@@ -173,13 +69,6 @@ export function approveIdeaDesign(
     },
     readiness
   };
-}
-
-function refusalReason(readiness: ApprovalReadiness): string {
-  if (readiness.blocking) {
-    return `Fikir tasarımında çözülmemiş ${readiness.blocking} kritik karar var.`;
-  }
-  return `Fikir tasarımında ${readiness.obstacles.length} engel var.`;
 }
 
 export interface ReopenResult {
@@ -214,24 +103,4 @@ export function reopenIdeaApproval(project: ProjectDocumentV5, reason: string): 
       ? `Fikir onayı yeniden açıldı: ${trimmed}. Buna dayandığı için teknik onay da yeniden açıldı.`
       : `Fikir onayı yeniden açıldı: ${trimmed}.`
   };
-}
-
-/**
- * Kapının kullanıcıya gösterdiği satırlar.
- *
- * Yüzde ve `X/Y` skoru **bilerek** üretilmez; testte de bu yasaklanır. Sayı
- * değil, engel listesi.
- */
-export function readinessLines(readiness: ApprovalReadiness): string[] {
-  const lines = [
-    `Bloklayan konu: ${readiness.blocking}`,
-    `Çözülmemiş önemli: ${readiness.unresolvedImportant}`,
-    `Ertelenen: ${readiness.deferred}`
-  ];
-
-  const structural = readiness.obstacles.filter(item => item.kind !== 'blocking-concern');
-  for (const obstacle of structural) lines.push(obstacle.message);
-
-  if (readiness.canApprove) lines.push('Devam edilebilir.');
-  return lines;
 }
