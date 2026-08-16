@@ -492,6 +492,9 @@ export function normalizeProjectDocument(project) {
         candidates: Array.isArray(next.solutionDesign?.candidates)
             ? next.solutionDesign.candidates.map((item, index) => normalizeTechnologyCandidate(item, index))
             : [],
+        legacyApproaches: Array.isArray(next.solutionDesign?.legacyApproaches)
+            ? next.solutionDesign.legacyApproaches.filter(item => typeof item === 'string' && item.trim())
+            : [],
         platform: typeof next.solutionDesign?.platform === 'string' ? next.solutionDesign.platform : '',
         openQuestions: Array.isArray(next.solutionDesign?.openQuestions) ? next.solutionDesign.openQuestions : []
     };

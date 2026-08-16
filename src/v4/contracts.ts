@@ -199,6 +199,12 @@ export interface SolutionDesign {
   concernDecisions: ConcernDecision[]
   /** Öneriler; canonical karar değil. */
   candidates: TechnologyCandidate[]
+  /**
+   * V3 öncesi `conceptSummary.technicalApproaches` serbest metinleri. Göç
+   * bunları silmez ama canonical karar da saymaz: kullanıcı onları hiç
+   * onaylamadı, yalnız konuşuldular.
+   */
+  legacyApproaches: string[]
   platform: string
   openQuestions: string[]
 }

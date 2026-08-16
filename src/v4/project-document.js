@@ -152,6 +152,7 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
             concerns: [],
             concernDecisions: [],
             candidates: [],
+            legacyApproaches: [],
             platform: '',
             openQuestions: []
         },
