@@ -74,3 +74,52 @@ kapsamı genişlemedi.
 **Sözleşme etkisi:** README'de "AI sağlayıcısı zorunludur" sınırı ve kurulum
 tablosu eklendi. Yerel kural motoru bağımsız çalışma modu değil, yedek yol
 olarak yeniden tanımlandı.
+
+## Kayıtlı istisna 2 — Ürün modeli yeniden hizalaması
+
+Tarih: 2026-08-16 · Durum: Onay bekliyor
+
+**1. Çözdüğü problem.** Hedeflenen ürün `Fikir → Fikir Tasarımı → Çözüm
+Tasarımı → Uygulama Planı` iken mevcut sözleşme `Fikir → MVP → Plan` akışını
+tanımlıyor. Aradaki fark kozmetik değil: bugün "bunu nasıl kuracağız?"
+sorusunun kendi aşaması yok, teknik kararlar ya hiç konuşulmuyor ya da
+gereksinimlerin içine gömülüyor.
+
+Bu doğrudan yürüyen çalışmayı etkiliyor. Karşılaştırma çalışması
+(`promtgen-comparison-v1`) ve altı kullanıcı test oturumu bugünkü akışı
+ölçüyor. Yanlış ürün modeliyle kanıt toplamak, değiştirmek üzere olduğumuz
+ürünün doğrulanması olurdu. Bu yüzden **15 gönderim ve 5 oturum, ürün modeli
+V3 onaylanana kadar toplanmaz.**
+
+Çalışma dondurulmuş durumda ve tanımı düzenlenemez (`frozenDigest`). Bu bir
+engel değil, tasarımın çalışması: v1 olduğu gibi kalır, V3 onaylandıktan sonra
+`promtgen-comparison-v2` açılır ve hangi verinin hangi ürün modeli altında
+toplandığı belirsizleşmez.
+
+**2. Koridorun sınırı.** Bu istisna dondurmayı kaldırmaz; dar bir koridor açar.
+
+İzin verilen: Idea Design yeniden yapılandırması · Solution Design aşaması ·
+aşama/kapı modeli · canonical şema değişiklikleri ve göç · UX akış
+değişiklikleri · benchmark değişiklikleri.
+
+Hâlâ yasak: yeni sağlayıcı · marketplace · bulut senkronizasyonu · çok
+kullanıcılı işbirliği · yeni ajan rolleri · rastgele Labs özellikleri ·
+dashboard · sosyal özellikler · mobil uygulama · Codex orkestrasyonunu
+büyütmek.
+
+Ölçüt tek soru: *bu değişiklik kullanıcının fikrini daha iyi anlamamıza,
+önemli bir kararı ortaya çıkarmamıza, çözümü daha doğru tasarlamamıza veya
+daha uygulanabilir plan üretmemize yardım ediyor mu?* Hayırsa koridorun
+dışındadır.
+
+**3. Sıra.** Kod, ürün modeli şartnamesi
+([PRODUCT_MODEL_V3.md](PRODUCT_MODEL_V3.md)) onaylanmadan değişmez. UI on
+ikinci adımda gelir, önce değil: canonical model doğru olmadan her şey yine
+konuşma metninin içinde kaybolur.
+
+**4. Yeni kullanıcı kanıtı üretme amacı.** Doğrudan budur. Kanıt toplamayı
+geciktiriyor ama doğru ürünün kanıtını topluyor.
+
+**5. Planner odağı kontrolü.** Kapsam genişlemiyor, **bölünüyor**: bugün tek
+aşamada karışık duran fikir ve teknik kararlar iki ayrı aşamaya ve iki ayrı
+onay kapısına ayrılıyor. Yeni bir ürün alanı eklenmiyor.
