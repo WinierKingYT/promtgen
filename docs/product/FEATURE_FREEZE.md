@@ -123,3 +123,21 @@ geciktiriyor ama doğru ürünün kanıtını topluyor.
 **5. Planner odağı kontrolü.** Kapsam genişlemiyor, **bölünüyor**: bugün tek
 aşamada karışık duran fikir ve teknik kararlar iki ayrı aşamaya ve iki ayrı
 onay kapısına ayrılıyor. Yeni bir ürün alanı eklenmiyor.
+
+### Kayıtlı istisna 2 — kapanış notu (2026-08-16)
+
+Ürün modeli yeniden hizalaması için açılan dar koridor **kapandı**:
+`PRODUCT_MODEL_V3.md` §15'teki 15 adımın tamamı uygulandı. Koridorun kapsamı
+(Idea Design yeniden yapılandırması, Solution Design, aşama/kapı modeli,
+canonical şema, UX akışı, benchmark'lar) dışına çıkılmadı.
+
+Hâlâ yasak olanlar değişmedi: yeni sağlayıcı · marketplace · bulut · işbirliği
+· yeni ajan rolleri · rastgele Labs özellikleri · dashboard · sosyal özellikler
+· mobil uygulama · Codex orkestrasyonunu büyütmek.
+
+Yapılmayan ve bilerek açık bırakılan iki iş:
+
+1. Kontrat kimlik/sürüm geçişi (`v2 → v3`) ve çok boyutlu destek matrisi.
+   Destek seviyesini aşama başına ilan etmek, onu kanıtlayacak veriyi gerektirir.
+2. `promtgen-comparison-v2` çalışmasının açılması ve kullanıcı test
+   oturumlarının aşama modeline göre yeniden yazılması. İkisi de insan kararı.

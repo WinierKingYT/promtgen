@@ -1,14 +1,19 @@
 # PromtGen Ürün Modeli V3 — Şartname
 
-**Durum:** ONAY BEKLİYOR · kod değişikliği yok
+**Durum:** ONAYLANDI VE UYGULANDI · 15 adımın tamamı bitti (2026-08-16)
 **Yerini alacağı:** `promtgen-focused-planner` v2 (`product-contract.ts:17`)
 **Önerilen kimlik:** `promtgen-project-design-planner` v3
 
 > Bu belge **üretilen bir dosya değildir.** `docs/product/PRODUCT_CONTRACT.md`
 > `product-contract.ts`'ten üretiliyor; elle düzenlenirse `check:product-docs`
-> düşer. Bu yüzden V3 önce burada, onay bekleyen bir şartname olarak duruyor.
-> Onaylandığında kontrat modülü değişir ve üretilen belge kendiliğinden
-> güncellenir.
+> düşer. Bu yüzden V3 önce burada, onay bekleyen bir şartname olarak durdu.
+>
+> **Kontrat modülünün kimlik/sürüm geçişi (`promtgen-focused-planner` v2 →
+> `promtgen-project-design-planner` v3) henüz yapılmadı.** Yapılan tek kontrat
+> değişikliği §9'un açıkça istediği `Yeni Plan → Yeni Proje` yeniden
+> adlandırması. Kimlik geçişi ve §10'un çok boyutlu destek matrisi ayrı bir
+> iştir: destek seviyelerini aşama başına ilan etmek, o seviyeleri kanıtlayacak
+> veriyi de gerektirir ve o veri henüz toplanmadı.
 
 ---
 
@@ -47,6 +52,13 @@ ve bunun sessizce geçilmesi en pahalı hata olurdu.
 
 **Sonuç: 15 gönderim ve 5 oturum V3 onaylanmadan toplanmamalı.** Aksi hâlde
 değiştirmek üzere olduğumuz ürünün kanıtını üretmiş oluruz.
+
+> **2026-08-16 güncellemesi.** V3 uygulandı, yani bu engel kalktı. Ama
+> `promtgen-comparison-v1` hâlâ eski akışı ölçüyor ve dondurulmuş durumda;
+> ondan veri toplamak bugünkü ürünün kanıtını üretmez. Veri toplamadan önce
+> `promtgen-comparison-v2` açılmalı ve `USER_TEST_SESSIONS.md` T2/T4 aşama
+> modeline göre yeniden yazılmalı. Bu, insan kararı gerektiren bir adım;
+> koda bağlı değil.
 
 Çalışma dondurulmuş durumda ve tanımı düzenlenemez — `frozenDigest` bunu
 zorluyor. Bu bir engel değil, tasarımın çalışması: **v1 olduğu gibi kalır,
@@ -320,7 +332,8 @@ yeniden ele alınması gerektiğini bilir.
 
 ## 15. Onay sonrası sıra
 
-Bu belge onaylanana kadar kod değişmez.
+**Tamamı bitti (2026-08-16).** Her adım kendi commit'inde, birim testleri ve
+mutasyon denetimiyle birlikte.
 
 ```
 1  PRODUCT_CONTRACT v3 + freeze istisnası        (bu belge + FEATURE_FREEZE)
