@@ -83,7 +83,7 @@ alanları reddeder.
 | `requirements` | Çıktıdaki gereksinimler |
 | `tasks` / `tests` | Çıktıdaki görevler ve doğrulamalar |
 | `decisionStatements` | Çıktının açıkça karara bağladığı ifadeler |
-| `planningDurationSeconds` | Fikrin verilmesinden ilk kullanılabilir plana kadar |
+| `planningDurationSeconds` | Fikrin verilmesinden ilk kullanılabilir plana kadar — **kurulum hariç**, bkz. "Kurulum sürtünmesi ayrı ölçülür" |
 | `manualEditCount` | Katılımcının geri dönüp düzelttiği sayı |
 | `agentFirstPassCompleted` | Planı başka bir kodlama ajanı ek soru sormadan uygulayabildi mi |
 
@@ -100,6 +100,37 @@ kullanılmıyor.
 
 `completed`, `firstExportReached`, `mvpAcceptedWithMinorEdits`,
 `manualEditCount`, `durationSeconds`, `satisfaction` (1–5), `consent: true`.
+
+## Kurulum sürtünmesi ayrı ölçülür
+
+Üç kol eşit başlamıyor ve bunu saklamak ölçümü bozar:
+
+| Kol | Başlamadan önce gereken |
+| --- | --- |
+| `baseline-chat` | Yok — sohbet penceresi açık |
+| `master-prompt` | Yok — prompt hazır verilir |
+| `promtgen` | Depoyu çalıştır + bir AI sağlayıcısı bağla |
+
+PromtGen'in sağlayıcı kapısı bilinçli bir üründür (FEATURE_FREEZE "Kayıtlı
+istisna 1"): sağlayıcısız yerel motor iki farklı fikre birebir aynı çıktıyı
+veriyordu. Kapıyı çalışma için gevşetmek ölçümü **daha çok** bozardı — o zaman
+ürünü değil, terk edilmiş deterministik motoru ölçerdiniz.
+
+Doğru olan kapıyı kaldırmak değil, kurulumu planlamadan ayrı tutmak:
+
+- **`planningDurationSeconds` ve `durationSeconds` yalnız planlamayı kapsar** —
+  sayaç, katılımcıya fikir cümlesi verildiği anda başlar. Kurulum bu sayıya
+  dahil edilmez.
+- **Kurulum süresi ayrıca, saniye cinsinden, kolaylaştırıcı notuna yazılır** ve
+  raporda planlama süresinin yanında sunulur.
+
+Kurulum süresi veri setine **yazılmaz**: `validateAnonymousUserSessions`
+(`comparison-benchmark.ts:204`) kapalı bir alan listesi kullanıyor ve fazladan
+anahtar gören kaydı reddediyor. Şemayı genişletmek bu çalışmanın işi değil.
+
+Karşılaştırma sunulurken iki sayı birlikte verilir. "PromtGen daha iyi plan
+üretiyor ama başlamak 20 dakika alıyor" geçerli ve yayınlanabilir bir
+sonuçtur; tek sayıya indirgemek onu gizlerdi.
 
 ## Şemanın ölçemediği şey
 
