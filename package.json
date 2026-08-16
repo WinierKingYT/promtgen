@@ -16,11 +16,11 @@
     "desktop:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "desktop:test": "cargo test --manifest-path src-tauri/Cargo.toml",
     "verify": "npm run check:benchmark && npm run check:discovery-benchmark && npm run check:web-saas-benchmark && npm run check:backend-api-benchmark && npm run check:implementation-evidence-benchmark && npm run check:plan-code-alignment-benchmark && npm run check:project-inventory-benchmark && npm run check:provider-integration-benchmark && npm run check:native-execution-benchmark && npm run check:storage-durability-benchmark && npm run check:architecture-comparator-benchmark && npm run check:expert-perspectives-benchmark && npm run check:comparison && npm run check:product-docs && npm run test:all && npm run typecheck && npm run lint && npm run build && npm run performance:report && npm run check:version && npm run desktop:test",
-    "test": "node test.js && node tests/unit/stage-contracts.test.js && node tests/unit/patch-policy.test.js && node tests/unit/approval-service.test.js && node tests/integration/patch-transaction.test.js && node tests/integration/persistence.test.js && node tests/workflow/complete-workflow.test.js && node tests/domain/traceability-graph.test.js && node tests/domain/modules.test.js && node tests/domain/phases.test.js && node tests/state/v3-state.test.js && node tests/core/entity-store.test.js && node tests/discovery/discovery-engine.test.js && node tests/decision/decision-engine.test.js && node tests/artifact/artifact-engine.test.js && node tests/task/task-prompt.test.js && node tests/core/traceability.test.js && node tests/core/reviewer.test.js && node tests/core/modules.test.js && node tests/core/state-engine.test.js && node tests/core/v3-application-service.test.js",
+    "test": "npm run test:v4",
     "test:v4": "node scripts/run-v4-tests.mjs",
     "test:security": "tsx tests/security/redaction.test.js",
     "test:e2e": "npm run build && playwright test",
-    "test:all": "npm run test && npm run test:v4 && npm run test:security",
+    "test:all": "node scripts/run-test-suites.mjs all",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "preview": "vite preview",
@@ -61,7 +61,8 @@
     "check:comparison": "tsx scripts/comparison-benchmark.ts --check",
     "comparison:publish-gate": "tsx scripts/comparison-benchmark.ts --publish-gate",
     "study:import": "tsx scripts/study-import.ts",
-    "study:validate": "tsx scripts/study-import.ts --check"
+    "study:validate": "tsx scripts/study-import.ts --check",
+    "test:compat": "node scripts/run-test-suites.mjs compat"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
