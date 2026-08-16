@@ -1,3 +1,4 @@
+import { normalizeConcern, normalizeConcernDecision } from './application/concerns.ts';
 import { emptyPlanAlignment, evaluatePlanAlignment } from './domain/idea-plan-alignment.ts';
 
 const CANONICAL_MODEL_VERSION = 1;
@@ -466,13 +467,19 @@ export function normalizeProjectDocument(project) {
         approvedAt: typeof existing?.approvedAt === 'string' ? existing.approvedAt : null,
         reopenedReason: typeof existing?.reopenedReason === 'string' ? existing.reopenedReason : null
     });
+    const concernList = (value) => (Array.isArray(value) ? value.map((item, index) => normalizeConcern(item, index)) : []);
+    const concernDecisionList = (value) => (Array.isArray(value) ? value.map((item, index) => normalizeConcernDecision(item, index)) : []);
     next.ideaDesign = {
         approval: stageApproval(next.ideaDesign?.approval),
+        concerns: concernList(next.ideaDesign?.concerns),
+        concernDecisions: concernDecisionList(next.ideaDesign?.concernDecisions),
         framing: typeof next.ideaDesign?.framing === 'string' ? next.ideaDesign.framing : '',
         openQuestions: Array.isArray(next.ideaDesign?.openQuestions) ? next.ideaDesign.openQuestions : []
     };
     next.solutionDesign = {
         approval: stageApproval(next.solutionDesign?.approval),
+        concerns: concernList(next.solutionDesign?.concerns),
+        concernDecisions: concernDecisionList(next.solutionDesign?.concernDecisions),
         platform: typeof next.solutionDesign?.platform === 'string' ? next.solutionDesign.platform : '',
         openQuestions: Array.isArray(next.solutionDesign?.openQuestions) ? next.solutionDesign.openQuestions : []
     };

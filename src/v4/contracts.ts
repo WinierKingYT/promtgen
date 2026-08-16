@@ -25,6 +25,71 @@ export type StageStatus = 'draft' | 'discovery' | 'review' | 'approved'
  */
 export type DecisionStage = 'idea' | 'technical' | 'legacy-unclassified'
 
+/**
+ * `Concern` — V3'ün çekirdek soyutlaması.
+ *
+ * Her proje türü için alan bilgisi hardcode edilemez: e-ticaret
+ * `cart/checkout`, at sistemi `mounting/stamina`, REST API
+ * `rate limiting/idempotency` demek. Ama hepsi tek soyutlamayla temsil
+ * edilebilir; içeriği AI doldurur, çekirdek yalnız şekli bilir.
+ *
+ * **Aşama alanı yok, bilerek.** Bir concern hangi kapsayıcıda duruyorsa o
+ * aşamaya aittir (`ideaDesign.concerns` / `solutionDesign.concerns`). Ayrıca
+ * bir `stage` alanı taşısaydı iki doğruluk kaynağı olurdu ve
+ * `ideaDesign` içinde `stage: 'technical'` gibi çelişkiler mümkün olurdu.
+ */
+export type ConcernImportance = 'critical' | 'important' | 'optional' | 'irrelevant'
+
+export type ConcernStatus = 'open' | 'answered' | 'decided' | 'deferred' | 'irrelevant'
+
+export interface ConcernOption {
+  id: string
+  title: string
+  description: string
+  /** Bu seçeneğin bedeli; boş bırakılırsa seçenek karşılaştırılamaz olur. */
+  tradeoffs: string[]
+}
+
+export interface Concern {
+  id: string
+  title: string
+  description: string
+  /** AI'nin ürettiği serbest kategori — 'Mounting', 'Checkout', 'Auth'. */
+  category: string
+  importance: ConcernImportance
+  status: ConcernStatus
+  /** Neden önemli olduğu; kullanıcıya bunu söylemeden soru sorulmaz. */
+  whyItMatters: string
+  questions: string[]
+  options: ConcernOption[]
+  /** Önce çözülmesi gereken concern kimlikleri. */
+  dependsOn: string[]
+  relatedConcerns: string[]
+  /** Kullanıcı kararı gerektiriyor mu; bilgi toplama ile karar farklı şeyler. */
+  decisionRequired: boolean
+  /** 0–1: ne kadarı bilinmiyor. */
+  uncertainty: number
+  /** 0–1: çözülünce kaç başka şeyi belirliyor. */
+  downstreamImpact: number
+}
+
+/**
+ * Bir concern'ün nasıl çözüldüğü. Canonical `Decision` kaydını kopyalamaz,
+ * ona bağlanır — karar tek yerde durur.
+ */
+export interface ConcernDecision {
+  id: string
+  concernId: string
+  /** Seçilen seçenek; kullanıcı kendi cevabını yazdıysa null. */
+  chosenOptionId: string | null
+  /** Kararın kullanıcının kendi kelimeleriyle karşılığı. */
+  answer: string
+  rationale: string
+  decidedAtRevision: number
+  /** Canonical Decision kaydına bağ; henüz üretilmediyse null. */
+  decisionId: string | null
+}
+
 export interface StageApproval {
   status: StageStatus
   /** Onay anındaki canonicalRevision; onaylanmadıysa null. */
@@ -46,6 +111,8 @@ export interface StageApproval {
  */
 export interface IdeaDesign {
   approval: StageApproval
+  concerns: Concern[]
+  concernDecisions: ConcernDecision[]
   /** Ne tasarlıyoruz — ürün mü, mevcut bir sisteme özellik mi, alt sistem mi. */
   framing: string
   openQuestions: string[]
@@ -58,6 +125,8 @@ export interface IdeaDesign {
  */
 export interface SolutionDesign {
   approval: StageApproval
+  concerns: Concern[]
+  concernDecisions: ConcernDecision[]
   platform: string
   openQuestions: string[]
 }

@@ -1,3 +1,4 @@
+import { blockingConcerns } from './concerns.js';
 import type {
   PlanningPhase,
   ProjectDocumentV5,
@@ -74,22 +75,35 @@ export interface StageGateResult {
  *   - Kritik fikir kararları çözülmeden Solution Design onaylanamaz.
  *   - Kritik teknik kararlar çözülmeden Plan finalleştirilemez.
  *
- * Bu iskelet yalnız onay zincirini uyguluyor. "Kritik karar çözülmüş mü"
- * denetimi Concern modeliyle birlikte gelecek; o gelene kadar kapı
- * onay durumuna bakar ve bunu gizlemez.
+ * Kapı iki şeye birden bakar: aşamanın onayı ve **bloklayan concern'ler**.
+ * Onay alınmış görünse bile çözülmemiş kritik bir karar varsa kapı kapalıdır
+ * — aksi hâlde onay, altındaki boşluğu örtbas eden bir imza olurdu.
  */
 export function stageGate(project: ProjectDocumentV5, target: ProjectStage): StageGateResult {
   if (target === 'idea') return { open: true, reason: null };
 
+  const ideaBlockers = blockingConcerns(project.ideaDesign?.concerns || []);
+  if (ideaBlockers.length) {
+    return { open: false, reason: blockerReason('Fikir tasarımında', ideaBlockers.length) };
+  }
   if (project.ideaDesign?.approval?.status !== 'approved') {
     return { open: false, reason: 'Fikir tasarımı henüz onaylanmadı.' };
   }
   if (target === 'solution') return { open: true, reason: null };
 
+  const solutionBlockers = blockingConcerns(project.solutionDesign?.concerns || []);
+  if (solutionBlockers.length) {
+    return { open: false, reason: blockerReason('Teknik tasarımda', solutionBlockers.length) };
+  }
   if (project.solutionDesign?.approval?.status !== 'approved') {
     return { open: false, reason: 'Teknik çözüm tasarımı henüz onaylanmadı.' };
   }
   return { open: true, reason: null };
+}
+
+/** Kapı yüzde değil engel sayar; "98/100" sahte kesinlik veriyordu. */
+function blockerReason(prefix: string, count: number): string {
+  return `${prefix} çözülmemiş ${count} kritik karar var.`;
 }
 
 /**

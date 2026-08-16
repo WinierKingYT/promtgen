@@ -142,11 +142,15 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
         // Ürün Modeli V3 aşama kapsayıcıları; yeni belge ikisiyle birlikte doğar.
         ideaDesign: {
             approval: { status: 'draft', approvedAtRevision: null, approvedAt: null, reopenedReason: null },
+            concerns: [],
+            concernDecisions: [],
             framing: '',
             openQuestions: []
         },
         solutionDesign: {
             approval: { status: 'draft', approvedAtRevision: null, approvedAt: null, reopenedReason: null },
+            concerns: [],
+            concernDecisions: [],
             platform: '',
             openQuestions: []
         },
