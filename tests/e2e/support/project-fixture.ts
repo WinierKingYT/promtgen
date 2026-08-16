@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test';
 import { createProjectDocument } from '../../../src/v4/project-document.js';
+import { normalizeConcern, normalizeConcernDecision } from '../../../src/v4/application/concerns.js';
+import { approveIdeaDesign } from '../../../src/v4/application/idea-approval.js';
 import type { ProjectDocumentV5 } from '../../../src/v4/contracts.js';
 
 /**
@@ -149,6 +151,36 @@ export function buildPlanFixture(options: PlanFixtureOptions = {}): ProjectDocum
       ]
     } as never;
   }
+
+  return project;
+}
+
+
+/**
+ * Aşama modeline girmiş bir belge üretir: fikir onaylı, teknik aşama açık.
+ *
+ * Golden Path'in tarayıcı tarafı bunu kullanır. Onaylar elle kurulmuyor;
+ * `approveIdeaDesign` çağrılıyor — fikstür kapıyı atlatarak kurulsaydı, kapı
+ * bozulduğunda test yine yeşil kalırdı.
+ */
+export function buildStageFixture(): ProjectDocumentV5 {
+  const project = createProjectDocument({
+    idea: 'Unity’de at sistemi yapmak istiyorum',
+    name: 'At sistemi'
+  }) as ProjectDocumentV5;
+
+  project.ideaDesign.framing = { kind: 'system', domain: 'game', environment: 'Unity', source: 'confirmed' };
+  project.ideaDesign.concerns = [
+    normalizeConcern({ id: 'ic-sahiplik', title: 'Sahiplik', category: 'Kapsam', importance: 'critical', status: 'decided' }),
+    normalizeConcern({ id: 'ic-etiket', title: 'İsim etiketi rengi', category: 'Görsel', importance: 'optional', status: 'open', uncertainty: 0.3, downstreamImpact: 0.1 })
+  ];
+  project.ideaDesign.concernDecisions = [
+    normalizeConcernDecision({ id: 'cd-1', concernId: 'ic-sahiplik', answer: 'Kalıcı karakter', decisionId: null })
+  ];
+
+  const approval = approveIdeaDesign(project, { revision: 2, at: '2026-08-16T00:00:00.000Z' });
+  if (!approval.approved) throw new Error(`Fikstür kapıdan geçemedi: ${approval.reason}`);
+  project.ideaDesign.approval = approval.approval;
 
   return project;
 }

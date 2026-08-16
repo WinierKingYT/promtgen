@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
-import { buildPlanFixture, seedProject } from './support/project-fixture.js';
+import { buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
 import {
   advanceToDecisionTurn,
   completeConceptAgreement,
@@ -34,6 +34,25 @@ test.describe('PromtGen idea studio production workflow', () => {
       });
     });
     await page.reload();
+  });
+
+  test('golden path: fikir onaylanmis projede rayi ilerlemis gosterir', async ({ page }) => {
+    // Tarayıcı tarafındaki Golden Path: canonical belge gerçekten kapıdan
+    // geçmiş bir projeyi taşıyorsa, ekran bunu yansıtmalı. Fikstür onayı elle
+    // kurmuyor, `approveIdeaDesign` çağırıyor — kapı bozulursa fikstür bile
+    // kurulamaz.
+    await seedProject(page, buildStageFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const rail = page.getByRole('navigation', { name: 'Proje aşamaları' });
+    await expect(rail.locator('.pg-stage').first()).toHaveClass(/is-done/);
+    await expect(rail.locator('.pg-stage').nth(1)).toHaveClass(/is-current/);
+    await expect(rail).toContainText('Bunu nasıl kuracağımızı tasarlıyoruz.');
+
+    // Fikir onaylandı ama teknik onay yok: plan hâlâ kilitli ve nedeni yazılı.
+    await expect(rail.locator('.pg-stage').nth(2)).toHaveClass(/is-locked/);
+    await expect(rail).toContainText('Teknik çözüm tasarımı henüz onaylanmadı.');
   });
 
   test('asama rayi dort asamayi gosterir; kilitli olan gizlenmez, nedeni yazilir', async ({ page }) => {
