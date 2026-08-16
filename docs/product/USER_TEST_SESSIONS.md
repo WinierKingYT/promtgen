@@ -82,11 +82,24 @@ onları çıkarmak ürünün işi.
 **Görev:** *"Bu fikirden başlayıp, bir kodlama ajanına verebileceğiniz bir plan
 çıkarın."*
 
-**Gözlenecekler**
-- Fikir → Ortak Anlayış → Plan geçişlerini kendi buluyor mu
-- Kilitli Plan aşamasına tıklıyor mu, kilidin nedenini okuyor mu
-- Ortak Anlayış'ı onaylamadan plana geçmeye çalışıyor mu
+**Gözlenecekler — V3 akışı**
+
+Akış artık dört aşamalı: `FİKİR → ÇÖZÜM → PLAN → DEVİR`, iki onay kapısıyla.
+
+- Aşama rayını fark ediyor mu; kilitli aşamaların **nedenini** okuyor mu
+- Aşama panelindeki soruyu cevaplıyor mu, yoksa sohbete mi yazıyor
+  (ikisi aynı anda soru sormuyor; sormaya çalışırsa bu bir bulgudur)
+- "Sonraya bırak" ile "Bu projeye ait değil" arasındaki farkı anlıyor mu
+- Fikir tasarımını onaylamadan çözüme geçmeye çalışıyor mu
+- Teknik keşif turunu buluyor mu; sağlayıcı yoksa hata mesajı ne yapacağını
+  söylüyor mu
+- Aday seçerken **seçmediğinin neden olmadığını** yazmayı bir yük mü buluyor,
+  yoksa doğal mı buluyor — bu, ADR disiplininin kullanıcıda karşılığı var mı
+  sorusudur
 - Dışa aktarmayı buluyor mu
+
+**Bu oturum yalnız ürünü değil, iki yeni kapıyı da sınıyor.** Katılımcı
+kapılardan birine takılıp vazgeçerse, kapı yanlış yerde demektir.
 
 **Kaydedilecek:** `completed`, `firstExportReached`, `planningDurationSeconds`,
 `endToEndDurationSeconds`, `manualEditCount`, `satisfaction`, `wouldUsePlan`.
@@ -129,13 +142,26 @@ yoksa kabul edilip bırakılıyor mu?
 
 **Ön koşul:** T2'den çıkmış bir plan.
 
-**Görev:** *"Bu planda katılmadığınız üç şeyi düzeltin."*
+**Görev:** *"Bu planda katılmadığınız üç şeyi düzeltin. Bir tanesi daha önce
+verdiğiniz bir karar olsun."*
 
 **Gözlenecekler**
 - Bölüm editörünü buluyor mu
 - Kaydetmeden başka bölüme geçip kaybediyor mu
 - Senaryolar ve bölüm yeniden üretimi panellerini fark ediyor mu
 - Düzeltmekten vazgeçip "böyle kalsın" dediği yer var mı
+
+**V3'e özgü — geri dönüş:**
+- Verdiği bir kararı değiştirmek için aşama rayından geriye dönmeyi buluyor mu
+- *"Onayı geri alırsan etkilenecekler: N teknik karar gözden geçirilmeli"*
+  uyarısını okuyor mu, okuyunca vazgeçiyor mu yoksa devam mı ediyor
+- Neden yazması istendiğinde bunu bir engel mi sayıyor
+- Geri döndükten sonra kaybettiği şeyi bulabiliyor mu
+
+Bu, V3'ün en riskli iddiasının sınandığı yer: *"bir ay sonra kullanıcı bir
+kararı değiştirdiğinde sistem neyin bayatladığını bilir."* Uyarı okunmuyorsa
+ya da anlaşılmıyorsa, geçersizleştirme grafiği kodda doğru ama üründe işe
+yaramıyor demektir.
 
 **Kaydedilecek:** `manualEditCount` (bu oturumun asıl metriği),
 `mvpAcceptedWithMinorEdits`.

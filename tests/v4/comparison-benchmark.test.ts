@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  V1_EVALUATION_CRITERIA,
   buildComparisonReport,
   evaluateBlindSubmission,
   validateAnonymousUserSessions,
+  validateHumanEvaluations,
   type AnonymousUserSession,
   type BlindComparisonSubmission
 } from '../../src/v4/benchmarks/comparison-benchmark.js';
@@ -53,13 +55,13 @@ const userSession: AnonymousUserSession = {
 
 describe('Blind comparison benchmark and anonymous user evidence', () => {
   it('evaluates artifacts without receiving their method identity', () => {
-    const weak = evaluateBlindSubmission(submission('blind-a', 'weak'));
-    const strong = evaluateBlindSubmission(submission('blind-b', 'strong'));
+    const weak = evaluateBlindSubmission(submission('blind-a', 'weak'), V1_EVALUATION_CRITERIA);
+    const strong = evaluateBlindSubmission(submission('blind-b', 'strong'), V1_EVALUATION_CRITERIA);
     assert.ok(strong.score > weak.score);
     assert.equal(strong.metrics.scopeContainment, 1);
     assert.equal(strong.metrics.requirementTestCoverage, 1);
     assert.throws(
-      () => evaluateBlindSubmission({ ...submission('leaked', 'strong'), method: 'promtgen' } as BlindComparisonSubmission),
+      () => evaluateBlindSubmission({ ...submission('leaked', 'strong'), method: 'promtgen' } as BlindComparisonSubmission, V1_EVALUATION_CRITERIA),
       /yöntem bilgisini içeremez/
     );
   });
@@ -78,6 +80,7 @@ describe('Blind comparison benchmark and anonymous user evidence', () => {
         { blindId: 'promtgen', method: 'promtgen' }
       ],
       userSessions: [userSession],
+      criteria: V1_EVALUATION_CRITERIA,
       policy: {
         minimumScenariosPerMethod: 1,
         minimumUserParticipants: 1,
@@ -98,5 +101,45 @@ describe('Blind comparison benchmark and anonymous user evidence', () => {
     );
     assert.equal(COMPARISON_EVIDENCE.publicationEligible, false);
     assert.equal(COMPARISON_EVIDENCE.userParticipantsByCapability['canonical-planning'] || 0, 0);
+  });
+});
+
+describe('Kör değerlendirme doğrulaması', () => {
+  const criteria = ['scopeClarity', 'agentReadiness'];
+  const full = { blindId: 'b1', evaluatorId: 'e1', scores: { scopeClarity: 4, agentReadiness: 3 } } as never;
+
+  it('tam degerlendirme kabul edilir', () => {
+    assert.equal(validateHumanEvaluations([full], criteria).length, 1);
+  });
+
+  it('EKSIK olcut reddedilir', () => {
+    // Daha önce eksik ölçüt sessizce `null` olup ortalamadan düşüyordu; bu,
+    // kötü giden bir ölçütü kaybetmenin en kolay yoluydu.
+    const partial = { blindId: 'b1', evaluatorId: 'e1', scores: { scopeClarity: 4 } } as never;
+
+    assert.throws(() => validateHumanEvaluations([partial], criteria), /eksik ölçüt/i);
+  });
+
+  it('calismada TANIMSIZ olcut reddedilir', () => {
+    // Yazılmayan bir ölçüte verilen puan hiçbir yere gitmezdi; değerlendirenin
+    // emeği sessizce çöpe giderdi.
+    const extra = {
+      blindId: 'b1', evaluatorId: 'e1',
+      scores: { scopeClarity: 4, agentReadiness: 3, uydurmaOlcut: 5 }
+    } as never;
+
+    assert.throws(() => validateHumanEvaluations([extra], criteria), /tanımsız ölçüt/i);
+  });
+
+  it('aralik disi puan reddedilir', () => {
+    const bad = { blindId: 'b1', evaluatorId: 'e1', scores: { scopeClarity: 9, agentReadiness: 3 } } as never;
+
+    assert.throws(() => validateHumanEvaluations([bad], criteria), /1-5/);
+  });
+
+  it('kimliksiz degerlendirme reddedilir', () => {
+    const anonymous = { blindId: '', evaluatorId: 'e1', scores: { scopeClarity: 4, agentReadiness: 3 } } as never;
+
+    assert.throws(() => validateHumanEvaluations([anonymous], criteria), /kimlik/i);
   });
 });

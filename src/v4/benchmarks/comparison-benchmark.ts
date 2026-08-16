@@ -1,11 +1,18 @@
 export type ComparisonMethod = 'baseline-chat' | 'master-prompt' | 'promtgen';
 
 /**
- * Kör değerlendirmenin sabitlenmiş ölçütleri. Çalışma başlamadan dondurulur;
- * sonuç kötü çıkınca ölçüt değiştirme ihtimalini ortadan kaldırmak için
- * study.json'daki dondurma özetine dahil edilir.
+ * Kör değerlendirmenin ölçütleri **study.json'dan** gelir, buradan değil.
+ *
+ * Daha önce burada sabit bir liste duruyordu ve `study.json` da aynı listeyi
+ * ilan ediyordu: iki doğruluk kaynağı. İkisi ayrışırsa dondurma özeti bir
+ * şeyi, kod başka bir şeyi zorlardı — ve ölçütü sessizce değiştirmenin yolu
+ * tam olarak burasıydı. Artık tek kaynak çalışma tanımı; dondurma özeti onu
+ * kapsıyor.
+ *
+ * Aşağıdaki liste yalnız **v1'in** ölçütleridir ve geriye dönük okuma için
+ * duruyor; yeni çalışmalar kendi listesini getirir.
  */
-export const EVALUATION_CRITERIA = [
+export const V1_EVALUATION_CRITERIA = [
   'scopeClarity',
   'requirementQuality',
   'applicability',
@@ -14,7 +21,8 @@ export const EVALUATION_CRITERIA = [
   'agentReadiness'
 ] as const;
 
-export type EvaluationCriterion = (typeof EVALUATION_CRITERIA)[number];
+/** Ölçüt kimliği; hangi ölçütlerin geçerli olduğunu çalışma tanımı söyler. */
+export type EvaluationCriterion = string;
 
 export type CriterionScore = 1 | 2 | 3 | 4 | 5;
 
@@ -73,7 +81,7 @@ export interface BlindMethodMapping {
 export interface HumanEvaluation {
   blindId: string;
   evaluatorId: string;
-  /** EVALUATION_CRITERIA'daki altı ölçütün tamamı, 1-5. Eksik ölçüt reddedilir. */
+  /** Çalışmanın ilan ettiği ölçütlerin TAMAMI, 1-5. Eksik ya da fazla ölçüt reddedilir. */
   scores: Record<EvaluationCriterion, CriterionScore>;
 }
 
@@ -173,10 +181,14 @@ const averageOrNull = (values: Array<number | null>) => {
   return present.length ? rounded(average(present)) : null;
 };
 
-function humanScoresFor(evaluations: HumanEvaluation[], blindId: string): Record<EvaluationCriterion, number | null> {
+function humanScoresFor(
+  evaluations: HumanEvaluation[],
+  blindId: string,
+  criteria: readonly string[]
+): Record<EvaluationCriterion, number | null> {
   const forBlind = evaluations.filter(item => item.blindId === blindId);
   const result = {} as Record<EvaluationCriterion, number | null>;
-  for (const criterion of EVALUATION_CRITERIA) {
+  for (const criterion of criteria) {
     const values = forBlind.map(item => item.scores?.[criterion]).filter((value): value is CriterionScore => Number.isInteger(value));
     result[criterion] = values.length ? rounded(average(values)) : null;
   }
@@ -185,6 +197,7 @@ function humanScoresFor(evaluations: HumanEvaluation[], blindId: string): Record
 
 export function evaluateBlindSubmission(
   submission: BlindComparisonSubmission,
+  criteria: readonly string[],
   humanEvaluations: HumanEvaluation[] = []
 ): BlindEvaluationResult {
   if (submission.schemaVersion !== 2 || !submission.blindId || !submission.scenarioId) {
@@ -242,7 +255,7 @@ export function evaluateBlindSubmission(
       planningDurationSeconds: submission.planningDurationSeconds,
       endToEndDurationSeconds: submission.endToEndDurationSeconds,
       agentFirstPassCompleted: submission.agentFirstPassCompleted,
-      humanScores: humanScoresFor(humanEvaluations, submission.blindId)
+      humanScores: humanScoresFor(humanEvaluations, submission.blindId, criteria)
     },
     findings: [
       ...(scopeLeaks.length ? [`Kapsam dışı görevler: ${scopeLeaks.join(', ')}`] : []),
@@ -253,6 +266,46 @@ export function evaluateBlindSubmission(
       ...(duplicateDecisions ? ['Yinelenen karar ifadeleri bulundu.'] : [])
     ]
   };
+}
+
+/**
+ * Kör değerlendirmeleri doğrular.
+ *
+ * Bu daha önce yalnız bir yorumdu: "eksik ölçüt reddedilir" yazıyordu ama
+ * hiçbir şey zorlamıyordu; eksik ölçüt sessizce `null` olup ortalamadan
+ * düşüyordu. Bir değerlendirici bir ölçütü boş bırakırsa sonuç, o ölçütü hiç
+ * ölçülmemiş gibi gösterirdi — ve bu, kötü giden bir ölçütü sessizce
+ * kaybetmenin en kolay yoluydu.
+ *
+ * Fazla ölçüt de reddedilir: çalışma tanımında olmayan bir ölçüte verilen puan
+ * hiçbir yere yazılmaz, yani değerlendiricinin emeği sessizce çöpe giderdi.
+ */
+export function validateHumanEvaluations(
+  evaluations: HumanEvaluation[],
+  criteria: readonly string[]
+): HumanEvaluation[] {
+  const expected = new Set(criteria);
+  for (const evaluation of evaluations) {
+    if (!evaluation.blindId || !evaluation.evaluatorId) {
+      throw new Error('Değerlendirme kaydı kör kimlik ve değerlendirici kimliği içermeli.');
+    }
+    const given = Object.keys(evaluation.scores || {});
+    const missing = criteria.filter(criterion => !given.includes(criterion));
+    if (missing.length) {
+      throw new Error(`${evaluation.blindId} değerlendirmesinde eksik ölçüt: ${missing.join(', ')}`);
+    }
+    const unknown = given.filter(criterion => !expected.has(criterion));
+    if (unknown.length) {
+      throw new Error(`${evaluation.blindId} değerlendirmesinde çalışmada tanımsız ölçüt: ${unknown.join(', ')}`);
+    }
+    for (const criterion of criteria) {
+      const value = evaluation.scores[criterion];
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        throw new Error(`${evaluation.blindId} · ${criterion} puanı 1-5 aralığında bir tam sayı olmalı.`);
+      }
+    }
+  }
+  return evaluations;
 }
 
 export function validateAnonymousUserSessions(sessions: AnonymousUserSession[]): AnonymousUserSession[] {
@@ -294,12 +347,14 @@ export function buildComparisonReport(input: {
   humanEvaluations?: HumanEvaluation[];
   userSessions?: AnonymousUserSession[];
   policy: ComparisonStudyPolicy;
+  /** Çalışmanın ilan ettiği ölçütler; kod kendi listesini tutmaz. */
+  criteria: readonly string[];
   generatedAt?: string;
 }): ComparisonReport {
   const mapping = new Map(input.mapping.map(item => [item.blindId, item.method]));
   if (mapping.size !== input.mapping.length) throw new Error('Kör yöntem eşlemesinde yinelenen kimlik var.');
   if (input.submissions.some(item => !mapping.has(item.blindId))) throw new Error('Her submission için kapalı yöntem eşlemesi gerekli.');
-  const evaluated = input.submissions.map(item => evaluateBlindSubmission(item, input.humanEvaluations));
+  const evaluated = input.submissions.map(item => evaluateBlindSubmission(item, input.criteria, input.humanEvaluations));
   const methods: ComparisonMethod[] = ['baseline-chat', 'master-prompt', 'promtgen'];
   const byMethod: ComparisonReport['byMethod'] = {};
   for (const method of methods) {

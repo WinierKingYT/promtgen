@@ -4,6 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import {
   buildComparisonReport,
+  validateHumanEvaluations,
   type AnonymousUserSession,
   type BlindComparisonSubmission,
   type BlindMethodMapping,
@@ -26,12 +27,24 @@ interface StudyDefinition {
   masterPromptSha256: string;
   frozenAt: string;
   frozenDigest: string;
+  evaluationCriteria: string[];
   [key: string]: unknown;
 }
 
 const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 
-const root = path.resolve('benchmarks', 'comparison');
+/**
+ * Hangi çalışma? Varsayılan v1'dir ki mevcut çağrılar değişmesin.
+ *
+ * v1 ve v2 **ayrı** klasörlerde durur. v1'in tanımını v2'ye çevirmek, dondurma
+ * kuralının tam olarak yasakladığı şey olurdu: yürüyen bir çalışmanın tanımı
+ * düzenlenmez, yeni bir studyId açılır. v1 hiç veri toplamamış olsa da kayıt
+ * olarak yerinde kalır — hangi ürün modeli altında neyin planlandığı
+ * belirsizleşmesin.
+ */
+const studyArgument = process.argv.find(argument => argument.startsWith('--study='));
+const studyDirectory = studyArgument ? studyArgument.slice('--study='.length) : 'comparison';
+const root = path.resolve('benchmarks', studyDirectory);
 const checkOnly = process.argv.includes('--check');
 const publishGate = process.argv.includes('--publish-gate');
 const readJson = async <T>(name: string): Promise<T> =>
@@ -69,10 +82,15 @@ const masterPrompt = await readFile(path.join(root, 'master-prompt.md'), 'utf8')
 assertStudyFrozen(study, masterPrompt);
 const submissions = await readJson<BlindComparisonSubmission[]>('submissions.json');
 const mapping = await readJson<BlindMethodMapping[]>('blind-map.json');
-const humanEvaluations = await readJson<HumanEvaluation[]>('human-evaluations.json');
+const humanEvaluations = validateHumanEvaluations(
+  await readJson<HumanEvaluation[]>('human-evaluations.json'),
+  study.evaluationCriteria
+);
 const userSessions = await readJson<AnonymousUserSession[]>('user-sessions.json');
 const reportPath = path.join(root, 'latest-report.json');
-const markdownPath = path.resolve('docs', 'product', 'COMPARISON_REPORT.md');
+// Çıktılar çalışmaya göre ayrışır; v2'nin raporu v1'inkinin üzerine yazamaz.
+const isDefaultStudy = studyDirectory === 'comparison';
+const markdownPath = path.resolve('docs', 'product', isDefaultStudy ? 'COMPARISON_REPORT.md' : 'COMPARISON_REPORT_V2.md');
 const modulePath = path.resolve('src', 'v4', 'product', 'generated-comparison-evidence.ts');
 
 let generatedAt = new Date().toISOString();
@@ -91,6 +109,7 @@ const report = buildComparisonReport({
   humanEvaluations,
   userSessions,
   policy: study.policy,
+  criteria: study.evaluationCriteria,
   generatedAt
 });
 const userParticipantsByCapability = Object.fromEntries(
@@ -110,7 +129,7 @@ export const COMPARISON_EVIDENCE: {
   userParticipantsByCapability: Record<string, number>;
 } = Object.freeze(${JSON.stringify({
   studyId: report.studyId,
-  reportPath: 'benchmarks/comparison/latest-report.json',
+  reportPath: `benchmarks/${studyDirectory}/latest-report.json`,
   generatedAt: report.generatedAt,
   publicationEligible: report.publicationGate.eligible,
   userParticipantsByCapability
@@ -147,7 +166,19 @@ ${report.publicationGate.blockers.map(blocker => `- ${blocker}`).join('\n') || '
 
 Bu rapor boş veya yetersiz örneklerle ürün üstünlüğü iddia etmez. Yöntem bilgisi değerlendirmeden önce submission içine eklenemez.
 `;
-const outputs = [[reportPath, json], [markdownPath, markdown], [modulePath, moduleSource]] as const;
+/**
+ * Paylaşılan kanıt modülünü hangi çalışma yazar?
+ *
+ * İki çalışma da yazsaydı son çalışan sessizce kazanırdı ve ürün, hangi
+ * çalışmanın kanıtını gösterdiğini bilmezdi. Bu yüzden yazma **açık bir
+ * karardır**: v2 verisi toplandığında `--publish-evidence` ile devredilir.
+ */
+const publishEvidence = process.argv.includes('--publish-evidence');
+const outputs = [
+  [reportPath, json],
+  [markdownPath, markdown],
+  ...(isDefaultStudy || publishEvidence ? [[modulePath, moduleSource] as const] : [])
+] as const;
 
 if (checkOnly) {
   const mismatches: string[] = [];

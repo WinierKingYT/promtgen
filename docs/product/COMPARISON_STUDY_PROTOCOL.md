@@ -1,11 +1,14 @@
 # Karşılaştırmalı Çalışma Protokolü
 
-**Çalışma:** `promtgen-comparison-v1`
+**Çalışma:** `promtgen-comparison-v2`
 **Durum:** DONDURULDU · yürütülmeyi bekliyor · veri seti boş
-**Veri klasörü:** `benchmarks/comparison/`
+**Veri klasörü:** `benchmarks/comparison-v2/`
+**Yerini aldığı:** `promtgen-comparison-v1` — hiç veri toplamadan donmuştu ve
+artık var olmayan bir ürün modelini (`Fikir → Plan` doğrudan geçişi) ölçüyordu.
+Tanımı düzenlenmedi, `benchmarks/comparison/` içinde kayıt olarak duruyor.
 
-Bu belge, `benchmarks/comparison/README.md`'deki yedi adımın nasıl yürütüleceğini
-tanımlar. Motor, şemalar ve yayın kapısı hazır ve testli
+Bu belge, `benchmarks/comparison-v2/README.md`'deki yedi adımın nasıl
+yürütüleceğini tanımlar. Motor, şemalar ve yayın kapısı hazır ve testli
 (`tests/v4/comparison-benchmark.test.ts`); eksik olan tek şey veri.
 
 ## Cevaplanan soru
@@ -20,8 +23,8 @@ yayınlanabilir bir sonuçtur.**
 
 ## Senaryo seti
 
-Üç yöntem de **aynı** fikirlerle çalıştırılır (README kural 1). Beş senaryo,
-`study.json`'daki `minimumScenariosPerMethod: 5` eşiğini karşılar.
+Üç yöntem de **aynı** fikirlerle çalıştırılır (README kural 1). Altı senaryo,
+`study.json`'daki `minimumScenariosPerMethod: 5` eşiğini aşar.
 
 | `scenarioId` | Fikir (katılımcıya birebir bu cümle verilir) | Alan |
 | --- | --- | --- |
@@ -30,16 +33,30 @@ yayınlanabilir bir sonuçtur.**
 | `s3-envanter` | "Depodaki ürünleri takip eden iç bir araç lazım, kim ne almış görebilelim." | `internal-tool` |
 | `s4-basvuru` | "İş başvurularını topladığımız bir panel istiyorum, elemeyi kolaylaştırsın." | `admin-panel` |
 | `s5-entegrasyon` | "Mevcut sistemimizin verisini başka servislere açacak bir arayüz yapmak istiyorum." | `backend-api` |
+| `s6-at-sistemi` | "Unity'de oyuncuyla bağ kuran bir at sistemi yapmak istiyorum." | `game-3d` (**unsupported**) |
 
 **Senaryolar bilerek dağınık.** Hedef kullanıcı, gereksinim, kabul kriteri,
 kapsam içi/dışı — hiçbiri verilmez. Sebep şu: mevcut planner benchmark'ı bunları
 girdide *hazır* aldığı için 10/10 çıkıyor ve ürünün asıl işini ölçmüyor. Ürünün
 işi bu belirsizliği açmak; ölçüm de onu ölçmeli.
 
-**Alanlar bilerek `candidate-stable`.** `product-contract.ts` oyun, 3D, çok
-oyunculu, kritik sağlık ve kritik finans alanlarını `experimental` veya
-`unsupported` sayıyor. Ürünün desteklemediğini yazdığı bir alanda ölçüm yapmak
-ürüne haksızlık olur ve sonucu yorumlanamaz kılar.
+**Beş alan `candidate-stable`, biri değil — ve bu bilinçli.**
+
+v1 yalnız `candidate-stable` alanlarla çalışıyordu; gerekçesi *"ürünün
+desteklemediğini yazdığı bir alanda ölçüm yapmak ürüne haksızlık olur"*
+idi. v2 bu gerekçeyi tutmuyor, çünkü iki farklı iddiayı birbirine karıştırıyor.
+Ürün Modeli V3 §10 ikisini ayırır:
+
+> "Tasarlamana yardım edebilirim" ile "bu mimarinin üretime hazır olduğunu
+> garanti ediyorum" aynı şey değil.
+
+`game-3d` için `unsupported` olan şey **üretim garantisi**. Tasarım yardımı
+iddiası ise evrensel: V3'ün açık hedefi *"bilinmeyen proje türü = PromtGen
+çalışmıyor durumu kabul edilemez"*. Bu iddiayı yalnız desteklenen alanlarda
+ölçmek, sonucu kendi lehimize seçilmiş bir örneklemle üretmek olurdu.
+
+`s6-at-sistemi` toplu ortalamalara **dahildir**; ayrı bir kefeye konmaz.
+Sonucu düşürürse iddia yanlıştır ve bunu öğrenmek çalışmanın amacıdır.
 
 ## Üç kol
 
@@ -56,14 +73,25 @@ Prompt tüm katılımcılar için aynıdır ve çalışma öncesi sabitlenir; se
 değiştirilmez.
 
 ### C — `promtgen`
-Katılımcı mevcut Golden Path'i kullanır: Fikir → Ortak Anlayış → Plan → dışa
-aktarım. Sağlayıcı seans öncesi bağlanmış olmalıdır (kapı bunu zaten zorunlu
-kılıyor).
+Katılımcı V3 akışını kullanır:
+
+```
+FİKİR → (fikir onayı) → ÇÖZÜM → (teknik onay) → PLAN → dışa aktarım
+```
+
+Somut olarak: aşama panelinde çıkan konuları cevaplar, erteler ya da kapsam
+dışı bırakır; fikir tasarımını onaylar; teknik keşif turunu çalıştırıp adaylar
+arasından seçim yapar ve **seçmediğinin neden olmadığını yazar**; teknik
+tasarımı onaylar; planı üretir.
+
+Sağlayıcı seans öncesi bağlanmış olmalıdır (kapı bunu zaten zorunlu kılıyor).
+Teknik keşif için **yerel yedek motor yoktur**; sağlayıcı yoksa C kolu
+çalıştırılamaz ve oturum geçersizdir.
 
 ### Sıra dengeleme
 Kollar arası hız farkı ölçüldüğü için katılımcılar kollara sırayla değil,
-senaryo × kol matrisini dolduracak şekilde dağıtılır. Beş senaryo × üç kol = 15
-gönderim; `minimumScenariosPerMethod: 5` bunun karşılığıdır.
+senaryo × kol matrisini dolduracak şekilde dağıtılır. Altı senaryo × üç kol =
+**18 gönderim**; `minimumScenariosPerMethod: 5` bunun alt sınırıdır.
 
 ## Kaydedilen veri
 
@@ -89,8 +117,11 @@ alanları reddeder.
 
 ### Kör değerlendirme — `human-evaluations.json`
 
-`HumanEvaluation.scores` altı ölçütün **tamamını** 1–5 arası taşır. Ölçütler
-`study.json`'da dondurulmuştur; eksik ölçütlü kayıt reddedilir.
+`HumanEvaluation.scores` **yedi** ölçütün tamamını 1–5 arası taşır. Ölçütler
+`study.json`'da dondurulmuştur. Eksik ölçütlü kayıt da, çalışmada tanımsız
+ölçüt taşıyan kayıt da reddedilir — `validateHumanEvaluations` bunu zorlar.
+Daha önce bu yalnız bir yorumdu ve eksik ölçüt sessizce ortalamadan düşüyordu;
+kötü giden bir ölçütü kaybetmenin en kolay yolu buydu.
 
 | Ölçüt | Değerlendirici neye bakar |
 | --- | --- |
@@ -100,6 +131,11 @@ alanları reddeder.
 | `taskTestLinkage` | Her gereksinim bir göreve, her `must` bir doğrulamaya bağlı mı |
 | `acceptanceCriteria` | Kriterler gözlemlenebilir mi ("X yapınca Y görünür"), yoksa "iyi çalışır" mı |
 | `agentReadiness` | Bir kodlama ajanı **ek soru sormadan** başlayabilir mi |
+| `technicalDecisionQuality` | Teknik kararlar açıkça mı duruyor yoksa gereksinimlerin içine mi gömülmüş; gerekçesi ve **seçilmeyen alternatifin nedeni** var mı |
+
+`technicalDecisionQuality` V3'ün merkezi iddiasını sınar. Ölçüt PromtGen lehine
+seçilmiş değildir: master prompt zaten *"alternatifi ve neden seçilmediğini de
+belirt"* diyor, yani B kolu bu ölçütte tam puan alabilecek durumda.
 
 Değerlendirici katılımcıdan **farklı** bir kişidir ve hangi çıktının hangi
 yöntemden geldiğini bilmez. Her `blindId` en az iki değerlendirici görür.
@@ -175,7 +211,7 @@ gerektirir. Bu bilinçli bir sınırdır.
 
 ## Gizlilik
 
-`benchmarks/comparison/README.md`'nin kuralı bağlayıcıdır: gerçek kullanıcı adı,
+`benchmarks/comparison-v2/README.md`'nin kuralı bağlayıcıdır: gerçek kullanıcı adı,
 e-posta, serbest metin ve proje içeriği bu klasöre yazılmaz.
 
 Bu yalnız bir kural değil, kodda zorlanıyor: `validateAnonymousUserSessions`
@@ -193,11 +229,12 @@ kaldırmak.
 
 Bu bir söz değil, kontrol: `study.json` kendi özetini (`frozenDigest`) taşır ve
 `master-prompt.md`'nin SHA-256'sını (`masterPromptSha256`) kaydeder.
-`npm run check:comparison` ikisini de doğrular. Bir eşiği düşürmek, bir senaryo
+`npm run check:comparison-v2` ikisini de doğrular. Bir eşiği düşürmek, bir senaryo
 cümlesini değiştirmek ya da master prompt'a bir satır eklemek betiği düşürür.
 
-Doğrulandı: `minimumPromtgenScopeImprovement` 0.3'ten 0.05'e indirilince
-kontrol `exit 1` verdi; master prompt'a tek yorum satırı eklenince de öyle.
+Doğrulandı (v1'de 0.05'e indirme ve master prompt'a satır ekleme; v2'de
+`minimumPromtgenScopeImprovement` 0.3'ten 0.1'e indirme): kontrol her seferinde
+*"Çalışma tanımı dondurulduktan sonra değişmiş"* diyerek düştü.
 
 **Meşru bir değişiklik gerekiyorsa yürüyen çalışmanın tanımı düzenlenmez; yeni
 bir `studyId` açılır.** Böylece hangi verinin hangi tanım altında toplandığı
@@ -206,11 +243,11 @@ belirsizleşmez.
 ## Yürütme
 
 ```bash
-npm run comparison:benchmark
+npm run comparison:benchmark-v2
 ```
 
 ```bash
-npm run comparison:publish-gate
+npm run comparison:publish-gate-v2
 ```
 
 Yayın kapısı bugün altı engelle kapalı: üç yöntemin her biri için 5 kör senaryo,
@@ -221,10 +258,10 @@ baseline üstünlük eşiği. **Kapıyı gevşetmek bir çözüm değildir** —
 ## Bitti sayılma ölçütü
 
 ```
-5 senaryo × 3 kol = 15 gönderim
-her blindId için ≥ 2 kör değerlendirme
+6 senaryo × 3 kol = 18 gönderim
+her blindId için ≥ 2 kör değerlendirme (7 ölçütün tamamı dolu)
 ≥ 5 anonim PromtGen oturumu
-comparison:publish-gate çıkışı 0
+comparison:publish-gate-v2 çıkışı 0
 ```
 
 Kapı açıldığında rapor üç yöntemi karşılaştırılabilir hâle gelir. Sonuç ne
