@@ -7103,8 +7103,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -11032,8 +11032,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -15843,8 +15843,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -21263,8 +21263,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -25759,8 +25759,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -28113,8 +28113,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -35045,8 +35045,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -42292,8 +42292,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",
@@ -48195,8 +48195,8 @@
       }
     },
     {
-      "tag": "b",
-      "className": "",
+      "tag": "button",
+      "className": "pg-stage-open",
       "styles": {
         "color": "rgb(91, 66, 214)",
         "background-color": "rgba(0, 0, 0, 0)",

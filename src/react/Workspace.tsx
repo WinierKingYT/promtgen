@@ -29,7 +29,7 @@ import { buildLocalPlanningMemory } from '../v4/planning-memory.js';
 import { LiveAnnouncer } from './components/LiveAnnouncer.js';
 import { LazyFeatureBoundary } from './components/LazyFeatureBoundary.js';
 import { IdeaGuidePanel } from './components/IdeaOutcomeBar.js';
-import type { ProjectDocumentV5, SuggestionStatus } from '../v4/contracts.js';
+import type { ProjectDocumentV5, ProjectStage, SuggestionStatus } from '../v4/contracts.js';
 import type { ProviderSettings } from '../v4/provider-settings.js';
 import type { CredentialVault } from '../v4/credential-vault.js';
 import type { TaskCompilationResult } from '../v4/task-compiler.js';
@@ -97,6 +97,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [view, setView] = useState<IdeaStudioView>('develop');
   const [solutionRunning, setSolutionRunning] = useState(false);
+  // Kullanıcı tamamlanmış bir aşamaya dönebilir; seçim yoksa bulunulan aşama.
+  const [selectedStage, setSelectedStage] = useState<ProjectStage | null>(null);
   const [activeSection, setActiveSection] = useState('vision');
   const [sectionDraft, setSectionDraft] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
@@ -145,6 +147,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   // "şu an yanıtladığın soru" etiketi gizlenir. Aksi hâlde ekranda iki farklı
   // soru durur ve kullanıcı hangisini cevapladığını bilemez.
   const ideaApproved = project.ideaDesign.approval.status === 'approved';
+  const shownStage = selectedStage ?? (ideaApproved ? 'solution' : 'idea');
   const stageOwnsQuestion = stagePanelVisible
     && project.ideaDesign.approval.status !== 'approved'
     && nextCoachTurn(project).kind === 'concern';
@@ -334,7 +337,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         lockedViews={lockedViews}
       />
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setView('plan')}/>
-      <StageRail project={project}/>
+      <StageRail project={project} selected={selectedStage} onSelect={setSelectedStage}/>
 
       {view === 'develop' && <main id="pg-primary-content" className={`pg-idea-workspace${stagePanelVisible ? ' has-stage-panel' : ''}`} tabIndex={-1}>
         <section className="pg-conversation-column" aria-label="Fikir geliştirme sohbeti">
@@ -413,7 +416,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><small>Çıkarımlar önce taslak olarak gösterilir; sen onaylamadan kesinleşmez.</small></div>
           </form>
         </section>
-        {stagePanelVisible && ideaApproved && (
+        {stagePanelVisible && shownStage === 'solution' && ideaApproved && (
           <SolutionStagePanel
             project={project}
             running={solutionRunning}
@@ -423,7 +426,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             onDiscover={() => void discoverSolution()}
           />
         )}
-        {stagePanelVisible && !ideaApproved && (
+        {stagePanelVisible && shownStage === 'idea' && (
           <IdeaStagePanel
             project={project}
             // Bildirimi yalnız `persistCandidate` gönderir: o, kayıt GERÇEKTEN

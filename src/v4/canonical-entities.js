@@ -63,7 +63,26 @@ export function normalizeDecision(value = {}, index = 0) {
         // demek, kullanıcının hiç vermediği bir kararı ona atfetmek olurdu.
         stage: ['idea', 'technical', 'legacy-unclassified'].includes(source.stage)
             ? source.stage
-            : 'legacy-unclassified'
+            : 'legacy-unclassified',
+        // Kanıt ve reddedilen alternatifler kalıcılıktan sağ çıkmak ZORUNDA:
+        // geçersizleştirme grafiği tamamen `evidence` kenarlarına dayanıyor ve
+        // `rejectedAlternatives` olmadan karar bir ADR olmaktan çıkar. Alanlar
+        // opsiyonel, çünkü V3 öncesi kararlarda yok; ama varlarsa korunurlar.
+        ...(source.evidence ? {
+            evidence: {
+                ideaDecisionIds: list(source.evidence.ideaDecisionIds),
+                ideaConcernIds: list(source.evidence.ideaConcernIds)
+            }
+        } : {}),
+        ...(Array.isArray(source.rejectedAlternatives) ? {
+            rejectedAlternatives: source.rejectedAlternatives
+                .map(item => ({
+                    candidateId: text(item?.candidateId),
+                    title: text(item?.title),
+                    reason: text(item?.reason)
+                }))
+                .filter(item => item.title)
+        } : {})
     };
 }
 

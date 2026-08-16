@@ -614,3 +614,6 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-stage-primary { border-color:var(--pg-accent);background:var(--pg-accent-soft);color:var(--pg-accent);font-weight:700; }
 .pg-stage-secondary { color:var(--pg-text); }
 .pg-stage-subhead { margin:0;font-size:13px;line-height:1.4;color:var(--pg-text); }
+.pg-stage-open { border:0;background:none;padding:0;font:inherit;font-size:10px;font-weight:700;letter-spacing:0.08em;color:inherit;cursor:pointer; }
+.pg-stage-open:hover { text-decoration:underline; }
+.pg-stage.is-selected { outline:2px solid var(--pg-accent);outline-offset:-1px; }

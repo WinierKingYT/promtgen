@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { concernTrace, invalidationImpact } from '../../../src/v4/application/invalidation-graph.js';
 import { normalizeConcern, normalizeConcernDecision } from '../../../src/v4/application/concerns.js';
 import { createProjectDocument } from '../../../src/v4/project-document.js';
+import { normalizeProjectDocument } from '../../../src/v4/canonical-entities.js';
 import type { Decision, ProjectDocumentV5 } from '../../../src/v4/contracts.js';
 
 function decision(overrides: Partial<Decision>): Decision {
@@ -203,5 +204,42 @@ describe('Konudan ileriye izleme', () => {
     assert.deepEqual(trace.requirementIds, ['req-1']);
     assert.deepEqual(trace.taskIds, ['task-1']);
     assert.deepEqual(trace.testCaseIds, ['test-1']);
+  });
+});
+
+describe('Kanıt kalıcılıktan sağ çıkar', () => {
+  it('normallestirme evidence alanini DUSURMEZ', () => {
+    // Bu düşerse geçersizleştirme grafiği tamamen kör olur: kenarların hepsi
+    // `evidence` üzerinden kuruluyor. Bellekte kurulan belgeyle test etmek bu
+    // boşluğu göremezdi — kayıt/yükleme yolundan geçmek gerekiyor.
+    const stored = normalizeProjectDocument(chainProject()) as ProjectDocumentV5;
+
+    const technical = stored.decisions.find(item => item.id === 'dec-runtime');
+    assert.deepEqual(technical?.evidence?.ideaDecisionIds, ['dec-stamina']);
+    assert.deepEqual(invalidationImpact(stored, 'dec-stamina').technicalDecisionIds, ['dec-runtime']);
+  });
+
+  it('normallestirme rejectedAlternatives alanini DUSURMEZ', () => {
+    // Bu düşerse karar bir ADR olmaktan çıkar: neyin neden seçilmediği kaybolur.
+    const document = chainProject();
+    document.decisions[1] = {
+      ...document.decisions[1],
+      rejectedAlternatives: [{ candidateId: 'c1', title: 'Bulut kayıt', reason: 'Çevrimdışı oynanışı bozar.' }]
+    };
+
+    const stored = normalizeProjectDocument(document) as ProjectDocumentV5;
+
+    assert.deepEqual(stored.decisions.find(item => item.id === 'dec-runtime')?.rejectedAlternatives, [
+      { candidateId: 'c1', title: 'Bulut kayıt', reason: 'Çevrimdışı oynanışı bozar.' }
+    ]);
+  });
+
+  it('kaniti olmayan ESKI karar bos kanit uydurmaz', () => {
+    const document = chainProject();
+    delete document.decisions[1].evidence;
+
+    const stored = normalizeProjectDocument(document) as ProjectDocumentV5;
+
+    assert.equal('evidence' in stored.decisions.find(item => item.id === 'dec-runtime')!, false);
   });
 });

@@ -1,5 +1,6 @@
 import { validateProjectDocument } from './project-document.js';
 import { normalizeProjectDocument } from './canonical-entities.js';
+import { migrateToStageModel } from './application/stage-migration.ts';
 import { createQuarantineRecord } from './storage/quarantine.ts';
 import { createCheckpoint } from './storage/backup-manager.ts';
 import { computeSha256, verifySha256, INTEGRITY_ALGORITHM } from './infrastructure/storage/integrity.ts';
@@ -163,7 +164,11 @@ export class IndexedDbProjectRepository {
                 await quarantinePersistently(db, stored, `Migration failure: ${migration.error}`);
                 return null;
             }
-            const normalized = normalizeProjectDocument(migration.project);
+            // Şekil normalleştirmesinden sonra ANLAMSAL göç: eski kararlar
+            // aşamalara yerleşir, çerçeveleme eski metinden türetilir. İşlem
+            // idempotent olduğu için her yüklemede güvenle çalışır ve V3
+            // belgelerinde hiçbir şeyi değiştirmez.
+            const normalized = migrateToStageModel(normalizeProjectDocument(migration.project)).project;
             if (migration.migrated) await this.#saveValidated(normalized, stored);
             return normalized;
         } catch (error) {

@@ -220,3 +220,44 @@ export function buildOpenConcernFixture(): ProjectDocumentV5 {
 
   return project;
 }
+
+
+/**
+ * Onaylanmış fikir + ona dayanan teknik karar + gereksinim zinciri.
+ *
+ * Geri dönüşün bedelinin ekranda gerçekten göründüğünü doğrulamak için
+ * gerekiyor; zinciri olmayan bir belgede uyarı hiç çıkmaz ve test yalnız
+ * "çıkmıyor" yarısını kanıtlardı.
+ */
+export function buildInvalidationChainFixture(): ProjectDocumentV5 {
+  const project = buildStageFixture();
+
+  project.decisions = [
+    {
+      stage: 'idea', id: 'dec-sahiplik', title: 'Sahiplik', decision: 'At kalıcı bir karakter.',
+      rationale: 'Bağ kurulması isteniyor.', alternatives: [], consequences: [],
+      status: 'accepted', sourceSuggestionId: '', affectedSectionIds: []
+    },
+    {
+      stage: 'technical', id: 'dec-kayit', title: 'Kayıt modeli', decision: 'JSON dosyası.',
+      rationale: 'Sahiplik kararının gereği.', alternatives: [], consequences: [],
+      status: 'accepted', sourceSuggestionId: '', affectedSectionIds: [],
+      evidence: { ideaDecisionIds: ['dec-sahiplik'], ideaConcernIds: [] },
+      rejectedAlternatives: []
+    }
+  ];
+  project.ideaDesign.concernDecisions = [
+    normalizeConcernDecision({ id: 'cd-1', concernId: 'ic-sahiplik', answer: 'Kalıcı karakter', decisionId: 'dec-sahiplik' })
+  ];
+  project.requirements = [{
+    id: 'req-kayit', title: 'At durumu saklanır', statement: 'At durumu oturumlar arasında saklanır.',
+    kind: 'functional', priority: 'must', acceptanceCriteria: ['Yeniden açılışta at durumu korunur'],
+    sourceObjectiveIds: [], sourceSuggestionIds: [], status: 'accepted'
+  }];
+  project.traceLinks = [{
+    id: 'tl-1', fromType: 'decision', fromId: 'dec-kayit',
+    toType: 'requirement', toId: 'req-kayit', relation: 'drives'
+  }];
+
+  return project;
+}

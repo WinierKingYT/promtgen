@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, CircleHelp, Clock, X } from 'lucide-react';
 import { nextCoachTurn } from '../../v4/application/adaptive-idea-coach.js';
 import { ideaApprovalReadiness, readinessLines } from '../../v4/application/idea-approval.js';
+import { invalidationImpact } from '../../v4/application/invalidation-graph.js';
 import {
   answerConcern,
   approveStage,
@@ -62,9 +63,21 @@ export function IdeaStagePanel({ project, onCommand }: {
   };
 
   if (approved) {
+    // Geri dönüşün bedeli ÖNCEDEN gösterilir. Kullanıcı neyin bayatlayacağını
+    // bilmeden onayı geri alırsa, kaybını ancak sonradan fark eder.
+    const cost = [...new Set(
+      project.decisions
+        .filter(decision => decision.stage === 'idea' && decision.status === 'accepted')
+        .flatMap(decision => invalidationImpact(project, decision.id).lines)
+    )];
+
     return <aside className="pg-stage-panel" aria-label="Fikir tasarımı">
       <h2>Fikir tasarımı onaylandı</h2>
       <p className="pg-stage-note">Artık bunu nasıl kuracağımızı konuşabiliriz.</p>
+      {cost.length > 0 && <>
+        <p className="pg-stage-note">Onayı geri alırsan etkilenecekler:</p>
+        <ul className="pg-stage-readiness">{cost.map(line => <li key={line}>{line}</li>)}</ul>
+      </>}
       <label>
         Onayı geri almak istersen nedenini yaz
         <input

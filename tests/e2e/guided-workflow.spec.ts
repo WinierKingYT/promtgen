@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
-import { buildOpenConcernFixture, buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
+import { buildInvalidationChainFixture, buildOpenConcernFixture, buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
 import {
   advanceToDecisionTurn,
   completeConceptAgreement,
@@ -145,6 +145,54 @@ test.describe('PromtGen idea studio production workflow', () => {
     // yapacağı yazılır, orijinal neden parantezde durur.
     await expect(page.locator('.toast')).toContainText('AI sağlayıcısına ulaşılamadı');
     await expect(solutionPanel).toContainText('Henüz teknik konu çıkarılmadı');
+  });
+
+  test('tamamlanmis asamaya donulur ve geri almanin bedeli ONCEDEN gorunur', async ({ page }) => {
+    // Kullanıcı neyin bayatlayacağını bilmeden onayı geri alırsa, kaybını
+    // ancak sonradan fark eder. Bu ekran o yüzden var — ve ona ulaşmanın yolu
+    // rayda tamamlanmış aşamaya dönmek.
+    await seedProject(page, buildInvalidationChainFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    // Fikir onaylı: ekran teknik aşamada başlar.
+    await expect(page.getByRole('complementary', { name: 'Teknik tasarım' })).toBeVisible();
+
+    const rail = page.getByRole('navigation', { name: 'Proje aşamaları' });
+    await rail.getByRole('button', { name: 'FİKİR' }).click();
+
+    const ideaPanel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await expect(ideaPanel).toContainText('Fikir tasarımı onaylandı');
+    await expect(ideaPanel).toContainText('Onayı geri alırsan etkilenecekler');
+    await expect(ideaPanel).toContainText('1 teknik karar gözden geçirilmeli');
+    await expect(ideaPanel).toContainText('1 gereksinim bayatlamış olabilir');
+  });
+
+  test('gerekcesiz geri alma REDDEDILIR', async ({ page }) => {
+    await seedProject(page, buildInvalidationChainFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+    await page.getByRole('navigation', { name: 'Proje aşamaları' }).getByRole('button', { name: 'FİKİR' }).click();
+
+    const ideaPanel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await ideaPanel.getByRole('button', { name: 'Onayı geri al' }).click();
+
+    // Sessiz geri dönüş V3'te yasak.
+    await expect(ideaPanel.getByRole('alert')).toContainText('nedenini yazman');
+    await expect(ideaPanel).toContainText('Fikir tasarımı onaylandı');
+  });
+
+  test('gerekceyle geri alinca teknik onay da acilir ve bu SOYLENIR', async ({ page }) => {
+    await seedProject(page, buildInvalidationChainFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+    await page.getByRole('navigation', { name: 'Proje aşamaları' }).getByRole('button', { name: 'FİKİR' }).click();
+
+    const ideaPanel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await ideaPanel.getByRole('textbox').fill('Aslında çok oyunculu istiyorum');
+    await ideaPanel.getByRole('button', { name: 'Onayı geri al' }).click();
+
+    await expect(page.locator('.toast')).toContainText('Fikir onayı yeniden açıldı');
   });
 
   test('golden path: fikir onaylanmis projede rayi ilerlemis gosterir', async ({ page }) => {
