@@ -16,7 +16,7 @@
     "lint": "eslint src/v4 src/react tests/v4 --ext .js,.ts,.tsx",
     "desktop:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "desktop:test": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "verify": "npm run check:benchmark && npm run check:discovery-benchmark && npm run check:web-saas-benchmark && npm run check:backend-api-benchmark && npm run check:implementation-evidence-benchmark && npm run check:plan-code-alignment-benchmark && npm run check:project-inventory-benchmark && npm run check:provider-integration-benchmark && npm run check:native-execution-benchmark && npm run check:storage-durability-benchmark && npm run check:architecture-comparator-benchmark && npm run check:expert-perspectives-benchmark && npm run check:comparison && npm run check:product-docs && npm run test:all && npm run typecheck && npm run lint && npm run build && npm run performance:report && npm run check:version && npm run desktop:test",
+    "verify": "npm run check:benchmark && npm run check:discovery-benchmark && npm run check:web-saas-benchmark && npm run check:backend-api-benchmark && npm run check:implementation-evidence-benchmark && npm run check:plan-code-alignment-benchmark && npm run check:project-inventory-benchmark && npm run check:provider-integration-benchmark && npm run check:native-execution-benchmark && npm run check:storage-durability-benchmark && npm run check:architecture-comparator-benchmark && npm run check:expert-perspectives-benchmark && npm run check:stage-design-benchmark && npm run check:comparison && npm run check:product-docs && npm run test:all && npm run typecheck && npm run lint && npm run build && npm run performance:report && npm run check:version && npm run desktop:test",
     "test": "npm run test:v4",
     "test:v4": "node scripts/run-v4-tests.mjs",
     "test:security": "tsx tests/security/redaction.test.js",
@@ -63,7 +63,9 @@
     "comparison:publish-gate": "tsx scripts/comparison-benchmark.ts --publish-gate",
     "study:import": "tsx scripts/study-import.ts",
     "study:validate": "tsx scripts/study-import.ts --check",
-    "test:compat": "node scripts/run-test-suites.mjs compat"
+    "test:compat": "node scripts/run-test-suites.mjs compat",
+    "benchmark:stage-design": "tsx scripts/stage-design-benchmark.ts",
+    "check:stage-design-benchmark": "tsx scripts/stage-design-benchmark.ts --check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,0 +1,77 @@
+{
+  "suiteId": "stage-design-v1",
+  "generatedAt": "2026-08-16T19:31:57.056Z",
+  "scenarioCount": 4,
+  "passedCount": 4,
+  "passRate": 1,
+  "aggregate": {
+    "concernRecall": 1,
+    "topQuestionAccuracy": 1
+  },
+  "results": [
+    {
+      "id": "unity-horse",
+      "title": "Unity at sistemi",
+      "category": "game",
+      "passed": true,
+      "checks": {
+        "concernRecall": 1,
+        "topQuestionCorrect": true,
+        "gateRefusedWhileBlocked": true,
+        "gateOpenedWhenClear": true,
+        "solutionLockedBeforeIdea": true,
+        "candidateFilterCorrect": true,
+        "adrLinkEnforced": true
+      },
+      "failures": []
+    },
+    {
+      "id": "field-inventory",
+      "title": "Saha envanter uygulaması",
+      "category": "web",
+      "passed": true,
+      "checks": {
+        "concernRecall": 1,
+        "topQuestionCorrect": true,
+        "gateRefusedWhileBlocked": true,
+        "gateOpenedWhenClear": true,
+        "solutionLockedBeforeIdea": true,
+        "candidateFilterCorrect": true,
+        "adrLinkEnforced": true
+      },
+      "failures": []
+    },
+    {
+      "id": "webhook-gateway",
+      "title": "Webhook geçidi",
+      "category": "backend",
+      "passed": true,
+      "checks": {
+        "concernRecall": 1,
+        "topQuestionCorrect": true,
+        "gateRefusedWhileBlocked": true,
+        "gateOpenedWhenClear": true,
+        "solutionLockedBeforeIdea": true,
+        "candidateFilterCorrect": true,
+        "adrLinkEnforced": true
+      },
+      "failures": []
+    },
+    {
+      "id": "unknown-domain",
+      "title": "Bilinmeyen alan — arı kovanı izleme",
+      "category": "other",
+      "passed": true,
+      "checks": {
+        "concernRecall": 1,
+        "topQuestionCorrect": true,
+        "gateRefusedWhileBlocked": true,
+        "gateOpenedWhenClear": true,
+        "solutionLockedBeforeIdea": true,
+        "candidateFilterCorrect": true,
+        "adrLinkEnforced": true
+      },
+      "failures": []
+    }
+  ]
+}

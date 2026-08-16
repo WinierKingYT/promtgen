@@ -1,0 +1,465 @@
+[
+  {
+    "id": "unity-horse",
+    "title": "Unity at sistemi",
+    "category": "game",
+    "idea": "Unity'de oyuncuyla bağ kuran bir at sistemi yapmak istiyorum.",
+    "discovery": {
+      "options": [
+        {
+          "kind": "feature",
+          "title": "İsim etiketi rengi",
+          "description": "Atın isim etiketi hangi renkte olsun?",
+          "pros": [],
+          "cons": [],
+          "effort": "medium",
+          "impact": "low",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "architecture",
+          "title": "Sahiplik modeli",
+          "description": "At kalıcı bir karakter mi, ulaşım aracı mı?",
+          "pros": [],
+          "cons": [
+            "Kalıcı karakter kayıt ve ilerleme sistemi gerektirir"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "decision",
+          "title": "Kayıt modeli",
+          "description": "At durumu nasıl kalıcı hâle gelecek?",
+          "pros": [],
+          "cons": [
+            "Kayıt formatı sonradan zor değişir"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        }
+      ],
+      "openQuestions": [],
+      "uncertainty": [
+        "Sahiplik modeli"
+      ]
+    },
+    "expectedCriticalTopics": [
+      "sahiplik modeli",
+      "kayıt modeli"
+    ],
+    "expectedTopQuestionTopic": "sahiplik modeli",
+    "solutionDiscovery": {
+      "technicalConcerns": [
+        {
+          "title": "Durum kalıcılığı",
+          "description": "At durumu diske nasıl yazılacak",
+          "category": "Teknik",
+          "importance": "critical",
+          "whyItMatters": "Kayıt formatı sonradan zor değişir",
+          "questions": [
+            "Durum kalıcılığı nasıl olacak?"
+          ],
+          "uncertainty": 0.8,
+          "downstreamImpact": 0.9,
+          "dependsOnTitles": []
+        }
+      ],
+      "candidates": [
+        {
+          "concernTitle": "Durum kalıcılığı",
+          "title": "ScriptableObject + JSON",
+          "category": "teknoloji",
+          "rationale": "Kayıt modeli kararının gereği.",
+          "tradeoffs": [],
+          "reversibility": "costly",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": [
+            "Kayıt modeli"
+          ]
+        },
+        {
+          "concernTitle": "Durum kalıcılığı",
+          "title": "Bulut kayıt servisi",
+          "category": "teknoloji",
+          "rationale": "Yaygın çözüm.",
+          "tradeoffs": [],
+          "reversibility": "irreversible",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": [
+            "Hiç konuşulmayan konu"
+          ]
+        }
+      ],
+      "openQuestions": []
+    },
+    "expectedAdmittedCandidates": [
+      "ScriptableObject + JSON"
+    ],
+    "expectedRefusedCandidates": [
+      "Bulut kayıt servisi"
+    ],
+    "framing": {
+      "kind": "system",
+      "domain": "game",
+      "environment": "Unity"
+    }
+  },
+  {
+    "id": "field-inventory",
+    "title": "Saha envanter uygulaması",
+    "category": "web",
+    "idea": "Saha ekibi için envanter uygulaması istiyorum, internet çoğu zaman yok.",
+    "discovery": {
+      "options": [
+        {
+          "kind": "feature",
+          "title": "Karanlık tema",
+          "description": "Arayüz karanlık tema desteklesin mi?",
+          "pros": [],
+          "cons": [],
+          "effort": "medium",
+          "impact": "low",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "architecture",
+          "title": "Çevrimdışı çalışma",
+          "description": "Uygulama internetsiz çalışacak mı?",
+          "pros": [],
+          "cons": [
+            "Çevrimdışı çalışma senkronizasyon karmaşıklığı getirir"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "decision",
+          "title": "Çakışma çözümü",
+          "description": "İki cihaz aynı kaydı değiştirirse ne olur?",
+          "pros": [],
+          "cons": [
+            "Kullanıcıya karar sordurur"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        }
+      ],
+      "openQuestions": [],
+      "uncertainty": [
+        "Çevrimdışı çalışma"
+      ]
+    },
+    "expectedCriticalTopics": [
+      "çevrimdışı çalışma",
+      "çakışma çözümü"
+    ],
+    "expectedTopQuestionTopic": "çevrimdışı çalışma",
+    "solutionDiscovery": {
+      "technicalConcerns": [
+        {
+          "title": "Yerel veri deposu",
+          "description": "Cihazda veri nasıl tutulacak",
+          "category": "Teknik",
+          "importance": "critical",
+          "whyItMatters": "Senkronizasyon ve çakışma çözümünü belirliyor",
+          "questions": [
+            "Yerel veri deposu nasıl olacak?"
+          ],
+          "uncertainty": 0.8,
+          "downstreamImpact": 0.9,
+          "dependsOnTitles": []
+        }
+      ],
+      "candidates": [
+        {
+          "concernTitle": "Yerel veri deposu",
+          "title": "SQLite",
+          "category": "teknoloji",
+          "rationale": "Çevrimdışı çalışma kararının gereği.",
+          "tradeoffs": [],
+          "reversibility": "costly",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": [
+            "Çevrimdışı çalışma"
+          ]
+        },
+        {
+          "concernTitle": "Yerel veri deposu",
+          "title": "PostgreSQL",
+          "category": "teknoloji",
+          "rationale": "Yaygın ve güçlü.",
+          "tradeoffs": [],
+          "reversibility": "irreversible",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": []
+        }
+      ],
+      "openQuestions": []
+    },
+    "expectedAdmittedCandidates": [
+      "SQLite"
+    ],
+    "expectedRefusedCandidates": [
+      "PostgreSQL"
+    ],
+    "framing": {
+      "kind": "product",
+      "domain": "web",
+      "environment": "mobil web"
+    }
+  },
+  {
+    "id": "webhook-gateway",
+    "title": "Webhook geçidi",
+    "category": "backend",
+    "idea": "Üçüncü parti webhook'ları alıp içeride dağıtan bir servis yazacağım.",
+    "discovery": {
+      "options": [
+        {
+          "kind": "feature",
+          "title": "Yönetim arayüzü",
+          "description": "Basit bir web arayüzü olsun mu?",
+          "pros": [],
+          "cons": [],
+          "effort": "medium",
+          "impact": "medium",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "architecture",
+          "title": "Teslim garantisi",
+          "description": "Bir webhook kaybolursa ne olur?",
+          "pros": [],
+          "cons": [
+            "En-az-bir-kez teslim tekrarlı işlem sorunu doğurur"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "decision",
+          "title": "Idempotency modeli",
+          "description": "Aynı olay iki kez gelirse ne olur?",
+          "pros": [],
+          "cons": [
+            "Depolama maliyeti"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        }
+      ],
+      "openQuestions": [],
+      "uncertainty": [
+        "Teslim garantisi"
+      ]
+    },
+    "expectedCriticalTopics": [
+      "teslim garantisi",
+      "idempotency modeli"
+    ],
+    "expectedTopQuestionTopic": "teslim garantisi",
+    "solutionDiscovery": {
+      "technicalConcerns": [
+        {
+          "title": "Kuyruk altyapısı",
+          "description": "Olaylar nerede sıraya girecek",
+          "category": "Teknik",
+          "importance": "critical",
+          "whyItMatters": "Teslim garantisini bu belirliyor",
+          "questions": [
+            "Kuyruk altyapısı nasıl olacak?"
+          ],
+          "uncertainty": 0.8,
+          "downstreamImpact": 0.9,
+          "dependsOnTitles": []
+        }
+      ],
+      "candidates": [
+        {
+          "concernTitle": "Kuyruk altyapısı",
+          "title": "Kalıcı kuyruk",
+          "category": "teknoloji",
+          "rationale": "Teslim garantisi kararının gereği.",
+          "tradeoffs": [],
+          "reversibility": "costly",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": [
+            "Teslim garantisi"
+          ]
+        },
+        {
+          "concernTitle": "Kuyruk altyapısı",
+          "title": "Bellek içi kuyruk",
+          "category": "teknoloji",
+          "rationale": "Kurulumu kolay.",
+          "tradeoffs": [],
+          "reversibility": "reversible",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": []
+        }
+      ],
+      "openQuestions": []
+    },
+    "expectedAdmittedCandidates": [
+      "Bellek içi kuyruk",
+      "Kalıcı kuyruk"
+    ],
+    "expectedRefusedCandidates": [],
+    "framing": {
+      "kind": "system",
+      "domain": "backend",
+      "environment": "sunucu"
+    }
+  },
+  {
+    "id": "unknown-domain",
+    "title": "Bilinmeyen alan — arı kovanı izleme",
+    "category": "other",
+    "idea": "Arı kovanlarımın ağırlığını ve sıcaklığını izleyen bir düzenek kurmak istiyorum.",
+    "discovery": {
+      "options": [
+        {
+          "kind": "feature",
+          "title": "Kovan adlandırma",
+          "description": "Kovanlara isim verilebilsin mi?",
+          "pros": [],
+          "cons": [],
+          "effort": "medium",
+          "impact": "low",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "architecture",
+          "title": "Ölçüm sıklığı",
+          "description": "Sensörler ne sıklıkta okunacak?",
+          "pros": [],
+          "cons": [
+            "Sık ölçüm pil ömrünü düşürür"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        },
+        {
+          "kind": "decision",
+          "title": "Veri saklama süresi",
+          "description": "Ölçümler ne kadar saklanacak?",
+          "pros": [],
+          "cons": [
+            "Depolama maliyeti"
+          ],
+          "effort": "medium",
+          "impact": "high",
+          "affectedSections": [
+            "scope"
+          ],
+          "recommended": false
+        }
+      ],
+      "openQuestions": [],
+      "uncertainty": [
+        "Ölçüm sıklığı"
+      ]
+    },
+    "expectedCriticalTopics": [
+      "ölçüm sıklığı",
+      "veri saklama süresi"
+    ],
+    "expectedTopQuestionTopic": "ölçüm sıklığı",
+    "solutionDiscovery": {
+      "technicalConcerns": [
+        {
+          "title": "Güç bütçesi",
+          "description": "Düzenek nasıl beslenecek",
+          "category": "Teknik",
+          "importance": "critical",
+          "whyItMatters": "Ölçüm sıklığını bu sınırlıyor",
+          "questions": [
+            "Güç bütçesi nasıl olacak?"
+          ],
+          "uncertainty": 0.8,
+          "downstreamImpact": 0.9,
+          "dependsOnTitles": []
+        }
+      ],
+      "candidates": [
+        {
+          "concernTitle": "Güç bütçesi",
+          "title": "Güneş paneli + pil",
+          "category": "teknoloji",
+          "rationale": "Ölçüm sıklığı kararının gereği.",
+          "tradeoffs": [],
+          "reversibility": "costly",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": [
+            "Ölçüm sıklığı"
+          ]
+        },
+        {
+          "concernTitle": "Güç bütçesi",
+          "title": "Şebeke elektriği",
+          "category": "teknoloji",
+          "rationale": "En basit çözüm.",
+          "tradeoffs": [],
+          "reversibility": "irreversible",
+          "derivedFromIdeaDecisionIds": [],
+          "derivedFromIdeaConcernIds": [
+            "Var olmayan konu"
+          ]
+        }
+      ],
+      "openQuestions": []
+    },
+    "expectedAdmittedCandidates": [
+      "Güneş paneli + pil"
+    ],
+    "expectedRefusedCandidates": [
+      "Şebeke elektriği"
+    ],
+    "framing": {
+      "kind": "system",
+      "domain": "",
+      "environment": "gömülü donanım"
+    }
+  }
+]
