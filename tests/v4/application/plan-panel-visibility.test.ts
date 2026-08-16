@@ -78,7 +78,10 @@ describe('plan paneli görünürlük koşulları', () => {
       fromId: 'dec-1',
       toType: 'requirement',
       toId: 'req-1',
-      relation: 'derives'
+      // 'derives' geçerli bir ilişki değil (project-document.js:393).
+      // buildTraceabilityView ilişkiyi doğrulamadığı için burada
+      // yakalanmıyordu; fikstür yine de alan modeline uymalı.
+      relation: 'drives'
     } as never);
 
     assert.equal(hasTraceabilityLinks(project), true);

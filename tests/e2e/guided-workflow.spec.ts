@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
+import { buildPlanFixture, seedProject } from './support/project-fixture.js';
 import {
   advanceToDecisionTurn,
   completeConceptAgreement,
@@ -216,6 +217,42 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('details.pg-advanced-tools')).toHaveCount(0);
   });
 
+  // Yukarıdaki test yalnız olumsuz yarıyı kanıtlıyordu: koşul sağlanmayınca
+  // panel yok. Ama asıl risk bunun tersiydi — koşul yanlış yazılsaydı panel
+  // hata vermez, sessizce hiç görünmezdi ve hiçbir test bunu yakalamazdı.
+  // Akış trace link ya da envanter üretmediği için o durum ancak fikstür
+  // tohumlayarak kurulabiliyor (bkz. support/project-fixture.ts).
+  test('izlenebilirlik ve kod hizalamasi verisi olunca gorunur', async ({ page }) => {
+    await stubReadyProvider(page);
+    await seedProject(page, buildPlanFixture({ withTraceLink: true, withInventory: true }));
+    await page.goto('/');
+
+    await page.locator('.portfolio-project-open').first().click();
+    await page.getByRole('button', { name: 'Plan', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    await expect(page.locator('.pg-plan-context .trace-map')).toBeVisible();
+    await expect(page.locator('.pg-plan-context .plan-code-alignment')).toBeVisible();
+  });
+
+  // Aynı fikstür, tek fark koşulların kapalı olması. Bu çift, panellerin
+  // gerçekten koşula bağlı olduğunu kanıtlar: yukarıdaki testte görünüp
+  // burada görünmüyorlarsa bağlantı doğru kurulmuş demektir.
+  test('ayni fikstur veri olmadan panelleri gostermez', async ({ page }) => {
+    await stubReadyProvider(page);
+    await seedProject(page, buildPlanFixture());
+    await page.goto('/');
+
+    await page.locator('.portfolio-project-open').first().click();
+    await page.getByRole('button', { name: 'Plan', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    await expect(page.locator('.pg-plan-context .trace-map')).toHaveCount(0);
+    await expect(page.locator('.pg-plan-context .plan-code-alignment')).toHaveCount(0);
+    // Bağlam sütunu yine de render ediliyor — paneller kayboldu, sütun değil.
+    await expect(page.locator('.pg-plan-context .scenario-panel')).toBeVisible();
+  });
+
   test('depolama sagligi ayarlar diyalogunda, planda degil', async ({ page }) => {
     await startIdea(page);
     await advanceToDecisionTurn(page);
@@ -336,3 +373,4 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('#idea-input')).toBeFocused();
   });
 });
+
