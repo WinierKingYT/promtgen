@@ -142,10 +142,63 @@ export interface IdeaDesign {
  * sorusuna geçilen yer. Bugün bu aşama hiç yok; teknik kararlar ya
  * konuşulmuyor ya da gereksinimlerin içine gömülüyor.
  */
+/**
+ * Bir teknik kararın **kanıtı**. `confidence: 92%` sahte kesinliktir: nereden
+ * geldiğini söylemeden emin olduğunu iddia eder. Doğrusu kararın hangi kabul
+ * edilmiş fikir kararlarından ve hangi çözülmüş fikir konularından türediğini
+ * göstermektir — kullanıcı bunu kendi gözüyle denetleyebilir.
+ */
+export interface DecisionEvidence {
+  ideaDecisionIds: string[]
+  ideaConcernIds: string[]
+}
+
+/**
+ * Değerlendirilip seçilmeyen alternatif. `reason` boş bırakılamaz:
+ * "PostgreSQL'i değerlendirdik" demek, neden seçilmediğini söylemeden bir ADR
+ * oluşturmaz.
+ */
+export interface RejectedAlternative {
+  candidateId: string
+  title: string
+  reason: string
+}
+
+/**
+ * Geri dönülebilirlik. Erken teknoloji yasağının ölçüsü budur: ucuz bir öneriyi
+ * konuşmak keşfin kendisidir, geri dönülemez bir kararı problem bilinmeden
+ * çivilemek ise hatanın kendisi.
+ */
+export type Reversibility = 'reversible' | 'costly' | 'irreversible'
+
+/**
+ * Teknoloji **adayı** — karar değil.
+ *
+ * AI `PostgreSQL öneriyorum` dediğinde canonical teknoloji PostgreSQL olmaz.
+ * Aday kullanıcı onayından geçerse canonical `Decision`'a (`stage: 'technical'`)
+ * dönüşür; ayrı bir karar deposu açılmaz, çünkü iki doğruluk kaynağı olurdu.
+ */
+export interface TechnologyCandidate {
+  id: string
+  /** Hangi teknik konuya aday. */
+  concernId: string
+  title: string
+  category: string
+  rationale: string
+  tradeoffs: string[]
+  reversibility: Reversibility
+  evidence: DecisionEvidence
+  status: 'proposed' | 'accepted' | 'rejected'
+  /** Reddedildiyse nedeni; aynı adayın yeniden sunulmasını engelleyen hafıza. */
+  rejectionReason: string
+}
+
 export interface SolutionDesign {
   approval: StageApproval
   concerns: Concern[]
   concernDecisions: ConcernDecision[]
+  /** Öneriler; canonical karar değil. */
+  candidates: TechnologyCandidate[]
   platform: string
   openQuestions: string[]
 }
@@ -457,6 +510,14 @@ export interface Decision {
   status: 'proposed' | 'accepted' | 'superseded'
   sourceSuggestionId: string
   affectedSectionIds: string[]
+  /**
+   * Değerlendirilen ve seçilmeyen alternatifler, **neden seçilmedikleriyle**.
+   * `alternatives` yalnız başlıkları taşır ve geriye uyum için korunur; bu alan
+   * kararı bir ADR yapan şeydir. Eski kararlarda yok, bu yüzden opsiyonel.
+   */
+  rejectedAlternatives?: RejectedAlternative[]
+  /** Kararın nereden türediği; güven yüzdesinin yerini alır. */
+  evidence?: DecisionEvidence
 }
 
 export interface Assumption {

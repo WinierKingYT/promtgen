@@ -1,4 +1,5 @@
 import { normalizeConcern, normalizeConcernDecision } from './application/concerns.ts';
+import { normalizeTechnologyCandidate } from './application/solution-design.ts';
 import { emptyPlanAlignment, evaluatePlanAlignment } from './domain/idea-plan-alignment.ts';
 
 const CANONICAL_MODEL_VERSION = 1;
@@ -488,6 +489,9 @@ export function normalizeProjectDocument(project) {
         approval: stageApproval(next.solutionDesign?.approval),
         concerns: concernList(next.solutionDesign?.concerns),
         concernDecisions: concernDecisionList(next.solutionDesign?.concernDecisions),
+        candidates: Array.isArray(next.solutionDesign?.candidates)
+            ? next.solutionDesign.candidates.map((item, index) => normalizeTechnologyCandidate(item, index))
+            : [],
         platform: typeof next.solutionDesign?.platform === 'string' ? next.solutionDesign.platform : '',
         openQuestions: Array.isArray(next.solutionDesign?.openQuestions) ? next.solutionDesign.openQuestions : []
     };
