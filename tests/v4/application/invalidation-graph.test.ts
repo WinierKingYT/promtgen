@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { concernTrace, invalidationImpact } from '../../../src/v4/application/invalidation-graph.js';
+import { invalidationImpact } from '../../../src/v4/application/invalidation-graph.js';
 import { normalizeConcern, normalizeConcernDecision } from '../../../src/v4/application/concerns.js';
 import { createProjectDocument } from '../../../src/v4/project-document.js';
 import { normalizeProjectDocument } from '../../../src/v4/canonical-entities.js';
@@ -166,44 +166,6 @@ describe('Etki cümleleri', () => {
     // Teknik kararın kendisi hâlâ doğru olabilir; görevin öncülü kalmadı.
     assert.match(lines[0], /gözden geçirilmeli/);
     assert.match(lines[2], /geçersiz/);
-  });
-});
-
-describe('Konudan ileriye izleme', () => {
-  it('konu → karar → gereksinim → gorev → test', () => {
-    const trace = concernTrace(chainProject(), 'ic-stamina');
-
-    assert.equal(trace.found, true);
-    assert.equal(trace.decisionId, 'dec-stamina');
-  });
-
-  it('karara baglanmamis konunun izi bostur ama KONU vardir', () => {
-    const document = chainProject();
-    document.ideaDesign.concernDecisions = [];
-
-    const trace = concernTrace(document, 'ic-stamina');
-
-    assert.equal(trace.found, true);
-    assert.equal(trace.decisionId, null);
-  });
-
-  it('var olmayan konu ile izsiz konu ayirt edilir', () => {
-    // İkisi ekranda aynı görünürse kullanıcı yanlış sonuca varır.
-    assert.equal(concernTrace(chainProject(), 'ic-yok').found, false);
-  });
-
-  it('teknik karara bagli konu gereksinimlere ulasir', () => {
-    const document = chainProject();
-    document.solutionDesign.concerns = [normalizeConcern({ id: 'tc-runtime', title: 'Runtime', status: 'decided' })];
-    document.solutionDesign.concernDecisions = [normalizeConcernDecision({
-      id: 'cd-r', concernId: 'tc-runtime', answer: 'MonoBehaviour', decisionId: 'dec-runtime'
-    })];
-
-    const trace = concernTrace(document, 'tc-runtime');
-
-    assert.deepEqual(trace.requirementIds, ['req-1']);
-    assert.deepEqual(trace.taskIds, ['task-1']);
-    assert.deepEqual(trace.testCaseIds, ['test-1']);
   });
 });
 

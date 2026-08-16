@@ -128,3 +128,51 @@ export function conversionSources(project: ProjectDocumentV5): ConversionSources
     ]
   };
 }
+
+/** Aşama kararlarının plana yazıldığı blok; her dönüşümde yeniden kurulur. */
+const SCOPE_MARKER = 'Aşama kararların:';
+
+/**
+ * Kapsam kararlarını plana taşır.
+ *
+ * **Kapsam disiplini bir çıktıdır.** Kullanıcı "bu projeye ait değil" ya da
+ * "sonra" dediğinde bir iş yapmıştır; bunu plana yazmazsak o emek görünmez
+ * olur ve aynı konu bir sonraki turda yeniden tartışılır.
+ *
+ * Ertelenen ile kapsam dışı **ayrı** yazılır: "sonra" geri dönülebilir bir
+ * karardır, "ait değil" değil. İkisini aynı listeye koymak, kullanıcının
+ * verdiği iki farklı kararı tek karara indirgerdi.
+ *
+ * Blok işaretli ve her seferinde yeniden kurulduğu için dönüşüm tekrarlansa da
+ * içerik çoğalmaz.
+ */
+export function applyStageScopeToPlan(project: ProjectDocumentV5): ProjectDocumentV5 {
+  const sources = conversionSources(project);
+  if (!sources.outOfScope.length && !sources.deferred.length) return project;
+
+  const scope = project.sections?.scope;
+  if (!scope) return project;
+
+  const block = [
+    SCOPE_MARKER,
+    ...(sources.outOfScope.length
+      ? ['Kapsam dışı bırakılanlar:', ...sources.outOfScope.map(title => `- ${title}`)]
+      : []),
+    ...(sources.deferred.length
+      ? ['Sonraya bırakılanlar:', ...sources.deferred.map(title => `- ${title}`)]
+      : [])
+  ].join('\n');
+
+  const existing = String(scope.content || '');
+  const base = existing.includes(SCOPE_MARKER)
+    ? existing.slice(0, existing.indexOf(SCOPE_MARKER)).trimEnd()
+    : existing.trimEnd();
+
+  return {
+    ...project,
+    sections: {
+      ...project.sections,
+      scope: { ...scope, content: base ? [base, block].join('\n\n') : block, status: 'draft' }
+    }
+  };
+}

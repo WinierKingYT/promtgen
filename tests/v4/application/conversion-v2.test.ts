@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  applyStageScopeToPlan,
   conversionSources,
   stageConversionBlockers,
   stageWorkAvailable,
   usesStageModel
 } from '../../../src/v4/application/conversion-v2.js';
-import { previewIdeaPlanConversion } from '../../../src/v4/application/idea-plan-conversion-service.js';
+import { applyIdeaPlanConversion, previewIdeaPlanConversion } from '../../../src/v4/application/idea-plan-conversion-service.js';
 import { normalizeConcern, normalizeConcernDecision } from '../../../src/v4/application/concerns.js';
 import { createProjectDocument } from '../../../src/v4/project-document.js';
 import type { Concern, Decision, ProjectDocumentV5 } from '../../../src/v4/contracts.js';
@@ -195,5 +196,89 @@ describe('Panel ne zaman görünür', () => {
     document.solutionDesign.concerns = [normalizeConcern({ id: 'tc', title: 'Depolama', status: 'open' })];
 
     assert.equal(stageWorkAvailable(document), true);
+  });
+});
+
+describe('Kapsam kararları plana ulaşır', () => {
+  it('kapsam disi ve ertelenen AYRI yazilir', () => {
+    // "Sonra" geri dönülebilir bir karardır, "ait değil" değil. İkisini aynı
+    // listeye koymak, kullanıcının verdiği iki farklı kararı tek karara
+    // indirgerdi.
+    const document = stageProject({
+      solution: true,
+      concerns: [
+        { id: 'a', title: 'Genetik', status: 'irrelevant' },
+        { id: 'b', title: 'Yetiştirme', status: 'deferred' }
+      ]
+    });
+
+    const content = applyStageScopeToPlan(document).sections.scope.content;
+
+    assert.ok(content.includes(['Kapsam dışı bırakılanlar:', '- Genetik'].join('\n')), content);
+    assert.ok(content.includes(['Sonraya bırakılanlar:', '- Yetiştirme'].join('\n')), content);
+  });
+
+  it('mevcut kapsam metni KORUNUR', () => {
+    const document = stageProject({ concerns: [{ id: 'a', title: 'Genetik', status: 'irrelevant' }] });
+    document.sections.scope.content = 'MVP hedefi: ilk sürüm';
+
+    assert.match(applyStageScopeToPlan(document).sections.scope.content, /^MVP hedefi: ilk sürüm/);
+  });
+
+  it('donusum tekrarlanirsa icerik COGALMAZ', () => {
+    const document = stageProject({ concerns: [{ id: 'a', title: 'Genetik', status: 'irrelevant' }] });
+
+    const once = applyStageScopeToPlan(document);
+    const twice = applyStageScopeToPlan(once);
+
+    assert.equal(twice.sections.scope.content, once.sections.scope.content);
+  });
+
+  it('kapsam karari yoksa plan DEGISMEZ', () => {
+    const document = stageProject();
+
+    assert.equal(applyStageScopeToPlan(document), document);
+  });
+
+  it('gercek donusum ciktisinda gorunur', () => {
+    // Modül tek başına doğru olup akışa bağlanmamış olabilirdi.
+    const document = stageProject({
+      solution: true,
+      concerns: [
+        { id: 'a', title: 'Sahiplik', status: 'decided' },
+        { id: 'b', title: 'Genetik', status: 'irrelevant' }
+      ]
+    });
+    // Eski akışın kendi kapısı da doldurulur: bu test dönüşümün TAMAMINDAN
+    // geçmeli, yoksa modülün akışa bağlı olduğunu kanıtlamaz.
+    document.ideaLabSession = {
+      ...(document.ideaLabSession || {}),
+      conceptSummary: {
+        summary: 'Saha ekibi için çevrimdışı envanter aracı.',
+        targetUser: 'Sahada çalışan teknisyen',
+        problemStatement: 'İnternetsiz ortamda envanter güncellenemiyor.',
+        currentAlternative: 'Kâğıt form',
+        desiredOutcome: 'Çevrimdışı kayıt ve sonradan senkronizasyon',
+        mvpTarget: 'Tek cihazda çevrimdışı kayıt',
+        confirmedFeatures: ['Çevrimdışı kayıt'],
+        outOfScope: ['Çok kullanıcılı düzenleme'],
+        technicalApproaches: [],
+        openQuestions: [],
+        knownRisks: [],
+        interpretationConfidence: 80,
+        confidenceRationale: [],
+        userConfirmed: false
+      }
+    } as never;
+
+    const result = applyIdeaPlanConversion(document, {
+      baseDocumentRevision: document.documentRevision,
+      baseCanonicalRevision: document.canonicalRevision
+    });
+
+    if (!result.success) {
+      assert.fail(`dönüşüm başarısız: ${result.reason}`);
+    }
+    assert.match(result.project.sections.scope.content, /Genetik/);
   });
 });

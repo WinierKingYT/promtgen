@@ -242,6 +242,41 @@ describe('Aday kararı', () => {
     assert.equal(result.project.solutionDesign.concernDecisions[0].decisionId, 'decision-cand-so');
   });
 
+  it('secilmeyen alternatifler de KAPANIR', () => {
+    // Kararın gerekçesinde "bunu şu yüzden seçmedim" yazıp adayı açık
+    // bırakmak, aynı adayı sonraki turda yeniden konuşulmaya aday yapardı.
+    const document = solutionProject();
+    document.solutionDesign.candidates.push(normalizeTechnologyCandidate({
+      id: 'cand-bulut', concernId: 'tc-depolama', title: 'Bulut kayıt',
+      reversibility: 'reversible'
+    }));
+
+    const result = acceptCandidate(document, {
+      candidateId: 'cand-so', statement: 'ScriptableObject', rationale: 'Gerekçe',
+      rejectedAlternatives: [{ candidateId: 'cand-bulut', title: 'Bulut kayıt', reason: 'Çevrimdışı oynanışı bozar.' }],
+      revision: 5
+    });
+
+    const bulut = result.project.solutionDesign.candidates.find(item => item.id === 'cand-bulut');
+    assert.equal(bulut?.status, 'rejected');
+    assert.equal(bulut?.rejectionReason, 'Çevrimdışı oynanışı bozar.');
+  });
+
+  it('alternatifin gerekcesi ADR kaydina da yazilir', () => {
+    const document = solutionProject();
+
+    const result = acceptCandidate(document, {
+      candidateId: 'cand-so', statement: 'ScriptableObject', rationale: 'Gerekçe',
+      rejectedAlternatives: [{ candidateId: 'cand-bulut', title: 'Bulut kayıt', reason: 'Sunucu gerektirir.' }],
+      revision: 5
+    });
+
+    const decision = result.project.decisions.at(-1);
+    assert.deepEqual(decision?.rejectedAlternatives, [
+      { candidateId: 'cand-bulut', title: 'Bulut kayıt', reason: 'Sunucu gerektirir.' }
+    ]);
+  });
+
   it('gerekcesiz alternatif kabul edilmez ve belge degismez', () => {
     const document = solutionProject();
 

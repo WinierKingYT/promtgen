@@ -262,14 +262,21 @@ export function acceptCandidate(project: ProjectDocumentV5, input: AcceptCandida
   });
   if (!promotion.promoted) return fail(project, promotion.reason);
 
+  // Seçilmeyen alternatifler de KAPANIR. Kararın gerekçesinde "bunu şu yüzden
+  // seçmedim" yazıp adayı açık bırakmak, aynı adayı sonraki turda yeniden
+  // konuşulmaya aday yapardı; reddedilen öneri hafızası da onu görmezdi.
+  const rejectedById = new Map(input.rejectedAlternatives.map(item => [item.candidateId, item.reason.trim()]));
+
   return ok({
     ...project,
     decisions: [...project.decisions.filter(item => item.id !== promotion.decision.id), promotion.decision],
     solutionDesign: {
       ...project.solutionDesign,
-      candidates: project.solutionDesign.candidates.map(item =>
-        item.id === candidate.id ? promotion.candidate : item
-      ),
+      candidates: project.solutionDesign.candidates.map(item => {
+        if (item.id === candidate.id) return promotion.candidate;
+        const reason = rejectedById.get(item.id);
+        return reason ? { ...item, status: 'rejected' as const, rejectionReason: reason } : item;
+      }),
       concerns: project.solutionDesign.concerns.map(concern =>
         concern.id === candidate.concernId ? normalizeConcern({ ...concern, status: 'decided' }) : concern
       ),

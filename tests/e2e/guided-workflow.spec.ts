@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
-import { buildInvalidationChainFixture, buildOpenConcernFixture, buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
+import { buildCandidateChoiceFixture, buildInvalidationChainFixture, buildOpenConcernFixture, buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
 import {
   advanceToDecisionTurn,
   completeConceptAgreement,
@@ -145,6 +145,27 @@ test.describe('PromtGen idea studio production workflow', () => {
     // yapacağı yazılır, orijinal neden parantezde durur.
     await expect(page.locator('.toast')).toContainText('AI sağlayıcısına ulaşılamadı');
     await expect(solutionPanel).toContainText('Henüz teknik konu çıkarılmadı');
+  });
+
+  test('ADR: secilmeyen alternatifin NEDEN olmadigi sorulur ve kaydedilir', async ({ page }) => {
+    // "PostgreSQL'i değerlendirdik" demek, neden seçilmediğini söylemeden bir
+    // karar kaydı oluşturmaz.
+    await seedProject(page, buildCandidateChoiceFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const panel = page.getByRole('complementary', { name: 'Teknik tasarım' });
+    await panel.getByRole('radio', { name: /Yerel JSON dosyası/ }).check();
+    await panel.getByLabel('Neden bu?').fill('Çevrimdışı kararının doğrudan gereği.');
+
+    // Alternatifin gerekçesi boşken kayıt REDDEDILIR.
+    await panel.getByRole('button', { name: 'Karar olarak kaydet' }).click();
+    await expect(panel.getByRole('alert')).toContainText('neden seçilmediği');
+
+    await panel.getByLabel(/Bulut kayıt servisi.*neden olmadı/).fill('Çevrimdışı çalışmayı bozar.');
+    await panel.getByRole('button', { name: 'Karar olarak kaydet' }).click();
+
+    await expect(panel).toContainText('Teknik konular karara bağlandı');
   });
 
   test('tamamlanmis asamaya donulur ve geri almanin bedeli ONCEDEN gorunur', async ({ page }) => {

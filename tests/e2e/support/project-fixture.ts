@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { createProjectDocument } from '../../../src/v4/project-document.js';
 import { normalizeConcern, normalizeConcernDecision } from '../../../src/v4/application/concerns.js';
 import { approveIdeaDesign } from '../../../src/v4/application/idea-approval.js';
+import { normalizeTechnologyCandidate } from '../../../src/v4/application/solution-design.js';
 import type { ProjectDocumentV5 } from '../../../src/v4/contracts.js';
 
 /**
@@ -258,6 +259,43 @@ export function buildInvalidationChainFixture(): ProjectDocumentV5 {
     id: 'tl-1', fromType: 'decision', fromId: 'dec-kayit',
     toType: 'requirement', toId: 'req-kayit', relation: 'drives'
   }];
+
+  return project;
+}
+
+
+/**
+ * Aynı teknik konuya iki aday sunulmuş, fikir onaylı belge.
+ *
+ * ADR disiplininin arayüzde gerçekten uygulandığını doğrulamak için gerekiyor:
+ * tek adaylı bir belgede "değerlendirilen alternatifler" hiç sorulmaz ve test
+ * kuralın uygulandığını kanıtlayamaz.
+ */
+export function buildCandidateChoiceFixture(): ProjectDocumentV5 {
+  const project = buildStageFixture();
+
+  project.decisions = [{
+    stage: 'idea', id: 'dec-cevrimdisi', title: 'Çevrimdışı çalışma',
+    decision: 'Oyun tamamen çevrimdışı çalışacak.', rationale: 'Sahada internet yok.',
+    alternatives: [], consequences: [], status: 'accepted',
+    sourceSuggestionId: '', affectedSectionIds: []
+  }];
+  project.solutionDesign.concerns = [normalizeConcern({
+    id: 'tc-kayit', title: 'Kayıt modeli', importance: 'critical', status: 'open',
+    whyItMatters: 'Kayıt formatı sonradan zor değişir.'
+  })];
+  project.solutionDesign.candidates = [
+    normalizeTechnologyCandidate({
+      id: 'cand-json', concernId: 'tc-kayit', title: 'Yerel JSON dosyası',
+      rationale: 'Çevrimdışı çalışma kararının gereği.', tradeoffs: ['Şema göçü elle yapılır'],
+      reversibility: 'costly', evidence: { ideaDecisionIds: ['dec-cevrimdisi'], ideaConcernIds: [] }
+    }),
+    normalizeTechnologyCandidate({
+      id: 'cand-bulut', concernId: 'tc-kayit', title: 'Bulut kayıt servisi',
+      rationale: 'Cihazlar arası senkronizasyon sağlar.', tradeoffs: [],
+      reversibility: 'reversible', evidence: { ideaDecisionIds: [], ideaConcernIds: [] }
+    })
+  ];
 
   return project;
 }

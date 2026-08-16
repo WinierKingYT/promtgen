@@ -4,7 +4,7 @@ import { confirmConceptSummary } from '../planning-engine.js';
 import { getConceptAgreementGate, updateIdeaRecordStatus } from './idea-discussion-service.js';
 import { createRequirementDraftsFromConcept } from './requirement-quality-service.js';
 import { markCurrentIdeaRevisionConverted } from './idea-document-revision-service.js';
-import { stageConversionBlockers } from './conversion-v2.js';
+import { applyStageScopeToPlan, stageConversionBlockers } from './conversion-v2.js';
 
 export interface IdeaPlanConversionPreview {
   baseDocumentRevision: number;
@@ -76,6 +76,9 @@ function buildConversionCandidate(project: ProjectDocumentV5): ProjectDocumentV5
     }));
   }
   next = createRequirementDraftsFromConcept(next);
+  // Kullanıcının kapsam kararları (ertelenen, kapsam dışı) plana taşınır;
+  // yazılmazsa o emek görünmez olur ve aynı konu yeniden tartışılır.
+  next = applyStageScopeToPlan(next);
   return markCurrentIdeaRevisionConverted(next, project.canonicalRevision + 1);
 }
 
