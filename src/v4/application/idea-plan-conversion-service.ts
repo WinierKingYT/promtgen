@@ -4,6 +4,7 @@ import { confirmConceptSummary } from '../planning-engine.js';
 import { getConceptAgreementGate, updateIdeaRecordStatus } from './idea-discussion-service.js';
 import { createRequirementDraftsFromConcept } from './requirement-quality-service.js';
 import { markCurrentIdeaRevisionConverted } from './idea-document-revision-service.js';
+import { stageConversionBlockers } from './conversion-v2.js';
 
 export interface IdeaPlanConversionPreview {
   baseDocumentRevision: number;
@@ -26,6 +27,9 @@ export type IdeaPlanConversionResult =
 function conversionBlockers(project: ProjectDocumentV5): string[] {
   const gate = getConceptAgreementGate(project);
   return [
+    // Conversion V2: `Idea -> Plan` doğrudan geçişi kaldırıldı. Aşama modeline
+    // girmemiş eski belgelerde bu liste boş döner; göç cezaya çevrilmez.
+    ...stageConversionBlockers(project),
     ...gate.missingInterpretationFields.map(field => `${field} alanı tamamlanmalı.`),
     ...gate.missingScopeLists.map(field => `${field} listesi en az bir madde içermeli.`),
     ...gate.unresolvedSummaryQuestions.map(question => `Açık soru kapatılmalı: ${question}`),
