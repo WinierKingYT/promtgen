@@ -613,3 +613,4 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-stage-panel button:hover { background:var(--pg-surface-soft); }
 .pg-stage-primary { border-color:var(--pg-accent);background:var(--pg-accent-soft);color:var(--pg-accent);font-weight:700; }
 .pg-stage-secondary { color:var(--pg-text); }
+.pg-stage-subhead { margin:0;font-size:13px;line-height:1.4;color:var(--pg-text); }

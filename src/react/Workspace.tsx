@@ -50,6 +50,8 @@ import { legacyPlanUnlocked } from '../v4/application/project-stages.js';
 import { nextCoachTurn } from '../v4/application/adaptive-idea-coach.js';
 import { StageRail } from './components/StageRail.js';
 import { IdeaStagePanel } from './components/IdeaStagePanel.js';
+import { SolutionStagePanel } from './components/SolutionStagePanel.js';
+import { runSolutionDiscovery } from '../v4/application/solution-discovery-run.js';
 import { stageWorkAvailable } from '../v4/application/conversion-v2.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
@@ -94,6 +96,7 @@ interface WorkspaceProps {
 export function Workspace({ project, projects, onProject, onNew, onPersist, providerSettings, onProviderSettings, credentialVault }: WorkspaceProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [view, setView] = useState<IdeaStudioView>('develop');
+  const [solutionRunning, setSolutionRunning] = useState(false);
   const [activeSection, setActiveSection] = useState('vision');
   const [sectionDraft, setSectionDraft] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
@@ -141,6 +144,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   // Aşama paneli bir konuyu soruyorsa soru ONUNDUR: sabit koç sorusu ve
   // "şu an yanıtladığın soru" etiketi gizlenir. Aksi hâlde ekranda iki farklı
   // soru durur ve kullanıcı hangisini cevapladığını bilemez.
+  const ideaApproved = project.ideaDesign.approval.status === 'approved';
   const stageOwnsQuestion = stagePanelVisible
     && project.ideaDesign.approval.status !== 'approved'
     && nextCoachTurn(project).kind === 'concern';
@@ -184,6 +188,21 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     if (message) notify(message);
     return true;
   };
+  const discoverSolution = async () => {
+    setSolutionRunning(true);
+    try {
+      const credential = await credentialVault.get(providerSettings.providerId) || '';
+      const result = await runSolutionDiscovery(project, { settings: providerSettings, credential });
+      // Sağlayıcı yoksa teknik keşif için yerel yedek motor YOK; hata
+      // gizlenmez, sahte bir teknik tasarım üretmek onaylanacak bir şey
+      // olduğu izlenimi verirdi.
+      if (result.error) notify(result.error);
+      else await persistCandidate(result.project, result.notice, 'RunSolutionDiscovery');
+    } finally {
+      setSolutionRunning(false);
+    }
+  };
+
   const commit = (next: Project, message?: string, commandType = 'UpdateProject') => {
     void persistCandidate(next, message, commandType);
   };
@@ -394,7 +413,17 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><small>Çıkarımlar önce taslak olarak gösterilir; sen onaylamadan kesinleşmez.</small></div>
           </form>
         </section>
-        {stagePanelVisible && (
+        {stagePanelVisible && ideaApproved && (
+          <SolutionStagePanel
+            project={project}
+            running={solutionRunning}
+            onCommand={(result, commandType) => {
+              void persistCandidate(result.project, result.notice || undefined, commandType);
+            }}
+            onDiscover={() => void discoverSolution()}
+          />
+        )}
+        {stagePanelVisible && !ideaApproved && (
           <IdeaStagePanel
             project={project}
             // Bildirimi yalnız `persistCandidate` gönderir: o, kayıt GERÇEKTEN

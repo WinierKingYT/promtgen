@@ -102,6 +102,51 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('.toast')).toContainText('kapsam dışı sayılmadı');
   });
 
+  test('uctan uca: konuyu cevapla, fikri onayla, teknigi onayla, plan acilsin', async ({ page }) => {
+    // Arayüz tarafındaki Golden Path. Motorun her parçası birim testinde
+    // yeşilken kullanıcı yine hiçbir yere varamayabilirdi.
+    await seedProject(page, buildOpenConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const ideaPanel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await ideaPanel.getByRole('radio', { name: /Kalıcı karakter/ }).check();
+    await ideaPanel.getByRole('button', { name: 'Karara bağla' }).click();
+    await expect(ideaPanel).toContainText('Fikir tasarımı yeterince net');
+
+    await ideaPanel.getByRole('button', { name: 'Fikir tasarımını onayla' }).click();
+
+    // Fikir onaylanınca ekran teknik aşamaya geçer; iki panel aynı anda durmaz.
+    const solutionPanel = page.getByRole('complementary', { name: 'Teknik tasarım' });
+    await expect(solutionPanel).toContainText('Bunu nasıl kuracağız?');
+    await expect(page.getByRole('complementary', { name: 'Fikir tasarımı' })).toHaveCount(0);
+
+    // Teknik konu çıkarılmadıysa "teknik karar gerekmiyor" demek meşru bir
+    // sonuçtur; kapı bunu engellemez.
+    await solutionPanel.getByRole('button', { name: 'Teknik tasarımı onayla' }).click();
+    await expect(solutionPanel).toContainText('Plan üretilebilir');
+
+    // Ray artık plan aşamasını gösteriyor ve hiçbir aşama kilitli değil.
+    const rail = page.getByRole('navigation', { name: 'Proje aşamaları' });
+    await expect(rail.locator('.pg-stage.is-locked')).toHaveCount(0);
+    await expect(rail.locator('.pg-stage').nth(2)).toHaveClass(/is-current/);
+  });
+
+  test('saglayici yokken teknik kesif SAHTE sonuc uretmez', async ({ page }) => {
+    // Teknik taraf için yerel yedek motor yok; uydurmak yerine hata söylenir.
+    await seedProject(page, buildStageFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const solutionPanel = page.getByRole('complementary', { name: 'Teknik tasarım' });
+    await solutionPanel.getByRole('button', { name: 'Teknik keşif çalıştır' }).click();
+
+    // Ham `Failed to fetch` kullanıcıya hiçbir şey söylemez; ne olduğu ve ne
+    // yapacağı yazılır, orijinal neden parantezde durur.
+    await expect(page.locator('.toast')).toContainText('AI sağlayıcısına ulaşılamadı');
+    await expect(solutionPanel).toContainText('Henüz teknik konu çıkarılmadı');
+  });
+
   test('golden path: fikir onaylanmis projede rayi ilerlemis gosterir', async ({ page }) => {
     // Tarayıcı tarafındaki Golden Path: canonical belge gerçekten kapıdan
     // geçmiş bir projeyi taşıyorsa, ekran bunu yansıtmalı. Fikstür onayı elle

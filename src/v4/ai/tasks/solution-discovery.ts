@@ -26,7 +26,10 @@ export const solutionDiscoveryTask = {
   outputFields: ['reply', 'technicalConcerns', 'candidates', 'openQuestions', 'uncertainty'] as const,
   timeoutMs: 30_000,
   maxRepairAttempts: 2,
-  fallbackPolicy: 'local-rule-engine' as const,
+  // Teknik keşif için yerel kural motoru YOK. Diğer görevlerdeki değeri
+  // kopyalamak, var olmayan bir güvenlik ağı olduğunu iddia etmek olurdu;
+  // sağlayıcı yoksa tur dürüstçe hata verir.
+  fallbackPolicy: 'none' as const,
   buildPrompt(project: ProjectDocumentV5): string {
     const idea = project.identity.originalIdea.trim();
     const environment = project.ideaDesign?.framing?.environment || 'belirtilmemiş';
