@@ -13,6 +13,7 @@ import {
   buildIdeaDiscussionContext,
   captureDiscussionBundle
 } from './idea-discussion-service.js';
+import { concernsFromBundle } from './concern-intake.js';
 
 export interface DiscoverySuggestionBundle extends SuggestionBundle {
   replyMessage?: string;
@@ -153,6 +154,9 @@ export async function runConversationalDiscoveryTurnService(
   let next = addExplorationMessage(withUserMessage, 'assistant', replyText);
   next.proposalStore.bundles.push(result.bundle);
   next = captureDiscussionBundle(next, result.bundle, next.messages.at(-1)?.id || '');
+  // Aynı turun çıktısı hem öneri paketine hem `Concern` modeline yazılır.
+  // Bu bağ olmadan aşama modeli hiç beslenmez ve ölü kod olurdu.
+  next = concernsFromBundle(next, result.bundle);
   if (focusedQuestion) {
     next.openQuestions = next.openQuestions.filter(question => question !== focusedQuestion);
   }
