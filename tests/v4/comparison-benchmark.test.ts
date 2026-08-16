@@ -11,7 +11,7 @@ import { COMPARISON_EVIDENCE } from '../../src/v4/product/generated-comparison-e
 
 function submission(blindId: string, quality: 'weak' | 'strong'): BlindComparisonSubmission {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     blindId,
     scenarioId: 'notes',
     inScope: ['Not oluşturma'],
@@ -27,14 +27,16 @@ function submission(blindId: string, quality: 'weak' | 'strong'): BlindCompariso
     }],
     tests: quality === 'strong' ? [{ id: 'test-1', requirementIds: ['req-1'] }] : [],
     decisionStatements: ['Local-first depolama kullanılacak.'],
+    setupDurationSeconds: quality === 'strong' ? 900 : 0,
     planningDurationSeconds: quality === 'strong' ? 300 : 180,
+    endToEndDurationSeconds: quality === 'strong' ? 1200 : 180,
     manualEditCount: quality === 'strong' ? 1 : 5,
     agentFirstPassCompleted: quality === 'strong'
   };
 }
 
 const userSession: AnonymousUserSession = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   anonymousSessionId: 'anon-001',
   capabilityId: 'canonical-planning',
   consent: true,
@@ -42,8 +44,11 @@ const userSession: AnonymousUserSession = {
   firstExportReached: true,
   mvpAcceptedWithMinorEdits: true,
   manualEditCount: 1,
-  durationSeconds: 600,
-  satisfaction: 5
+  setupDurationSeconds: 900,
+  planningDurationSeconds: 600,
+  endToEndDurationSeconds: 1500,
+  satisfaction: 5,
+  wouldUsePlan: true
 };
 
 describe('Blind comparison benchmark and anonymous user evidence', () => {

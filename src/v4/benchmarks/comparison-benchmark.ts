@@ -1,5 +1,35 @@
 export type ComparisonMethod = 'baseline-chat' | 'master-prompt' | 'promtgen';
 
+/**
+ * Kör değerlendirmenin sabitlenmiş ölçütleri. Çalışma başlamadan dondurulur;
+ * sonuç kötü çıkınca ölçüt değiştirme ihtimalini ortadan kaldırmak için
+ * study.json'daki dondurma özetine dahil edilir.
+ */
+export const EVALUATION_CRITERIA = [
+  'scopeClarity',
+  'requirementQuality',
+  'applicability',
+  'taskTestLinkage',
+  'acceptanceCriteria',
+  'agentReadiness'
+] as const;
+
+export type EvaluationCriterion = (typeof EVALUATION_CRITERIA)[number];
+
+export type CriterionScore = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Süre üç parçaya ayrılır çünkü kollar eşit başlamıyor: baseline-chat'in
+ * kurulumu yok, PromtGen depo çalıştırma ve sağlayıcı bağlama istiyor. Tek
+ * sayıya indirgemek bu farkı gizler; ayrı tutmak ikisini de raporlanabilir
+ * kılar. `null` "kaydedilmedi", `0` "kurulum gerekmedi" demektir.
+ */
+export interface DurationBreakdown {
+  setupDurationSeconds: number | null;
+  planningDurationSeconds: number | null;
+  endToEndDurationSeconds: number | null;
+}
+
 export interface ComparisonRequirement {
   id: string;
   title: string;
@@ -21,8 +51,8 @@ export interface ComparisonTest {
   requirementIds: string[];
 }
 
-export interface BlindComparisonSubmission {
-  schemaVersion: 1;
+export interface BlindComparisonSubmission extends DurationBreakdown {
+  schemaVersion: 2;
   blindId: string;
   scenarioId: string;
   inScope: string[];
@@ -31,7 +61,6 @@ export interface BlindComparisonSubmission {
   tasks: ComparisonTask[];
   tests: ComparisonTest[];
   decisionStatements: string[];
-  planningDurationSeconds: number | null;
   manualEditCount: number | null;
   agentFirstPassCompleted: boolean | null;
 }
@@ -44,12 +73,12 @@ export interface BlindMethodMapping {
 export interface HumanEvaluation {
   blindId: string;
   evaluatorId: string;
-  understandability: 1 | 2 | 3 | 4 | 5;
-  applicability: 1 | 2 | 3 | 4 | 5;
+  /** EVALUATION_CRITERIA'daki altı ölçütün tamamı, 1-5. Eksik ölçüt reddedilir. */
+  scores: Record<EvaluationCriterion, CriterionScore>;
 }
 
 export interface AnonymousUserSession {
-  schemaVersion: 1;
+  schemaVersion: 2;
   anonymousSessionId: string;
   capabilityId: string;
   consent: true;
@@ -57,8 +86,12 @@ export interface AnonymousUserSession {
   firstExportReached: boolean;
   mvpAcceptedWithMinorEdits: boolean;
   manualEditCount: number;
-  durationSeconds: number;
+  setupDurationSeconds: number;
+  planningDurationSeconds: number;
+  endToEndDurationSeconds: number;
   satisfaction: 1 | 2 | 3 | 4 | 5;
+  /** "Bu planı gerçekten kullanır mıydın?" — kullanım niyeti. */
+  wouldUsePlan: boolean;
 }
 
 export interface BlindEvaluationResult {
@@ -72,10 +105,12 @@ export interface BlindEvaluationResult {
     acceptanceCriteriaCoverage: number;
     consistency: number;
     manualEditCount: number | null;
+    setupDurationSeconds: number | null;
     planningDurationSeconds: number | null;
+    endToEndDurationSeconds: number | null;
     agentFirstPassCompleted: boolean | null;
-    humanUnderstandability: number | null;
-    humanApplicability: number | null;
+    /** Ölçüt başına değerlendirici ortalaması; değerlendirme yoksa null. */
+    humanScores: Record<EvaluationCriterion, number | null>;
   };
   findings: string[];
 }
@@ -88,7 +123,7 @@ export interface ComparisonStudyPolicy {
 }
 
 export interface ComparisonReport {
-  schemaVersion: 1;
+  schemaVersion: 2;
   studyId: string;
   generatedAt: string;
   blindedEvaluation: BlindEvaluationResult[];
@@ -98,6 +133,9 @@ export interface ComparisonReport {
     averageScopeContainment: number;
     averageAcceptanceCoverage: number;
     averageRequirementTaskCoverage: number;
+    averageSetupSeconds: number | null;
+    averagePlanningSeconds: number | null;
+    averageEndToEndSeconds: number | null;
   }>>;
   userEvidence: {
     validParticipants: number;
@@ -105,6 +143,11 @@ export interface ComparisonReport {
     firstExportRate: number;
     minorEditMvpAcceptanceRate: number;
     averageSatisfaction: number;
+    /** Kurulum ve planlama ayrı sunulur; tek sayı farkı gizlerdi. */
+    averageSetupSeconds: number;
+    averagePlanningSeconds: number;
+    averageEndToEndSeconds: number;
+    wouldUsePlanRate: number;
   };
   publicationGate: {
     eligible: boolean;
@@ -124,16 +167,27 @@ const ratio = (passed: number, total: number) => total ? passed / total : 0;
 const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 const rounded = (value: number) => Math.round(value * 1000) / 1000;
 
-function humanAverage(evaluations: HumanEvaluation[], blindId: string, key: 'understandability' | 'applicability'): number | null {
-  const values = evaluations.filter(item => item.blindId === blindId).map(item => item[key]);
-  return values.length ? rounded(average(values)) : null;
+/** Kaydedilmemiş (null) süreleri ortalamaya katmaz; hiç kayıt yoksa null. */
+const averageOrNull = (values: Array<number | null>) => {
+  const present = values.filter((value): value is number => typeof value === 'number');
+  return present.length ? rounded(average(present)) : null;
+};
+
+function humanScoresFor(evaluations: HumanEvaluation[], blindId: string): Record<EvaluationCriterion, number | null> {
+  const forBlind = evaluations.filter(item => item.blindId === blindId);
+  const result = {} as Record<EvaluationCriterion, number | null>;
+  for (const criterion of EVALUATION_CRITERIA) {
+    const values = forBlind.map(item => item.scores?.[criterion]).filter((value): value is CriterionScore => Number.isInteger(value));
+    result[criterion] = values.length ? rounded(average(values)) : null;
+  }
+  return result;
 }
 
 export function evaluateBlindSubmission(
   submission: BlindComparisonSubmission,
   humanEvaluations: HumanEvaluation[] = []
 ): BlindEvaluationResult {
-  if (submission.schemaVersion !== 1 || !submission.blindId || !submission.scenarioId) {
+  if (submission.schemaVersion !== 2 || !submission.blindId || !submission.scenarioId) {
     throw new Error('Karşılaştırma submission sözleşmesi geçersiz.');
   }
   if ('method' in submission) throw new Error('Kör submission yöntem bilgisini içeremez.');
@@ -184,10 +238,11 @@ export function evaluateBlindSubmission(
       acceptanceCriteriaCoverage: rounded(acceptanceCriteriaCoverage),
       consistency,
       manualEditCount: submission.manualEditCount,
+      setupDurationSeconds: submission.setupDurationSeconds,
       planningDurationSeconds: submission.planningDurationSeconds,
+      endToEndDurationSeconds: submission.endToEndDurationSeconds,
       agentFirstPassCompleted: submission.agentFirstPassCompleted,
-      humanUnderstandability: humanAverage(humanEvaluations, submission.blindId, 'understandability'),
-      humanApplicability: humanAverage(humanEvaluations, submission.blindId, 'applicability')
+      humanScores: humanScoresFor(humanEvaluations, submission.blindId)
     },
     findings: [
       ...(scopeLeaks.length ? [`Kapsam dışı görevler: ${scopeLeaks.join(', ')}`] : []),
@@ -203,18 +258,29 @@ export function evaluateBlindSubmission(
 export function validateAnonymousUserSessions(sessions: AnonymousUserSession[]): AnonymousUserSession[] {
   const allowed = new Set([
     'schemaVersion', 'anonymousSessionId', 'capabilityId', 'consent', 'completed',
-    'firstExportReached', 'mvpAcceptedWithMinorEdits', 'manualEditCount', 'durationSeconds', 'satisfaction'
+    'firstExportReached', 'mvpAcceptedWithMinorEdits', 'manualEditCount',
+    'setupDurationSeconds', 'planningDurationSeconds', 'endToEndDurationSeconds',
+    'satisfaction', 'wouldUsePlan'
   ]);
   const ids = new Set<string>();
   return sessions.map(session => {
     if (Object.keys(session).some(key => !allowed.has(key))) throw new Error('Kullanıcı evidence kaydı izin verilmeyen alan içeriyor.');
-    if (session.schemaVersion !== 1 || session.consent !== true || !session.anonymousSessionId || ids.has(session.anonymousSessionId)) {
+    if (session.schemaVersion !== 2 || session.consent !== true || !session.anonymousSessionId || ids.has(session.anonymousSessionId)) {
       throw new Error('Anonim kullanıcı evidence kaydı geçersiz veya yineleniyor.');
     }
+    const durations = [session.setupDurationSeconds, session.planningDurationSeconds, session.endToEndDurationSeconds];
     if (!Number.isInteger(session.manualEditCount) || session.manualEditCount < 0 ||
-        !Number.isFinite(session.durationSeconds) || session.durationSeconds < 0 ||
+        durations.some(value => !Number.isFinite(value) || value < 0) ||
+        typeof session.wouldUsePlan !== 'boolean' ||
         !Number.isInteger(session.satisfaction) || session.satisfaction < 1 || session.satisfaction > 5) {
       throw new Error('Anonim kullanıcı evidence metrikleri geçersiz.');
+    }
+    // Uçtan uca süre parçalarından kısa olamaz. Transkripsiyon hatasını
+    // yakalar; parçaların toplamına eşit olması ŞART DEĞİL — aralarda mola
+    // olabilir.
+    if (session.endToEndDurationSeconds < session.setupDurationSeconds ||
+        session.endToEndDurationSeconds < session.planningDurationSeconds) {
+      throw new Error('Uçtan uca süre, kurulum veya planlama süresinden kısa olamaz.');
     }
     ids.add(session.anonymousSessionId);
     return session;
@@ -244,7 +310,10 @@ export function buildComparisonReport(input: {
       averageScore: rounded(average(results.map(item => item.score))),
       averageScopeContainment: rounded(average(results.map(item => item.metrics.scopeContainment))),
       averageAcceptanceCoverage: rounded(average(results.map(item => item.metrics.acceptanceCriteriaCoverage))),
-      averageRequirementTaskCoverage: rounded(average(results.map(item => item.metrics.requirementTaskCoverage)))
+      averageRequirementTaskCoverage: rounded(average(results.map(item => item.metrics.requirementTaskCoverage))),
+      averageSetupSeconds: averageOrNull(results.map(item => item.metrics.setupDurationSeconds)),
+      averagePlanningSeconds: averageOrNull(results.map(item => item.metrics.planningDurationSeconds)),
+      averageEndToEndSeconds: averageOrNull(results.map(item => item.metrics.endToEndDurationSeconds))
     };
   }
   const sessions = validateAnonymousUserSessions(input.userSessions || []);
@@ -265,7 +334,7 @@ export function buildComparisonReport(input: {
       : ['PromtGen kabul kriteri kapsamı baseline üstünlük eşiğini karşılamıyor.'])
   ];
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     studyId: input.studyId,
     generatedAt: input.generatedAt || new Date().toISOString(),
     blindedEvaluation: evaluated,
@@ -275,7 +344,11 @@ export function buildComparisonReport(input: {
       completionRate: rounded(ratio(sessions.filter(item => item.completed).length, sessions.length)),
       firstExportRate: rounded(ratio(sessions.filter(item => item.firstExportReached).length, sessions.length)),
       minorEditMvpAcceptanceRate: rounded(ratio(sessions.filter(item => item.mvpAcceptedWithMinorEdits).length, sessions.length)),
-      averageSatisfaction: rounded(average(sessions.map(item => item.satisfaction)))
+      averageSatisfaction: rounded(average(sessions.map(item => item.satisfaction))),
+      averageSetupSeconds: rounded(average(sessions.map(item => item.setupDurationSeconds))),
+      averagePlanningSeconds: rounded(average(sessions.map(item => item.planningDurationSeconds))),
+      averageEndToEndSeconds: rounded(average(sessions.map(item => item.endToEndDurationSeconds))),
+      wouldUsePlanRate: rounded(ratio(sessions.filter(item => item.wouldUsePlan).length, sessions.length))
     },
     publicationGate: { eligible: blockers.length === 0, blockers }
   };

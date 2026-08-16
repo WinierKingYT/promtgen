@@ -47,14 +47,26 @@ describe('Idea guide and local evidence projection', () => {
   it('creates an explicitly consented PII-free anonymous session', () => {
     const project = createProjectDocument({ idea: 'Yerel planlama uygulaması' });
     project.lifecycle.createdAt = '2026-07-29T10:00:00.000Z';
-    const session = buildAnonymousStudySession(project, 5, new Date('2026-07-29T10:10:00.000Z'));
+    const session = buildAnonymousStudySession(
+      project,
+      { satisfaction: 5, wouldUsePlan: true, setupDurationSeconds: 900 },
+      new Date('2026-07-29T10:10:00.000Z')
+    );
 
     assert.equal(session.consent, true);
-    assert.equal(session.durationSeconds, 600);
+    // Planlama = projenin ömrü (uygulamanın ölçebildiği tek süre).
+    assert.equal(session.planningDurationSeconds, 600);
+    // Kurulum uygulamanın ölçemeyeceği parça; dışarıdan gelir.
+    assert.equal(session.setupDurationSeconds, 900);
+    // Uçtan uca = kurulum + planlama; arada mola olmadığı varsayılır.
+    assert.equal(session.endToEndDurationSeconds, 1500);
     assert.equal(session.satisfaction, 5);
+    assert.equal(session.wouldUsePlan, true);
     assert.deepEqual(Object.keys(session).sort(), [
-      'anonymousSessionId', 'capabilityId', 'completed', 'consent', 'durationSeconds',
-      'firstExportReached', 'manualEditCount', 'mvpAcceptedWithMinorEdits', 'satisfaction', 'schemaVersion'
+      'anonymousSessionId', 'capabilityId', 'completed', 'consent',
+      'setupDurationSeconds', 'planningDurationSeconds', 'endToEndDurationSeconds',
+      'firstExportReached', 'manualEditCount', 'mvpAcceptedWithMinorEdits',
+      'satisfaction', 'schemaVersion', 'wouldUsePlan'
     ].sort());
   });
 });

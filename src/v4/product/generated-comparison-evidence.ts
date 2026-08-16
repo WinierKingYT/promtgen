@@ -8,7 +8,7 @@ export const COMPARISON_EVIDENCE: {
 } = Object.freeze({
   "studyId": "promtgen-comparison-v1",
   "reportPath": "benchmarks/comparison/latest-report.json",
-  "generatedAt": "2026-07-28T20:04:36.932Z",
+  "generatedAt": "2026-08-16T14:33:27.844Z",
   "publicationEligible": false,
   "userParticipantsByCapability": {}
 });

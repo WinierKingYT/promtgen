@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
 import {
@@ -10,11 +11,25 @@ import {
   type HumanEvaluation
 } from '../src/v4/benchmarks/comparison-benchmark.js';
 
+interface StudyScenario {
+  id: string;
+  domain: string;
+  idea: string;
+}
+
 interface StudyDefinition {
-  schemaVersion: 1;
+  schemaVersion: 2;
   studyId: string;
   policy: ComparisonStudyPolicy;
+  scenarios: StudyScenario[];
+  evaluationCriteria: string[];
+  masterPromptSha256: string;
+  frozenAt: string;
+  frozenDigest: string;
+  [key: string]: unknown;
 }
+
+const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 
 const root = path.resolve('benchmarks', 'comparison');
 const checkOnly = process.argv.includes('--check');
@@ -22,6 +37,36 @@ const publishGate = process.argv.includes('--publish-gate');
 const readJson = async <T>(name: string): Promise<T> =>
   JSON.parse(await readFile(path.join(root, name), 'utf8')) as T;
 const study = await readJson<StudyDefinition>('study.json');
+
+/**
+ * Çalışma dondurulmuştur: senaryolar, ölçütler, eşikler ve master prompt veri
+ * toplanmaya başladıktan sonra değiştirilemez. Sonuç kötü çıkınca ölçüt
+ * değiştirme ihtimalini ortadan kaldırmak bu kontrolün tek amacı.
+ *
+ * `frozenDigest`, kendisi hariç tüm study.json'ın özetidir. Dolayısıyla
+ * senaryo metnini, bir eşiği ya da ölçüt listesini değiştirmek özeti bozar ve
+ * bu betik düşer. Meşru bir değişiklik gerekiyorsa yeni bir studyId açılır;
+ * yürüyen çalışmanın tanımı düzenlenmez.
+ */
+function assertStudyFrozen(definition: StudyDefinition, masterPrompt: string): void {
+  const { frozenDigest, ...withoutDigest } = definition;
+  const expected = sha256(JSON.stringify(withoutDigest));
+  if (frozenDigest !== expected) {
+    throw new Error(
+      'Çalışma tanımı dondurulduktan sonra değişmiş: study.json özeti uyuşmuyor. ' +
+      'Yürüyen çalışmanın tanımı düzenlenmez; değişiklik gerekiyorsa yeni bir studyId açın.'
+    );
+  }
+  const promptDigest = sha256(masterPrompt.replace(/\r\n/g, '\n'));
+  if (definition.masterPromptSha256 !== promptDigest) {
+    throw new Error(
+      'master-prompt.md dondurulduktan sonra değişmiş. Master prompt çalışma boyunca sabittir.'
+    );
+  }
+}
+
+const masterPrompt = await readFile(path.join(root, 'master-prompt.md'), 'utf8');
+assertStudyFrozen(study, masterPrompt);
 const submissions = await readJson<BlindComparisonSubmission[]>('submissions.json');
 const mapping = await readJson<BlindMethodMapping[]>('blind-map.json');
 const humanEvaluations = await readJson<HumanEvaluation[]>('human-evaluations.json');

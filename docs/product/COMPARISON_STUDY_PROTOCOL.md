@@ -1,7 +1,7 @@
 # Karşılaştırmalı Çalışma Protokolü
 
 **Çalışma:** `promtgen-comparison-v1`
-**Durum:** Yürütülmeyi bekliyor · veri seti boş
+**Durum:** DONDURULDU · yürütülmeyi bekliyor · veri seti boş
 **Veri klasörü:** `benchmarks/comparison/`
 
 Bu belge, `benchmarks/comparison/README.md`'deki yedi adımın nasıl yürütüleceğini
@@ -89,9 +89,20 @@ alanları reddeder.
 
 ### Kör değerlendirme — `human-evaluations.json`
 
-`HumanEvaluation`: `understandability` ve `applicability`, 1–5. Değerlendirici
-katılımcıdan **farklı** bir kişidir ve hangi çıktının hangi yöntemden geldiğini
-bilmez. Her `blindId` en az iki değerlendirici görür.
+`HumanEvaluation.scores` altı ölçütün **tamamını** 1–5 arası taşır. Ölçütler
+`study.json`'da dondurulmuştur; eksik ölçütlü kayıt reddedilir.
+
+| Ölçüt | Değerlendirici neye bakar |
+| --- | --- |
+| `scopeClarity` | Kapsam içi/dışı ayrımı net mi, "olmayan" listesi gerçekten sınır çiziyor mu |
+| `requirementQuality` | Gereksinimler tek ve gözlemlenebilir mi, yoksa dilek listesi mi |
+| `applicability` | Bu planla yarın işe başlanabilir mi |
+| `taskTestLinkage` | Her gereksinim bir göreve, her `must` bir doğrulamaya bağlı mı |
+| `acceptanceCriteria` | Kriterler gözlemlenebilir mi ("X yapınca Y görünür"), yoksa "iyi çalışır" mı |
+| `agentReadiness` | Bir kodlama ajanı **ek soru sormadan** başlayabilir mi |
+
+Değerlendirici katılımcıdan **farklı** bir kişidir ve hangi çıktının hangi
+yöntemden geldiğini bilmez. Her `blindId` en az iki değerlendirici görür.
 
 ### Oturum başına — `user-sessions.json`
 
@@ -99,7 +110,9 @@ bilmez. Her `blindId` en az iki değerlendirici görür.
 kullanılmıyor.
 
 `completed`, `firstExportReached`, `mvpAcceptedWithMinorEdits`,
-`manualEditCount`, `durationSeconds`, `satisfaction` (1–5), `consent: true`.
+`manualEditCount`, `setupDurationSeconds`, `planningDurationSeconds`,
+`endToEndDurationSeconds`, `satisfaction` (1–5), `wouldUsePlan`,
+`consent: true`.
 
 ## Kurulum sürtünmesi ayrı ölçülür
 
@@ -121,23 +134,35 @@ Doğru olan kapıyı kaldırmak değil, kurulumu planlamadan ayrı tutmak:
 - **`planningDurationSeconds` ve `durationSeconds` yalnız planlamayı kapsar** —
   sayaç, katılımcıya fikir cümlesi verildiği anda başlar. Kurulum bu sayıya
   dahil edilmez.
-- **Kurulum süresi ayrıca, saniye cinsinden, kolaylaştırıcı notuna yazılır** ve
-  raporda planlama süresinin yanında sunulur.
+- **Kurulum süresi yapılandırılmış veriye yazılır.** Şema üç alan taşır ve
+  üçü de zorunludur:
 
-Kurulum süresi veri setine **yazılmaz**: `validateAnonymousUserSessions`
-(`comparison-benchmark.ts:204`) kapalı bir alan listesi kullanıyor ve fazladan
-anahtar gören kaydı reddediyor. Şemayı genişletmek bu çalışmanın işi değil.
+```
+setupDurationSeconds      kurulum (kol B ve A için 0)
+planningDurationSeconds   fikir verildiği andan ilk kullanılabilir plana
+endToEndDurationSeconds   ilk temastan bitmiş plana, toplam duvar saati
+```
+
+Doğrulama `endToEndDurationSeconds`'ın diğer ikisinden kısa olamayacağını
+zorlar; parçaların toplamına **eşit olması şart değil** çünkü aralarda mola
+olabilir.
 
 Karşılaştırma sunulurken iki sayı birlikte verilir. "PromtGen daha iyi plan
 üretiyor ama başlamak 20 dakika alıyor" geçerli ve yayınlanabilir bir
 sonuçtur; tek sayıya indirgemek onu gizlerdi.
 
-## Şemanın ölçemediği şey
+## Kullanım niyeti
 
-İnceleme raporu **"kullanıcı PromtGen'e tekrar gelir mi?"** metriğini istiyor.
-Mevcut şemada bunun alanı yok ve tek seanslık bir çalışma zaten ölçemez. Bu
-bilinçli bir sınırdır: ilk turda ölçülmez, ayrıca takip edilir. Şemaya alan
-eklemek bu çalışmanın işi değil.
+`wouldUsePlan` alanı **"Bu planı gerçekten kullanır mıydın?"** sorusunun
+cevabıdır ve her PromtGen oturumunda kaydedilir. Rapor bunu
+`wouldUsePlanRate` olarak sunar.
+
+Bu, memnuniyetten farklı bir şey ölçer: kullanıcı bir plandan memnun olup yine
+de kullanmayabilir. İkisi birlikte okunmalıdır.
+
+**Ölçülmeyen tek şey tekrar kullanım.** "Kullanıcı PromtGen'e ikinci kez gelir
+mi?" sorusu tek seanslık bir çalışmayla ölçülemez; ayrı ve sonraki bir takip
+gerektirir. Bu bilinçli bir sınırdır.
 
 ## Bir oturumu geçersiz kılan şeyler
 
@@ -159,6 +184,24 @@ dışında bir anahtar görürse *"Kullanıcı evidence kaydı izin verilmeyen a
 içeriyor"* diye atar. Davranış testli
 (`tests/v4/comparison-benchmark.test.ts` — "rejects PII-shaped extra fields",
 `email` alanı eklenmiş bir kayıtla doğrulanıyor).
+
+## Çalışma dondurulmuştur
+
+Senaryolar, üç kol, ölçütler, eşikler ve master prompt **veri toplanmadan önce**
+sabitlendi. Amaç tek: sonuç kötü çıkınca ölçüt değiştirme ihtimalini ortadan
+kaldırmak.
+
+Bu bir söz değil, kontrol: `study.json` kendi özetini (`frozenDigest`) taşır ve
+`master-prompt.md`'nin SHA-256'sını (`masterPromptSha256`) kaydeder.
+`npm run check:comparison` ikisini de doğrular. Bir eşiği düşürmek, bir senaryo
+cümlesini değiştirmek ya da master prompt'a bir satır eklemek betiği düşürür.
+
+Doğrulandı: `minimumPromtgenScopeImprovement` 0.3'ten 0.05'e indirilince
+kontrol `exit 1` verdi; master prompt'a tek yorum satırı eklenince de öyle.
+
+**Meşru bir değişiklik gerekiyorsa yürüyen çalışmanın tanımı düzenlenmez; yeni
+bir `studyId` açılır.** Böylece hangi verinin hangi tanım altında toplandığı
+belirsizleşmez.
 
 ## Yürütme
 

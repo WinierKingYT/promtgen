@@ -7,7 +7,7 @@ import {
 import type { AnonymousUserSession } from '../../src/v4/benchmarks/comparison-benchmark.js';
 
 const session = (id: string, overrides: Partial<AnonymousUserSession> = {}): AnonymousUserSession => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   anonymousSessionId: id,
   capabilityId: 'canonical-planning',
   consent: true,
@@ -15,7 +15,10 @@ const session = (id: string, overrides: Partial<AnonymousUserSession> = {}): Ano
   firstExportReached: true,
   mvpAcceptedWithMinorEdits: true,
   manualEditCount: 2,
-  durationSeconds: 600,
+  setupDurationSeconds: 900,
+  planningDurationSeconds: 600,
+  endToEndDurationSeconds: 1500,
+  wouldUsePlan: true,
   satisfaction: 4,
   ...overrides
 });

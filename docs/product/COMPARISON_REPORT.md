@@ -3,7 +3,7 @@
 Bu rapor kör değerlendirme tamamlandıktan sonra standart AI sohbeti, master prompt ve PromtGen yöntemlerini karşılaştırır.
 
 - Çalışma: `promtgen-comparison-v1`
-- Son çalışma: 2026-07-28T20:04:36.932Z
+- Son çalışma: 2026-08-16T14:33:27.844Z
 - Yayın kapısı: **Bloklu**
 - Anonim kullanıcı katılımcısı: 0
 - Gerçek karşılaştırma submission sayısı: 0

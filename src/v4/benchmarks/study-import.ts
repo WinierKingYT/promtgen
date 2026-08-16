@@ -4,13 +4,18 @@ import {
 } from './comparison-benchmark.js';
 
 export interface UserStudySummary {
-  schemaVersion: 1;
+  schemaVersion: 2;
   validParticipants: number;
   completionRate: number;
   firstExportRate: number;
   minorEditMvpAcceptanceRate: number;
   averageSatisfaction: number;
-  averageDurationSeconds: number;
+  /** Kurulum ve planlama ayrı raporlanır; tek sayı kolların eşitsiz
+   *  başlangıcını gizlerdi. */
+  averageSetupSeconds: number;
+  averagePlanningSeconds: number;
+  averageEndToEndSeconds: number;
+  wouldUsePlanRate: number;
   averageManualEditCount: number;
   participantsByCapability: Record<string, number>;
 }
@@ -62,13 +67,16 @@ export function summarizeAnonymousStudySessions(sessions: AnonymousUserSession[]
       ])
   );
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     validParticipants: valid.length,
     completionRate: round(ratio(valid.filter(item => item.completed).length, valid.length)),
     firstExportRate: round(ratio(valid.filter(item => item.firstExportReached).length, valid.length)),
     minorEditMvpAcceptanceRate: round(ratio(valid.filter(item => item.mvpAcceptedWithMinorEdits).length, valid.length)),
     averageSatisfaction: round(average(valid.map(item => item.satisfaction))),
-    averageDurationSeconds: round(average(valid.map(item => item.durationSeconds))),
+    averageSetupSeconds: round(average(valid.map(item => item.setupDurationSeconds))),
+    averagePlanningSeconds: round(average(valid.map(item => item.planningDurationSeconds))),
+    averageEndToEndSeconds: round(average(valid.map(item => item.endToEndDurationSeconds))),
+    wouldUsePlanRate: round(ratio(valid.filter(item => item.wouldUsePlan).length, valid.length)),
     averageManualEditCount: round(average(valid.map(item => item.manualEditCount))),
     participantsByCapability
   };

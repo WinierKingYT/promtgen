@@ -1,7 +1,11 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "studyId": "promtgen-comparison-v1",
-  "methods": ["baseline-chat", "master-prompt", "promtgen"],
+  "methods": [
+    "baseline-chat",
+    "master-prompt",
+    "promtgen"
+  ],
   "blindEvaluation": true,
   "policy": {
     "minimumScenariosPerMethod": 5,
@@ -9,9 +13,48 @@
     "minimumPromtgenScopeImprovement": 0.3,
     "minimumPromtgenAcceptanceImprovement": 0.4
   },
+  "scenarios": [
+    {
+      "id": "s1-fatura",
+      "domain": "small-saas",
+      "idea": "Serbest çalışanların fatura takibini kolaylaştıran bir şey yapmak istiyorum, ödeme hatırlatmaları da olsun belki."
+    },
+    {
+      "id": "s2-toplanti",
+      "domain": "web-app",
+      "idea": "Küçük ekiplerin toplantı notlarından karar ve aksiyon çıkarmasını istiyorum ama çok karmaşık olmasın."
+    },
+    {
+      "id": "s3-envanter",
+      "domain": "internal-tool",
+      "idea": "Depodaki ürünleri takip eden iç bir araç lazım, kim ne almış görebilelim."
+    },
+    {
+      "id": "s4-basvuru",
+      "domain": "admin-panel",
+      "idea": "İş başvurularını topladığımız bir panel istiyorum, elemeyi kolaylaştırsın."
+    },
+    {
+      "id": "s5-entegrasyon",
+      "domain": "backend-api",
+      "idea": "Mevcut sistemimizin verisini başka servislere açacak bir arayüz yapmak istiyorum."
+    }
+  ],
+  "evaluationCriteria": [
+    "scopeClarity",
+    "requirementQuality",
+    "applicability",
+    "taskTestLinkage",
+    "acceptanceCriteria",
+    "agentReadiness"
+  ],
+  "masterPromptSha256": "f41ee095a923fbcf357c8db100c8269ac0866802663031bbb9439a24eb5f1ce7",
+  "frozenAt": "2026-08-16",
   "notes": [
-    "Submission dosyaları yöntem bilgisini içermez.",
-    "Yöntem eşlemesi yalnız blind-map.json içinde tutulur ve değerlendirmeden sonra açılır.",
-    "Boş başlangıç dosyaları sonuç kanıtı sayılmaz."
-  ]
+    "Submission dosyalari yontem bilgisini icermez.",
+    "Yontem eslemesi yalniz blind-map.json icinde tutulur ve degerlendirmeden sonra acilir.",
+    "Bos baslangic dosyalari sonuc kaniti sayilmaz.",
+    "DONDURULDU: senaryolar, olcutler, esikler ve master prompt calisma basladiktan sonra degistirilemez. frozenDigest bunu zorlar."
+  ],
+  "frozenDigest": "8ce1535098ad15024d4c8bdb80fb5dd3ca7632e609246e404d75331246f9a6c5"
 }

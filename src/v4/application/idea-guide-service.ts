@@ -47,14 +47,37 @@ export function ideaGuideToMarkdown(guide: IdeaGuide): string {
   return `# ${guide.title}\n\n## Geliştirilmiş fikir\n\n${guide.improvedIdea}\n\n## Kim için?\n\n${guide.targetUser}\n\n## Hangi problem?\n\n${guide.problem}\n\n## İlk sürümde\n\n${list(guide.mvp)}\n\n## Şimdilik dışında\n\n${list(guide.outOfScope)}\n\n## Riskler\n\n${list(guide.risks)}\n\n## Sıradaki adımlar\n\n${list(guide.nextSteps)}\n`;
 }
 
+export interface AnonymousStudySessionInput {
+  satisfaction: 1 | 2 | 3 | 4 | 5;
+  /** "Bu planı gerçekten kullanır mıydın?" */
+  wouldUsePlan: boolean;
+  /**
+   * Kurulum süresi uygulamanın ölçemeyeceği tek parça: depoyu çalıştırmak ve
+   * sağlayıcı bağlamak proje yaratılmadan önce oluyor. Kolaylaştırıcı ölçer
+   * ve buraya verir; kurulum gerekmediyse 0.
+   */
+  setupDurationSeconds: number;
+}
+
+/**
+ * Canlı bir projeden anonim çalışma kaydı üretir.
+ *
+ * Süre ayrımı: `planningDurationSeconds` projenin ömrüdür (uygulamanın
+ * gerçekten ölçebildiği tek süre). `endToEndDurationSeconds` kurulum ile
+ * planlamanın toplamıdır — ikisi arasında mola olmadığı varsayılır; mola
+ * varsa kaydı kolaylaştırıcı elle düzeltmelidir.
+ */
 export function buildAnonymousStudySession(
   project: ProjectDocumentV5,
-  satisfaction: 1 | 2 | 3 | 4 | 5,
+  input: AnonymousStudySessionInput,
   now = new Date()
 ): AnonymousUserSession {
   const startedAt = Date.parse(project.lifecycle.createdAt);
+  const planningDurationSeconds = Number.isFinite(startedAt)
+    ? Math.max(0, Math.round((now.getTime() - startedAt) / 1000))
+    : 0;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     anonymousSessionId: crypto.randomUUID(),
     capabilityId: 'canonical-planning',
     consent: true,
@@ -64,7 +87,10 @@ export function buildAnonymousStudySession(
     manualEditCount: project.commandLog.filter(record =>
       ['UpdateConceptAgreement', 'UpdatePlanSection', 'UpdateSuggestionStatus'].includes(record.commandType)
     ).length,
-    durationSeconds: Number.isFinite(startedAt) ? Math.max(0, Math.round((now.getTime() - startedAt) / 1000)) : 0,
-    satisfaction
+    setupDurationSeconds: Math.max(0, Math.round(input.setupDurationSeconds)),
+    planningDurationSeconds,
+    endToEndDurationSeconds: Math.max(0, Math.round(input.setupDurationSeconds)) + planningDurationSeconds,
+    satisfaction: input.satisfaction,
+    wouldUsePlan: input.wouldUsePlan
   };
 }

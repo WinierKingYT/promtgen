@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "studyId": "promtgen-comparison-v1",
-  "generatedAt": "2026-07-28T20:04:36.932Z",
+  "generatedAt": "2026-08-16T14:33:27.844Z",
   "blindedEvaluation": [],
   "byMethod": {},
   "userEvidence": {
@@ -9,7 +9,11 @@
     "completionRate": 0,
     "firstExportRate": 0,
     "minorEditMvpAcceptanceRate": 0,
-    "averageSatisfaction": 0
+    "averageSatisfaction": 0,
+    "averageSetupSeconds": 0,
+    "averagePlanningSeconds": 0,
+    "averageEndToEndSeconds": 0,
+    "wouldUsePlanRate": 0
   },
   "publicationGate": {
     "eligible": false,
