@@ -1,4 +1,5 @@
 import { normalizeConcern, normalizeConcernDecision } from './application/concerns.ts';
+import { STAGE_STATUSES } from './application/project-stages.ts';
 import { normalizeTechnologyCandidate } from './application/solution-design.ts';
 import { emptyPlanAlignment, evaluatePlanAlignment } from './domain/idea-plan-alignment.ts';
 
@@ -482,7 +483,9 @@ export function normalizeProjectDocument(project) {
     // Ürün Modeli V3 aşama kapsayıcıları. Eklemeli: hiçbir eski alan
     // silinmiyor, bu yüzden V3 öncesi belgeler yüklenirken bedava göç ediyor.
     const stageApproval = (existing) => ({
-        status: ['draft', 'discovery', 'review', 'approved'].includes(existing?.status) ? existing.status : 'draft',
+        // Geçerli durum listesi `project-stages` içinde; kopyalanırsa yeni bir
+        // durum eklendiğinde normalleştirme onu sessizce 'draft'a düşürürdü.
+        status: STAGE_STATUSES.includes(existing?.status) ? existing.status : 'draft',
         approvedAtRevision: Number.isInteger(existing?.approvedAtRevision) ? existing.approvedAtRevision : null,
         approvedAt: typeof existing?.approvedAt === 'string' ? existing.approvedAt : null,
         reopenedReason: typeof existing?.reopenedReason === 'string' ? existing.reopenedReason : null

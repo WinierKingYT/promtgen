@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   discoverConcerns,
-  mergeConcerns,
-  prioritizeConcerns
+  mergeConcerns
 } from '../../../src/v4/application/idea-design-service.js';
 import { normalizeConcern } from '../../../src/v4/application/concerns.js';
 import type { DiscoveryOutput } from '../../../src/v4/ai/schemas/schemas.js';
@@ -184,27 +183,5 @@ describe('Birleştirme — çözülmüş konu dirilmez', () => {
     );
 
     assert.deepEqual(merged.map(item => item.title).sort(), ['Beslenme', 'Stamina']);
-  });
-});
-
-describe('Önceliklendirme', () => {
-  it('en yuksek bilgi kazancli konu basa gelir', () => {
-    const sorted = prioritizeConcerns([
-      normalizeConcern({ title: 'Düşük', uncertainty: 0.2, downstreamImpact: 0.2 }),
-      normalizeConcern({ title: 'Yüksek', uncertainty: 0.9, downstreamImpact: 0.9 })
-    ]);
-
-    assert.equal(sorted[0].title, 'Yüksek');
-  });
-
-  it('girdi dizisini degistirmez', () => {
-    const input = [
-      normalizeConcern({ title: 'A', uncertainty: 0.1, downstreamImpact: 0.1 }),
-      normalizeConcern({ title: 'B', uncertainty: 0.9, downstreamImpact: 0.9 })
-    ];
-
-    prioritizeConcerns(input);
-
-    assert.equal(input[0].title, 'A');
   });
 });

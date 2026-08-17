@@ -1,4 +1,4 @@
-import { concernPriority, isResolved, normalizeConcern } from './concerns.js';
+import { isResolved, normalizeConcern } from './concerns.js';
 import type { DiscoveryOutput } from '../ai/schemas/schemas.js';
 import type { Concern, ConcernImportance } from '../contracts.js';
 
@@ -154,9 +154,4 @@ export function mergeConcerns(existing: readonly Concern[], incoming: readonly C
   }
 
   return [...byKey.values()];
-}
-
-/** Öncelik sırasına dizilmiş kopya; girdi değiştirilmez. */
-export function prioritizeConcerns(concerns: readonly Concern[]): Concern[] {
-  return [...concerns].sort((a, b) => concernPriority(b) - concernPriority(a));
 }

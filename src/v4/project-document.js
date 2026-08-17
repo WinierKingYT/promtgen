@@ -1,3 +1,4 @@
+import { createStageApproval } from './application/project-stages.ts';
 export const PLANNING_PHASES = Object.freeze({
     IDEA_EXPANSION: 'IDEA_EXPANSION',
     DISCOVERY: 'DISCOVERY',
@@ -141,14 +142,14 @@ export function createProjectDocument({ idea, name = 'Yeni Proje', outputLanguag
         },
         // Ürün Modeli V3 aşama kapsayıcıları; yeni belge ikisiyle birlikte doğar.
         ideaDesign: {
-            approval: { status: 'draft', approvedAtRevision: null, approvedAt: null, reopenedReason: null },
+            approval: createStageApproval(),
             concerns: [],
             concernDecisions: [],
             framing: { kind: 'unknown', domain: '', environment: '', source: 'inferred' },
             openQuestions: []
         },
         solutionDesign: {
-            approval: { status: 'draft', approvedAtRevision: null, approvedAt: null, reopenedReason: null },
+            approval: createStageApproval(),
             concerns: [],
             concernDecisions: [],
             candidates: [],

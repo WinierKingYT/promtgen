@@ -1,6 +1,6 @@
 import { coachProgress, nextCoachTurn } from './adaptive-idea-coach.js';
 import { ideaApprovalReadiness } from './idea-approval.js';
-import { currentStage, legacyPlanUnlocked, stageGate } from './project-stages.js';
+import { currentStage, legacyPlanUnlocked, PROJECT_STAGES, stageGate } from './project-stages.js';
 import { stageWorkAvailable } from './conversion-v2.js';
 import { solutionApprovalReadiness } from './solution-approval.js';
 import { readinessLines } from './stage-approval.js';
@@ -49,7 +49,9 @@ const LABELS: Readonly<Record<ProjectStage, string>> = {
   handoff: 'DEVİR'
 };
 
-const ORDER: readonly ProjectStage[] = ['idea', 'solution', 'plan', 'handoff'] as const;
+// Aşama sırası `project-stages` içinde tanımlı. Buraya kopyalamak, beşinci bir
+// aşama eklendiğinde birini değiştirip diğerini unutmanın yoluydu.
+const ORDER = PROJECT_STAGES;
 
 const STATIC_CAPTIONS: Readonly<Record<Exclude<ProjectStage, 'idea'>, string>> = {
   solution: 'Bunu nasıl kuracağımızı tasarlıyoruz.',

@@ -19,8 +19,49 @@ export const DOCUMENT_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   'RestoreIdeaDocumentRevision',
   'ProposeIdeaAlignmentImpact', 'DeferPlanAlignment', 'RestoreAlignedIdeaRevision',
   'CreatePlanCodeAlignmentSuggestion',
-  'StartExecutionSession', 'RecordExecutionResult', 'RecordExport', 'UpdateProject'
+  'StartExecutionSession', 'RecordExecutionResult', 'RecordExport', 'UpdateProject',
+  // --- Ürün Modeli V3 aşama komutları ---
+  // Bunlar aşama belgesini değiştirir ama canonical PLANI değiştirmez: plan
+  // yalnız iki onaydan sonra `ConfirmIdeaPlanConversion` ile üretilir.
+  //
+  // `RunSolutionDiscovery` tam olarak `AddDiscoveryTurn`'ün teknik karşılığı:
+  // ikisi de öneri üretir, ikisi de karar üretmez. Farklı sınıflandırmak aynı
+  // eylemi iki farklı şey saymak olurdu.
+  'RunSolutionDiscovery', 'ConfirmProjectFraming',
+  'DeferConcern', 'DismissConcern', 'DeclineTechnologyCandidate'
 ]);
+
+/**
+ * Canonical planı **gerçekten** değiştiren V3 komutları.
+ *
+ * Ayrı bir liste tutmanın sebebi çalışma zamanı değil denetim:
+ * `isCanonicalChangeCommand` bilinmeyen komutu zaten güvenli tarafta sayıyor,
+ * ama "güvenli varsayılan" sınıflandırma yerine geçerse yeni komutlar sessizce
+ * canonical sayılır. Bu oturumda tam olarak bu oldu: on yeni komut eklendi,
+ * hiçbiri sınıflandırılmadı ve beşi yanlış tarafta kaldı.
+ */
+export const CANONICAL_CHANGE_COMMANDS: ReadonlySet<string> = new Set([
+  'AnswerConcern',
+  'AcceptTechnologyCandidate',
+  'ApproveIdeaDesign',
+  'ApproveSolutionDesign',
+  'ReopenIdeaApproval',
+  'ReopenSolutionApproval',
+  'ApplyApprovedChanges', 'ApplyTaskPlan', 'ConfirmIdeaPlanConversion',
+  'FinalizePlan', 'ReopenPlan', 'RestoreRevision',
+  // V3 ÖNCESİNDEN gelen ve hiç sınıflandırılmamış olanlar. Beşi de canonical
+  // planı değiştiriyor, yani "bilinmeyen komut canonical sayılır" varsayılanı
+  // zaten doğru cevabı veriyordu. Buraya yazmak davranışı DEĞİŞTİRMİYOR,
+  // yalnız kayda geçiriyor — bir hijyen taraması sırasında sessizce davranış
+  // değiştirmek, düzeltmeye çalıştığı sorundan kötüsü olurdu.
+  'UpdatePlanSection', 'ApplySectionPatches',
+  'RestoreCheckpoint', 'ImportPackage', 'RestorePackage'
+]);
+
+/** Komut açıkça sınıflandırılmış mı? Sınıflandırılmamış komut bir eksiktir. */
+export function isClassifiedCommand(commandType: string): boolean {
+  return DOCUMENT_ONLY_COMMANDS.has(commandType) || CANONICAL_CHANGE_COMMANDS.has(commandType);
+}
 
 /** Komut canonical revision'ı ilerletmeli mi? Bilinmeyen komut güvenli tarafta kalır: ilerletir. */
 export function isCanonicalChangeCommand(commandType: string): boolean {

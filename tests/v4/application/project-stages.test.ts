@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   PROJECT_STAGES,
+  STAGE_STATUSES,
   createStageApproval,
   currentStage,
   planningPhaseToStage,
@@ -10,6 +11,7 @@ import {
 } from '../../../src/v4/application/project-stages.js';
 import { createProjectDocument, PLANNING_PHASES } from '../../../src/v4/project-document.js';
 import { normalizeProjectDocument } from '../../../src/v4/canonical-entities.js';
+import { stageRail } from '../../../src/v4/application/workspace-stages.js';
 import type { ProjectDocumentV5 } from '../../../src/v4/contracts.js';
 
 function project(): ProjectDocumentV5 {
@@ -171,5 +173,35 @@ describe('V3 göç iskeleti', () => {
     const normalized = normalizeProjectDocument(document) as ProjectDocumentV5;
 
     assert.equal(normalized.decisions[0].stage, 'technical');
+  });
+});
+
+describe('Aşama sabitleri tek kaynaktan gelir', () => {
+  it('bos onay sekli belge fabrikasinda KOPYALANMAZ', () => {
+    // Şekil iki yerde yaşarsa, bir alan eklendiğinde yeni belgeler onsuz
+    // doğar ve normalleştirme onu sessizce dolduruncaya kadar fark edilmez.
+    const document = createProjectDocument({ idea: 'Kopya testi' }) as ProjectDocumentV5;
+
+    assert.deepEqual(document.ideaDesign.approval, createStageApproval());
+    assert.deepEqual(document.solutionDesign.approval, createStageApproval());
+  });
+
+  it('normallestirme GECERLI durumlarin tamamini kabul eder', () => {
+    // Durum listesi kopyalanmış olsaydı, yeni bir durum eklendiğinde
+    // normalleştirme onu sessizce 'draft'a düşürürdü.
+    for (const status of STAGE_STATUSES) {
+      const normalized = normalizeProjectDocument({
+        ...createProjectDocument({ idea: 'Durum testi' }),
+        ideaDesign: { approval: { status, approvedAtRevision: null, approvedAt: null, reopenedReason: null } }
+      }) as ProjectDocumentV5;
+
+      assert.equal(normalized.ideaDesign.approval.status, status, status);
+    }
+  });
+
+  it('ray sirasi canonical asama listesiyle AYNI', () => {
+    const rail = stageRail(createProjectDocument({ idea: 'Sıra testi' }) as ProjectDocumentV5);
+
+    assert.deepEqual(rail.map(entry => entry.id), [...PROJECT_STAGES]);
   });
 });
