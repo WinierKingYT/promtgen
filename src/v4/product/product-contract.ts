@@ -1,11 +1,29 @@
 export type SupportLevel = 'candidate-stable' | 'stable' | 'beta' | 'experimental' | 'unsupported';
 export type ProductLocale = 'tr-TR' | 'en-US';
 
+/**
+ * `unsupported`'in **iki** anlamı var ve tek kelimeyle söylenmesi yanıltıcıydı.
+ *
+ * - `unmeasured`: garanti vermiyoruz ve ölçmedik. Tasarım yardımı reddedilmiş
+ *   değil, sadece kanıtlanmamış. Kanıt üretilirse seviye yükselebilir.
+ * - `refused`: kanıt ne çıkarsa çıksın hizmet etmeyeceğimiz alan. Düzenleyici
+ *   ve klinik/finansal sorumluluk devredilemez; bu bir veri sorunu değil.
+ *
+ * Ayrım gerçek bir çelişkiyi kapatıyor: `game-3d` "Alan paketi bulunmuyor"
+ * gerekçesiyle `unsupported` yazıyordu ve okuyan "3D oyunda hiç çalışmıyor"
+ * sonucuna varıyordu. Oysa `promtgen-comparison-v2` çalışması tam o alanda bir
+ * senaryo içeriyor. İkisi aynı kelimeyle söylendiği sürece belgeler birbirini
+ * yalanlıyordu.
+ */
+export type UnsupportedReason = 'unmeasured' | 'refused';
+
 export interface SupportedProjectType {
   id: string;
   label: string;
   support: SupportLevel;
   limitations: string[];
+  /** Yalnız `support: 'unsupported'` için anlamlı. */
+  unsupportedReason?: UnsupportedReason;
 }
 
 export interface MaturityPolicy {
@@ -66,11 +84,11 @@ export const PRODUCT_CONTRACT = Object.freeze({
     { id: 'desktop-app', label: 'Masaüstü uygulaması', support: 'beta', limitations: ['Platforma özel paketleme ayrıntıları insan incelemesi gerektirir.'] },
     { id: 'ai-rag', label: 'AI / RAG uygulaması', support: 'experimental', limitations: ['Model ve veri kalitesi değerlendirmesi otomatik doğrulanmaz.'] },
     { id: 'game-2d', label: '2D oyun', support: 'experimental', limitations: ['Oyun motoruna özel sonuçlar benchmark ile kanıtlanmadı.'] },
-    { id: 'game-3d', label: '3D oyun', support: 'unsupported', limitations: ['Alan paketi bulunmuyor.'] },
-    { id: 'multiplayer-game', label: 'Çok oyunculu oyun', support: 'unsupported', limitations: ['Dağıtık oyun mimarisi destek sözleşmesi dışında.'] },
-    { id: 'critical-health', label: 'Kritik sağlık sistemi', support: 'unsupported', limitations: ['Düzenleyici ve klinik doğrulama sağlanmaz.'] },
-    { id: 'critical-finance', label: 'Kritik finans sistemi', support: 'unsupported', limitations: ['Düzenleyici ve finansal güvence sağlanmaz.'] },
-    { id: 'large-distributed', label: 'Büyük dağıtık altyapı', support: 'unsupported', limitations: ['Kurumsal kapasite ve operasyon garantisi verilmez.'] }
+    { id: 'game-3d', label: '3D oyun', support: 'unsupported', unsupportedReason: 'unmeasured', limitations: ['Alan paketi bulunmuyor; üretime hazırlık garantisi verilmez.', 'Tasarım aşaması yardımı reddedilmiş değil, ölçülmemiş: promtgen-comparison-v2 çalışmasında bu alandan bir senaryo var.'] },
+    { id: 'multiplayer-game', label: 'Çok oyunculu oyun', support: 'unsupported', unsupportedReason: 'unmeasured', limitations: ['Dağıtık oyun mimarisi için üretime hazırlık garantisi verilmez.', 'Ölçülmemiş; kanıt üretilirse seviye yükselebilir.'] },
+    { id: 'critical-health', label: 'Kritik sağlık sistemi', support: 'unsupported', unsupportedReason: 'refused', limitations: ['Düzenleyici ve klinik doğrulama sağlanmaz.', 'Bu bir ölçüm eksikliği DEĞİL: kanıt ne çıkarsa çıksın bu alan hizmet kapsamına alınmaz.'] },
+    { id: 'critical-finance', label: 'Kritik finans sistemi', support: 'unsupported', unsupportedReason: 'refused', limitations: ['Düzenleyici ve finansal güvence sağlanmaz.', 'Bu bir ölçüm eksikliği DEĞİL: kanıt ne çıkarsa çıksın bu alan hizmet kapsamına alınmaz.'] },
+    { id: 'large-distributed', label: 'Büyük dağıtık altyapı', support: 'unsupported', unsupportedReason: 'refused', limitations: ['Kurumsal kapasite ve operasyon garantisi verilmez.', 'Bu bir olcum eksikligi DEGIL: bu olcekte operasyon sorumlulugu devredilemez.'] }
   ],
   nonGoals: [
     'Canonical planı kullanıcı onayı olmadan değiştirmek.',

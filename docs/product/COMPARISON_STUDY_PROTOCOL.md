@@ -50,10 +50,23 @@ idi. v2 bu gerekçeyi tutmuyor, çünkü iki farklı iddiayı birbirine karışt
 > "Tasarlamana yardım edebilirim" ile "bu mimarinin üretime hazır olduğunu
 > garanti ediyorum" aynı şey değil.
 
-`game-3d` için `unsupported` olan şey **üretim garantisi**. Tasarım yardımı
-iddiası ise evrensel: V3'ün açık hedefi *"bilinmeyen proje türü = PromtGen
-çalışmıyor durumu kabul edilemez"*. Bu iddiayı yalnız desteklenen alanlarda
-ölçmek, sonucu kendi lehimize seçilmiş bir örneklemle üretmek olurdu.
+Bu ayrım artık sözleşmede **kodda** duruyor, burada yazılmış bir yorum değil:
+`SupportedProjectType.unsupportedReason` iki `unsupported` türünü ayırıyor.
+
+| Tür | Anlamı | Kanıtla değişir mi |
+| --- | --- | --- |
+| `unmeasured` | Garanti vermiyoruz, ölçmedik. Tasarım yardımı reddedilmiş değil. | Evet |
+| `refused` | Kanıt ne çıkarsa çıksın hizmet etmiyoruz. | **Hayır** |
+
+`game-3d` → `unmeasured`. `critical-health`, `critical-finance` ve
+`large-distributed` → `refused`; onlar bu çalışmaya **girmez** ve iyi sonuç
+gelse bile girmeyecek. Bu tek yönlü kapı testle korunuyor
+(`tests/v4/product-contract.test.ts`): güvenlik-kritik alanları `unmeasured`
+yapmak testi düşürür.
+
+V3'ün açık hedefi *"bilinmeyen proje türü = PromtGen çalışmıyor durumu kabul
+edilemez"*. Bu iddiayı yalnız desteklenen alanlarda ölçmek, sonucu kendi
+lehimize seçilmiş bir örneklemle üretmek olurdu.
 
 `s6-at-sistemi` toplu ortalamalara **dahildir**; ayrı bir kefeye konmaz.
 Sonucu düşürürse iddia yanlıştır ve bunu öğrenmek çalışmanın amacıdır.

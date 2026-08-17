@@ -42,3 +42,45 @@ describe('Focused Planner product contract', () => {
     assert.match(appSource, /PRODUCT_CONTRACT|getProductCopy/);
   });
 });
+
+describe('İki farklı "unsupported"', () => {
+  const byId = new Map(PRODUCT_CONTRACT.supportedProjects.map(item => [item.id, item]));
+
+  it('her unsupported alan hangi anlamda oldugunu SOYLER', () => {
+    // Tek kelimeyle söylenmesi belgeleri birbirine düşürüyordu: `game-3d`
+    // "alan paketi yok" gerekçesiyle unsupported yazıyordu ve okuyan "hiç
+    // çalışmıyor" sanıyordu; oysa v2 çalışması o alanda ölçüm yapıyor.
+    for (const project of PRODUCT_CONTRACT.supportedProjects) {
+      if (project.support !== 'unsupported') continue;
+      assert.ok(
+        project.unsupportedReason === 'unmeasured' || project.unsupportedReason === 'refused',
+        `${project.id} hangi anlamda unsupported olduğunu söylemiyor`
+      );
+    }
+  });
+
+  it('guvenlik-kritik alanlar REDDEDILMIS, olculmemis degil', () => {
+    // Bu ayrım tek yönlü bir kapı: "ölçmedik" kanıtla açılabilir, "reddedildi"
+    // açılamaz. Kritik sağlık ve finansı `unmeasured` yapmak, iyi veri
+    // geldiğinde bu alanları desteklemenin kapısını açardı.
+    for (const id of ['critical-health', 'critical-finance', 'large-distributed']) {
+      assert.equal(byId.get(id)?.unsupportedReason, 'refused', id);
+    }
+  });
+
+  it('reddedilen alanlar bunun bir olcum eksikligi olmadigini yazar', () => {
+    for (const id of ['critical-health', 'critical-finance', 'large-distributed']) {
+      const limitations = byId.get(id)?.limitations.join(' ') || '';
+      assert.match(limitations, /ölçüm eksikliği DEĞİL|olcum eksikligi DEGIL/, id);
+    }
+  });
+
+  it('desteklenen alanlar gerekce alani TASIMAZ', () => {
+    // Anlamsız bir alanı doldurmak, gelecekte birinin ona bakıp yanlış sonuca
+    // varmasına yol açar.
+    for (const project of PRODUCT_CONTRACT.supportedProjects) {
+      if (project.support === 'unsupported') continue;
+      assert.equal(project.unsupportedReason, undefined, project.id);
+    }
+  });
+});
