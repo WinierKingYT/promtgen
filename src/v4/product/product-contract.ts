@@ -32,8 +32,8 @@ export interface MaturityPolicy {
 }
 
 export interface ProductContract {
-  id: 'promtgen-focused-planner';
-  version: 2;
+  id: 'promtgen-project-design-planner';
+  version: 3;
   positioning: Record<ProductLocale, string>;
   primaryUser: Record<ProductLocale, string>;
   promise: Record<ProductLocale, string>;
@@ -49,22 +49,23 @@ export interface ProductContract {
 }
 
 export const PRODUCT_CONTRACT = Object.freeze({
-  id: 'promtgen-focused-planner',
-  version: 2,
+  id: 'promtgen-project-design-planner',
+  version: 3,
   positioning: {
-    'tr-TR': 'PromtGen, AI kodlama araçlarıyla çalışan bireysel geliştiricilerin dağınık proje fikirlerini; onaylanmış MVP kapsamına, izlenebilir gereksinimlere ve uygulanabilir görev paketlerine dönüştüren local-first proje planlama aracıdır.',
-    'en-US': 'PromtGen is a local-first project planning tool that turns an individual AI-assisted developer’s rough idea into an approved MVP scope, traceable requirements, and actionable task packages.'
+    'tr-TR': 'PromtGen, AI kodlama araçlarıyla çalışan bireysel geliştiricilerin dağınık proje fikirlerini; onaylanmış bir fikir tasarımına, gerekçeli teknik kararlara ve izlenebilir gereksinim-görev-test paketlerine dönüştüren local-first proje tasarım aracıdır.',
+    'en-US': 'PromtGen is a local-first project design tool that turns an individual AI-assisted developer’s rough idea into an approved idea design, justified technical decisions, and traceable requirement-task-test packages.'
   },
   primaryUser: {
     'tr-TR': 'AI kodlama araçları kullanan ve kapsam, görev parçalama, dokümantasyon veya karar sürekliliğinde zorlanan bireysel geliştirici.',
     'en-US': 'An individual developer using AI coding tools who needs help maintaining scope, task decomposition, documentation, and decision continuity.'
   },
   promise: {
-    'tr-TR': 'Fikrini anlat; yorumumuzu doğrula, MVP sınırlarını seç ve kodlama aracına uygulanabilir planını dışa aktar.',
-    'en-US': 'Describe your idea, verify the interpretation, choose the MVP boundaries, and export an actionable plan for your coding tool.'
+    'tr-TR': 'Fikrini anlat; birlikte netleştirelim ve onayla. Sonra nasıl kuracağımızı tasarlayıp onayla. Planını kodlama aracına dışa aktar.',
+    'en-US': 'Describe your idea, clarify it together and approve it. Then design how to build it and approve that. Export the plan to your coding tool.'
   },
   userProblems: [
-    'Dağınık proje fikrini net bir MVP kapsamına dönüştürememek.',
+    'Dağınık proje fikrini net bir kapsama dönüştürememek.',
+    'Teknik kararları hiç konuşmadan ya da gereksinimlerin içine gömerek ilerlemek.',
     'Kararların gerekçesini ve sonradan değişen etkilerini kaybetmek.',
     'Gereksinimleri doğrulanabilir geliştirme görevlerine bağlayamamak.',
     'AI kodlama araçlarına çelişkili veya eksik görev bağlamı vermek.'

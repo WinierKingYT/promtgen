@@ -1,10 +1,10 @@
 # PromtGen Ürün Vizyonu
 
-> PromtGen, AI kodlama araçlarıyla çalışan bireysel geliştiricilerin dağınık proje fikirlerini; onaylanmış MVP kapsamına, izlenebilir gereksinimlere ve uygulanabilir görev paketlerine dönüştüren local-first proje planlama aracıdır.
+> PromtGen, AI kodlama araçlarıyla çalışan bireysel geliştiricilerin dağınık proje fikirlerini; onaylanmış bir fikir tasarımına, gerekçeli teknik kararlara ve izlenebilir gereksinim-görev-test paketlerine dönüştüren local-first proje tasarım aracıdır.
 
 ## Ana vaat
 
-Fikrini anlat; yorumumuzu doğrula, MVP sınırlarını seç ve kodlama aracına uygulanabilir planını dışa aktar.
+Fikrini anlat; birlikte netleştirelim ve onayla. Sonra nasıl kuracağımızı tasarlayıp onayla. Planını kodlama aracına dışa aktar.
 
 ## Ürün odağı
 

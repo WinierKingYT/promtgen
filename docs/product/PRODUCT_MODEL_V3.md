@@ -8,12 +8,16 @@
 > `product-contract.ts`'ten üretiliyor; elle düzenlenirse `check:product-docs`
 > düşer. Bu yüzden V3 önce burada, onay bekleyen bir şartname olarak durdu.
 >
-> **Kontrat modülünün kimlik/sürüm geçişi (`promtgen-focused-planner` v2 →
-> `promtgen-project-design-planner` v3) henüz yapılmadı.** Yapılan tek kontrat
-> değişikliği §9'un açıkça istediği `Yeni Plan → Yeni Proje` yeniden
-> adlandırması. Kimlik geçişi ve §10'un çok boyutlu destek matrisi ayrı bir
-> iştir: destek seviyelerini aşama başına ilan etmek, o seviyeleri kanıtlayacak
-> veriyi de gerektirir ve o veri henüz toplanmadı.
+> **Kimlik/sürüm geçişi yapıldı (2026-08-17):** `promtgen-project-design-planner`
+> v3. Konumlandırma, vaat ve kullanıcı problemleri çalışan ürünü anlatacak
+> şekilde güncellendi — bunlar kanıt gerektiren iddialar değil, yazılımın bugün
+> ne yaptığının tarifi.
+>
+> **§10'un aşama başına destek matrisi hâlâ yapılmadı** ve bilerek: `3D Oyun →
+> Idea Design: Beta` demek, o seviyeyi kanıtlayacak veriyi gerektirir ve o veri
+> henüz yok. Bunun yerine `unsupported`'in iki anlamı ayrıldı
+> (`unsupportedReason: 'unmeasured' | 'refused'`), çünkü bu bir kanıt iddiası
+> değil, neyi vaat edip neyi etmediğimizin ifadesi.
 
 ---
 

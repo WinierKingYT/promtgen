@@ -84,3 +84,29 @@ describe('İki farklı "unsupported"', () => {
     }
   });
 });
+
+describe('Sözleşme, çalışan ürünü anlatır', () => {
+  it('vaat IKI ONAYI da icerir - V3 yapisinin tanimlayici ozelligi', () => {
+    // Eski vaat "MVP sınırlarını seç ve planını dışa aktar" diyordu; teknik
+    // tasarım aşaması hiç yoktu. Sözleşme çalışan üründen geri kalırsa,
+    // kullanıcıya var olmayan bir akış anlatmış oluruz.
+    const promise = PRODUCT_CONTRACT.promise['tr-TR'];
+
+    assert.match(promise, /onayla/i);
+    assert.match(promise, /nasıl kuracağımızı|teknik/i);
+  });
+
+  it('kullanici problemleri teknik kararlarin gomulmesini de sayar', () => {
+    // V3'ün var olma sebebi bu problem. Listede yoksa sözleşme neden
+    // değiştiğimizi açıklamıyor demektir.
+    assert.ok(
+      PRODUCT_CONTRACT.userProblems.some(problem => /teknik karar/i.test(problem)),
+      'teknik kararların gömülmesi bir kullanıcı problemi olarak sayılmıyor'
+    );
+  });
+
+  it('kimlik ve surum V3 ile hizali', () => {
+    assert.equal(PRODUCT_CONTRACT.id, 'promtgen-project-design-planner');
+    assert.equal(PRODUCT_CONTRACT.version, 3);
+  });
+});

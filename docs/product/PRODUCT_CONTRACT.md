@@ -1,6 +1,6 @@
 # Ürün Sözleşmesi
 
-Sözleşme kimliği: `promtgen-focused-planner` · sürüm: `2`
+Sözleşme kimliği: `promtgen-project-design-planner` · sürüm: `3`
 
 ## Çekirdek navigasyon
 
