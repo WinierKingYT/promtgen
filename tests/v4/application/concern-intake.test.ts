@@ -106,3 +106,31 @@ describe('Keşif paketi → konular', () => {
     assert.deepEqual(document.ideaDesign.concerns, []);
   });
 });
+
+describe('Yerel kural motoru konu üretmez', () => {
+  it('offline paket belgeyi DEGISTIRMEZ', () => {
+    // Elle kullanırken görüldü: sağlayıcısız turda motor şablon metin üretiyor
+    // ve bunlar "3 bloklayan kritik karar" olarak kullanıcıya dayatılıyordu.
+    const document = project();
+
+    const next = concernsFromBundle(document, bundle({
+      source: { type: 'local', providerId: 'offline' }
+    }));
+
+    assert.equal(next, document);
+  });
+
+  it('AI paketi konu uretmeye devam eder', () => {
+    const next = concernsFromBundle(project(), bundle({
+      source: { type: 'ai', providerId: 'nvidia' }
+    }));
+
+    assert.equal(next.ideaDesign.concerns.length, 1);
+  });
+
+  it('kaynagi belirsiz paket de konu uretir - eski kayitlar cezalandirilmaz', () => {
+    const next = concernsFromBundle(project(), bundle());
+
+    assert.equal(next.ideaDesign.concerns.length, 1);
+  });
+});

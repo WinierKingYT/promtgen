@@ -148,9 +148,15 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   // soru durur ve kullanıcı hangisini cevapladığını bilemez.
   const ideaApproved = project.ideaDesign.approval.status === 'approved';
   const shownStage = selectedStage ?? (ideaApproved ? 'solution' : 'idea');
+  // Panel soru soruyorsa soru ONUNDUR. Çerçeveleme turu da bir sorudur:
+  // ilk sürümde yalnız `concern` kapsanıyordu ve elle denerken ekranda iki
+  // farklı soru birden durdu — panel "Ne tasarlıyoruz?", sabit koç
+  // "Kullanıcının hangi problemi çözmek istiyorsun?". E2E bunu görmedi çünkü
+  // fikstür çerçevelemeyi zaten onaylanmış kuruyordu.
+  const stageTurnKind = nextCoachTurn(project).kind;
   const stageOwnsQuestion = stagePanelVisible
     && project.ideaDesign.approval.status !== 'approved'
-    && nextCoachTurn(project).kind === 'concern';
+    && (stageTurnKind === 'concern' || stageTurnKind === 'framing');
   const canonicalPlanningOpen = view === 'plan' && planUnlocked;
   // Boş panel göstermeyiz: harita ancak bağlantı varken, kod hizalaması
   // ancak envanter taranmışken anlamlı. Koşullar saf modülde tanımlı ve

@@ -27,7 +27,26 @@ import type { ProjectDocumentV5 } from '../contracts.js';
  */
 const OPEN_STATUSES = new Set(['pending', 'accepted', 'edited']);
 
+/**
+ * Yerel kural motorunun ürettiği paket konuya çevrilmez.
+ *
+ * Bu, ürünü elle kullanırken görüldü. Sağlayıcısız bir turda motor şablon
+ * metin üretiyor ("… odağında ana kararı netleştir") ve bunlar konu modeline
+ * girdiğinde kullanıcıya "3 bloklayan kritik karar" olarak dayatılıyordu.
+ * Kapı, kullanıcıyı kendi cümlesinin kırpılmış hâlini karara bağlamaya
+ * zorluyordu — var olmayan bir iş.
+ *
+ * Konu modeli **keşfedilmiş** kararları taşımak için var; şablon çıktı o
+ * değil. Sağlayıcı yokken aşama modeli beslenmez ve kullanıcı eski akışta
+ * kalır; sağlayıcı kapısı zaten ne yapması gerektiğini söylüyor.
+ */
+function isLocalRuleEngineBundle(bundle: DiscoverySuggestionBundle): boolean {
+  return bundle.source?.type === 'local' || bundle.source?.providerId === 'offline';
+}
+
 export function concernsFromBundle(project: ProjectDocumentV5, bundle: DiscoverySuggestionBundle): ProjectDocumentV5 {
+  if (isLocalRuleEngineBundle(bundle)) return project;
+
   const options = (bundle.items || [])
     .filter(item => OPEN_STATUSES.has(item.status))
     .map(item => ({

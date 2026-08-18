@@ -32,7 +32,19 @@ export interface DiscoveryBundleResult {
 export interface DiscoveryGenerationOptions {
   settings?: ProviderSettings;
   credential?: string;
+  /** Modele giden istem metni; kullanıcıya gösterilmez. */
   direction?: string;
+  /**
+   * Kullanıcının kendi cümlesi; yerel motor ekranda gösterilecek metni buradan
+   * alır.
+   *
+   * **Varsayılanı `direction`'dır.** Çoğu çağıran zaten kullanıcıya ait bir
+   * metin geçiyor ve onlar için ikisi aynı şeydir. Yalnız `runDiscoveryTurn`
+   * `direction`'ı bir istem talimatı olarak kuruyor ("Tartışma modu: explore.
+   * Fikrin yeni kullanım biçim...") ve onu ekranda göstermek iç metni
+   * kullanıcıya soru diye sunmaya yol açıyordu.
+   */
+  displayDirection?: string;
   memory?: LocalPlanningMemory | null;
   signal?: AbortSignal;
 }
@@ -53,6 +65,7 @@ export async function generateDiscoveryBundleService(
     settings,
     credential = '',
     direction = '',
+    displayDirection,
     memory = null,
     signal
   }: DiscoveryGenerationOptions,
@@ -60,7 +73,7 @@ export async function generateDiscoveryBundleService(
 ): Promise<DiscoveryBundleResult> {
   if (!settings || settings.providerId === 'offline' || settings.useAiWhenAvailable === false) {
     return {
-      bundle: dependencies.createFallback(project, direction),
+      bundle: dependencies.createFallback(project, displayDirection ?? direction),
       usedFallback: true,
       error: null
     };
@@ -93,7 +106,7 @@ export async function generateDiscoveryBundleService(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'AI çağrısı başarısız.';
     return {
-      bundle: dependencies.createFallback(project, direction, message),
+      bundle: dependencies.createFallback(project, displayDirection ?? direction, message),
       usedFallback: true,
       error: message
     };
@@ -147,7 +160,7 @@ export async function runConversationalDiscoveryTurnService(
   const withUserMessage = addExplorationMessage(project, 'user', answer);
   const result = await generateDiscoveryBundleService(
     withUserMessage,
-    { settings, credential, direction, memory, signal },
+    { settings, credential, direction, displayDirection: answer, memory, signal },
     dependencies
   );
   const replyText = result.bundle.replyMessage || result.bundle.title;
