@@ -272,8 +272,16 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       );
       const answerDraft = rawDraft ? preselectConfidentPatches(rawDraft) : null;
       setMessageDraft('');
-      const sourceLabel = result.usedFallback ? 'Yerel fikir motoru' : getProviderMeta(providerSettings.providerId).label;
-      const saved = await persistCandidate(result.project, `${sourceLabel} yeni seçenekleri hazırladı.`, 'AddDiscoveryTurn');
+      // Sağlayıcı BAŞARISIZ olduğu için düşüldüyse bunu söylemek zorundayız.
+      // Neden zaten `result.error` içinde duruyordu ama kullanıcıya
+      // ulaşmıyordu: ekranda yalnız "Yerel fikir motoru hazırladı" yazıyor ve
+      // Gemini'yi bağlamış biri sağlayıcısının bozuk olduğunu hiç öğrenmiyordu.
+      // Sessiz düşüş, bozuk bir anahtarı haftalarca fark ettirmez.
+      const providerLabel = getProviderMeta(providerSettings.providerId).label;
+      const notice = result.usedFallback && result.error
+        ? `${providerLabel} yanıt vermedi (${result.error}) — yerel fikir motoruna düşüldü.`
+        : `${result.usedFallback ? 'Yerel fikir motoru' : providerLabel} yeni seçenekleri hazırladı.`;
+      const saved = await persistCandidate(result.project, notice, 'AddDiscoveryTurn');
       if (saved) setDiscoveryAnswerDraft(answerDraft);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Mesaj işlenemedi. Tekrar deneyebilirsin.');
