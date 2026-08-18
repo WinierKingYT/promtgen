@@ -229,6 +229,26 @@ describe('Teknik keşif görevi', () => {
     assert.equal(parsed.success, true);
   });
 
+  it('BOS teknik konu listesi gecerli bir cevaptir', () => {
+    // Ürün "teknik karar gerekmiyor"u meşru bir sonuç sayıyor. Şema alt sınır
+    // dayatsaydı dürüst cevap şemadan düşerdi ve teknik tarafta yerel yedek
+    // motor olmadığı için tur hata verirdi; model de listeyi doldurmak için
+    // konu uydurmaya itilirdi.
+    const parsed = solutionDiscoverySchema.safeParse({ technicalConcerns: [] });
+
+    assert.equal(parsed.success, true);
+  });
+
+  it('bos kesif ciktisi bos sonuc uretir, cokmez', () => {
+    const result = applySolutionDiscovery(
+      { technicalConcerns: [], candidates: [], openQuestions: [] },
+      approvedProject()
+    );
+
+    assert.deepEqual(result.concerns, []);
+    assert.deepEqual(result.candidates, []);
+  });
+
   it('sema bilinmeyen ust seviye alani reddeder', () => {
     const parsed = solutionDiscoverySchema.safeParse({
       technicalConcerns: [output().technicalConcerns[0]],

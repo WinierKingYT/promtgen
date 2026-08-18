@@ -148,7 +148,15 @@ export const technologyCandidateSchema = z.object({
 
 export const solutionDiscoverySchema = z.object({
   reply: z.string().trim().min(1).max(4000).default(''),
-  technicalConcerns: z.array(technicalConcernSchema).min(1).max(8),
+  /**
+   * Alt sınır **yok**, bilerek. `min(1)` modelden her turda en az bir teknik
+   * konu istiyordu ve bu iki şeyi birden bozuyordu: proje gerçekten teknik
+   * karar gerektirmediğinde dürüst cevap şemadan düşüyor (teknik tarafta yerel
+   * yedek motor yok, yani tur hata veriyor), ve model listeyi doldurmak için
+   * konu uydurmaya itiliyor. Ürün "teknik karar gerekmiyor"u zaten meşru bir
+   * sonuç sayıyor.
+   */
+  technicalConcerns: z.array(technicalConcernSchema).max(8).default([]),
   candidates: z.array(technologyCandidateSchema).max(10).default([]),
   openQuestions: z.array(shortText).max(8).default([]),
   uncertainty: z.array(shortText).max(3).default([])
