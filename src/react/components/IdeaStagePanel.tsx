@@ -155,6 +155,11 @@ export function IdeaStagePanel({ project, onCommand }: {
   }
 
   const concernId = turn.concernId || '';
+  // `turn.why` boş kalmaz — koç kendi varsayılan cümlesini koyar. Gerekçenin
+  // zorunlu olup olmadığını belirleyen şey KONUNUN kendi `whyItMatters` alanı;
+  // boşsa canonical karar için doldurulacak başka kaynak yok.
+  const rationaleRequired = !project.ideaDesign.concerns
+    .find(concern => concern.id === concernId)?.whyItMatters;
 
   return <aside className="pg-stage-panel" aria-label="Fikir tasarımı">
     <h2>{turn.question}</h2>
@@ -191,9 +196,19 @@ export function IdeaStagePanel({ project, onCommand }: {
         placeholder="Kendi cümlenle yazabilirsin"
       />
     </label>
+    {/* Gerekçe her zaman isteğe bağlı DEĞİL: canonical karar gerekçesiz
+        kaydedilemez ve konunun kendi "neden önemli" metni yoksa doldurulacak
+        başka bir kaynak yok. Bunu tıklamadan önce söylemek, kullanıcıyı
+        reddedilecek bir forma göndermekten iyidir. */}
     <label>
-      Neden böyle karar verdin? <small>(isteğe bağlı)</small>
-      <input type="text" value={rationale} onChange={event => setRationale(event.target.value)}/>
+      Neden böyle karar verdin? <small>{rationaleRequired ? '(bu konu için gerekli)' : '(isteğe bağlı)'}</small>
+      <input
+        type="text"
+        value={rationale}
+        onChange={event => setRationale(event.target.value)}
+        required={rationaleRequired}
+        placeholder={rationaleRequired ? 'Kısaca neden' : ''}
+      />
     </label>
 
     {error && <p className="pg-stage-error" role="alert">{error}</p>}

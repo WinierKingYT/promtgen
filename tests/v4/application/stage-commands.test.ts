@@ -12,7 +12,8 @@ import {
 } from '../../../src/v4/application/stage-commands.js';
 import { normalizeConcern } from '../../../src/v4/application/concerns.js';
 import { normalizeTechnologyCandidate } from '../../../src/v4/application/solution-design.js';
-import { createProjectDocument } from '../../../src/v4/project-document.js';
+import { createProjectDocument, validateProjectDocument } from '../../../src/v4/project-document.js';
+import { normalizeProjectDocument } from '../../../src/v4/canonical-entities.js';
 import type { Concern, Decision, ProjectDocumentV5 } from '../../../src/v4/contracts.js';
 
 const APPROVED = {
@@ -88,6 +89,47 @@ describe('Konuyu karara bağlama', () => {
     assert.equal(result.project.ideaDesign.concernDecisions[0].chosenOptionId, null);
   });
 
+  it('gerekcesi olmayan konuda GEREKCE ISTENIR', () => {
+    // Elle kullanırken çıktı: açık sorudan türeyen konularda `whyItMatters`
+    // boş; komut geçerli görünüp belge YAZILIRKEN reddediliyordu. Kullanıcı
+    // cevabını yazıyor, form temizleniyor, aynı soru geri geliyordu.
+    const result = answerConcern(project([{ id: 'ic-soru', title: 'Kaç kullanıcı?', whyItMatters: '' }]), {
+      concernId: 'ic-soru', chosenOptionId: null, answer: 'Tek kullanıcı.', rationale: '', revision: 3
+    });
+
+    assert.match(result.error || '', /gerekçe gerekiyor/i);
+    assert.deepEqual(result.project.ideaDesign.concernDecisions, []);
+  });
+
+  it('kullanici gerekce yazarsa kaydedilir', () => {
+    const result = answerConcern(project([{ id: 'ic-soru', title: 'Kaç kullanıcı?', whyItMatters: '' }]), {
+      concernId: 'ic-soru', chosenOptionId: null, answer: 'Tek kullanıcı.', rationale: 'Evde tek ben kullanıyorum.', revision: 3
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.project.decisions[0].rationale, 'Evde tek ben kullanıyorum.');
+  });
+
+  it('konunun kendi NEDEN metni varsa gerekce istenmez', () => {
+    const result = answerConcern(project([SAHIPLIK]), {
+      concernId: 'ic-sahiplik', chosenOptionId: null, answer: 'Kalıcı.', rationale: '', revision: 3
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.project.decisions[0].rationale, 'Kayıt ve ilerlemeyi belirliyor.');
+  });
+
+  it('uretilen karar belge dogrulamasindan GECER', () => {
+    // Asıl kırılma noktası buydu: komut başarılı dönüyor, yazma reddediliyordu.
+    const result = answerConcern(project([SAHIPLIK]), {
+      concernId: 'ic-sahiplik', chosenOptionId: 'o-kalici', answer: 'Kalıcı karakter.', rationale: 'Bağ kurulsun.', revision: 3
+    });
+
+    const validation = validateProjectDocument(normalizeProjectDocument(result.project));
+    assert.deepEqual(validation.errors, []);
+    assert.equal(validation.valid, true);
+  });
+
   it('bos karar reddedilir ve belge DEGISMEZ', () => {
     const document = project([SAHIPLIK]);
     const before = JSON.stringify(document);
@@ -122,9 +164,10 @@ describe('Konuyu karara bağlama', () => {
     document.solutionDesign.concerns = [normalizeConcern({ id: 'tc-depolama', title: 'Depolama' })];
 
     const result = answerConcern(document, {
-      concernId: 'tc-depolama', chosenOptionId: null, answer: 'SQLite', rationale: '', revision: 3
+      concernId: 'tc-depolama', chosenOptionId: null, answer: 'SQLite', rationale: 'Çevrimdışı gereksinimi.', revision: 3
     });
 
+    assert.equal(result.error, null);
     assert.equal(result.project.decisions[0].stage, 'technical');
     assert.equal(result.project.solutionDesign.concernDecisions.length, 1);
     assert.deepEqual(result.project.ideaDesign.concernDecisions, []);

@@ -120,6 +120,20 @@ export function answerConcern(project: ProjectDocumentV5, input: AnswerConcernIn
     return fail(project, 'Seçilen seçenek bu konuda bulunmuyor.');
   }
 
+  // Canonical değişmez: kabul edilmiş kararın gerekçesi olmak zorunda. Gerekçe
+  // yoksa konunun `whyItMatters` alanına düşülüyor — ama açık sorudan türeyen
+  // konularda o alan boş. Bu durumda komut geçerli görünüp belge YAZILIRKEN
+  // reddediliyordu: kullanıcı cevabını yazıyor, form temizleniyor, aynı soru
+  // geri geliyor ve panelde hiçbir açıklama olmuyordu.
+  //
+  // Doğrusu burada durmak. Gerekçeyi uydurmak (cevabı gerekçe diye kopyalamak)
+  // kaydı geçerli kılardı ama kullanıcının vermediği bir gerekçeyi ona
+  // atfederdi.
+  const rationale = String(input.rationale || '').trim() || located.concern.whyItMatters;
+  if (!rationale) {
+    return fail(project, 'Bu konu için gerekçe gerekiyor: neden böyle karar verdiğini kısaca yaz.');
+  }
+
   const decisionId = `decision-${located.concern.id}`;
   const next = withConcernStatus(project, located.stage, located.concern.id, 'decided');
   const concernDecision = normalizeConcernDecision({
@@ -137,7 +151,7 @@ export function answerConcern(project: ProjectDocumentV5, input: AnswerConcernIn
     id: decisionId,
     title: located.concern.title,
     decision: answer,
-    rationale: String(input.rationale || '').trim() || located.concern.whyItMatters,
+    rationale,
     alternatives: located.concern.options
       .filter(option => option.id !== input.chosenOptionId)
       .map(option => option.title),
