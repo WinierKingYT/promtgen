@@ -617,3 +617,11 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-stage-open { border:0;background:none;padding:0;font:inherit;font-size:10px;font-weight:700;letter-spacing:0.08em;color:inherit;cursor:pointer; }
 .pg-stage-open:hover { text-decoration:underline; }
 .pg-stage.is-selected { outline:2px solid var(--pg-accent);outline-offset:-1px; }
+
+/* Ollama model ipucu — kurulu modeller ve uyarılar. */
+.provider-model-hint { display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:-4px; }
+.provider-model-hint small { flex:1 1 100%;color:var(--pg-faint);font-size:10px;line-height:1.4; }
+.provider-model-hint small[role=alert] { color:#b91c1c; }
+.provider-model-hint code { background:var(--pg-surface-soft);border-radius:4px;padding:1px 4px; }
+.provider-model-pick { border:1px solid var(--pg-border);border-radius:999px;padding:3px 9px;font-size:11px;background:white;color:var(--pg-muted);cursor:pointer; }
+.provider-model-pick:hover { border-color:var(--pg-accent);color:var(--pg-accent); }

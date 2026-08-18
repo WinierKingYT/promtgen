@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Bot, Check, CircleAlert, Eye, EyeOff, KeyRound, LoaderCircle, Save, ShieldCheck, Wifi, X } from 'lucide-react';
+import { listOllamaModels, missingModelWarning, type OllamaModel } from '../../v4/ai/ollama-models.js';
 import { getProviderMeta, PROVIDER_CATALOG, saveProviderSettings } from '../../v4/provider-settings.js';
 import { validateProviderSettings } from '../../v4/provider-url-policy.js';
 import { testProviderConnection } from '../../v4/ai/provider-connection.js';
@@ -52,6 +53,12 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<ProviderConnectionResult | null>(null);
   const provider = getProviderMeta(draftSettings.providerId);
+  // Kurulu Ollama modelleri. Boş liste "hiç model yok" demek değil; listeyi
+  // alamamış da olabiliriz — o yüzden hata ayrı tutuluyor ve uyarı liste
+  // gerçekten geldiğinde üretiliyor.
+  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
+  const [ollamaError, setOllamaError] = useState('');
+  const [ollamaLoading, setOllamaLoading] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -93,6 +100,31 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
     }
   };
 
+  /**
+   * Kurulu modelleri Ollama'nın kendisinden sorar.
+   *
+   * Elle kullanırken varsayılan `llama3.2` iken kurulu tek sohbet modeli
+   * `qwen2.5:7b`'ydi; kullanıcı model adını doğru yazmadan hiçbir tur
+   * çalışmıyordu ve neden çalışmadığı hiçbir yerde yazmıyordu.
+   */
+  const refreshOllamaModels = async (baseUrl: string) => {
+    setOllamaLoading(true);
+    const result = await listOllamaModels(baseUrl);
+    setOllamaLoading(false);
+    if (result.ok) {
+      setOllamaModels(result.models);
+      setOllamaError('');
+    } else {
+      setOllamaModels([]);
+      setOllamaError(result.reason);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || draftSettings.providerId !== 'ollama') return;
+    void refreshOllamaModels(draftSettings.baseUrl);
+  }, [open, draftSettings.providerId, draftSettings.baseUrl]);
+
   const chooseProvider = async (providerId: string) => {
     const meta = getProviderMeta(providerId);
     setDraftSettings(current => ({ ...current, providerId, model: meta.defaultModel, baseUrl: meta.defaultBaseUrl || '' }));
@@ -127,7 +159,27 @@ export function ProviderSettingsDialog({ open, settings, onSave, onClose, creden
       <p className="dialog-lead">AI yalnızca filtrelenmiş plan bağlamını görür. Ürettiği hiçbir değişiklik sen onaylamadan plana uygulanmaz.</p>
       <fieldset className="provider-options"><legend>Sağlayıcı</legend>{PROVIDER_CATALOG.map(item => <label key={item.id} className={draftSettings.providerId === item.id ? 'active' : ''}><input type="radio" name="provider" value={item.id} checked={draftSettings.providerId === item.id} onChange={() => chooseProvider(item.id)} /><span className="provider-radio" /><span><b>{item.label}</b><small>{item.description}</small></span>{item.builtIn && <em>Yerleşik</em>}{item.id === 'offline' && <em>Fallback</em>}</label>)}</fieldset>
       <div className="provider-fields">
-        <label htmlFor="provider-model">Model<input id="provider-model" value={draftSettings.model} onChange={event => setDraftSettings({ ...draftSettings, model: event.target.value })} disabled={draftSettings.providerId === 'offline'} /></label>
+        <label htmlFor="provider-model">Model<input id="provider-model" list={draftSettings.providerId === 'ollama' ? 'ollama-model-list' : undefined} value={draftSettings.model} onChange={event => setDraftSettings({ ...draftSettings, model: event.target.value })} disabled={draftSettings.providerId === 'offline'} /></label>
+        {draftSettings.providerId === 'ollama' && <>
+          {/* Serbest metin kutusu KALIYOR: liste alınamadığında ya da kullanıcı
+              yeni bir model çektiğinde yazmayı engellememeliyiz. Liste yalnız
+              öneri kaynağı. */}
+          <datalist id="ollama-model-list">
+            {ollamaModels.map(item => <option key={item.name} value={item.name}>{item.parameterSize ? `${item.name} · ${item.parameterSize}` : item.name}</option>)}
+          </datalist>
+          <div className="provider-model-hint">
+            {ollamaLoading && <small>Kurulu modeller okunuyor…</small>}
+            {!ollamaLoading && ollamaError && <small role="alert">{ollamaError}</small>}
+            {!ollamaLoading && !ollamaError && ollamaModels.length > 0 && <>
+              <small>Kurulu modeller: {ollamaModels.map(item => item.name).join(', ')}</small>
+              {ollamaModels.map(item => (
+                <button type="button" key={item.name} className="provider-model-pick" onClick={() => setDraftSettings({ ...draftSettings, model: item.name })}>{item.name}</button>
+              ))}
+            </>}
+            {!ollamaLoading && !ollamaError && ollamaModels.length === 0 && <small>Ollama'da kurulu sohbet modeli bulunamadı. <code>ollama pull qwen2.5</code> ile bir model çekebilirsin.</small>}
+            {missingModelWarning(draftSettings.model, ollamaModels) && <small role="alert">{missingModelWarning(draftSettings.model, ollamaModels)}</small>}
+          </div>
+        </>}
         {draftSettings.providerId === 'ollama' && <label htmlFor="provider-url">Yerel Ollama adresi<input id="provider-url" type="url" value={draftSettings.baseUrl} onChange={event => setDraftSettings({ ...draftSettings, baseUrl: event.target.value.replace(/\/$/, '') })} /><small>Yalnız localhost veya loopback adresleri kabul edilir.</small></label>}
         {['openai', 'nvidia'].includes(draftSettings.providerId) && <label htmlFor="provider-url">Sabit API adresi<input id="provider-url" type="url" value={draftSettings.baseUrl} readOnly aria-readonly="true" /></label>}
         {provider.credentialRequired && <label htmlFor="provider-credential">API anahtarı<div className="secret-input"><KeyRound size={16} /><input id="provider-credential" type={showCredential ? 'text' : 'password'} value={credential} autoComplete="off" onChange={event => setCredential(event.target.value)} placeholder={`${provider.label} API anahtarını bir kez ekle`} /><IconButton label={showCredential ? 'Anahtarı gizle' : 'Anahtarı göster'} onClick={() => setShowCredential(value => !value)}>{showCredential ? <EyeOff size={16} /> : <Eye size={16} />}</IconButton></div>{draftSettings.providerId === 'nvidia' && <small>GLM-5.2 hazır seçilidir. Masaüstünde anahtar işletim sistemi kasasında tutulur; web oturumunda sayfa kapanınca silinir.</small>}</label>}
