@@ -560,21 +560,30 @@ export function confirmConceptSummary(project) {
 
     // Populate Canonical Entities from Concept Summary
     if (summary.summary && next.sections.vision) {
+        // Boş alan YAZILMAZ; aşama modelindeki belgede bu dört yorum alanı yok
+        // ve satırlar koşulsuz yazıldığında vizyona "Hedef kullanıcı: undefined"
+        // düşüyordu. Kullanıcının kurmadığı cümleyi ona atfetmemenin yazma
+        // tarafındaki karşılığı budur.
         next.sections.vision.content = [
             summary.summary,
-            `Hedef kullanıcı: ${summary.targetUser}`,
-            `Problem: ${summary.problemStatement}`,
-            `Mevcut çözüm: ${summary.currentAlternative}`,
-            `Beklenen sonuç: ${summary.desiredOutcome}`
-        ].join('\n\n');
+            summary.targetUser ? `Hedef kullanıcı: ${summary.targetUser}` : '',
+            summary.problemStatement ? `Problem: ${summary.problemStatement}` : '',
+            summary.currentAlternative ? `Mevcut çözüm: ${summary.currentAlternative}` : '',
+            summary.desiredOutcome ? `Beklenen sonuç: ${summary.desiredOutcome}` : ''
+        ].filter(Boolean).join('\n\n');
         next.sections.vision.status = 'draft';
     }
     if (summary.confirmedFeatures && next.sections.scope) {
         next.sections.scope.items = [...new Set([...next.sections.scope.items, ...summary.confirmedFeatures])];
+        // Boş alan YAZILMAZ. Aşama modelindeki belgede `mvpTarget` yok (V3 o
+        // soruyu sormuyor) ve satır koşulsuz yazıldığında plana
+        // "MVP hedefi: undefined" düşüyordu.
         next.sections.scope.content = [
-            `MVP hedefi: ${summary.mvpTarget}`,
-            `Kapsam dışı:\n${summary.outOfScope.map(item => `- ${item}`).join('\n')}`
-        ].join('\n\n');
+            summary.mvpTarget ? `MVP hedefi: ${summary.mvpTarget}` : '',
+            summary.outOfScope.length
+                ? `Kapsam dışı:\n${summary.outOfScope.map(item => `- ${item}`).join('\n')}`
+                : ''
+        ].filter(Boolean).join('\n\n');
         next.sections.scope.status = 'draft';
     }
     next.identity.summary = summary.summary;

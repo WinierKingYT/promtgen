@@ -4,7 +4,11 @@ import { confirmConceptSummary } from '../planning-engine.js';
 import { getConceptAgreementGate, updateIdeaRecordStatus } from './idea-discussion-service.js';
 import { createRequirementDraftsFromConcept } from './requirement-quality-service.js';
 import { markCurrentIdeaRevisionConverted } from './idea-document-revision-service.js';
-import { applyStageScopeToPlan, stageConversionBlockers } from './conversion-v2.js';
+import {
+  applyStageScopeToPlan,
+  projectStageDataToConceptSummary,
+  stageConversionBlockers
+} from './conversion-v2.js';
 
 export interface IdeaPlanConversionPreview {
   baseDocumentRevision: number;
@@ -25,7 +29,9 @@ export type IdeaPlanConversionResult =
   | { success: false; project: ProjectDocumentV5; reason: string };
 
 function conversionBlockers(project: ProjectDocumentV5): string[] {
-  const gate = getConceptAgreementGate(project);
+  // Aşama verisi önce eski biçime yansıtılır; kapsam listelerini o besliyor.
+  const projected = projectStageDataToConceptSummary(project);
+  const gate = getConceptAgreementGate(projected);
   return [
     // Conversion V2: `Idea -> Plan` doğrudan geçişi kaldırıldı. Aşama modeline
     // girmemiş eski belgelerde bu liste boş döner; göç cezaya çevrilmez.
@@ -58,6 +64,10 @@ function buildConversionCandidate(project: ProjectDocumentV5): ProjectDocumentV5
   // "deferred" olarak damgalanır, böylece defterde izleri kalır ve kullanıcı
   // daha sonra geri dönebilir.
   const deferrable = getConceptAgreementGate(project).deferrablePending;
+  // İzdüşüm burada da uygulanır: `confirmConceptSummary` ve gereksinim
+  // taslakları `conceptSummary`'yi okuyor, dolayısıyla aşama verisi oraya
+  // yansımadan plan boş çıkardı.
+  project = projectStageDataToConceptSummary(project);
   let next = confirmConceptSummary(
     deferrable.reduce((carry, record) => updateIdeaRecordStatus(carry, record.id, 'deferred'), project)
   ) as ProjectDocumentV5;

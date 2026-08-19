@@ -176,3 +176,56 @@ export function applyStageScopeToPlan(project: ProjectDocumentV5): ProjectDocume
     }
   };
 }
+
+/**
+ * Aşama verisini eski `conceptSummary` biçimine yansıtır.
+ *
+ * Plan üretimi (`createRequirementDraftsFromConcept`) gereksinimleri
+ * `conceptSummary.confirmedFeatures` üzerinden kuruyor. V3 akışı o alanı hiç
+ * doldurmuyordu; pilot bunu yakaladı: kullanıcı bütün V3 yolunu yürüyor,
+ * fikir ve teknik onayı veriyor, sonra plan kapısında **eski modelin bambaşka
+ * bir belge setini** isteyen bir duvara çarpıyordu. Sonuç: sıfır gereksinim.
+ *
+ * **Yalnız gerçekten var olan taşınır.** `targetUser`, `problemStatement`,
+ * `currentAlternative` ve `desiredOutcome` burada doldurulmaz — V3 bunları
+ * bilerek sormuyor (`Problem → Kullanıcı → Değer` sırası her projeye uymadığı
+ * için kaldırıldı). Kararlardan mekanik olarak türetmek, kullanıcının hiç
+ * kurmadığı cümleleri ona atfetmek olurdu; bu belgede baştan beri yasak olan
+ * şey tam bu.
+ */
+export function projectStageDataToConceptSummary(project: ProjectDocumentV5): ProjectDocumentV5 {
+  if (!usesStageModel(project)) return project;
+
+  const sources = conversionSources(project);
+  const decided = project.ideaDesign.concerns.filter(concern => concern.status === 'decided');
+  const answers = new Map(
+    project.ideaDesign.concernDecisions.map(decision => [decision.concernId, decision.answer])
+  );
+
+  // Onaylanmış özellik = kullanıcının karara bağladığı konu, kendi cevabıyla.
+  const confirmedFeatures = decided
+    .map(concern => answers.get(concern.id) || concern.title)
+    .filter(Boolean);
+
+  const technicalApproaches = (project.decisions || [])
+    .filter(decision => decision.stage === 'technical' && decision.status === 'accepted')
+    .map(decision => decision.decision);
+
+  const existing = project.ideaLabSession?.conceptSummary;
+  return {
+    ...project,
+    ideaLabSession: {
+      ...(project.ideaLabSession || {}),
+      conceptSummary: {
+        ...(existing || {}),
+        summary: existing?.summary || project.identity.originalIdea,
+        confirmedFeatures: [...new Set([...(existing?.confirmedFeatures || []), ...confirmedFeatures])],
+        outOfScope: [...new Set([...(existing?.outOfScope || []), ...sources.outOfScope, ...sources.deferred])],
+        technicalApproaches: [...new Set([...(existing?.technicalApproaches || []), ...technicalApproaches])],
+        openQuestions: existing?.openQuestions || [],
+        knownRisks: existing?.knownRisks || [],
+        userConfirmed: existing?.userConfirmed ?? false
+      }
+    }
+  } as ProjectDocumentV5;
+}

@@ -1,3 +1,4 @@
+import { usesStageModel } from './conversion-v2.js';
 import type {
   ConceptSummary,
   IdeaDiscussionMode,
@@ -356,17 +357,42 @@ export function getConceptAgreementGate(project: ProjectDocumentV5) {
   // Boylece kullanici her kaydi tek tek karara baglamak zorunda kalmaz.
   const criticalPending = pending.filter(item => item.kind === 'decision' || item.kind === 'question');
   const deferrablePending = pending.filter(item => item.kind !== 'decision' && item.kind !== 'question');
-  const missingInterpretationFields = summary
-    ? INTERPRETATION_FIELDS.filter(field => !summary[field]?.toString().trim())
-    : [...INTERPRETATION_FIELDS];
-  const missingScopeLists = summary
-    ? [
-        ...(summary.confirmedFeatures.length ? [] : ['confirmedFeatures']),
-        ...(summary.outOfScope.length ? [] : ['outOfScope'])
-      ]
+  // Aşama modelindeki belgede altı yorum alanı ARANMAZ.
+  //
+  // V3 bu alanları bilerek sormuyor: `Problem → Kullanıcı → Değer → MVP` sırası
+  // bir startup keşif modeli ve her projeye uymuyor. Onların yerini iki onay
+  // kapısı aldı. İkisini birden istemek, kullanıcıdan aynı onayı iki farklı
+  // biçimde vermesini istemek olurdu — pilot tam buna takıldı: bütün V3 yolu
+  // yürünüyor, sonra plan kapısı eski modelin belge setini soruyordu.
+  //
+  // Denetim burada, tek yerde. Aynı kapı hem engel listesinde hem
+  // `confirmConceptSummary` içinde ayrı ayrı kontrol ediliyor; iki yeri ayrı
+  // ayrı yamamak, bu oturumda tekrar tekrar temizlediğim "iki doğruluk
+  // kaynağı" hatasını bir kez daha kurmak olurdu.
+  const stageModel = usesStageModel(project);
+  const missingInterpretationFields = stageModel
+    ? []
+    : summary
+      ? INTERPRETATION_FIELDS.filter(field => !summary[field]?.toString().trim())
+      : [...INTERPRETATION_FIELDS];
+  // `outOfScope` asama modelinde ZORUNLU DEGIL.
+  //
+  // Eski modelde "en az bir sey kapsam disi birak" bir disiplin kuraliydi.
+  // V3'te kapsam disi bir **cikti**: kullanici bir konuya "bu projeye ait
+  // degil" derse oraya duser. Hicbir konuyu elemeden ikisini de karara
+  // baglamak mesru bir sonuctur; bunu engel saymak, kullaniciyi plan almak
+  // icin uydurma bir kapsam disi madde yazmaya zorlardi.
+  //
+  // `confirmedFeatures` ise zorunlu kalir: onaylanmis tek bir sey yoksa plan
+  // sifir gereksinimle uretilirdi — pilotun yakaladigi hatanin ta kendisi.
+  const requiredScopeLists: readonly (keyof ConceptSummary)[] = stageModel
+    ? ['confirmedFeatures']
     : ['confirmedFeatures', 'outOfScope'];
+  const missingScopeLists = requiredScopeLists
+    .filter(field => !(summary?.[field] as unknown[] | undefined)?.length)
+    .map(field => String(field));
   const unresolvedSummaryQuestions = summary?.openQuestions || [];
-  const interpretationReady = Boolean(summary)
+  const interpretationReady = (stageModel || Boolean(summary))
     && missingInterpretationFields.length === 0
     && missingScopeLists.length === 0
     && unresolvedSummaryQuestions.length === 0;

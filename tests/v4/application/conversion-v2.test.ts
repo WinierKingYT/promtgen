@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyStageScopeToPlan,
+  projectStageDataToConceptSummary,
   conversionSources,
   stageConversionBlockers,
   stageWorkAvailable,
@@ -280,5 +281,98 @@ describe('Kapsam kararları plana ulaşır', () => {
       assert.fail(`dönüşüm başarısız: ${result.reason}`);
     }
     assert.match(result.project.sections.scope.content, /Genetik/);
+  });
+});
+
+describe('V3 yolu plana ULASIR', () => {
+  it('asama verisi gereksinime donusur - pilotun durdurdugu nokta', () => {
+    // Pilot bunu yakaladi: kullanici butun V3 yolunu yuruyor, iki onayi da
+    // veriyor, sonra plan kapisinda ESKI modelin bambaska bir belge setini
+    // isteyen bir duvara carpiyordu. Sonuc sifir gereksinimdi.
+    const document = stageProject({
+      solution: true,
+      concerns: [
+        { id: 'c1', title: 'Fatura kaydı', status: 'decided', whyItMatters: 'Temel akış.' },
+        { id: 'c2', title: 'Muhasebe entegrasyonu', status: 'irrelevant' }
+      ]
+    });
+
+    const preview = previewIdeaPlanConversion(document);
+
+    assert.deepEqual(preview.blockers, []);
+    assert.equal(preview.canConvert, true);
+
+    const result = applyIdeaPlanConversion(document, {
+      baseDocumentRevision: document.documentRevision,
+      baseCanonicalRevision: document.canonicalRevision
+    });
+    if (!result.success) assert.fail(`dönüşüm başarısız: ${result.reason}`);
+    assert.ok(result.project.requirements.length > 0, 'gereksinim üretilmedi');
+  });
+
+  it('izdusum UYDURMAZ: V3 sormadigi alanlari doldurmaz', () => {
+    // targetUser / problemStatement / currentAlternative / desiredOutcome
+    // V3'te hiç sorulmuyor. Kararlardan türetmek, kullanıcının hiç kurmadığı
+    // cümleleri ona atfetmek olurdu.
+    const projected = projectStageDataToConceptSummary(
+      stageProject({ concerns: [{ id: 'c1', title: 'Fatura kaydı', status: 'decided' }] })
+    );
+    const summary = projected.ideaLabSession?.conceptSummary as Record<string, unknown>;
+
+    for (const field of ['targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome']) {
+      assert.ok(!summary[field], `${field} uydurulmuş`);
+    }
+    assert.ok((summary.confirmedFeatures as string[]).length > 0);
+  });
+
+  it('plana "undefined" yazilmaz', () => {
+    const document = stageProject({
+      solution: true,
+      concerns: [{ id: 'c1', title: 'Fatura kaydı', status: 'decided', whyItMatters: 'Temel.' }]
+    });
+
+    const result = applyIdeaPlanConversion(document, {
+      baseDocumentRevision: document.documentRevision,
+      baseCanonicalRevision: document.canonicalRevision
+    });
+    if (!result.success) assert.fail(result.reason);
+
+    assert.doesNotMatch(result.project.sections.scope.content, /undefined/);
+    assert.doesNotMatch(result.project.sections.vision.content, /undefined/);
+  });
+
+  it('V3te kapsam disi birakmak ZORUNLU degildir', () => {
+    // Eski modelde "en az bir şey kapsam dışı bırak" bir kuraldı. V3'te kapsam
+    // dışı bir çıktıdır; hiçbir konuyu elemeden ikisini de karara bağlamak
+    // meşru bir sonuçtur. Engel saysaydık kullanıcıyı, plan alabilmek için
+    // uydurma bir kapsam dışı madde yazmaya zorlardık.
+    const document = stageProject({
+      solution: true,
+      concerns: [{ id: 'c1', title: 'Fatura kaydı', status: 'decided', whyItMatters: 'Temel.' }]
+    });
+
+    assert.deepEqual(previewIdeaPlanConversion(document).blockers, []);
+  });
+
+  it('ONAYLANMIS TEK BIR SEY YOKSA plan yine uretilemez', () => {
+    // Sınırın tamamen kalkmadığı burada görünür: her konusunu erteleyen bir
+    // belge plana geçerse, sıfır gereksinimli bir plan sessizce üretilirdi —
+    // pilotun yakaladığı hatanın ta kendisi.
+    const document = stageProject({
+      solution: true,
+      concerns: [{ id: 'c1', title: 'Fatura kaydı', status: 'deferred' }]
+    });
+
+    assert.ok(previewIdeaPlanConversion(document).blockers.some(
+      blocker => /confirmedFeatures/.test(blocker)
+    ), JSON.stringify(previewIdeaPlanConversion(document).blockers));
+  });
+
+  it('ESKI belge hala eski kapiyi gecmek zorunda', () => {
+    // Aşama modeline girmemiş belgede yorum alanları hâlâ isteniyor; kapı
+    // gevşetilmiş değil, yalnız V3 belgesinde yerini iki onaya bırakıyor.
+    const blockers = previewIdeaPlanConversion(legacyProject()).blockers;
+
+    assert.ok(blockers.some(blocker => /alanı tamamlanmalı/.test(blocker)), JSON.stringify(blockers));
   });
 });

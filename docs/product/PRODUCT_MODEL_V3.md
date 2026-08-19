@@ -107,6 +107,29 @@ Devam edilebilir.
 
 Sayı değil, **engel listesi**. Sıfır engel = geçilebilir.
 
+### İki onay, eski belge setinin yerine geçer
+
+Plan kapısında aşama modelindeki belgeden **eski modelin belge seti
+istenmez**. Eski akış plana geçmeden önce altı yorum alanı (`targetUser`,
+`problemStatement`, `currentAlternative`, `desiredOutcome`, …) ve en az bir
+kapsam dışı madde isterdi. V3 bu alanları bilerek sormuyor; `Problem →
+Kullanıcı → Değer → MVP` sırası bir startup keşif modeli ve her projeye
+uymuyor. Onların yerini **iki onay kapısı** aldı.
+
+İkisini birden istemek, kullanıcıdan aynı onayı iki farklı biçimde vermesini
+istemek olurdu. Pilot tam buna takıldı: bütün V3 yolu yürünüyor, iki onay da
+veriliyor, sonra plan **sıfır gereksinimle** üretiliyordu.
+
+Kalkmayan tek sınır: **onaylanmış en az bir konu**. Her konusunu erteleyen bir
+belge plana geçerse sıfır gereksinimli bir plan sessizce üretilirdi.
+
+Kapsam dışı bırakmak da zorunlu değil — kapsam dışı bir **çıktıdır**, ön koşul
+değil. Zorunlu tutmak, kullanıcıyı plan alabilmek için uydurma bir madde
+yazmaya zorlardı.
+
+Aşama verisi plana taşınırken **hiçbir alan uydurulmaz**: V3'ün hiç sormadığı
+yorum alanları boş kalır ve belgeye yazılmaz.
+
 ---
 
 ## 4. Çekirdek kavram: `Concern`
