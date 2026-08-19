@@ -1,0 +1,347 @@
+[
+  {
+    "schemaVersion": 2,
+    "blindId": "p-1",
+    "scenarioId": "s1-fatura",
+    "inScope": [
+      "Fatura takibi ekranı",
+      "Ödeme hatırlatmaları",
+      "Ödeme önerileri"
+    ],
+    "outOfScope": [],
+    "requirements": [],
+    "tasks": [
+      {
+        "id": "p1-t1",
+        "title": "Problemi anlama ve kullanıcı analizi",
+        "description": "Kullanıcı araştırması ve profil çıkarma.",
+        "requirementIds": [],
+        "acceptanceCriteria": [],
+        "verificationIds": []
+      },
+      {
+        "id": "p1-t2",
+        "title": "Temel işlevleri tanımlama",
+        "description": "Fatura takibi, ödeme önerileri, hatırlatmalar.",
+        "requirementIds": [],
+        "acceptanceCriteria": [],
+        "verificationIds": []
+      },
+      {
+        "id": "p1-t3",
+        "title": "Prototip oluşturma",
+        "description": "UI/UX tasarımı ve tıklanabilir prototip.",
+        "requirementIds": [],
+        "acceptanceCriteria": [],
+        "verificationIds": []
+      },
+      {
+        "id": "p1-t4",
+        "title": "Test ve geri bildirim",
+        "description": "Beta test, geri bildirim analizi.",
+        "requirementIds": [],
+        "acceptanceCriteria": [],
+        "verificationIds": []
+      },
+      {
+        "id": "p1-t5",
+        "title": "MVP geliştirme",
+        "description": "Backend ve frontend geliştirme.",
+        "requirementIds": [],
+        "acceptanceCriteria": [],
+        "verificationIds": []
+      },
+      {
+        "id": "p1-t6",
+        "title": "Yayınlama ve değerlendirme",
+        "description": "MVP yayını ve ölçüm.",
+        "requirementIds": [],
+        "acceptanceCriteria": [],
+        "verificationIds": []
+      }
+    ],
+    "tests": [],
+    "decisionStatements": [],
+    "manualEditCount": 0,
+    "agentFirstPassCompleted": false,
+    "setupDurationSeconds": 0,
+    "planningDurationSeconds": 14,
+    "endToEndDurationSeconds": 14
+  },
+  {
+    "schemaVersion": 2,
+    "blindId": "p-2",
+    "scenarioId": "s1-fatura",
+    "inScope": [
+      "Fatura kaydı paneli",
+      "Ödeme hatırlatma e-postaları"
+    ],
+    "outOfScope": [
+      "Muhasebe entegrasyonu"
+    ],
+    "requirements": [
+      {
+        "id": "p2-r1",
+        "title": "Fatura kaydı paneli",
+        "priority": "must",
+        "acceptanceCriteria": [
+          "Kullanıcı faturayı eklerse durumu doğru kaydedilmeli."
+        ]
+      },
+      {
+        "id": "p2-r2",
+        "title": "Ödeme önerme sistemi",
+        "priority": "should",
+        "acceptanceCriteria": [
+          "Kullanıcı ödeme önermesini verirse onaylanan işlem tamamlanmalı."
+        ]
+      },
+      {
+        "id": "p2-r3",
+        "title": "Ödeme hatırlatma e-postaları",
+        "priority": "must",
+        "acceptanceCriteria": [
+          "Gönderilen hatırlatmada önerilen ödeme tarihleri doğru ve güncel olmalı."
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "id": "p2-t1",
+        "title": "Fatura kaydı paneli oluşturma",
+        "description": "Panel arayüzü ve kayıt akışı.",
+        "requirementIds": [
+          "p2-r1"
+        ],
+        "acceptanceCriteria": [],
+        "verificationIds": [
+          "p2-v1"
+        ]
+      },
+      {
+        "id": "p2-t2",
+        "title": "Ödeme önerme sistemi oluşturma",
+        "description": "Öneri hesabı ve onay akışı.",
+        "requirementIds": [
+          "p2-r2"
+        ],
+        "acceptanceCriteria": [],
+        "verificationIds": [
+          "p2-v2"
+        ]
+      },
+      {
+        "id": "p2-t3",
+        "title": "Ödeme hatırlatma e-postaları oluşturma",
+        "description": "E-posta şablonu ve gönderim.",
+        "requirementIds": [
+          "p2-r3"
+        ],
+        "acceptanceCriteria": [],
+        "verificationIds": [
+          "p2-v3"
+        ]
+      }
+    ],
+    "tests": [
+      {
+        "id": "p2-v1",
+        "requirementIds": [
+          "p2-r1"
+        ]
+      },
+      {
+        "id": "p2-v2",
+        "requirementIds": [
+          "p2-r2"
+        ]
+      },
+      {
+        "id": "p2-v3",
+        "requirementIds": [
+          "p2-r3"
+        ]
+      }
+    ],
+    "decisionStatements": [
+      "Ödeme önerme sistemi: kullanıcıya öneri sunulur, otomatik tamamlama yapılmaz.",
+      "Muhasebe entegrasyonu ilk sürümde yok."
+    ],
+    "manualEditCount": 0,
+    "agentFirstPassCompleted": false,
+    "setupDurationSeconds": 0,
+    "planningDurationSeconds": 35,
+    "endToEndDurationSeconds": 35
+  },
+  {
+    "schemaVersion": 2,
+    "blindId": "p-3",
+    "scenarioId": "s1-fatura",
+    "inScope": [
+      "Hatırlatma e-posta ile; SMS yok.",
+      "Ödeme tahsilatı kapsam dışı.",
+      "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.",
+      "Tek kullanıcı, ekip özelliği yok.",
+      "Veriler cihazda saklanacak."
+    ],
+    "outOfScope": [],
+    "requirements": [
+      {
+        "id": "req-mvp-hat-rlatma-e-posta-ile-sms-yok",
+        "title": "Hatırlatma e-posta ile; SMS yok.",
+        "priority": "must",
+        "acceptanceCriteria": [
+          "Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ]
+      },
+      {
+        "id": "req-mvp-o-deme-tahsilat-kapsam-d-s",
+        "title": "Ödeme tahsilatı kapsam dışı.",
+        "priority": "must",
+        "acceptanceCriteria": [
+          "Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ]
+      },
+      {
+        "id": "req-mvp-sadece-fatura-kayd-ve-hat-rlatma-muhasebe-",
+        "title": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.",
+        "priority": "must",
+        "acceptanceCriteria": [
+          "Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ]
+      },
+      {
+        "id": "req-mvp-tek-kullan-c-ekip-o-zellig-i-yok",
+        "title": "Tek kullanıcı, ekip özelliği yok.",
+        "priority": "must",
+        "acceptanceCriteria": [
+          "Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ]
+      },
+      {
+        "id": "req-mvp-veriler-cihazda-saklanacak",
+        "title": "Veriler cihazda saklanacak.",
+        "priority": "must",
+        "acceptanceCriteria": [
+          "Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "id": "task-hat-rlatma-e-posta-ile-sms-yok",
+        "title": "Hatırlatma e-posta ile; SMS yok.",
+        "description": "Hatırlatma e-posta ile; SMS yok. kullanıcı tarafından tamamlanabilmeli.",
+        "requirementIds": [
+          "req-mvp-hat-rlatma-e-posta-ile-sms-yok"
+        ],
+        "acceptanceCriteria": [
+          "Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "verificationIds": [
+          "test-hat-rlatma-e-posta-ile-sms-yok"
+        ]
+      },
+      {
+        "id": "task-o-deme-tahsilat-kapsam-d-s",
+        "title": "Ödeme tahsilatı kapsam dışı.",
+        "description": "Ödeme tahsilatı kapsam dışı. kullanıcı tarafından tamamlanabilmeli.",
+        "requirementIds": [
+          "req-mvp-o-deme-tahsilat-kapsam-d-s"
+        ],
+        "acceptanceCriteria": [
+          "Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "verificationIds": [
+          "test-o-deme-tahsilat-kapsam-d-s"
+        ]
+      },
+      {
+        "id": "task-sadece-fatura-kayd-ve-hat-rlatma-muh",
+        "title": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.",
+        "description": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok. kullanıcı tarafından tamamlanabilmeli.",
+        "requirementIds": [
+          "req-mvp-sadece-fatura-kayd-ve-hat-rlatma-muhasebe-"
+        ],
+        "acceptanceCriteria": [
+          "Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "verificationIds": [
+          "test-sadece-fatura-kayd-ve-hat-rlatma-muh"
+        ]
+      },
+      {
+        "id": "task-tek-kullan-c-ekip-o-zellig-i-yok",
+        "title": "Tek kullanıcı, ekip özelliği yok.",
+        "description": "Tek kullanıcı, ekip özelliği yok. kullanıcı tarafından tamamlanabilmeli.",
+        "requirementIds": [
+          "req-mvp-tek-kullan-c-ekip-o-zellig-i-yok"
+        ],
+        "acceptanceCriteria": [
+          "Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "verificationIds": [
+          "test-tek-kullan-c-ekip-o-zellig-i-yok"
+        ]
+      },
+      {
+        "id": "task-veriler-cihazda-saklanacak",
+        "title": "Veriler cihazda saklanacak.",
+        "description": "Veriler cihazda saklanacak. kullanıcı tarafından tamamlanabilmeli.",
+        "requirementIds": [
+          "req-mvp-veriler-cihazda-saklanacak"
+        ],
+        "acceptanceCriteria": [
+          "Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "verificationIds": [
+          "test-veriler-cihazda-saklanacak"
+        ]
+      }
+    ],
+    "tests": [
+      {
+        "id": "test-hat-rlatma-e-posta-ile-sms-yok",
+        "requirementIds": [
+          "req-mvp-hat-rlatma-e-posta-ile-sms-yok"
+        ]
+      },
+      {
+        "id": "test-o-deme-tahsilat-kapsam-d-s",
+        "requirementIds": [
+          "req-mvp-o-deme-tahsilat-kapsam-d-s"
+        ]
+      },
+      {
+        "id": "test-sadece-fatura-kayd-ve-hat-rlatma-muh",
+        "requirementIds": [
+          "req-mvp-sadece-fatura-kayd-ve-hat-rlatma-muhasebe-"
+        ]
+      },
+      {
+        "id": "test-tek-kullan-c-ekip-o-zellig-i-yok",
+        "requirementIds": [
+          "req-mvp-tek-kullan-c-ekip-o-zellig-i-yok"
+        ]
+      },
+      {
+        "id": "test-veriler-cihazda-saklanacak",
+        "requirementIds": [
+          "req-mvp-veriler-cihazda-saklanacak"
+        ]
+      }
+    ],
+    "decisionStatements": [
+      "Hatırlatma e-posta ile; SMS yok.",
+      "Ödeme tahsilatı kapsam dışı.",
+      "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.",
+      "Tek kullanıcı, ekip özelliği yok.",
+      "Veriler cihazda saklanacak."
+    ],
+    "manualEditCount": 0,
+    "agentFirstPassCompleted": false,
+    "setupDurationSeconds": 0,
+    "planningDurationSeconds": 65,
+    "endToEndDurationSeconds": 65
+  }
+]

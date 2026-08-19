@@ -1,0 +1,463 @@
+{
+  "requirements": [
+    {
+      "id": "req-mvp-hat-rlatma-e-posta-ile-sms-yok",
+      "title": "Hatırlatma e-posta ile; SMS yok.",
+      "statement": "Hatırlatma e-posta ile; SMS yok. kullanıcı tarafından tamamlanabilmeli.",
+      "kind": "functional",
+      "priority": "must",
+      "acceptanceCriteria": [
+        "Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "sourceObjectiveIds": [
+        "objective-mvp-project-1787162657795-6fzhih"
+      ],
+      "sourceSuggestionIds": [],
+      "status": "draft"
+    },
+    {
+      "id": "req-mvp-o-deme-tahsilat-kapsam-d-s",
+      "title": "Ödeme tahsilatı kapsam dışı.",
+      "statement": "Ödeme tahsilatı kapsam dışı. kullanıcı tarafından tamamlanabilmeli.",
+      "kind": "functional",
+      "priority": "must",
+      "acceptanceCriteria": [
+        "Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "sourceObjectiveIds": [
+        "objective-mvp-project-1787162657795-6fzhih"
+      ],
+      "sourceSuggestionIds": [],
+      "status": "draft"
+    },
+    {
+      "id": "req-mvp-sadece-fatura-kayd-ve-hat-rlatma-muhasebe-",
+      "title": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.",
+      "statement": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok. kullanıcı tarafından tamamlanabilmeli.",
+      "kind": "functional",
+      "priority": "must",
+      "acceptanceCriteria": [
+        "Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "sourceObjectiveIds": [
+        "objective-mvp-project-1787162657795-6fzhih"
+      ],
+      "sourceSuggestionIds": [],
+      "status": "draft"
+    },
+    {
+      "id": "req-mvp-tek-kullan-c-ekip-o-zellig-i-yok",
+      "title": "Tek kullanıcı, ekip özelliği yok.",
+      "statement": "Tek kullanıcı, ekip özelliği yok. kullanıcı tarafından tamamlanabilmeli.",
+      "kind": "functional",
+      "priority": "must",
+      "acceptanceCriteria": [
+        "Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "sourceObjectiveIds": [
+        "objective-mvp-project-1787162657795-6fzhih"
+      ],
+      "sourceSuggestionIds": [],
+      "status": "draft"
+    },
+    {
+      "id": "req-mvp-veriler-cihazda-saklanacak",
+      "title": "Veriler cihazda saklanacak.",
+      "statement": "Veriler cihazda saklanacak. kullanıcı tarafından tamamlanabilmeli.",
+      "kind": "functional",
+      "priority": "must",
+      "acceptanceCriteria": [
+        "Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "sourceObjectiveIds": [
+        "objective-mvp-project-1787162657795-6fzhih"
+      ],
+      "sourceSuggestionIds": [],
+      "status": "draft"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-hat-rlatma-e-posta-ile-sms-yok",
+      "title": "Hatırlatma e-posta ile; SMS yok.",
+      "description": "Hatırlatma e-posta ile; SMS yok. kullanıcı tarafından tamamlanabilmeli.",
+      "status": "ready",
+      "priority": "must",
+      "effort": "low",
+      "dependencies": [],
+      "requirementIds": [
+        "req-mvp-hat-rlatma-e-posta-ile-sms-yok"
+      ],
+      "acceptanceCriteria": [
+        "Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "verificationIds": [
+        "test-hat-rlatma-e-posta-ile-sms-yok"
+      ],
+      "contract": {
+        "version": 2,
+        "objective": "Hatırlatma e-posta ile; SMS yok. kullanıcı tarafından tamamlanabilmeli.",
+        "inScope": [
+          "Hatırlatma e-posta ile; SMS yok.",
+          "Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "outOfScope": [
+          "Bu göreve bağlı olmayan canonical gereksinimler"
+        ],
+        "filePolicy": {
+          "status": "requires_inventory",
+          "allowedPaths": [],
+          "forbiddenPaths": [
+            ".git/**",
+            ".env*",
+            "**/*.pem",
+            "**/*secret*",
+            "node_modules/**",
+            "dist/**",
+            "target/**"
+          ]
+        },
+        "verification": {
+          "testCaseIds": [
+            "test-hat-rlatma-e-posta-ile-sms-yok"
+          ],
+          "commands": [],
+          "requiresCommandDiscovery": true
+        },
+        "expectedOutputs": [
+          "\"Hatırlatma e-posta ile; SMS yok.\" gereksinimini karşılayan değişiklik",
+          "Değiştirilen dosyaların listesi",
+          "Kabul kriteri ve test kanıtı",
+          "Kalan riskler"
+        ],
+        "completionEvidence": [
+          "Kabul kriteri: Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+          "Test senaryosu: test-hat-rlatma-e-posta-ile-sms-yok",
+          "Çalıştırılan komutların çıktısı veya komut keşfi açıklaması"
+        ],
+        "rollbackPlan": "Değişiklikleri görev bazlı patch/commit olarak tut; doğrulama başarısızsa yalnız bu görevin değişikliklerini geri al ve canonical planı değiştirme."
+      }
+    },
+    {
+      "id": "task-o-deme-tahsilat-kapsam-d-s",
+      "title": "Ödeme tahsilatı kapsam dışı.",
+      "description": "Ödeme tahsilatı kapsam dışı. kullanıcı tarafından tamamlanabilmeli.",
+      "status": "ready",
+      "priority": "must",
+      "effort": "low",
+      "dependencies": [],
+      "requirementIds": [
+        "req-mvp-o-deme-tahsilat-kapsam-d-s"
+      ],
+      "acceptanceCriteria": [
+        "Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "verificationIds": [
+        "test-o-deme-tahsilat-kapsam-d-s"
+      ],
+      "contract": {
+        "version": 2,
+        "objective": "Ödeme tahsilatı kapsam dışı. kullanıcı tarafından tamamlanabilmeli.",
+        "inScope": [
+          "Ödeme tahsilatı kapsam dışı.",
+          "Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "outOfScope": [
+          "Bu göreve bağlı olmayan canonical gereksinimler"
+        ],
+        "filePolicy": {
+          "status": "requires_inventory",
+          "allowedPaths": [],
+          "forbiddenPaths": [
+            ".git/**",
+            ".env*",
+            "**/*.pem",
+            "**/*secret*",
+            "node_modules/**",
+            "dist/**",
+            "target/**"
+          ]
+        },
+        "verification": {
+          "testCaseIds": [
+            "test-o-deme-tahsilat-kapsam-d-s"
+          ],
+          "commands": [],
+          "requiresCommandDiscovery": true
+        },
+        "expectedOutputs": [
+          "\"Ödeme tahsilatı kapsam dışı.\" gereksinimini karşılayan değişiklik",
+          "Değiştirilen dosyaların listesi",
+          "Kabul kriteri ve test kanıtı",
+          "Kalan riskler"
+        ],
+        "completionEvidence": [
+          "Kabul kriteri: Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+          "Test senaryosu: test-o-deme-tahsilat-kapsam-d-s",
+          "Çalıştırılan komutların çıktısı veya komut keşfi açıklaması"
+        ],
+        "rollbackPlan": "Değişiklikleri görev bazlı patch/commit olarak tut; doğrulama başarısızsa yalnız bu görevin değişikliklerini geri al ve canonical planı değiştirme."
+      }
+    },
+    {
+      "id": "task-sadece-fatura-kayd-ve-hat-rlatma-muh",
+      "title": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.",
+      "description": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok. kullanıcı tarafından tamamlanabilmeli.",
+      "status": "ready",
+      "priority": "must",
+      "effort": "low",
+      "dependencies": [],
+      "requirementIds": [
+        "req-mvp-sadece-fatura-kayd-ve-hat-rlatma-muhasebe-"
+      ],
+      "acceptanceCriteria": [
+        "Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "verificationIds": [
+        "test-sadece-fatura-kayd-ve-hat-rlatma-muh"
+      ],
+      "contract": {
+        "version": 2,
+        "objective": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok. kullanıcı tarafından tamamlanabilmeli.",
+        "inScope": [
+          "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.",
+          "Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "outOfScope": [
+          "Bu göreve bağlı olmayan canonical gereksinimler"
+        ],
+        "filePolicy": {
+          "status": "requires_inventory",
+          "allowedPaths": [],
+          "forbiddenPaths": [
+            ".git/**",
+            ".env*",
+            "**/*.pem",
+            "**/*secret*",
+            "node_modules/**",
+            "dist/**",
+            "target/**"
+          ]
+        },
+        "verification": {
+          "testCaseIds": [
+            "test-sadece-fatura-kayd-ve-hat-rlatma-muh"
+          ],
+          "commands": [],
+          "requiresCommandDiscovery": true
+        },
+        "expectedOutputs": [
+          "\"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" gereksinimini karşılayan değişiklik",
+          "Değiştirilen dosyaların listesi",
+          "Kabul kriteri ve test kanıtı",
+          "Kalan riskler"
+        ],
+        "completionEvidence": [
+          "Kabul kriteri: Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+          "Test senaryosu: test-sadece-fatura-kayd-ve-hat-rlatma-muh",
+          "Çalıştırılan komutların çıktısı veya komut keşfi açıklaması"
+        ],
+        "rollbackPlan": "Değişiklikleri görev bazlı patch/commit olarak tut; doğrulama başarısızsa yalnız bu görevin değişikliklerini geri al ve canonical planı değiştirme."
+      }
+    },
+    {
+      "id": "task-tek-kullan-c-ekip-o-zellig-i-yok",
+      "title": "Tek kullanıcı, ekip özelliği yok.",
+      "description": "Tek kullanıcı, ekip özelliği yok. kullanıcı tarafından tamamlanabilmeli.",
+      "status": "ready",
+      "priority": "must",
+      "effort": "low",
+      "dependencies": [],
+      "requirementIds": [
+        "req-mvp-tek-kullan-c-ekip-o-zellig-i-yok"
+      ],
+      "acceptanceCriteria": [
+        "Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "verificationIds": [
+        "test-tek-kullan-c-ekip-o-zellig-i-yok"
+      ],
+      "contract": {
+        "version": 2,
+        "objective": "Tek kullanıcı, ekip özelliği yok. kullanıcı tarafından tamamlanabilmeli.",
+        "inScope": [
+          "Tek kullanıcı, ekip özelliği yok.",
+          "Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "outOfScope": [
+          "Bu göreve bağlı olmayan canonical gereksinimler"
+        ],
+        "filePolicy": {
+          "status": "requires_inventory",
+          "allowedPaths": [],
+          "forbiddenPaths": [
+            ".git/**",
+            ".env*",
+            "**/*.pem",
+            "**/*secret*",
+            "node_modules/**",
+            "dist/**",
+            "target/**"
+          ]
+        },
+        "verification": {
+          "testCaseIds": [
+            "test-tek-kullan-c-ekip-o-zellig-i-yok"
+          ],
+          "commands": [],
+          "requiresCommandDiscovery": true
+        },
+        "expectedOutputs": [
+          "\"Tek kullanıcı, ekip özelliği yok.\" gereksinimini karşılayan değişiklik",
+          "Değiştirilen dosyaların listesi",
+          "Kabul kriteri ve test kanıtı",
+          "Kalan riskler"
+        ],
+        "completionEvidence": [
+          "Kabul kriteri: Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+          "Test senaryosu: test-tek-kullan-c-ekip-o-zellig-i-yok",
+          "Çalıştırılan komutların çıktısı veya komut keşfi açıklaması"
+        ],
+        "rollbackPlan": "Değişiklikleri görev bazlı patch/commit olarak tut; doğrulama başarısızsa yalnız bu görevin değişikliklerini geri al ve canonical planı değiştirme."
+      }
+    },
+    {
+      "id": "task-veriler-cihazda-saklanacak",
+      "title": "Veriler cihazda saklanacak.",
+      "description": "Veriler cihazda saklanacak. kullanıcı tarafından tamamlanabilmeli.",
+      "status": "ready",
+      "priority": "must",
+      "effort": "low",
+      "dependencies": [],
+      "requirementIds": [
+        "req-mvp-veriler-cihazda-saklanacak"
+      ],
+      "acceptanceCriteria": [
+        "Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "verificationIds": [
+        "test-veriler-cihazda-saklanacak"
+      ],
+      "contract": {
+        "version": 2,
+        "objective": "Veriler cihazda saklanacak. kullanıcı tarafından tamamlanabilmeli.",
+        "inScope": [
+          "Veriler cihazda saklanacak.",
+          "Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+        ],
+        "outOfScope": [
+          "Bu göreve bağlı olmayan canonical gereksinimler"
+        ],
+        "filePolicy": {
+          "status": "requires_inventory",
+          "allowedPaths": [],
+          "forbiddenPaths": [
+            ".git/**",
+            ".env*",
+            "**/*.pem",
+            "**/*secret*",
+            "node_modules/**",
+            "dist/**",
+            "target/**"
+          ]
+        },
+        "verification": {
+          "testCaseIds": [
+            "test-veriler-cihazda-saklanacak"
+          ],
+          "commands": [],
+          "requiresCommandDiscovery": true
+        },
+        "expectedOutputs": [
+          "\"Veriler cihazda saklanacak.\" gereksinimini karşılayan değişiklik",
+          "Değiştirilen dosyaların listesi",
+          "Kabul kriteri ve test kanıtı",
+          "Kalan riskler"
+        ],
+        "completionEvidence": [
+          "Kabul kriteri: Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+          "Test senaryosu: test-veriler-cihazda-saklanacak",
+          "Çalıştırılan komutların çıktısı veya komut keşfi açıklaması"
+        ],
+        "rollbackPlan": "Değişiklikleri görev bazlı patch/commit olarak tut; doğrulama başarısızsa yalnız bu görevin değişikliklerini geri al ve canonical planı değiştirme."
+      }
+    }
+  ],
+  "tests": [
+    {
+      "id": "test-hat-rlatma-e-posta-ile-sms-yok",
+      "title": "Hatırlatma e-posta ile; SMS yok. kabul testi",
+      "kind": "acceptance",
+      "preconditions": [],
+      "steps": [
+        "Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "expectedResult": "Kullanıcı \"Hatırlatma e-posta ile; SMS yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+      "requirementIds": [
+        "req-mvp-hat-rlatma-e-posta-ile-sms-yok"
+      ],
+      "status": "ready"
+    },
+    {
+      "id": "test-o-deme-tahsilat-kapsam-d-s",
+      "title": "Ödeme tahsilatı kapsam dışı. kabul testi",
+      "kind": "acceptance",
+      "preconditions": [],
+      "steps": [
+        "Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "expectedResult": "Kullanıcı \"Ödeme tahsilatı kapsam dışı.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+      "requirementIds": [
+        "req-mvp-o-deme-tahsilat-kapsam-d-s"
+      ],
+      "status": "ready"
+    },
+    {
+      "id": "test-sadece-fatura-kayd-ve-hat-rlatma-muh",
+      "title": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok. kabul testi",
+      "kind": "acceptance",
+      "preconditions": [],
+      "steps": [
+        "Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "expectedResult": "Kullanıcı \"Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+      "requirementIds": [
+        "req-mvp-sadece-fatura-kayd-ve-hat-rlatma-muhasebe-"
+      ],
+      "status": "ready"
+    },
+    {
+      "id": "test-tek-kullan-c-ekip-o-zellig-i-yok",
+      "title": "Tek kullanıcı, ekip özelliği yok. kabul testi",
+      "kind": "acceptance",
+      "preconditions": [],
+      "steps": [
+        "Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "expectedResult": "Kullanıcı \"Tek kullanıcı, ekip özelliği yok.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+      "requirementIds": [
+        "req-mvp-tek-kullan-c-ekip-o-zellig-i-yok"
+      ],
+      "status": "ready"
+    },
+    {
+      "id": "test-veriler-cihazda-saklanacak",
+      "title": "Veriler cihazda saklanacak. kabul testi",
+      "kind": "acceptance",
+      "preconditions": [],
+      "steps": [
+        "Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir."
+      ],
+      "expectedResult": "Kullanıcı \"Veriler cihazda saklanacak.\" davranışını tamamladığında beklenen sonuç arayüzde gözlenebilir.",
+      "requirementIds": [
+        "req-mvp-veriler-cihazda-saklanacak"
+      ],
+      "status": "ready"
+    }
+  ],
+  "sections": {
+    "vision": "Serbest çalışanların fatura takibini kolaylaştıran bir şey yapmak istiyorum, ödeme hatırlatmaları da olsun belki.",
+    "scope": ""
+  },
+  "note": "Pilot. Calisma kaniti degildir. AI turlari 2026-08-19 kayitli kosusundan; yalniz donusum ve gorev derlemesi yeniden calistirildi."
+}
