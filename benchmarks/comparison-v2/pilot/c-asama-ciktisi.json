@@ -1,0 +1,56 @@
+{
+  "note": "Pilot. Calisma kaniti degildir.",
+  "scenarioId": "s1-fatura",
+  "seconds": 65,
+  "gunluk": [
+    "kesif: 5 konu, kaynak=ai",
+    "kararlar: 5",
+    "fikir onaylandi",
+    "teknik: 3 konu, 1 aday, 0 elenen"
+  ],
+  "ideaConcerns": [
+    "Fatura Otomasyon Sistemi",
+    "Sistem Arayüzü",
+    "Ödeme Yöntemlerinin İncelenmesi",
+    "Sistem hangi ödeme yöntemlerini destekleyecek?",
+    "Kullanıcıların sisteme nasıl erişebilecekleri?"
+  ],
+  "decisions": [
+    {
+      "stage": "idea",
+      "title": "Ödeme Yöntemlerinin İncelenmesi",
+      "decision": "Sadece fatura kaydı ve hatırlatma; muhasebe entegrasyonu yok."
+    },
+    {
+      "stage": "idea",
+      "title": "Fatura Otomasyon Sistemi",
+      "decision": "Hatırlatma e-posta ile; SMS yok."
+    },
+    {
+      "stage": "idea",
+      "title": "Sistem hangi ödeme yöntemlerini destekleyecek?",
+      "decision": "Tek kullanıcı, ekip özelliği yok."
+    },
+    {
+      "stage": "idea",
+      "title": "Kullanıcıların sisteme nasıl erişebilecekleri?",
+      "decision": "Veriler cihazda saklanacak."
+    },
+    {
+      "stage": "idea",
+      "title": "Sistem Arayüzü",
+      "decision": "Ödeme tahsilatı kapsam dışı."
+    }
+  ],
+  "technicalConcerns": [
+    "Veri ve Güvenlik Politiği",
+    "Fatura Kayıt ve Otomatik Hatırlatma",
+    "Kullanıcı Erişimi ve Kimlik Doğrulaması"
+  ],
+  "candidates": [
+    {
+      "title": "Veri Güvenlik Politiği",
+      "reversibility": "reversible"
+    }
+  ]
+}
