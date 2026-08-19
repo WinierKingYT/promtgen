@@ -128,6 +128,24 @@ alanları reddeder.
 | `manualEditCount` | Katılımcının geri dönüp düzelttiği sayı |
 | `agentFirstPassCompleted` | Planı başka bir kodlama ajanı ek soru sormadan uygulayabildi mi |
 
+### Gönderim kaydı çalışmaya girmeden denetlenir
+
+```bash
+npm run check:submission-draft -- benchmarks/comparison-v2/pilot/taslak.json
+```
+
+Taslak, `submissions.json`'a **girmeden önce** denetlenir. Pilotun ortaya
+çıkardığı ihtiyaç buydu: kayıt elle dolduruluyor ve bir alan eksik/yanlışsa
+bu ancak rapor üretilirken, yani bütün veri toplandıktan sonra anlaşılıyordu.
+
+Denetim üç şeye bakar ve en pahalısı ilki:
+
+1. **Yöntem sızıntısı.** `method` benzeri bir alan ya da metin içinde geçen
+   `promtgen`, `master-prompt`, `ollama` gibi bir ad. Körlük bir kez bozulursa
+   geri alınamaz; o gönderim çalışmadan düşer.
+2. Senaryo kimliğinin çalışmanın listesinde bulunması.
+3. Şemanın kendi kuralları (`evaluateBlindSubmission`).
+
 ### Kör değerlendirme — `human-evaluations.json`
 
 `HumanEvaluation.scores` **yedi** ölçütün tamamını 1–5 arası taşır. Ölçütler

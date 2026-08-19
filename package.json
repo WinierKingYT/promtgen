@@ -70,7 +70,8 @@
     "check:comparison-v2": "tsx scripts/comparison-benchmark.ts --study=comparison-v2 --check",
     "comparison:publish-gate-v2": "tsx scripts/comparison-benchmark.ts --study=comparison-v2 --publish-gate",
     "reachability:report": "tsx scripts/check-module-reachability.ts",
-    "check:reachability": "tsx scripts/check-module-reachability.ts --check"
+    "check:reachability": "tsx scripts/check-module-reachability.ts --check",
+    "check:submission-draft": "tsx scripts/check-submission-draft.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
