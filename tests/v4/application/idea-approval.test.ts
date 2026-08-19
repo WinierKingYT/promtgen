@@ -246,3 +246,52 @@ describe('Kapı metni — yüzde değil engel', () => {
     assert.ok(!lines.some(line => /Devam edilebilir/.test(line)));
   });
 });
+
+describe('BOS onay atilamaz', () => {
+  it('hic konu yokken kapi ACILMAZ', () => {
+    // Pilot bunu canlida gosterdi: saglayici turu dustu, belge sifir konuyla
+    // ilerledi ve HER IKI onayi da aldi. Yapisal denetimler yalniz var olan
+    // konulari inceler; bos belgede hepsi sessizce gecer ve kapi "0 engel"
+    // diyerek acilir. Imza, altinda hicbir karar yokken atilmis olurdu.
+    const readiness = ideaApprovalReadiness(project());
+
+    assert.equal(readiness.canApprove, false);
+    assert.deepEqual(readiness.obstacles.map(item => item.kind), ['nothing-decided']);
+    assert.match(readiness.obstacles[0].message, /keşif turu/);
+  });
+
+  it('konular VAR ama hicbiri ele alinmamissa da acilmaz', () => {
+    const readiness = ideaApprovalReadiness(project([
+      { id: 'c1', title: 'Sahiplik', importance: 'optional', status: 'open' }
+    ]));
+
+    assert.equal(readiness.canApprove, false);
+    assert.match(readiness.obstacles[0].message, /Hiçbir konu karara bağlanmadı/);
+  });
+
+  it('ERTELEMEK de bir eylemdir; kapiyi bu denetim kapatmaz', () => {
+    // Kullanici konuyu gormus ve "sonra" demis. Bu bir karardir; onu
+    // "hicbir sey yapmadin" saymak verdigi karari yok saymak olurdu.
+    const readiness = ideaApprovalReadiness(project([
+      { id: 'c1', title: 'Zırh', importance: 'optional', status: 'deferred' }
+    ]));
+
+    assert.equal(readiness.canApprove, true);
+  });
+
+  it('bos belgede onay REDDEDILIR', () => {
+    const result = approveIdeaDesign(project(), { revision: 3, at: '2026-08-19T00:00:00.000Z' });
+
+    assert.equal(result.approved, false);
+  });
+
+  it('YAPISAL engel varken ayni sey iki kez soylenmez', () => {
+    // "Bu konuda karar verilmedi" zaten yapilacak isi adiyla soyluyor;
+    // ustune "hicbir konu karara baglanmadi" eklemek gurultu olurdu.
+    const readiness = ideaApprovalReadiness(project([
+      { id: 'c1', title: 'Sahiplik', importance: 'critical', status: 'open' }
+    ]));
+
+    assert.deepEqual(readiness.obstacles.map(item => item.kind), ['blocking-concern']);
+  });
+});

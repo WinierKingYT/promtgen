@@ -20,7 +20,8 @@ export type ApprovalObstacleKind =
   | 'unknown-option'
   | 'stale-answer'
   | 'unlinked-technical-decision'
-  | 'ungrounded-technical-decision';
+  | 'ungrounded-technical-decision'
+  | 'nothing-decided';
 
 export interface ApprovalObstacle {
   kind: ApprovalObstacleKind;

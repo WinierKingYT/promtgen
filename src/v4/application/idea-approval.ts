@@ -5,7 +5,7 @@ import {
   summarizeReadiness
 } from './stage-approval.js';
 import type { ApprovalReadiness } from './stage-approval.js';
-import type { ProjectDocumentV5, StageApproval } from '../contracts.js';
+import type { Concern, ProjectDocumentV5, StageApproval } from '../contracts.js';
 
 export type {
   ApprovalObstacle,
@@ -33,10 +33,39 @@ export { readinessLines } from './stage-approval.js';
  */
 export function ideaApprovalReadiness(project: ProjectDocumentV5): ApprovalReadiness {
   const concerns = project.ideaDesign?.concerns || [];
+  const structural = structuralObstacles(concerns, project.ideaDesign?.concernDecisions || []);
+  // Yapısal engel varken kapı zaten doğru sebeple kapalı; üstüne "hiçbir konu
+  // karara bağlanmadı" eklemek aynı işi iki kez söylemek olurdu. Bu denetim
+  // yalnız kapının **açılacağı** durumu yakalamak için var.
   return summarizeReadiness(
     concerns,
-    structuralObstacles(concerns, project.ideaDesign?.concernDecisions || [])
+    structural.length ? structural : nothingDecidedObstacle(concerns)
   );
+}
+
+/**
+ * Hiçbir konu karara bağlanmadıysa onaylanacak bir şey yoktur.
+ *
+ * Yapısal denetimler yalnız **var olan** konuları inceler; boş bir fikir
+ * tasarımında hepsi sessizce geçer ve kapı "0 engel" diyerek açılır. Pilot bunu
+ * canlıda gösterdi: sağlayıcı turu düştüğü için sıfır konuyla ilerleyen belge
+ * her iki onayı da aldı. İmza, altında hiçbir karar yokken atılmış olurdu.
+ *
+ * Bu denetim yalnız FİKİR aşamasında var. Teknik tarafta boş liste meşru bir
+ * sonuçtur — istem modele açıkça "gerçekten karara bağlanacak teknik bir şey
+ * yoksa boş dizi döndür" diyor. Aynı kuralı oraya kopyalamak, ürünün kendi
+ * söylediği şeyi cezalandırmak olurdu.
+ */
+function nothingDecidedObstacle(concerns: readonly Concern[]) {
+  const decided = concerns.some(concern => concern.status !== 'open');
+  if (decided) return [];
+  return [{
+    kind: 'nothing-decided' as const,
+    concernId: '',
+    message: concerns.length
+      ? 'Hiçbir konu karara bağlanmadı; onaylanacak bir karar yok.'
+      : 'Fikir tasarımında hiç konu yok; önce keşif turu çalıştır.'
+  }];
 }
 
 export type ApprovalResult =
