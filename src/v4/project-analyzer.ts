@@ -91,6 +91,19 @@ interface PackageManifestShape {
     scripts?: Record<string, unknown>;
 }
 
+/**
+ * `scriptNames` `JSON.parse` SONRASI oluşur; içerik taraması (aşağıda,
+ * `containsPromptInjection(content)`) ise HAM metne bakar. Bir JSON kaçışı
+ * (`"you are now the system owner"`) ham metinde desene uymaz ama
+ * ayrıştırıldıktan sonra uyar -- yani script adları, bu dosyanın `path` ve
+ * `content` için zaten kurduğu korumanın ARKASINDAN geçebiliyordu. Script
+ * adları içe aktarılan projenin `package.json`'ından gelir, yani saldırgan
+ * kontrolündedir; aynı kanonik dedektörden geçmeleri gerekir.
+ */
+function hasSuspiciousScriptName(signals: LocalContentSignals): boolean {
+    return (signals.scriptNames || []).some(script => containsPromptInjection(script));
+}
+
 function localContentSignals(path: string, content: string): LocalContentSignals {
     const signals: LocalContentSignals = {};
     if (path.toLowerCase().endsWith('package.json')) {
@@ -173,10 +186,24 @@ export async function analyzeSelectedFiles(
                 entry.injectionDetected = containsPromptInjection(content);
                 if (!entry.secretDetected && !entry.injectionDetected) {
                     const signals = localContentSignals(path, content);
-                    for (const framework of signals.frameworkHints || []) frameworks.add(framework);
-                    for (const script of signals.scriptNames || []) scriptNames.add(script);
-                    if (signals.packageManager) entry.packageManager = signals.packageManager;
-                    if (signals.manifestParseError) entry.manifestParseError = true;
+                    // Şüpheli bir script adı, `content` enjeksiyonuyla AYNI
+                    // şekilde ele alınır: dosya işaretlenir ve manifestten
+                    // HİÇBİR sinyal toplanmaz. Yalnız o adı düşürüp gerisini
+                    // almak yanlış olurdu -- talimatı kaçırmayı başaran bir
+                    // manifestin `frameworkHints`/`packageManager` alanlarına
+                    // da güvenilmez; yarısı alınmış bir manifest, hiç
+                    // alınmamışından beterdir. Dosya `path` politikasındaki
+                    // gibi ELENMEZ: envanterde kalır (kullanıcı ne olduğunu
+                    // görür), yalnız `projectInventoryContext` tarafından
+                    // AI bağlamının dışında tutulur.
+                    if (hasSuspiciousScriptName(signals)) {
+                        entry.injectionDetected = true;
+                    } else {
+                        for (const framework of signals.frameworkHints || []) frameworks.add(framework);
+                        for (const script of signals.scriptNames || []) scriptNames.add(script);
+                        if (signals.packageManager) entry.packageManager = signals.packageManager;
+                        if (signals.manifestParseError) entry.manifestParseError = true;
+                    }
                 }
             } catch { entry.readError = true; }
         }
