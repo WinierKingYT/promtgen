@@ -237,7 +237,7 @@ describe('TauriSqliteProjectRepository.archive() / restore() — dönüş değer
     });
 });
 
-describe('TauriSqliteProjectRepository.purge() — invoke sonucunu doğrulamadan olduğu gibi döndürür', () => {
+describe('DÜZELTME (eski adı: TauriSqliteProjectRepository.purge() — invoke sonucunu doğrulamadan olduğu gibi döndürür)', () => {
     it('purge(): purge_project komutunu {id} ile çağırır ve Rust tarafından dönen sayıları AYNEN döndürür', async () => {
         const calls = [];
         const expected = { projectDeleted: true, checkpointsDeleted: 4, commandLogEntriesDeleted: 2, quarantineEntriesDeleted: 0, backupsDeleted: 3 };
@@ -251,20 +251,21 @@ describe('TauriSqliteProjectRepository.purge() — invoke sonucunu doğrulamadan
         assert.deepEqual(calls[0].args, { id: 'proje-id' });
     });
 
-    it("purge(): dönüş değeri HİÇ doğrulanmaz -- ProjectPurgeResult şeklini karşılamayan bir değer bile olduğu gibi geçer (drift riski: .d.ts Promise<ProjectPurgeResult> vaat ediyor, çalışma zamanı hiçbir garanti vermiyor)", async () => {
+    // DÜZELTME (eski adı: "purge(): dönüş değeri HİÇ doğrulanmaz"): dönüş
+    // artık `parseProjectPurgeResult` (src/v4/tauri-storage.ts) ile çalışma
+    // zamanında denetleniyor. Sözleşmeyi karşılayan yanıt aynen geçer (üstteki
+    // test), karşılamayan yanıt SESSİZCE geçmez -- hata fırlatır. Doğrulamanın
+    // ayrıntılı kapsamı: tests/v4/tauri-storage-ipc-validation.test.ts.
+    it('purge(): ProjectPurgeResult şeklini karşılamayan bir değer artık sessizce geçmez, hata fırlatır', async () => {
         const repository = new TauriSqliteProjectRepository(fakeInvoke({ purge_project: () => 'beklenmeyen-sekil' }));
 
-        const result = await repository.purge('proje-id');
-
-        assert.equal(result, 'beklenmeyen-sekil');
+        await assert.rejects(() => repository.purge('proje-id'), /Silme sonucu okunamadı/);
     });
 
-    it('purge(): invoke undefined dönerse purge() de undefined döner (şema garantisi yok)', async () => {
+    it('purge(): invoke undefined dönerse artık undefined dönmez, hata fırlatır', async () => {
         const repository = new TauriSqliteProjectRepository(fakeInvoke({ purge_project: () => undefined }));
 
-        const result = await repository.purge('proje-id');
-
-        assert.equal(result, undefined);
+        await assert.rejects(() => repository.purge('proje-id'), /Silme sonucu okunamadı/);
     });
 });
 

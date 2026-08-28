@@ -69,6 +69,124 @@ function toRecord(value: unknown): Record<string, unknown> | null {
     return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
+/* ------------------------------------------------------------------------ *
+ * IPC SINIRI DOĞRULAMASI
+ *
+ * `as Promise<T>` bir İDDİADIR, kontrol değil. Rust tarafı şeklini
+ * değiştirirse ya da beklenmedik bir şey dönerse TypeScript'in bundan haberi
+ * olmaz ve bozuk veri arayüze kadar sızar. Aşağıdaki `parse*` fonksiyonları
+ * bu dosyanın KENDİ mevcut desenini izler: `validateProjectDocument`
+ * (src/v4/project-document.ts) gibi Türkçe hata listesi üretilir, çağrı
+ * noktasında `throw new Error(...)` ile yükseltilir -- bkz. `save()` ve
+ * `loadDesktopProjectBackup()`. Yeni bir doğrulama yaklaşımı (zod vb.)
+ * İCAT EDİLMEZ; `src/v4/ai/schemas/` zod şemaları model çıktısı içindir,
+ * depolama sınırı bu dosyada elle yazılmış denetimlerle korunur.
+ *
+ * BAŞARISIZLIK KARARI: bozuk veride SESSİZCE boş değere (`null`, `[]`)
+ * düşülmez, HATA FIRLATILIR. Gerekçe:
+ *   1. Bu dört fonksiyonun boş değerleri ZATEN dolu bir anlam taşıyor:
+ *      "burası masaüstü değil / kayıt yok". Bozuk veriyi de aynı değere
+ *      indirgemek, iki farklı durumu tek kelimeye çökertir -- kullanıcı
+ *      "yedeğim yok" sanır, oysa yedekleri okunamamıştır. Bu, bu kod
+ *      tabanında açıkça istenmeyen sessiz hata yutmanın ta kendisidir.
+ *   2. Dosyanın kendi tercihi de bu: tek belgelik yollarda (`get()`,
+ *      `loadDesktopProjectBackup()`) bozuk veri fırlatılır; yalnız `list()`
+ *      atlayıp uyarı biriktirir, çünkü orada okunabilen DİĞER projeleri
+ *      kurtarmak gerçek bir kazançtır. Buradaki dördünde kurtarılacak
+ *      kısmi bir sonuç yok.
+ *   3. Her iki çağıran da (src/react/components/StorageHealthPanel.tsx
+ *      `refresh()`, src/react/hooks/useProjectState.ts `purgeProject()`)
+ *      hatayı yakalayıp kullanıcıya Türkçe mesaj gösterir; fırlatmak
+ *      arayüzü kırmaz, görünür kılar.
+ * ------------------------------------------------------------------------ */
+
+type RuntimeKind = 'boolean' | 'number' | 'string';
+
+/** Hata mesajlarında "gelen: ..." kısmı için okunabilir tür adı. */
+function describeRuntimeValue(value: unknown): string {
+    if (value === null) return 'null';
+    if (Array.isArray(value)) return 'dizi';
+    return typeof value;
+}
+
+/**
+ * Beklenen ilkel alanları tek tek denetler; boş dizi "geçerli" demektir
+ * (`validateProjectDocument` ile aynı sözleşme). Fazladan alanlar
+ * DOKUNULMADAN geçer: amaç Rust'ın sözleşmeyi taşıdığını doğrulamak, onu
+ * daraltmak değil -- bu yüzden mutlu yolda dönen nesne birebir aynı kalır.
+ * Sayılarda `Number.isFinite` şart: NaN/Infinity bu köprüden geçebilir ve
+ * arayüzde "NaN yedek" gibi görünür.
+ */
+function collectShapeErrors(value: unknown, fields: Readonly<Record<string, RuntimeKind>>, label: string): string[] {
+    const record = toRecord(value);
+    if (!record || Array.isArray(value)) return [`${label} bir nesne değil (gelen: ${describeRuntimeValue(value)}).`];
+    const errors: string[] = [];
+    for (const [field, kind] of Object.entries(fields)) {
+        const actual = record[field];
+        const ok = kind === 'number' ? typeof actual === 'number' && Number.isFinite(actual) : typeof actual === kind;
+        if (!ok) errors.push(`${label}.${field} alanı ${kind} olmalı (gelen: ${describeRuntimeValue(actual)}).`);
+    }
+    return errors;
+}
+
+function collectListErrors(value: unknown, fields: Readonly<Record<string, RuntimeKind>>, label: string): string[] {
+    if (!Array.isArray(value)) return [`${label} bir dizi değil (gelen: ${describeRuntimeValue(value)}).`];
+    return value.flatMap((item, index) => collectShapeErrors(item, fields, `${label}[${index}]`));
+}
+
+const PURGE_RESULT_FIELDS: Readonly<Record<string, RuntimeKind>> = Object.freeze({
+    projectDeleted: 'boolean', checkpointsDeleted: 'number', commandLogEntriesDeleted: 'number',
+    quarantineEntriesDeleted: 'number', backupsDeleted: 'number'
+});
+
+const STORAGE_HEALTH_FIELDS: Readonly<Record<string, RuntimeKind>> = Object.freeze({
+    ok: 'boolean', quickCheck: 'string', projectCount: 'number', backupCount: 'number',
+    quarantineCount: 'number', databaseBytes: 'number', journalMode: 'string'
+});
+
+const BACKUP_SUMMARY_FIELDS: Readonly<Record<string, RuntimeKind>> = Object.freeze({
+    id: 'number', projectId: 'string', revision: 'number', createdAt: 'string', bytes: 'number'
+});
+
+const QUARANTINE_SUMMARY_FIELDS: Readonly<Record<string, RuntimeKind>> = Object.freeze({
+    id: 'number', projectId: 'string', reason: 'string', quarantinedAt: 'string', bytes: 'number'
+});
+
+/**
+ * `purge_project` sonucunu doğrular. Silme Rust tarafında ZATEN çalıştı;
+ * buradan fırlatmak silmeyi geri almaz -- bu yüzden mesaj sonucun
+ * bilinemediğini açıkça söyler, "silinemedi" demez.
+ */
+export function parseProjectPurgeResult(value: unknown, id: string): ProjectPurgeResult {
+    const errors = collectShapeErrors(value, PURGE_RESULT_FIELDS, 'purge_project sonucu');
+    if (errors.length > 0) throw new Error(`Silme sonucu okunamadı (${id}): ${errors.join(' ')} Silme işlemi yerel veritabanında uygulanmış olabilir; proje listesini yenileyip durumu doğrulayın.`);
+    return value as ProjectPurgeResult;
+}
+
+/**
+ * `storage_health` sonucunu doğrular. `null` kabul edilir çünkü dönüş tipi
+ * onu zaten "rapor yok" olarak taşıyor; `undefined` KABUL EDİLMEZ -- JSON
+ * köprüsü undefined üretmez, göründüğünde bu bir arıza işaretidir.
+ */
+export function parseStorageHealthSummary(value: unknown): StorageHealthSummary | null {
+    if (value === null) return null;
+    const errors = collectShapeErrors(value, STORAGE_HEALTH_FIELDS, 'storage_health sonucu');
+    if (errors.length > 0) throw new Error(`Depolama sağlık raporu okunamadı: ${errors.join(' ')} Verileriniz silinmedi; yerel veritabanında duruyor.`);
+    return value as StorageHealthSummary;
+}
+
+export function parseDesktopBackupSummaries(value: unknown): DesktopBackupSummary[] {
+    const errors = collectListErrors(value, BACKUP_SUMMARY_FIELDS, 'list_project_backups sonucu');
+    if (errors.length > 0) throw new Error(`Yerel yedek listesi okunamadı: ${errors.join(' ')} Yedekleriniz silinmedi; yerel veritabanında duruyor.`);
+    return value as DesktopBackupSummary[];
+}
+
+export function parseDesktopQuarantineSummaries(value: unknown): DesktopQuarantineSummary[] {
+    const errors = collectListErrors(value, QUARANTINE_SUMMARY_FIELDS, 'list_quarantined_projects sonucu');
+    if (errors.length > 0) throw new Error(`Karantina listesi okunamadı: ${errors.join(' ')} Karantinadaki kayıtlar silinmedi; yerel veritabanında duruyor.`);
+    return value as DesktopQuarantineSummary[];
+}
+
 // DÜZELTME (eski adı: BULUNAN KUSUR, bkz. tests/v4/tauri-storage-characterization.test.js
 // "DÜZELTME (eski adı: MİMARİ SONUÇ)..." testleri): bu modül önceden list()
 // sonucu atlanan proje uyarısını MODÜL kapsamında (tüm
@@ -187,16 +305,14 @@ export class TauriSqliteProjectRepository implements ProjectRepository {
         return true;
     }
     async purge(id: string): Promise<ProjectPurgeResult> {
-        // DOĞRULANMAMIŞ DÖNÜŞ (CEO kararı 1): `purge_project` komutunun
-        // sonucu burada HİÇBİR ŞEKİLDE çalışma zamanında doğrulanmaz --
-        // `ProjectPurgeResult` yalnızca Rust tarafının uyması BEKLENEN
-        // sözleşmedir, gerçekten uyduğunun garantisi yoktur (bkz.
-        // tests/v4/tauri-storage-characterization.test.js: "dönüş değeri
-        // HİÇ doğrulanmaz" -- `invoke` bir string bile dönse `purge()` onu
-        // aynen döndürür). Çalışma zamanı doğrulaması eklemek davranış
-        // değişikliği olacağından ayrı bir takip işi olarak bırakılmıştır;
-        // burada yalnızca tip beyanı eklenmiştir.
-        return this.invoke('purge_project', { id }) as Promise<ProjectPurgeResult>;
+        // DÜZELTME (eski adı: DOĞRULANMAMIŞ DÖNÜŞ): `purge_project` sonucu
+        // artık `as Promise<ProjectPurgeResult>` İDDİASIYLA değil,
+        // `parseProjectPurgeResult` ile çalışma zamanında denetlenerek
+        // kabul ediliyor (gerekçe için o fonksiyonun üstündeki "IPC SINIRI
+        // DOĞRULAMASI" bloğuna bakın). Sözleşmeye uyan bir yanıt HİÇBİR
+        // değişikliğe uğramadan, aynı nesne olarak döner -- mutlu yol
+        // çıktısı birebir aynıdır.
+        return parseProjectPurgeResult(await this.invoke('purge_project', { id }), id);
     }
 }
 
@@ -273,24 +389,28 @@ export function restoreStorageBackupAsNewRevision(currentProject: ProjectDocumen
 
 export function isDesktopStorageAvailable(): boolean { return isTauri(); }
 
+// Aşağıdaki üç fonksiyonda `isTauri()` false yolu (null / boş dizi) HİÇ
+// DEĞİŞMEDİ: doğrulama yalnız masaüstünde, gerçekten IPC'den veri geldiğinde
+// çalışır. "Masaüstü değil" ile "veri bozuk" bu yüzden hâlâ ayırt edilebilir
+// -- birincisi boş değer, ikincisi hata.
+
 export async function getDesktopStorageHealth(): Promise<StorageHealthSummary | null> {
-    // DOĞRULANMAMIŞ DÖNÜŞ (CEO kararı 1): `storage_health` komutunun sonucu
-    // burada hiçbir şekilde çalışma zamanında doğrulanmaz; `StorageHealthSummary`
-    // yalnızca Rust tarafının uyması BEKLENEN sözleşmedir. Çalışma zamanı
-    // doğrulaması ayrı bir takip işidir; burada yalnızca tip beyanı eklenmiştir.
-    return isTauri() ? (invoke('storage_health') as Promise<StorageHealthSummary | null>) : null;
+    // DÜZELTME (eski adı: DOĞRULANMAMIŞ DÖNÜŞ): `storage_health` sonucu artık
+    // `parseStorageHealthSummary` ile denetlenir; gerekçe için "IPC SINIRI
+    // DOĞRULAMASI" bloğuna bakın.
+    return isTauri() ? parseStorageHealthSummary(await invoke('storage_health')) : null;
 }
 
 export async function listDesktopProjectBackups(projectId: string): Promise<DesktopBackupSummary[]> {
-    // DOĞRULANMAMIŞ DÖNÜŞ (CEO kararı 1): bkz. getDesktopStorageHealth()
+    // DÜZELTME (eski adı: DOĞRULANMAMIŞ DÖNÜŞ): bkz. getDesktopStorageHealth()
     // üstündeki not -- aynı gerekçe `list_project_backups` için de geçerli.
-    return isTauri() ? (invoke('list_project_backups', { projectId }) as Promise<DesktopBackupSummary[]>) : [];
+    return isTauri() ? parseDesktopBackupSummaries(await invoke('list_project_backups', { projectId })) : [];
 }
 
 export async function listDesktopQuarantinedProjects(): Promise<DesktopQuarantineSummary[]> {
-    // DOĞRULANMAMIŞ DÖNÜŞ (CEO kararı 1): bkz. getDesktopStorageHealth()
+    // DÜZELTME (eski adı: DOĞRULANMAMIŞ DÖNÜŞ): bkz. getDesktopStorageHealth()
     // üstündeki not -- aynı gerekçe `list_quarantined_projects` için de geçerli.
-    return isTauri() ? (invoke('list_quarantined_projects') as Promise<DesktopQuarantineSummary[]>) : [];
+    return isTauri() ? parseDesktopQuarantineSummaries(await invoke('list_quarantined_projects')) : [];
 }
 
 export async function loadDesktopProjectBackup(currentProject: ProjectDocumentV5, backupId: number): Promise<ProjectDocumentV5> {
