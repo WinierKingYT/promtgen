@@ -6,14 +6,8 @@ const PROVIDER_ENDPOINTS = Object.freeze({
     nvidia: 'https://integrate.api.nvidia.com/v1'
 });
 
-type FixedEndpointProviderId = keyof typeof PROVIDER_ENDPOINTS;
-
 const PROVIDER_IDS = new Set(['offline', 'ollama', 'openai', 'gemini', 'nvidia']);
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
-
-function isFixedEndpointProviderId(providerId: string): providerId is FixedEndpointProviderId {
-    return Object.prototype.hasOwnProperty.call(PROVIDER_ENDPOINTS, providerId);
-}
 
 const CONTROL_CHARACTER_PATTERN = new RegExp('[\\u0000-\\u001f\\u007f]');
 
@@ -57,6 +51,9 @@ export function validateProviderSettings(settings: Partial<ProviderSettings> = {
     catch (error) { return { valid: false, settings: null, error: error instanceof Error ? error.message : 'Geçersiz sağlayıcı ayarı.' }; }
 }
 
-export function getFixedProviderEndpoint(providerId: string): string {
-    return isFixedEndpointProviderId(providerId) ? PROVIDER_ENDPOINTS[providerId] : '';
-}
+// KALDIRILDI: `getFixedProviderEndpoint(providerId)`. Bu export'un tek
+// koruyucusu `tests/v4/provider-url-policy-characterization.test.js` idi ve o
+// test `.js`→`.ts` dönüşümü sırasında davranışı sabitlemek için yazılmıştı;
+// dönüşüm bitti. Üretimde hiçbir çağıranı yoktu -- sabit endpoint'e ihtiyaç
+// duyan tek yol zaten `normalizeProviderBaseUrl`, ve o `PROVIDER_ENDPOINTS`'i
+// doğrudan okuyor. Geri gerekirse üç satır: `PROVIDER_ENDPOINTS` duruyor.

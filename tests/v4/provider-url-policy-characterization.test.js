@@ -5,11 +5,12 @@
 //   - Ollama için değer verilmediğinde varsayılan loopback adrese düşme
 //   - openai/nvidia/ollama dışındaki providerId'ler için sabit endpoint döndürmeme (boş dize)
 //   - tanınmayan providerId'nin normalizeProviderSettings içinde güvenli şekilde 'offline'a düşmesi
-//   - getFixedProviderEndpoint: hiçbir çağıran tarafından kullanılmayan, tamamen testsiz export
+// NOT: bu dosya bir zamanlar `getFixedProviderEndpoint`i de sabitliyordu.
+// Dönüşüm bittiği ve o export'un üretimde hiçbir çağıranı olmadığı için hem
+// fonksiyon hem testleri kaldırıldı (bkz. src/v4/provider-url-policy.ts).
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  getFixedProviderEndpoint,
   normalizeProviderBaseUrl,
   normalizeProviderSettings
 } from '../../src/v4/provider-url-policy.js';
@@ -61,19 +62,5 @@ describe('normalizeProviderSettings — tanınmayan providerId güvenli şekilde
     const normalized = normalizeProviderSettings({ providerId: 'attacker-controlled', model: 'safe-model', baseUrl: 'https://attacker.example' });
     assert.equal(normalized.providerId, 'offline');
     assert.equal(normalized.baseUrl, '');
-  });
-});
-
-describe('getFixedProviderEndpoint — hiçbir çağıran tarafından kullanılmayan export', () => {
-  it('ollama/openai/nvidia için PROVIDER_ENDPOINTS sabitini döner', () => {
-    assert.equal(getFixedProviderEndpoint('ollama'), 'http://127.0.0.1:11434');
-    assert.equal(getFixedProviderEndpoint('openai'), 'https://api.openai.com/v1');
-    assert.equal(getFixedProviderEndpoint('nvidia'), 'https://integrate.api.nvidia.com/v1');
-  });
-
-  it('sabit endpointi olmayan veya tanınmayan sağlayıcılar için boş dize döner', () => {
-    assert.equal(getFixedProviderEndpoint('offline'), '');
-    assert.equal(getFixedProviderEndpoint('gemini'), '');
-    assert.equal(getFixedProviderEndpoint('made-up-provider'), '');
   });
 });

@@ -9,11 +9,15 @@ export type ProductLocale = 'tr-TR' | 'en-US';
  * - `refused`: kanıt ne çıkarsa çıksın hizmet etmeyeceğimiz alan. Düzenleyici
  *   ve klinik/finansal sorumluluk devredilemez; bu bir veri sorunu değil.
  *
- * Ayrım gerçek bir çelişkiyi kapatıyor: `game-3d` "Alan paketi bulunmuyor"
- * gerekçesiyle `unsupported` yazıyordu ve okuyan "3D oyunda hiç çalışmıyor"
- * sonucuna varıyordu. Oysa `promtgen-comparison-v2` çalışması tam o alanda bir
- * senaryo içeriyor. İkisi aynı kelimeyle söylendiği sürece belgeler birbirini
- * yalanlıyordu.
+ * Ayrım gerçek bir çelişkiyi kapatıyor. Bugünkü örneği `game-3d` ile
+ * `critical-health` yan yana konunca görünür: ikisi de `unsupported`, ama
+ * hiç aynı şeyi söylemiyorlar. `game-3d` için bir alan paketi
+ * (`domain-packs/game.ts`) ARTIK VAR ve `promtgen-comparison-v2` çalışması
+ * tam o alanda bir senaryo içeriyor -- yine de üretime hazırlık ölçülmediği
+ * için garanti verilmiyor: `unmeasured`. `critical-health` ise ölçüm
+ * beklemiyor; kanıt ne çıkarsa çıksın kapsam dışı: `refused`. İkisi aynı
+ * kelimeyle söylendiği sürece okuyan "3D oyunda hiç çalışmıyor" sonucuna
+ * varıyor ve belgeler birbirini yalanlıyordu.
  */
 export type UnsupportedReason = 'unmeasured' | 'refused';
 
