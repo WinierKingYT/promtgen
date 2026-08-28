@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach, afterEach } from 'node:test';
-import { SessionCredentialVault } from '../../src/v4/credential-vault.js';
+import { SessionCredentialVault, DesktopCredentialVault, createCredentialVault } from '../../src/v4/credential-vault.js';
 
 /** Tarayıcı `sessionStorage`'ının yeterli taklidi. */
 function fakeSessionStorage() {
@@ -86,5 +86,118 @@ describe('SessionCredentialVault', () => {
 
     assert.equal(await vault.get('openai'), 'openai-anahtari');
     assert.equal(await vault.get('gemini'), 'gemini-anahtari');
+  });
+
+  it('hic yazilmamis bir saglayici icin null doner', async () => {
+    const fake = fakeSessionStorage();
+    globalRef.sessionStorage = fake.store;
+    const vault = new SessionCredentialVault();
+
+    assert.equal(await vault.get('hic-kullanilmamis-saglayici'), null);
+  });
+});
+
+/**
+ * `createCredentialVault`, `isTauri()` sonucuna gore hangi kasa
+ * uygulamasinin secildigini belirliyor. Bu secim mantigi onceden hic test
+ * edilmemisti.
+ */
+describe('createCredentialVault', () => {
+  let originalIsTauri: unknown;
+
+  beforeEach(() => {
+    originalIsTauri = (globalThis as { isTauri?: unknown }).isTauri;
+  });
+  afterEach(() => {
+    const globalRef = globalThis as { isTauri?: unknown };
+    if (originalIsTauri === undefined) delete globalRef.isTauri;
+    else globalRef.isTauri = originalIsTauri;
+  });
+
+  it('Tauri disinda SessionCredentialVault doner', () => {
+    delete (globalThis as { isTauri?: unknown }).isTauri;
+
+    const vault = createCredentialVault();
+
+    assert.ok(vault instanceof SessionCredentialVault);
+  });
+
+  it('Tauri icinde DesktopCredentialVault doner', () => {
+    (globalThis as { isTauri?: unknown }).isTauri = true;
+
+    const vault = createCredentialVault();
+
+    assert.ok(vault instanceof DesktopCredentialVault);
+  });
+});
+
+/**
+ * Masaustu kasasi hicbir zaman anahtar tutmuyor; her cagriyi Tauri IPC'sine
+ * (`invoke`) devrediyor. `@tauri-apps/api/core`, komutu
+ * `window.__TAURI_INTERNALS__.invoke` uzerinden cagiriyor - bu, Tauri
+ * calisma zamaninin sinandigi tek nokta, bu yuzden onu burada taklit
+ * ediyoruz (resmi `mockIPC` yardimcisi `window` global'inin var oldugunu
+ * varsayiyor; bu test ortaminda yok, o yuzden dogrudan taklit ediyoruz).
+ */
+describe('DesktopCredentialVault', () => {
+  let originalWindow: unknown;
+
+  beforeEach(() => {
+    originalWindow = (globalThis as { window?: unknown }).window;
+  });
+  afterEach(() => {
+    const globalRef = globalThis as { window?: unknown };
+    if (originalWindow === undefined) delete globalRef.window;
+    else globalRef.window = originalWindow;
+  });
+
+  function mockInvoke(handler: (cmd: string, args: unknown) => unknown): void {
+    (globalThis as { window?: unknown }).window = {
+      __TAURI_INTERNALS__: {
+        invoke: async (cmd: string, args: unknown) => handler(cmd, args)
+      }
+    };
+  }
+
+  it('set, dogru komut adi ve yukle IPC cagirir', async () => {
+    const calls: Array<{ cmd: string; args: unknown }> = [];
+    mockInvoke((cmd, args) => { calls.push({ cmd, args }); return undefined; });
+
+    await new DesktopCredentialVault().set('openai', 'sentetik-test-anahtari');
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].cmd, 'set_provider_credential');
+    assert.deepEqual(calls[0].args, { provider: 'openai', credential: 'sentetik-test-anahtari' });
+  });
+
+  it('get, dogru komutla cagirir ve IPC sonucunu aynen doner', async () => {
+    mockInvoke((cmd, args) => {
+      assert.equal(cmd, 'get_provider_credential');
+      assert.deepEqual(args, { provider: 'openai' });
+      return 'sentetik-depodaki-anahtar';
+    });
+
+    const result = await new DesktopCredentialVault().get('openai');
+
+    assert.equal(result, 'sentetik-depodaki-anahtar');
+  });
+
+  it('get, IPC null dondurdugunde null doner (depoda anahtar yok)', async () => {
+    mockInvoke(() => null);
+
+    const result = await new DesktopCredentialVault().get('nvidia');
+
+    assert.equal(result, null);
+  });
+
+  it('remove, dogru komut adi ve yukle IPC cagirir', async () => {
+    const calls: Array<{ cmd: string; args: unknown }> = [];
+    mockInvoke((cmd, args) => { calls.push({ cmd, args }); return undefined; });
+
+    await new DesktopCredentialVault().remove('gemini');
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].cmd, 'delete_provider_credential');
+    assert.deepEqual(calls[0].args, { provider: 'gemini' });
   });
 });

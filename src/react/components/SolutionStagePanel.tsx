@@ -3,6 +3,7 @@ import { Check, LoaderCircle, Sparkles, X } from 'lucide-react';
 import { solutionApprovalReadiness } from '../../v4/application/solution-approval.js';
 import { readinessLines } from '../../v4/application/stage-approval.js';
 import { selectNextConcern } from '../../v4/application/concerns.js';
+import { OUT_OF_SCOPE_PATTERN, splitClauses } from '../../v4/application/discovery-answer-service.js';
 import {
   acceptCandidate,
   answerConcern,
@@ -21,6 +22,19 @@ import type { StageCommandResult } from '../../v4/application/stage-commands.js'
  * Gerekçesiz kabul bir ADR üretmez; gerekçesiz ret sonraki turda hatırlanamaz.
  */
 
+const ANSWER_EXCLUSION_HINT_ID = 'solution-answer-exclusion-hint';
+
+/**
+ * IdeaStagePanel.tsx'teki `answerLooksLikeExclusion` ile KASITLI olarak
+ * birebir aynı mantık — iki panel bağımsız kalsın diye burada da tutuluyor
+ * (bkz. oradaki yorum: GENİŞ `OUT_OF_SCOPE_PATTERN` neden dar
+ * `EXPLICIT_EXCLUSION_PATTERN` DEĞİL). Bu fonksiyon SADECE SEZER; hiçbir
+ * çağıran onu taşımak/bölmek/temizlemek için kullanmaz.
+ */
+export function answerLooksLikeExclusion(answer: string): boolean {
+  return splitClauses(answer).some(clause => OUT_OF_SCOPE_PATTERN.test(clause.toLocaleLowerCase('tr-TR')));
+}
+
 export function SolutionStagePanel({ project, running, onCommand, onDiscover }: {
   project: ProjectDocumentV5;
   running: boolean;
@@ -32,6 +46,7 @@ export function SolutionStagePanel({ project, running, onCommand, onDiscover }: 
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [answer, setAnswer] = useState('');
+  const [excludedText, setExcludedText] = useState('');
   const [error, setError] = useState('');
 
   const readiness = solutionApprovalReadiness(project);
@@ -56,6 +71,7 @@ export function SolutionStagePanel({ project, running, onCommand, onDiscover }: 
     setChosenId(null);
     setReasons({});
     setAnswer('');
+    setExcludedText('');
     onCommand(result, commandType);
   };
 
@@ -164,7 +180,35 @@ export function SolutionStagePanel({ project, running, onCommand, onDiscover }: 
         <p className="pg-stage-why">{concern.whyItMatters}</p>
         <label>
           Kararın
-          <textarea value={answer} onChange={event => setAnswer(event.target.value)} rows={2}/>
+          <textarea
+            value={answer}
+            onChange={event => setAnswer(event.target.value)}
+            rows={2}
+            aria-describedby={answerLooksLikeExclusion(answer) ? ANSWER_EXCLUSION_HINT_ID : undefined}
+          />
+        </label>
+        {/* Non-blocking, salt-öneri ipucu — asla taşımaz/temizlemez/bölmez
+            (bkz. `answerLooksLikeExclusion` üstteki yorum ve
+            IdeaStagePanel.tsx'teki dar/geniş kalıp ayrımı). `role="status"`
+            örtük `aria-live="polite"` taşır; odağı ÇALMADAN duyurulur — aynı
+            desen `pg-expansion-hint` (IdeaExpansionBoard.tsx) için de
+            kullanılıyor. */}
+        {answerLooksLikeExclusion(answer) && (
+          <p id={ANSWER_EXCLUSION_HINT_ID} className="pg-stage-hint" role="status">
+            Bu cümle bir dışlama gibi görünüyor — aşağıdaki “neyi YAPMAYACAĞIZ” kutusuna taşımak ister misin?
+          </p>
+        )}
+        {/* Sınırı kullanıcı burada, arayüzde, çizer; sistem `answer` metnini
+            ayrıştırıp tahmin etmez (bkz. `stage-commands.ts` `AnswerConcernInput.
+            excluded`). Alan isteğe bağlı — boş bırakmak da anlamlı bir cevaptır. */}
+        <label>
+          Bu kararla neyi YAPMAYACAĞIZ? <small>(isteğe bağlı)</small>
+          <textarea
+            value={excludedText}
+            onChange={event => setExcludedText(event.target.value)}
+            rows={2}
+            placeholder="Her satıra bir madde"
+          />
         </label>
         {error && <p className="pg-stage-error" role="alert">{error}</p>}
         <div className="pg-stage-actions">
@@ -172,7 +216,9 @@ export function SolutionStagePanel({ project, running, onCommand, onDiscover }: 
             type="button"
             className="pg-stage-primary"
             onClick={() => run(answerConcern(project, {
-              concernId: concern.id, chosenOptionId: null, answer, rationale: '',
+              concernId: concern.id, chosenOptionId: null, answer,
+              excluded: excludedText.split('\n').map(line => line.trim()).filter(Boolean),
+              rationale: '',
               revision: project.canonicalRevision + 1
             }), 'AnswerConcern')}
           ><Check size={15}/> Karara bağla</button>

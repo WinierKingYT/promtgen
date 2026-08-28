@@ -216,4 +216,35 @@ describe('ConcernDecision normalleştirme', () => {
   it('canonical karara henuz baglanmadiysa decisionId null', () => {
     assert.equal(normalizeConcernDecision({ concernId: 'c1' }).decisionId, null);
   });
+
+  it('excluded ve scopeSplit varsayilanlari: bos dizi ve legacy-unsplit', () => {
+    // Bir insanin yapilacak/yapilmayacak ayrimini bizzat yaptigi asla
+    // VARSAYILMAZ - yalniz acikca 'confirmed' yazildiginda kabul edilir.
+    const decision = normalizeConcernDecision({ concernId: 'c1', answer: 'Cevap' });
+
+    assert.deepEqual(decision.excluded, []);
+    assert.equal(decision.scopeSplit, 'legacy-unsplit');
+  });
+
+  it('excluded sanitize edilir, scopeSplit beyaz listeden gelir', () => {
+    const decision = normalizeConcernDecision({
+      concernId: 'c1',
+      answer: 'Cevap',
+      excluded: ['SMS yok.', '', 42, null, 'Push yok.'] as unknown as string[],
+      scopeSplit: 'confirmed'
+    });
+
+    assert.deepEqual(decision.excluded, ['SMS yok.', 'Push yok.']);
+    assert.equal(decision.scopeSplit, 'confirmed');
+  });
+
+  it('gecersiz scopeSplit degeri legacy-unsplite duser', () => {
+    const decision = normalizeConcernDecision({
+      concernId: 'c1',
+      answer: 'Cevap',
+      scopeSplit: 'inferred' as unknown as 'confirmed'
+    });
+
+    assert.equal(decision.scopeSplit, 'legacy-unsplit');
+  });
 });

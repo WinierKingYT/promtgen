@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createProjectDocument } from '../../src/v4/project-document.js';
-import { generateIdeaLabBundle, generateConceptSummary } from '../../src/v4/ai-discovery.js';
+import { generateIdeaLabBundle } from '../../src/v4/ai-discovery.js';
+import { generateConceptSummaryProject } from '../../src/v4/application/deterministic-idea-planning.js';
 import { confirmConceptSummary, runConceptSimulation } from '../../src/v4/planning-engine.js';
 import { createInitialConceptInterpretation } from '../../src/v4/application/idea-discussion-service.js';
 
@@ -32,10 +33,7 @@ test('Konsept A/B Simülasyonu ve Onayı', async () => {
     assert.ok(sim.completenessScore > 50);
 
     // Generate Concept Summary
-    const conceptProject = await generateConceptSummary(ideaLab.project, {
-        selectedApproachId: ideaLab.approaches[1].id,
-        settings: { providerId: 'offline' }
-    });
+    const conceptProject = generateConceptSummaryProject(ideaLab.project, ideaLab.approaches[1].id);
     conceptProject.ideaLabSession.conceptSummary.simulationResult = sim;
     conceptProject.ideaLabSession.conceptSummary.openQuestions = [];
 

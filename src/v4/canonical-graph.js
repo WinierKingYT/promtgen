@@ -1,7 +1,7 @@
 import { GraphStore } from './traceability/graph-store.js';
 import { TraceabilityEngine } from './traceability/traceability-engine.js';
 import { EDGE_TYPES, NODE_TYPES } from './traceability/traceability-types.js';
-import { normalizeProjectDocument } from './canonical-entities.js';
+import { normalizeProjectDocument } from './canonical-entities.ts';
 
 const ENTITY_TYPES = [
     ['objectives', NODE_TYPES.OBJECTIVE, item => item.title],

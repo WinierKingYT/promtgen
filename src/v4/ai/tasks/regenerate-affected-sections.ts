@@ -10,6 +10,7 @@ export const regenerateAffectedSectionsTask = {
   outputFields: ['summary', 'patches'] as const,
   timeoutMs: 30_000,
   maxRepairAttempts: 1,
+  guardsOutputLanguage: true,
   fallbackPolicy: 'local-rule-engine' as const,
   buildPrompt(project: ProjectDocumentV5, input: { impactId?: string } = {}): string {
     // İzinli kimlikler isteme yazılır. Aşağıdaki JSON örneği tek bir somut

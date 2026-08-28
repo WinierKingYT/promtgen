@@ -1,4 +1,4 @@
-import { normalizeEvidence, normalizeResearchQuestion, normalizeResearchSource } from './canonical-entities.js';
+import { normalizeEvidence, normalizeResearchQuestion, normalizeResearchSource } from './canonical-entities.ts';
 
 const PRIMARY_HOSTS = ['w3.org', 'rfc-editor.org', 'ietf.org', 'nist.gov', 'ecma-international.org', 'github.com', 'docs.rs', 'developer.mozilla.org', 'arxiv.org'];
 

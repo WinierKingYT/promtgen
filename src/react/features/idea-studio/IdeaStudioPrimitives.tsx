@@ -20,6 +20,7 @@ import type { IdeaCoachState } from '../../../v4/application/idea-coach-service.
 import type { DiscoveryAnswerDraft } from '../../../v4/application/discovery-answer-service.js';
 import { DiscoveryAnswerReview } from '../../components/DiscoveryAnswerReview.js';
 import { IdeaExpansionBoard } from './IdeaExpansionBoard.js';
+import { IdeaStateView } from './IdeaStateView.js';
 
 export type IdeaStudioView = 'develop' | 'guide' | 'plan';
 
@@ -125,7 +126,22 @@ export function IdeaStudioHeader({
   </header>;
 }
 
-export function IdeaSnapshot({ project, settings, onPersist, onNotice }: {
+/**
+ * Ekranın BELKEMİĞİ: fikrin kendisi.
+ *
+ * Keşif panosu (AI'ın ürettiği eksenler ve kartlar) artık dar bir yan sütunda
+ * değil, merkez sütunda duruyor — kullanıcının gözü buraya düşsün diye.
+ * Sohbet ikincil bir yan kanala indi (bkz. Workspace.tsx `pg-chat-dock`).
+ *
+ * Stüdyo başlığı ve BAŞLANGIÇ FİKRİ de buraya taşındı. İkisi de sohbete değil
+ * fikre ait; ayrıca sohbet katlanmışken sayfanın tek `<h1>`'i yine burada
+ * olur — aksi hâlde varsayılan görünümde hiç başlık kalmazdı.
+ *
+ * Sarmalayıcı bilerek `<div>`: keşif panosu kendi `<section aria-label="Keşif
+ * panosu">` bölgesini zaten taşıyor, buraya ikinci bir adlandırılmış landmark
+ * koymak ekran okuyucuda gereksiz bir iç içe bölge üretirdi.
+ */
+export function IdeaExpansionColumn({ project, settings, onPersist, onNotice }: {
   project: ProjectDocumentV5;
   settings: ProviderSettings;
   /** Keşif panosunun ürettiği belge; komut türü çağırana kadar taşınır. */
@@ -133,8 +149,35 @@ export function IdeaSnapshot({ project, settings, onPersist, onNotice }: {
   /** Kalıcı bir değişiklik olmadan kullanıcıya durum bildirmek için. */
   onNotice: (message: string) => void;
 }) {
-  return <aside className="pg-idea-map" aria-label="Keşif">
+  return <div className="pg-expansion-column">
+    <header className="pg-idea-headline">
+      <div className="pg-assistant-mark"><Sparkles size={19}/></div>
+      <div>
+        <span>FİKİR STÜDYOSU</span>
+        <h1>Fikrini birlikte şekillendirelim</h1>
+        <p>Aşağıdaki başlıklardan ilerle, önerileri fikre ekle ya da kendi önerini yaz. Konuşmak istersen sohbeti açman yeterli — zorunlu değil.</p>
+      </div>
+    </header>
+    <article className="pg-original-idea"><span>Başlangıç fikrin</span><p>{project.identity.originalIdea}</p></article>
     <IdeaExpansionBoard project={project} settings={settings} onPersist={onPersist} onNotice={onNotice}/>
+  </div>;
+}
+
+/**
+ * Fikrin GÜNCEL HALİ — salt görüntüleme (derived view, bkz. idea-state-view.ts).
+ *
+ * Eskiden keşif panosuyla AYNI dar sütunu paylaşıyordu ve bilerek panonun
+ * ALTINA konmuştu: üstte dursaydı bir karar değiştiğinde (ör. bir kart
+ * "bekliyor"a düşünce) özetin boyu değişir, altındaki kartların "Fikre ekle"
+ * düğmeleri dikey olarak kayardı. Artık AYRI bir sütunda: o geometri bağı
+ * kendiliğinden koptu, sıra kısıtı da ortadan kalktı.
+ *
+ * `aria-label` buradaki `<aside>`e ait; iç `IdeaStateView` bölümü artık
+ * adlandırılmıyor (bkz. IdeaStateView.tsx yorumu).
+ */
+export function IdeaStateColumn({ project }: { project: ProjectDocumentV5 }) {
+  return <aside className="pg-idea-map pg-idea-state-column" aria-label="Fikrin güncel hali">
+    <IdeaStateView project={project}/>
   </aside>;
 }
 
@@ -145,9 +188,12 @@ export function IdeaCoachFocus({ coach, disabled, onChoose }: {
 }) {
   return <section className="pg-coach-focus" aria-labelledby="pg-coach-question">
     <div className="pg-coach-focus-copy">
-      <span>Şimdi netleştirdiğimiz konu · {coach.activeStepLabel}</span>
+      {/* Soru bir TALEP değil, bir DAVET: kullanıcı fikrini panodan da
+          geliştirebiliyor, bu yüzden dil "şimdi bunu netleştiriyoruz"dan
+          "istersen buradan devam edelim"e çekildi. */}
+      <span>Konuşmak istersen · {coach.activeStepLabel}</span>
       <h2 id="pg-coach-question">{coach.activeQuestion}</h2>
-      <p>Tek bir cevap yeterli. Emin değilsen aşağıdaki yollardan biriyle birlikte düşünebiliriz.</p>
+      <p>Cevaplamak zorunda değilsin; panodan da ilerleyebilirsin. İstersen aşağıdaki yollardan biriyle birlikte düşünelim.</p>
       {coach.uncertainty.map(item => <p key={item}>Henüz emin olmadığım: {item}</p>)}
     </div>
     <div className="pg-coach-actions" aria-label="Bağlamsal düşünme yolları">

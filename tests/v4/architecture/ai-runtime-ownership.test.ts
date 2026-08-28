@@ -12,20 +12,23 @@ const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 
 describe('AI production runtime ownership', () => {
   it('keeps ai-context as an export-only compatibility boundary', () => {
-    const source = read('src/v4/ai-context.js');
+    const source = read('src/v4/ai-context.ts');
     assert.equal(compatibilityCreateProvider, productionCreateProvider);
     assert.doesNotMatch(source, /\b(?:class|function)\s+\w+/);
     assert.match(source, /Compatibility boundary/);
   });
 
   it('keeps the transitional discovery facade away from provider and runtime ownership', () => {
-    const source = read('src/v4/ai-discovery.js');
+    const source = read('src/v4/ai-discovery.ts');
     assert.doesNotMatch(source, /from ['"].*ai-context/);
     assert.doesNotMatch(source, /\bcreateProvider\s*\(/);
     assert.doesNotMatch(source, /\brunAITask\s*\(/);
     assert.doesNotMatch(source, /\brunRegisteredAITask\s*\(/);
     assert.doesNotMatch(source, /\b(?:class|function)\s+\w+/);
-    assert.match(source, /export \* from ['"]\.\/application\/idea-planning-api\.ts['"]/);
+    // Bu dosya artık .ts; repo kuralı gereği .ts modülleri birbirini .js
+    // uzantısıyla import eder. Aşağıdaki desen re-export'un KAYNAĞINI
+    // (idea-planning-api) doğrular, uzantıyı değil — bu yüzden .js bekler.
+    assert.match(source, /export \* from ['"]\.\/application\/idea-planning-api\.js['"]/);
 
     const apiSource = read('src/v4/application/idea-planning-api.ts');
     assert.match(apiSource, /generateDiscoveryBundleService/);
@@ -68,7 +71,7 @@ describe('AI production runtime ownership', () => {
       'src/react/components/RevisionHistoryDialog.tsx',
       'src/react/components/ProviderSettingsDialog.tsx',
       'src/react/components/WorkspaceChrome.tsx',
-      'src/v4/planning-engine.d.ts'
+      'src/v4/planning-engine.ts'
     ]) {
       assert.doesNotMatch(read(path), /\bany\b/);
     }
@@ -79,7 +82,11 @@ describe('AI production runtime ownership', () => {
     assert.match(startScreen, /from ['"]\.\/ProjectInventoryModal\.js['"]/);
     assert.match(startScreen, /<ProjectInventoryModal/);
     assert.match(startScreen, /pg-onboarding-projects/);
-    assert.doesNotMatch(read('src/v4/portfolio-engine.d.ts'), /\bany\b/);
+    // `.js`→`.ts` göçüyle sidecar (`portfolio-engine.d.ts`) kaldırıldı; tip
+    // yüzeyini artık gerçek implementasyon taşıyor, bu yüzden denetim ONU
+    // okur — bu bir sessizce yön değiştirme değil, `any` bir yerde varsa
+    // artık gerçek anlamı olan tek dosyaya bakan bilinçli bir güncelleme.
+    assert.doesNotMatch(read('src/v4/portfolio-engine.ts'), /\bany\b/);
   });
 
   it('selects a registered task and records normalized provider provenance', async () => {

@@ -98,6 +98,23 @@ export interface AnswerConcernInput {
   /** Seçilen seçenek; kullanıcı kendi cevabını yazdıysa null. */
   chosenOptionId: string | null;
   answer: string;
+  /**
+   * Kullanıcının aynı karar için ayrıca YAPILMAYACAK dediği maddeler.
+   * `answer`den ayrı gelir — sınırı kullanıcı burada, arayüzde, çizer;
+   * sistem `answer` metnini ayrıştırıp tahmin etmez.
+   *
+   * İsteğe bağlı — ama bu bilinçli bir tercih, kolaylık değil: alanın
+   * VARLIĞI/YOKLUĞU `answerConcern`in `scopeSplit`i nasıl yazacağını
+   * belirler (bkz. orada). Bugünkü tek-kutulu panel (`IdeaStagePanel.tsx`,
+   * `SolutionStagePanel.tsx`) bu alanı HİÇ göndermiyor — `undefined` "bu
+   * çağıran hiç ayrım yapmadı" demektir, `[]` DEĞİL. Eğer burada
+   * `excluded ?? []` gibi bir varsayılanla `undefined`ı `[]`e eşitlersek, bu
+   * ayrımı SİLERİZ ve tek-kutulu panelden gelen her cevap "kullanıcı bizzat
+   * ayırdı" (`scopeSplit: 'confirmed'`) sayılır — ki DEĞİLDİR. Bu alan
+   * `?:` olarak KALMALI: React'a dokunmadan iki çağıran şeklini (eski
+   * tek-kutu / gelecekteki iki-kutu) ayırt etmenin tek yolu bu.
+   */
+  excluded?: string[];
   rationale: string;
   revision: number;
 }
@@ -136,11 +153,24 @@ export function answerConcern(project: ProjectDocumentV5, input: AnswerConcernIn
 
   const decisionId = `decision-${located.concern.id}`;
   const next = withConcernStatus(project, located.stage, located.concern.id, 'decided');
+  // `scopeSplit` ÇAĞIRANIN ne gönderdiğine göre belirlenir, komutun kendisi
+  // çalıştığına göre DEĞİL. `input.excluded === undefined` yalnız bugünkü
+  // tek-kutulu panelin şeklidir — hiçbir insan yapılacak/yapılmayacak
+  // sınırını çizmedi, o yüzden 'legacy-unsplit' ve `excluded: []`. Açıkça
+  // gönderilen HERHANGİ bir dizi (`[]` dahil) iki-kutulu bir arayüzün
+  // varlığını ve kullanıcının negatif kutuyu BİLEREK boş bıraktığını
+  // gösterir — o yüzden 'confirmed'. `input.excluded ?? []` KULLANILMAZ:
+  // bu, tam olarak önemli olan ayrımı (gönderilmedi vs. bilerek boş
+  // gönderildi) silerdi.
+  const scopeSplit = input.excluded === undefined ? 'legacy-unsplit' : 'confirmed';
+  const excluded = input.excluded === undefined ? [] : input.excluded;
   const concernDecision = normalizeConcernDecision({
     id: `concern-decision-${located.concern.id}`,
     concernId: located.concern.id,
     chosenOptionId: input.chosenOptionId,
     answer,
+    excluded,
+    scopeSplit,
     rationale: String(input.rationale || '').trim(),
     decidedAtRevision: input.revision,
     decisionId

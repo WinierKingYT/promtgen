@@ -21,18 +21,18 @@ export function verifyProjectReadiness(project: ProjectDocumentV5): ReleaseReadi
   const checks: ReleaseCheckItem[] = [];
 
   // 1. Schema Version Check
-  // Revizyon 6, Ürün Modeli V3'ün aşama kapsayıcılarını (ideaDesign,
-  // solutionDesign) ekledi. Sürüm 5'te kaldı çünkü değişiklik eklemeli:
-  // hiçbir alan silinmedi, eski belgeler normalize sırasında varsayılan
-  // alanları kazanıyor.
-  const isCanonicalSchema = project.schemaVersion === 5 && project.schemaRevision === 6;
+  // Revizyon 7, ConcernDecision'a `excluded`/`scopeSplit` ekledi (kullanıcının
+  // çizdiği yapılacak/yapılmayacak sınırı). Sürüm 5'te kaldı çünkü değişiklik
+  // eklemeli: hiçbir alan silinmedi, eski belgeler normalize sırasında
+  // varsayılan alanları kazanıyor.
+  const isCanonicalSchema = project.schemaVersion === 5 && project.schemaRevision === 7;
   checks.push({
     id: 'check-schema-v5',
     category: 'domain',
     title: 'Canonical Şema Doğrulaması',
     passed: isCanonicalSchema,
     blocker: true,
-    message: isCanonicalSchema ? 'Schema 5.6 (Canonical)' : `Beklenen schema: 5.6, Mevcut: ${project.schemaVersion}.${project.schemaRevision}`
+    message: isCanonicalSchema ? 'Schema 5.7 (Canonical)' : `Beklenen schema: 5.7, Mevcut: ${project.schemaVersion}.${project.schemaRevision}`
   });
 
   // 2. Identity Verification

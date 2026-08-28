@@ -131,7 +131,33 @@ describe('V3 göç iskeleti', () => {
 
     assert.equal(normalized.ideaDesign.approval.status, 'draft');
     assert.equal(normalized.solutionDesign.approval.status, 'draft');
-    assert.equal(normalized.schemaRevision, 6);
+    assert.equal(normalized.schemaRevision, 7);
+  });
+
+  it('eski ConcernDecision kaydi excluded/scopeSplit KAZANIR ama answer PARCALANMAZ', () => {
+    // Degisiklik oncesi sekilde bir belge: concernDecisions eski alanlari
+    // tasiyor (excluded/scopeSplit yok). Goc bunlari YOKTAN VAR ETMEMELI -
+    // yalnizca guvenli varsayilanlarla doldurmali. `answer` asla ayristirilip
+    // bolunmez: migration kullaniciya hic cizmedigi bir siniri atfetmez.
+    const legacy = project() as unknown as Record<string, unknown>;
+    (legacy.ideaDesign as Record<string, unknown>).concernDecisions = [
+      {
+        id: 'cd-legacy',
+        concernId: 'ic-legacy',
+        chosenOptionId: null,
+        answer: 'Hatırlatma e-posta ile; SMS yok.',
+        rationale: 'Eski gerekce',
+        decidedAtRevision: 1,
+        decisionId: null
+      }
+    ];
+
+    const normalized = normalizeProjectDocument(legacy) as ProjectDocumentV5;
+    const decision = normalized.ideaDesign.concernDecisions[0];
+
+    assert.deepEqual(decision.excluded, []);
+    assert.equal(decision.scopeSplit, 'legacy-unsplit');
+    assert.equal(decision.answer, 'Hatırlatma e-posta ile; SMS yok.');
   });
 
   it('eski kararlar SESSIZCE siniflandirilmaz, legacy-unclassified etiketlenir', () => {

@@ -127,15 +127,29 @@ export function selectNextConcern(concerns: readonly Concern[]): Concern | null 
   );
 }
 
-/** Bir concern'ün kararını kanonik şekle getirir. */
+const SCOPE_SPLITS: readonly ConcernDecision['scopeSplit'][] = ['confirmed', 'legacy-unsplit'] as const;
+
+/**
+ * Bir concern'ün kararını kanonik şekle getirir.
+ *
+ * `excluded` her zaman `strings()` ile sanitize edilir — `normalizeConcern`in
+ * dizi alanları için kullandığı aynı yaklaşım. `scopeSplit` beyaz listeden
+ * gelir ve varsayılanı `'legacy-unsplit'`tir: bu göç yolunun DA kullandığı
+ * varsayılan — bir kaydın yapılacak/yapılmayacak ayrımını bir insanın yaptığı
+ * asla VARSAYILMAZ, yalnız açıkça `'confirmed'` yazıldığında kabul edilir.
+ * `answer` burada ASLA ayrıştırılıp `excluded`e bölünmez.
+ */
 export function normalizeConcernDecision(value: Partial<ConcernDecision> | undefined, index = 0): ConcernDecision {
   const source = value || {};
   const text = (input: unknown, fallback = '') => (typeof input === 'string' && input.trim() ? input.trim() : fallback);
+  const strings = (input: unknown) => (Array.isArray(input) ? input.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : []);
   return {
     id: text(source.id, `concern-decision-${index + 1}`),
     concernId: text(source.concernId),
     chosenOptionId: typeof source.chosenOptionId === 'string' && source.chosenOptionId ? source.chosenOptionId : null,
     answer: text(source.answer),
+    excluded: strings(source.excluded),
+    scopeSplit: SCOPE_SPLITS.includes(source.scopeSplit as ConcernDecision['scopeSplit']) ? source.scopeSplit as ConcernDecision['scopeSplit'] : 'legacy-unsplit',
     rationale: text(source.rationale),
     decidedAtRevision: Number.isInteger(source.decidedAtRevision) ? source.decidedAtRevision as number : 0,
     decisionId: typeof source.decisionId === 'string' && source.decisionId ? source.decisionId : null

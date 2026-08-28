@@ -1,6 +1,6 @@
-import { createProjectDocument, validateProjectDocument } from './project-document.js';
-import { assessPlanningDepth } from './planning-engine.js';
-import { normalizeProjectDocument } from './canonical-entities.js';
+import { createProjectDocument, validateProjectDocument } from './project-document.ts';
+import { assessPlanningDepth } from './planning-engine.ts';
+import { normalizeProjectDocument } from './canonical-entities.ts';
 
 const PHASE_MAP = {
     IDEA_CAPTURED: 'DISCOVERY', PROFILE_DRAFTED: 'DISCOVERY', PROJECT_PROFILED: 'DISCOVERY', DISCOVERY_IN_PROGRESS: 'DISCOVERY',
@@ -19,7 +19,7 @@ const ARRAY_FIELDS = [
 ];
 
 export const LATEST_SCHEMA_VERSION = 5;
-export const LATEST_SCHEMA_REVISION = 6;
+export const LATEST_SCHEMA_REVISION = 7;
 
 export function migrateLegacyToV5(input) {
     if (!input || typeof input !== 'object') return failure(input, 'Geçersiz proje verisi.');

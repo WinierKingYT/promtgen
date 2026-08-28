@@ -211,3 +211,71 @@ export const ideaExpansionSchema = z.object({
 }).strict();
 
 export type IdeaExpansionOutput = z.infer<typeof ideaExpansionSchema>;
+
+export const IDEA_AXES_SCHEMA_ID = 'idea-axes-v1';
+
+/**
+ * Fikre özel genişletme ekseni (tier 3). CORE ve BY_DOMAIN tablolarının
+ * kapsamadığı, tek bu fikre özgü başlıklar için. `id` burada bilerek yok:
+ * kimlik modelden gelmez, çağıran servis fingerprint'ten türetir — model
+ * kimlik uydurursa CORE/BY_DOMAIN kimlikleriyle çakışabilir.
+ */
+export const ideaAxisSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  hint: z.string().trim().min(1).max(200)
+}).strict();
+
+export const ideaAxesSchema = z.object({
+  axes: z.array(ideaAxisSchema).max(5).default([])
+}).strict();
+
+export type IdeaAxesOutput = z.infer<typeof ideaAxesSchema>;
+
+export const IDEA_FOUNDATION_SCHEMA_ID = 'idea-foundation-v1';
+
+/**
+ * Tek bir foundation alanı için model çıktısı. Modelin altı alanın HER
+ * BİRİNDE dürüstçe üç yoldan birini seçebilmesi gerekir -- aksi hâlde fikrin
+ * yanıtlamadığı bir alanda (ör. `problemStatement`, `currentAlternative`)
+ * "boş bırakamıyorum, bir şey yazmalıyım" baskısı UYDURMAYA yol açar (bkz.
+ * `idea-foundation.ts` dosya başı yorumu):
+ * - `idea`: fikir metninde bunun gerçek karşılığı var, `text` onu taşır.
+ * - `assumption`: fikirde karşılığı YOK ama model ürün ortağı olarak bunu
+ *   ÖNERİYOR; `text` öneriyi taşır. Kullanıcı zaten ek öneri istiyor --
+ *   yasak olan öneri değil, öneriyi `idea` diye yutturmaktır.
+ * - `unknown`: fikirden bu alan hiç çıkarılamıyor; `text` YOKTUR, yalnız
+ *   `reason` kısaca nedenini taşır. Bu, önceki şemada mümkün OLMAYAN dürüst
+ *   bir çıkıştır.
+ * Alan sınırı (`maxLength`) çağıran alan için `updateConceptAgreement`in
+ * kullandığı MAX_RECORD_TEXT (600) / MAX_DETAIL_TEXT (2400) ile birebir
+ * aynıdır -- kullanıcı bu alanları elle düzenlerken aynı sınırla karşılaşır.
+ */
+function ideaFoundationFieldSchema(maxLength: number) {
+  return z.discriminatedUnion('source', [
+    z.object({ source: z.literal('idea'), text: z.string().trim().min(1).max(maxLength) }).strict(),
+    z.object({ source: z.literal('assumption'), text: z.string().trim().min(1).max(maxLength) }).strict(),
+    z.object({ source: z.literal('unknown'), reason: z.string().trim().min(1).max(300) }).strict()
+  ]);
+}
+
+export type IdeaFoundationFieldOutput = z.infer<ReturnType<typeof ideaFoundationFieldSchema>>;
+
+/**
+ * Fikrin temelini modelden ister: bu şey ne, kimin için, bugün nasıl
+ * çözülüyor, beklenen sonuç ve ilk sürümün tek hedefi ne -- her biri
+ * `ideaFoundationFieldSchema` ile kaynağı işaretlenmiş olarak.
+ * `interpretationConfidence`, `confidenceRationale`, `userConfirmed` ve
+ * `confirmedAt` bilinçli olarak burada YOK: güven skoru ve onay modelin işi
+ * değildir (bkz. application/idea-foundation-service.ts). Üst seviye
+ * `.strict()` modelin bunları eklemesini reddeder.
+ */
+export const ideaFoundationSchema = z.object({
+  summary: ideaFoundationFieldSchema(2400),
+  problemStatement: ideaFoundationFieldSchema(2400),
+  targetUser: ideaFoundationFieldSchema(600),
+  currentAlternative: ideaFoundationFieldSchema(2400),
+  desiredOutcome: ideaFoundationFieldSchema(2400),
+  mvpTarget: ideaFoundationFieldSchema(600)
+}).strict();
+
+export type IdeaFoundationOutput = z.infer<typeof ideaFoundationSchema>;

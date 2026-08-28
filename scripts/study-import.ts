@@ -10,7 +10,40 @@ import {
 const inputArg = process.argv.slice(2).find(argument => !argument.startsWith('--'));
 const checkOnly = process.argv.includes('--check');
 if (!inputArg) {
-  throw new Error('Kullanım: npm run study:import -- <oturum.json|klasör> [--check]');
+  throw new Error('Kullanım: npm run study:import -- <oturum.json|klasör> --study=<çalışma-adı> [--check]');
+}
+
+/**
+ * Hangi çalışma? Varsayılan YOK — bilinçli bir tercih.
+ *
+ * comparison-benchmark.ts'nin aksine bu betik veri toplar (yazar), rapor
+ * üretmez. Sessiz bir varsayılan, bugünün oturumlarını donmuş `comparison`
+ * (v1) çalışmasına gömerdi — düzeltilen hatanın ta kendisi. Bu yüzden
+ * `--study=` burada zorunludur: hangi çalışmaya veri eklendiği her seferinde
+ * açıkça belirtilir, sessizce yanlış (ve dondurulmuş) çalışmaya yazılmaz.
+ */
+const studyArgument = process.argv.find(argument => argument.startsWith('--study='));
+if (!studyArgument) {
+  throw new Error('Kullanım: npm run study:import -- <oturum.json|klasör> --study=<çalışma-adı> [--check]. `--study=` zorunludur; sessiz varsayılan donmuş çalışmaya veri yazılmasına yol açar.');
+}
+const studyDirectory = studyArgument.slice('--study='.length);
+if (
+  !studyDirectory ||
+  studyDirectory.includes('/') ||
+  studyDirectory.includes('\\') ||
+  studyDirectory.includes('..') ||
+  /^[a-zA-Z]:/.test(studyDirectory)
+) {
+  throw new Error(`Geçersiz çalışma adı: "${studyDirectory}". Çalışma adı yol ayracı, ".." veya sürücü harfi içeremez.`);
+}
+const benchmarksRoot = path.resolve('benchmarks');
+const root = path.resolve(benchmarksRoot, studyDirectory);
+if (path.dirname(root) !== benchmarksRoot) {
+  throw new Error(`Geçersiz çalışma adı: "${studyDirectory}". Çalışma "benchmarks" klasörünün dışına çıkamaz.`);
+}
+const rootStat = await stat(root).catch(() => null);
+if (!rootStat || !rootStat.isDirectory()) {
+  throw new Error(`Çalışma bulunamadı: "benchmarks/${studyDirectory}" bir klasör değil. Var olan bir çalışma adı belirtin (örn. --study=comparison-v2).`);
 }
 
 const inputPath = path.resolve(inputArg);
@@ -26,7 +59,6 @@ if (!inputFiles.length) throw new Error('İçe aktarılacak JSON dosyası buluna
 const parsedInputs: unknown[] = [];
 for (const file of inputFiles) parsedInputs.push(JSON.parse(await readFile(file, 'utf8')));
 
-const root = path.resolve('benchmarks', 'comparison');
 const sessionsPath = path.join(root, 'user-sessions.json');
 let existing: AnonymousUserSession[] = [];
 try {

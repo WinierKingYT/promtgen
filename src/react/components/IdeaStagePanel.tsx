@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, CircleHelp, Clock, X } from 'lucide-react';
 import { nextCoachTurn } from '../../v4/application/adaptive-idea-coach.js';
+import { OUT_OF_SCOPE_PATTERN, splitClauses } from '../../v4/application/discovery-answer-service.js';
 import { ideaApprovalReadiness, readinessLines } from '../../v4/application/idea-approval.js';
 import { invalidationImpact } from '../../v4/application/invalidation-graph.js';
 import {
@@ -35,11 +36,38 @@ const KIND_LABELS: Array<{ value: ProjectFraming['kind']; label: string }> = [
   { value: 'system', label: 'Bir sistem ya da alt sistem' }
 ];
 
+const ANSWER_EXCLUSION_HINT_ID = 'idea-answer-exclusion-hint';
+
+/**
+ * Kalan boşluk: kullanıcı karışık bir cümleyi TAMAMEN "Kararın" kutusuna
+ * yazıp "neyi YAPMAYACAĞIZ" kutusunu boş bırakabilir — "SMS yok" o zaman
+ * yine `must` gereksinimine dönüşür, ama bu sefer sessiz bir kuralla değil,
+ * kullanıcının kendi görünür eylemiyle. Bu fonksiyon SADECE SEZER: hiçbir
+ * çağıran onu taşımak, bölmek ya da temizlemek için kullanmaz — sınırı
+ * kullanıcı hâlâ arayüzde kendi çiziyor.
+ *
+ * Kasıtlı olarak GENİŞ kalıbı (`OUT_OF_SCOPE_PATTERN`,
+ * discovery-answer-service.ts) kullanıyoruz — `conversion-v2.ts`'teki dar
+ * `EXPLICIT_EXCLUSION_PATTERN`i DEĞİL. Bu, bilinçli bir TERS orantı: dar
+ * kalıp OTOMATİK ve gözden geçirilmeden `excluded` alanını dolduruyor, orada
+ * yanlış pozitif SESSİZCE gerçek bir gereksinimi düşürür — o yüzden dar
+ * kalması ZORUNLU. Burası tam tersi: bu, gözden geçirilebilir salt-öneri bir
+ * yüzey — yanlış pozitifin bedeli kullanıcının bir bakışta atlayabileceği
+ * görmezden gelinebilir bir ipucu, yanlış negatifin bedeli ise KUSURUN
+ * SESSİZCE tekrar üretilmesi. Advisory yüzeyler hassas tarafa yaslanır, oto-
+ * uygulanan yüzeyler tutucu tarafa. Bu ikisini "tek kalıpta birleştirmek"
+ * (harmonise) tam bu asimetriyi kaybeder — YAPMA.
+ */
+export function answerLooksLikeExclusion(answer: string): boolean {
+  return splitClauses(answer).some(clause => OUT_OF_SCOPE_PATTERN.test(clause.toLocaleLowerCase('tr-TR')));
+}
+
 export function IdeaStagePanel({ project, onCommand }: {
   project: ProjectDocumentV5;
   onCommand: (result: StageCommandResult, commandType: string) => void;
 }) {
   const [answer, setAnswer] = useState('');
+  const [excludedText, setExcludedText] = useState('');
   const [rationale, setRationale] = useState('');
   const [chosenOptionId, setChosenOptionId] = useState<string | null>(null);
   const [reopenReason, setReopenReason] = useState('');
@@ -56,6 +84,7 @@ export function IdeaStagePanel({ project, onCommand }: {
     setError(result.error || '');
     if (result.error) return;
     setAnswer('');
+    setExcludedText('');
     setRationale('');
     setChosenOptionId(null);
     setReopenReason('');
@@ -194,6 +223,29 @@ export function IdeaStagePanel({ project, onCommand }: {
         onChange={event => { setAnswer(event.target.value); setChosenOptionId(null); }}
         rows={2}
         placeholder="Kendi cümlenle yazabilirsin"
+        aria-describedby={answerLooksLikeExclusion(answer) ? ANSWER_EXCLUSION_HINT_ID : undefined}
+      />
+    </label>
+    {/* Non-blocking, salt-öneri ipucu — asla taşımaz/temizlemez/bölmez (bkz.
+        `answerLooksLikeExclusion` üstteki yorum). `role="status"` örtük
+        `aria-live="polite"` taşır; bu yüzden odağı ÇALMADAN, yazarken görünüp
+        kaybolduğunda ekran okuyucuya duyurulur — projede aynı desen
+        `pg-expansion-hint` (IdeaExpansionBoard.tsx) için de kullanılıyor. */}
+    {answerLooksLikeExclusion(answer) && (
+      <p id={ANSWER_EXCLUSION_HINT_ID} className="pg-stage-hint" role="status">
+        Bu cümle bir dışlama gibi görünüyor — aşağıdaki “neyi YAPMAYACAĞIZ” kutusuna taşımak ister misin?
+      </p>
+    )}
+    {/* Sınırı kullanıcı burada, arayüzde, çizer; sistem `answer` metnini
+        ayrıştırıp tahmin etmez (bkz. `stage-commands.ts` `AnswerConcernInput.
+        excluded`). Alan isteğe bağlı — boş bırakmak da anlamlı bir cevaptır. */}
+    <label>
+      Bu kararla neyi YAPMAYACAĞIZ? <small>(isteğe bağlı)</small>
+      <textarea
+        value={excludedText}
+        onChange={event => setExcludedText(event.target.value)}
+        rows={2}
+        placeholder="Her satıra bir madde — örn. SMS bildirimi göndermeyeceğiz"
       />
     </label>
     {/* Gerekçe her zaman isteğe bağlı DEĞİL: canonical karar gerekçesiz
@@ -222,6 +274,7 @@ export function IdeaStagePanel({ project, onCommand }: {
             concernId,
             chosenOptionId,
             answer,
+            excluded: excludedText.split('\n').map(line => line.trim()).filter(Boolean),
             rationale,
             revision: project.canonicalRevision + 1
           }),

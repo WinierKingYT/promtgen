@@ -32,6 +32,20 @@ const limited = await analyzeSelectedFiles([selectedFile('a.ts', 'a'), selectedF
 assert.equal(limited.totals.included, 1);
 assert.equal(limited.excluded[0].reason, 'file_limit');
 
+// Karakterizasyon: secretDetected yolu daha önce hiç test edilmemişti (yol
+// politikası tarafından elenmeyen ama içeriğinde secret deseni bulunan bir
+// dosya). scanForSecrets true dönünce entry inventory'e YİNE eklenir (path
+// politikası içerik taramasından önce çalışır ve burada dosyayı elemez),
+// fakat projectInventoryContext bu entry'i AI'ya giden bağlamdan filtreler.
+const secretProbeFiles = [selectedFile('demo/src/config.ts', 'export const API_KEY = "TESTFAKE_NOT_REAL_1234567890";')];
+const secretReport = await analyzeSelectedFiles(secretProbeFiles);
+assert.equal(secretReport.totals.included, 1);
+assert.equal(secretReport.inventory[0].secretDetected, true);
+assert.deepEqual(secretReport.security.secretFiles, ['demo/src/config.ts']);
+const secretContext = projectInventoryContext(secretReport);
+assert.equal(secretContext.some(item => item.name === 'demo/src/config.ts'), false);
+assert.doesNotMatch(wrapUntrustedProjectContext(secretContext), /TESTFAKE_NOT_REAL_1234567890/);
+
 const project = createProjectDocument({ idea: 'Mevcut projeyi geliştir' });
 project.profile.projectInventory = report;
 const planningContext = buildPlanningContext(project);

@@ -1,5 +1,9 @@
-import type { ProjectDocumentV5 } from '../contracts.js';
+import type { DomainPackExpansionAxis, ProjectDocumentV5 } from '../contracts.js';
 import { classifyProjectDomain, type ProjectDomain } from '../ai/domain-classifier.js';
+import { DOMAIN_PACK_REGISTRY } from '../domain-packs/registry.js';
+
+/** Domain pack'lerin katkıda bulunabileceği en fazla eksen sayısı. */
+const MAX_PACK_AXES = 6;
 
 export interface ExpansionCategory {
   id: string;
@@ -109,21 +113,33 @@ const BY_DOMAIN: Record<ProjectDomain, ExpansionCategory[]> = {
   game: [
     {
       id: 'game-loop',
-      label: 'Oyun döngüsü',
-      hint: 'Oyuncu hangi 30 saniyeyi tekrar eder?',
-      seedTitles: ['Çekirdek döngüyü 30 saniyeye indir', 'Tek bir tatmin edici geri bildirim']
+      label: 'Oyuncunun elindeki fiil',
+      hint: 'Oyuncu saniye saniye ne yapıyor? Ana fiil ile ona bağlı geçişler arasında sürtünme nerede?',
+      seedTitles: ['Ana fiili tek bir girdiye indir', 'Fiiller arası geçişi kesintisiz yap', 'Boşta geçen saniyeleri azalt']
     },
     {
-      id: 'progression',
-      label: 'İlerleme ve ödül',
-      hint: 'Oyuncu neyi biriktirir?',
-      seedTitles: ['İlk oturumda görülebilir bir ilerleme', 'Ödülü rastgeleliğe bağlama']
+      id: 'simulated-state',
+      label: 'Simüle edilen durum',
+      hint: 'Zamanla ne azalır, onu ne geri doldurur? Azalma hızı, geri kazanım yolu ve sıfıra inince ne olduğu oyuncuya nasıl görünür?',
+      seedTitles: ['Azalan değeri sürekli görünür kıl', 'Sıfıra inince cezayı net tanımla', 'Geri kazanım için oyuncuya seçenek sun']
     },
     {
-      id: 'multiplayer',
-      label: 'Çok oyunculu',
-      hint: 'Başka oyuncular olmadan da eğlenceli mi?',
-      seedTitles: ['Tek oyunculu çekirdeği önce doğrula', 'Asenkron etkileşimle başla']
+      id: 'network-authority',
+      label: 'Ağ yetkisi ve senkron',
+      hint: 'Bir varlığın konumuna ve durumuna kim karar verir: sunucu mu istemci mi? Hangi veri diğer oyunculara yayılır, sahiplik nasıl el değiştirir, istemciye asla güvenilmeyecek olan nedir?',
+      seedTitles: ['Konumu sunucu yetkili yap, istemci yalnız tahmin etsin', 'Sahiplik devrini tek bir olayla tanımla', 'Hileye açık kararları istemciden çıkar']
+    },
+    {
+      id: 'input-and-feel',
+      label: 'Girdi ve his',
+      hint: 'Kamera, kontrol şeması ve animasyon geçişleri birlikte nasıl hissettiriyor? Oyuncu bir eylemi yarıda kesip başka bir eyleme geçebiliyor mu?',
+      seedTitles: ['Kamerayı tek bir referans noktasına bağla', 'Eylemi yarıda kesmeye izin ver', 'Kontrol şemasını tek bir cihazda ilk test et']
+    },
+    {
+      id: 'content-pipeline',
+      label: 'Sanat ve içerik hattı',
+      hint: 'Bir varlığı oyuna katmanın gerçek maliyeti nedir: iskelet, animasyon sayısı, uzak mesafe görünümü, hazır varlık mı özel üretim mi?',
+      seedTitles: ['İlk sürümde hazır varlık kullan', 'Animasyon sayısını en aza indir', 'Uzak mesafede daha basit görünüm kullan']
     }
   ],
   ai: [
@@ -149,7 +165,32 @@ const BY_DOMAIN: Record<ProjectDomain, ExpansionCategory[]> = {
   general: []
 };
 
+/**
+ * CORE + alan (domain) eksenlerini, pack'lerin katkıda bulunduğu eksenlerle birleştirir.
+ * Sıra sabittir: CORE, sonra BY_DOMAIN, sonra pack eksenleri — asla sıralanmaz veya
+ * araya karıştırılmaz. Kimlik çakışmasında ilk gelen kazanır (CORE/BY_DOMAIN her zaman
+ * pack eksenine üstün gelir). Pack eksenleri en fazla MAX_PACK_AXES ile sınırlıdır.
+ * Saf fonksiyondur; ayrı ihracı doğrudan birim testine izin verir.
+ */
+export function mergeExpansionCategories(
+  core: ExpansionCategory[],
+  domainCategories: ExpansionCategory[],
+  packAxes: DomainPackExpansionAxis[]
+): ExpansionCategory[] {
+  const cappedPackAxes = packAxes.slice(0, MAX_PACK_AXES);
+  const merged = [...core, ...domainCategories, ...cappedPackAxes];
+  const seenIds = new Set<string>();
+  const deduped: ExpansionCategory[] = [];
+  for (const category of merged) {
+    if (seenIds.has(category.id)) continue;
+    seenIds.add(category.id);
+    deduped.push(category);
+  }
+  return deduped;
+}
+
 export function getExpansionCategories(project: ProjectDocumentV5): ExpansionCategory[] {
   const domain = classifyProjectDomain(project.identity.originalIdea || '');
-  return [...CORE, ...BY_DOMAIN[domain]];
+  const packAxes = DOMAIN_PACK_REGISTRY.collectExpansionAxes(project);
+  return mergeExpansionCategories(CORE, BY_DOMAIN[domain], packAxes);
 }

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { analyzeIdea, applyApprovedChanges, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
 import { addExpansionCardAsSuggestion } from '../../src/v4/application/idea-expansion-intake.js';
 import { selectExpansionBundle } from '../../src/v4/application/proposal-bundle-selectors.js';
-import type { ExpansionCard } from '../../src/v4/application/idea-expansion-service.js';
+import { createUserExpansionCard, type ExpansionCard } from '../../src/v4/application/idea-expansion-service.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const project = () => analyzeIdea('Şehir içi bisiklet rotası öneren bir mobil uygulama') as ProjectDocumentV5;
@@ -109,6 +109,38 @@ describe('addExpansionCardAsSuggestion', () => {
       /yerel başlangıç/i,
       'model değerlendirmesinden gelen kart yerel köken işareti taşımamalı'
     );
+  });
+
+  it('kullanıcı-yazımı kart bekleyen öneri olarak keşif paketine eklenir', () => {
+    const userCard = createUserExpansionCard('Rota geçmişini dışa aktarmak istiyorum')!;
+    const { project: next, added } = addExpansionCardAsSuggestion(project(), userCard, 'Kullanıcının kendi önerisi');
+    assert.equal(added, true);
+    const item = openBundle(next).items.find(entry => entry.title === userCard.title);
+    assert.ok(item, 'kullanıcı kartı da öneri olarak eklenebilmeli');
+    assert.equal(item.status, 'pending');
+  });
+
+  it('kullanıcı-yazımı kart kendi nedenini taşır; yerel başlangıç mesajıyla karışmaz', () => {
+    const userCard = createUserExpansionCard('Kendi önerim')!;
+    const { project: next } = addExpansionCardAsSuggestion(project(), userCard, 'Kullanıcının kendi önerisi');
+    const item = openBundle(next).items.find(entry => entry.title === userCard.title);
+    assert.ok(item);
+    assert.match(item.recommendationReason, /kendi yazdın/i, 'kaydın kendisi kartın kullanıcı kökenli olduğunu söylemeli');
+    assert.doesNotMatch(
+      item.recommendationReason,
+      /yerel başlangıç/i,
+      'kullanıcı kartı yerel başlangıç kartıyla aynı mesajı taşımamalı'
+    );
+  });
+
+  it('kullanıcı-yazımı kartta efor/etki uydurulmaz; alan zorunlu olduğu için yalnız değerlendirilmemiş bir varsayılan taşınır', () => {
+    const userCard = createUserExpansionCard('Kendi önerim')!;
+    const { project: next } = addExpansionCardAsSuggestion(project(), userCard, 'Kullanıcının kendi önerisi');
+    const item = openBundle(next).items.find(entry => entry.title === userCard.title);
+    assert.ok(item);
+    assert.equal(item.effort, 'medium');
+    assert.equal(item.impact, 'medium');
+    assert.notEqual(item.recommendationReason, '', 'değerlendirilmediği açıkça yazılmalı');
   });
 
   it('kökeni tüketici tahmin etmez: aynı alanlarla gelen kart origin değerine göre işaretlenir', () => {

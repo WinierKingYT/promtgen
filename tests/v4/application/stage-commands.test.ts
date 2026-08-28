@@ -196,6 +196,47 @@ describe('Konuyu karara bağlama', () => {
   });
 });
 
+describe('scopeSplit: CAGIRANIN gonderdigine gore, komutun calismasina gore DEGIL', () => {
+  // Bagimsiz incelemenin yakaladigi regresyon: `excluded` gonderilmedigi
+  // (bugunku tek-kutulu panelin sekli - IdeaStagePanel.tsx, SolutionStagePanel.tsx)
+  // durumda `scopeSplit: 'confirmed'` yazmak, hicbir insanin cizmedigi bir
+  // siniri kullanicinin cizdigine YALAN soylerdi. Dogru ayrim: alanin
+  // VARLIGI/YOKLUGU - `undefined` "bu cagiran hic ayrim yapmadi" demektir,
+  // `[]` "bu cagiran BILEREK bos birakti" demektir. Ikisi ayni SEY DEGILDIR.
+  it('excluded HIC gonderilmezse (bugunku tek-kutulu panelin sekli) - legacy-unsplit, excluded []', () => {
+    const result = answerConcern(project([SAHIPLIK]), {
+      concernId: 'ic-sahiplik', chosenOptionId: null,
+      answer: 'Hatırlatma e-posta ile; SMS yok.', rationale: 'Gerekce', revision: 3
+    });
+
+    const decision = result.project.ideaDesign.concernDecisions[0];
+    assert.equal(decision.scopeSplit, 'legacy-unsplit');
+    assert.deepEqual(decision.excluded, []);
+  });
+
+  it('excluded ACIKCA bos dizi olarak gonderilirse - confirmed (iki-kutulu arayuz, negatif kutu BILEREK bos)', () => {
+    const result = answerConcern(project([SAHIPLIK]), {
+      concernId: 'ic-sahiplik', chosenOptionId: null,
+      answer: 'Hatırlatma e-posta ile.', excluded: [], rationale: 'Gerekce', revision: 3
+    });
+
+    const decision = result.project.ideaDesign.concernDecisions[0];
+    assert.equal(decision.scopeSplit, 'confirmed');
+    assert.deepEqual(decision.excluded, []);
+  });
+
+  it('excluded doldurulmus dizi olarak gonderilirse - confirmed, tam olarak verilen dizi', () => {
+    const result = answerConcern(project([SAHIPLIK]), {
+      concernId: 'ic-sahiplik', chosenOptionId: null,
+      answer: 'Hatırlatma e-posta ile.', excluded: ['SMS yok.'], rationale: 'Gerekce', revision: 3
+    });
+
+    const decision = result.project.ideaDesign.concernDecisions[0];
+    assert.equal(decision.scopeSplit, 'confirmed');
+    assert.deepEqual(decision.excluded, ['SMS yok.']);
+  });
+});
+
 describe('Erteleme ve kapsam dışı', () => {
   it('ertelenen konu kapiyi BLOKLAMAZ ama kaybolmaz', () => {
     const result = deferConcern(project([{ ...SAHIPLIK, importance: 'critical' }]), 'ic-sahiplik');

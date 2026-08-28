@@ -1,6 +1,7 @@
 import { ideaApprovalReadiness } from './idea-approval.js';
 import { solutionApprovalReadiness } from './solution-approval.js';
-import type { Concern, ProjectDocumentV5 } from '../contracts.js';
+import type { Concern, ConcernDecision, ProjectDocumentV5 } from '../contracts.js';
+import { splitClauses } from './discovery-answer-service.js';
 
 /**
  * Conversion V2 — Uygulama Planı'na geçiş.
@@ -178,6 +179,165 @@ export function applyStageScopeToPlan(project: ProjectDocumentV5): ProjectDocume
 }
 
 /**
+ * Karara bağlanmış bir konunun cevabını yan cümlelere böler ve her cümleyi
+ * onaylanan özellik (confirmedFeatures) ya da dışlanan (outOfScope) olarak
+ * sınıflandırır. Cümle bölme `discovery-answer-service.ts`den (splitClauses)
+ * yeniden kullanılır; iki dosya aynı bölme mantığını kopyalamasın diye.
+ *
+ * Dışlama TESPİTİ ise KASITLI OLARAK o dosyanın `OUT_OF_SCOPE_PATTERN`ından
+ * AYRI, daha dar bir kalıpla yapılır (aşağıdaki EXPLICIT_EXCLUSION_PATTERN /
+ * BARE_NEGATION_PATTERN). `OUT_OF_SCOPE_PATTERN`, `ruleSignalFields`
+ * üzerinden yalnız İNCELENEBİLİR bir öneri üretir — kullanıcı kabul/red
+ * etmeden hiçbir şey değişmez, o yüzden "ileride", "daha sonra", "olmayacak",
+ * "future", "later" gibi bağlama göre anlamı değişen kelimeleri de güvenle
+ * içerebilir; en kötü ihtimalle yanlış öneri reddedilir. Burası ise HİÇBİR
+ * incelemeden geçmeden OTOMATİK uygulanır (bkz.
+ * `projectStageDataToConceptSummary`), o yüzden bu geniş kelimeleri kullanmak
+ * gerçek gereksinimleri sessizce düşürürdü: "Kullanıcılar daha sonra
+ * profillerini düzenleyebilir." bir iş akışı sıralamasıdır, kapsam
+ * ertelemesi değil; "Sistem hiçbir zaman veri kaybı olmayacak şekilde
+ * tasarlanacak." bir güvenilirlik gereksinimidir, dışlama değil. Belirsiz
+ * durumda dosyanın kendi ilkesi geçerli (bkz. yukarıdaki `conversionSources`
+ * dokümantasyonu, "hiçbir şey uydurulmaz ve hiçbir şey sessizce düşmez"):
+ * cümle confirmedFeatures'da KALIR.
+ *
+ * Çıplak tümce-sonu "yok." biçiminin (`BARE_NEGATION_PATTERN`) TEK BAŞINA
+ * güvenilir bir dışlama sinyali sayılması için cevabın BİRDEN FAZLA parçası
+ * olması gerekir — ya `splitClauses`in ayırdığı birden çok cümle
+ * ("Hatırlatma e-posta ile; SMS yok."), ya da `trailingCommaExclusion`'ın
+ * bulduğu virgüllü olumlu/olumsuz çift ("Tek kullanıcı, ekip özelliği
+ * yok."). Kullanıcının bir konuya verdiği TEK ve BÜTÜN cevap çıplak "yok."
+ * ile bitiyorsa ("Kesinti yok.", "Mükerrer kayıt yok."), bu bir kapsam
+ * dışı bırakma değil — tam tersine, Türkçenin sık kullandığı bir DEĞİŞMEZ
+ * (invariant) gereksinim ifadesidir: "kesinti yok" karşılanması gereken bir
+ * koşuldur, elenen bir özellik değil. Bu yüzden tek parçalı bir cevapta
+ * çıplak "yok." confirmedFeatures'da KALIR; yalnız çok parçalı bir cevapta
+ * dışlama sinyaline sayılır. Açık işaretler ("kapsam dışı", "sonraki
+ * sürüm", "şimdilik yok", "not in mvp") bu ayrımdan ETKİLENMEZ; belirsizlik
+ * taşımadıkları için tek parçalı bir cevapta da her zaman dışlama sayılır.
+ *
+ * **Bu fonksiyon yalnız `scopeSplit === 'legacy-unsplit'` kayıtlar için
+ * çalışır** (bkz. aşağıdaki `classifyDecidedConcern`). Mimari düzeltme
+ * (`ConcernDecision.excluded` / `scopeSplit`) artık var: `scopeSplit ===
+ * 'confirmed'` kayıtlarda kullanıcı yapılacak/yapılmayacak sınırını zaten
+ * kendisi çizmiştir ve bu anahtar-kelime yolu HİÇ çalıştırılmaz — sıfır
+ * kutupluluk çıkarımı yapılır. Aşağıdaki sınır durumları o yüzden yalnız eski
+ * (bölünmemiş) kayıtlar için hâlâ geçerlidir; yeni kayıtlarda kullanıcı
+ * ayrımı panelde bizzat yaptığı için bu belirsizlik hiç oluşmaz:
+ * - Noktalı virgül/cümle sonu OLMADAN tek cümlede birleşen olumsuzlama +
+ *   olumlama ("SMS yok ama email var.") hâlâ bölünmez; bütün cümle tek
+ *   parça sayılır ve confirmedFeatures'a gider.
+ * - Dışlama SON sırada olmayan çok parçalı cevaplar ("E-posta var, SMS
+ *   yok, push bildirim var.") da bölünmez; yalnız son virgül/cümle sonrası
+ *   segment ele alınır (bkz. `trailingCommaExclusion`), bütün cümle yine
+ *   confirmedFeatures'a gider.
+ * - "istemiyorum", "gerekli değil", "gerek yok" gibi cümle içinde geçen
+ *   diğer Türkçe olumsuzlama deyimleri bu kalıpla yakalanmaz; yalnız
+ *   "kapsam dışı"/"şimdilik yok"/"sonraki sürüm"/"not in mvp" ve çıplak
+ *   tümce-sonu "yok." kalıpları desteklenir.
+ */
+const EXPLICIT_EXCLUSION_PATTERN = /kapsam dış|sonraki sürüm|şimdilik yok|not in mvp/;
+const BARE_NEGATION_PATTERN = /\byok\.?\s*$/;
+
+/**
+ * `allowBareNegation` false ise yalnız açık işaretler (EXPLICIT_EXCLUSION_
+ * PATTERN) dışlama sayılır; çıplak tümce-sonu "yok." tek başına yeterli
+ * değildir (bkz. yukarıdaki dokümantasyon). Bu, cümlenin cevabın TEK ve
+ * BÜTÜN parçası olduğu durumlarda çağrılır.
+ */
+function isAutoExclusionClause(clause: string, allowBareNegation: boolean): boolean {
+  const text = clause.toLocaleLowerCase('tr-TR');
+  if (EXPLICIT_EXCLUSION_PATTERN.test(text)) return true;
+  return allowBareNegation && BARE_NEGATION_PATTERN.test(text);
+}
+
+/**
+ * Virgülle ayrılmış birleşik cümleler ("Tek kullanıcı, ekip özelliği yok.")
+ * BİLEREK genel virgül bölmesine tabi tutulmaz: virgül meşru bir liste
+ * ayracı da olabilir, genel bölme olumlu yarıyı sessizce düşürebilirdi. Tek
+ * istisna dar ve güvenli: son virgül-sonrası segment TEK BAŞINA dışlama
+ * kalıbıyla eşleşiyor VE öndeki segment eşleşmiyorsa — yalnız o zaman ikiye
+ * bölünür (bkz. `trailingCommaExclusion`). Bu dar istisna dışında kalan
+ * virgüllü karışık cümleler bilinen, kasıtlı olarak ele alınmamış bir sınır
+ * durumu olarak kalır (bütün cümle tek parça sayılır).
+ *
+ * `allowBareNegation`, cevabın `splitClauses` ile BİRDEN FAZLA cümleye
+ * ayrılıp ayrılmadığına göre belirlenir: yalnız o zaman çıplak tümce-sonu
+ * "yok." tek başına dışlama sayılır (bkz. yukarıdaki dokümantasyon).
+ * Virgüllü çift istisnası bundan bağımsızdır — kendi başına "çok parçalı
+ * cevap" sinyali sayılır, bkz. `trailingCommaExclusion`.
+ */
+function classifyDecidedAnswer(answer: string): { confirmed: string[]; excluded: string[] } {
+  const confirmed: string[] = [];
+  const excluded: string[] = [];
+  const clauses = splitClauses(answer);
+  const allowBareNegation = clauses.length > 1;
+  for (const clause of clauses) {
+    const trailing = trailingCommaExclusion(clause);
+    if (trailing) {
+      confirmed.push(trailing.positive);
+      excluded.push(trailing.negative);
+      continue;
+    }
+    if (isAutoExclusionClause(clause, allowBareNegation)) {
+      excluded.push(clause);
+    } else {
+      confirmed.push(clause);
+    }
+  }
+  return { confirmed, excluded };
+}
+
+/**
+ * Dar, güvenli istisna: yalnız son virgül-sonrası segment BAĞIMSIZ olarak
+ * dışlama kalıbıyla eşleşiyor ve öndeki segment eşleşmiyorsa böler. Aksi
+ * halde null döner ve çağıran cümlenin tamamını tek parça sayar.
+ *
+ * Segment kontrolleri her zaman `allowBareNegation: true` ile yapılır: bir
+ * virgülle ayrılmış olumlu/olumsuz çiftin varlığı, tıpkı `;` ile ayrılmış iki
+ * cümle gibi, kendi başına "cevap tek parça değil" sinyalidir — çıplak
+ * tümce-sonu "yok."nun burada dışlama sayılmasını haklı çıkarır.
+ */
+function trailingCommaExclusion(clause: string): { positive: string; negative: string } | null {
+  const lastComma = clause.lastIndexOf(',');
+  if (lastComma === -1) return null;
+  const positive = clause.slice(0, lastComma).trim();
+  const negative = clause.slice(lastComma + 1).trim();
+  if (!positive || !negative) return null;
+  if (isAutoExclusionClause(positive, true)) return null;
+  if (!isAutoExclusionClause(negative, true)) return null;
+  return { positive, negative };
+}
+
+/**
+ * Bir konunun kararını onaylanan (confirmed) / dışlanan (excluded) olarak
+ * ikiye ayırır. Kapı burada, `scopeSplit` üzerinde durur — bu, mimari
+ * düzeltmenin kendisidir:
+ *
+ * - `decision.scopeSplit === 'confirmed'`: kullanıcı sınırı ZATEN kendisi
+ *   çizmiştir (panelde `answer` ve `excluded`i ayrı ayrı girmiştir). Burada
+ *   SIFIR kutupluluk çıkarımı yapılır — `answer` yalnız yan cümlelere
+ *   bölünüp (aynı cevabın birden çok onaylanan maddesi olabileceği için)
+ *   olduğu gibi confirmedFeatures'a, `excluded` olduğu gibi outOfScope'a
+ *   gider. Anahtar kelime kalıpları (`classifyDecidedAnswer`) hiç çalışmaz.
+ * - Aksi hâlde (`'legacy-unsplit'` ya da kayıt hiç yoksa): bugünkü anahtar
+ *   kelime yolu değişmeden çalışır — eski belgeler bayt-bayt aynı çıktıyı
+ *   üretmeye devam eder.
+ */
+function classifyDecidedConcern(
+  decision: ConcernDecision | undefined,
+  fallbackTitle: string
+): { confirmed: string[]; excluded: string[] } {
+  if (decision && decision.scopeSplit === 'confirmed') {
+    return {
+      confirmed: decision.answer ? splitClauses(decision.answer) : [],
+      excluded: [...decision.excluded]
+    };
+  }
+  return classifyDecidedAnswer(decision?.answer || fallbackTitle);
+}
+
+/**
  * Aşama verisini eski `conceptSummary` biçimine yansıtır.
  *
  * Plan üretimi (`createRequirementDraftsFromConcept`) gereksinimleri
@@ -198,14 +358,24 @@ export function projectStageDataToConceptSummary(project: ProjectDocumentV5): Pr
 
   const sources = conversionSources(project);
   const decided = project.ideaDesign.concerns.filter(concern => concern.status === 'decided');
-  const answers = new Map(
-    project.ideaDesign.concernDecisions.map(decision => [decision.concernId, decision.answer])
+  // KARARIN TAMAMI taşınır — yalnız `answer` değil. `scopeSplit` burada
+  // gate: kullanıcının panelde bizzat çizdiği sınır (`'confirmed'`) varsa
+  // hiçbir kutupluluk çıkarımı yapılmaz; yoksa (`'legacy-unsplit'`) bugünkü
+  // anahtar kelime yolu değişmeden çalışır. Bkz. `classifyDecidedConcern`.
+  const decisionsByConcernId = new Map(
+    project.ideaDesign.concernDecisions.map(decision => [decision.concernId, decision])
   );
 
   // Onaylanmış özellik = kullanıcının karara bağladığı konu, kendi cevabıyla.
-  const confirmedFeatures = decided
-    .map(concern => answers.get(concern.id) || concern.title)
-    .filter(Boolean);
+  // Cevap tek bir metin olabilir ama birden çok yan cümle taşıyabilir: "Hatırlatma
+  // e-posta ile; SMS yok." gibi bir cevabın olumlu ve olumsuz yarısı aynı must
+  // gereksinimine karışmasın diye her cevap önce cümlelere bölünür, sonra her
+  // cümle onaylanan (confirmedFeatures) veya dışlanan (outOfScope) olarak
+  // sınıflandırılır.
+  const decidedAnswerClauses = decided
+    .map(concern => classifyDecidedConcern(decisionsByConcernId.get(concern.id), concern.title));
+  const confirmedFeatures = decidedAnswerClauses.flatMap(item => item.confirmed);
+  const decidedExclusions = decidedAnswerClauses.flatMap(item => item.excluded);
 
   const technicalApproaches = (project.decisions || [])
     .filter(decision => decision.stage === 'technical' && decision.status === 'accepted')
@@ -220,7 +390,7 @@ export function projectStageDataToConceptSummary(project: ProjectDocumentV5): Pr
         ...(existing || {}),
         summary: existing?.summary || project.identity.originalIdea,
         confirmedFeatures: [...new Set([...(existing?.confirmedFeatures || []), ...confirmedFeatures])],
-        outOfScope: [...new Set([...(existing?.outOfScope || []), ...sources.outOfScope, ...sources.deferred])],
+        outOfScope: [...new Set([...(existing?.outOfScope || []), ...sources.outOfScope, ...sources.deferred, ...decidedExclusions])],
         technicalApproaches: [...new Set([...(existing?.technicalApproaches || []), ...technicalApproaches])],
         openQuestions: existing?.openQuestions || [],
         knownRisks: existing?.knownRisks || [],

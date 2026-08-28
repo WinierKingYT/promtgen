@@ -512,12 +512,55 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 }
 .pg-view-tabs button.is-active { background:white;color:var(--pg-text);box-shadow:0 1px 5px rgba(20,30,24,.08); }.pg-view-tabs button.is-active svg { color:var(--pg-accent); }
 .pg-history-button { justify-self:end;min-height:38px;border:1px solid var(--pg-border);border-radius:9px;padding:8px 11px;background:white;color:var(--pg-muted);font-size:10px; }
-.pg-idea-workspace { min-height:calc(100dvh - 64px);display:grid;grid-template-columns:minmax(0,1fr) 310px; }
-.pg-idea-workspace.has-stage-panel { grid-template-columns:minmax(0,1fr) 300px 310px; }
-.pg-conversation-column { min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--pg-border);background:var(--pg-surface); }
+/* Sütun sırası DOM sırasıyla aynı: keşif panosu (merkez, belkemiği) ·
+   [aşama paneli] · fikrin güncel hali · sohbet iskelesi. Sohbet sütunu `auto`
+   parçasında durur; genişliğini panelin kendisi söyler (katlanmışken ince bir
+   şerit, açıkken dar bir sütun). Böylece dört sütun kombinasyonu için tek bir
+   grid kuralı yeter — açık/kapalı için ayrı grid tanımı yazılmaz. */
+.pg-idea-workspace { min-height:calc(100dvh - 64px);display:grid;grid-template-columns:minmax(0,1fr) 310px auto; }
+.pg-idea-workspace.has-stage-panel { grid-template-columns:minmax(0,1fr) 300px 310px auto; }
+/* Merkez sütun: fikrin kendisi. İçerik ölçülü bir genişlikte ortalanır ki
+   geniş ekranda satırlar okunamayacak kadar uzamasın. */
+.pg-expansion-column { min-width:0;display:flex;flex-direction:column;align-items:center;gap:20px;border-right:1px solid var(--pg-border);padding:36px clamp(16px,3vw,44px) 56px;background:var(--pg-surface); }
+.pg-expansion-column>* { width:min(760px,100%); }
+/* Keşif panosu artık dar bir yan sütunda değil; merkezde okunabilir bir
+   ölçeğe çıkar. Yalnız bu sütunda geçerli — aynı pano başka bir yerde
+   render edilirse kendi küçük ölçeğini korur. */
+.pg-expansion-column .pg-expansion-board { gap:14px; }
+.pg-expansion-column .pg-expansion-lead { font-size:11px; }
+.pg-expansion-column .pg-expansion-chips button { padding:7px 12px;font-size:10px; }
+.pg-expansion-column .pg-expansion-own-idea label,.pg-expansion-column .pg-expansion-own-idea button { font-size:10px; }
+.pg-expansion-column .pg-expansion-own-idea textarea { font-size:11px; }
+.pg-expansion-column .pg-expansion-panel>header b { font-size:15px; }
+.pg-expansion-column .pg-expansion-panel>header small { font-size:10px; }
+.pg-expansion-column .pg-expansion-card { padding:14px;border-radius:13px; }
+.pg-expansion-column .pg-expansion-card h4 { font-size:13px; }
+.pg-expansion-column .pg-expansion-card p { font-size:11px; }
+.pg-expansion-column .pg-expansion-card footer button { padding:8px 12px;font-size:10px; }
+/* Sohbet iskelesi: katlanmışken yalnız açma şeridi, açıkken dar bir sütun.
+   Kenarlık burada tanımlı — .pg-conversation-column artık kendi kenarlığını
+   taşımıyor, çünkü sütun sınırı panelin değil iskelenin işi. */
+.pg-chat-dock { min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--pg-border);background:var(--pg-surface); }
+.pg-chat-dock.is-collapsed { width:46px; }
+.pg-chat-dock.is-open { width:min(340px,26vw); }
+.pg-chat-toggle { display:flex;align-items:center;gap:7px;border:0;border-bottom:1px solid var(--pg-border);padding:12px 8px;background:var(--pg-surface-soft);color:var(--pg-muted);font-size:9px;font-weight:750;cursor:pointer; }
+.pg-chat-toggle:hover { color:var(--pg-accent); }
+.pg-chat-toggle svg { flex:0 0 auto; }
+/* Katlanmışken şerit dikey okunur; metin gizlenmez ki erişilebilir ad ile
+   görünen metin aynı kalsın (WCAG 2.5.3). */
+.pg-chat-dock.is-collapsed .pg-chat-toggle { flex-direction:column;justify-content:flex-start;height:100%;border-bottom:0;padding:14px 6px; }
+.pg-chat-dock.is-collapsed .pg-chat-toggle>span,.pg-chat-dock.is-collapsed .pg-chat-attention { writing-mode:vertical-rl; }
+.pg-chat-attention { border-radius:999px;padding:5px 3px;background:var(--pg-accent);color:#fff;font-size:8px;font-weight:800; }
+.pg-chat-dock.is-open .pg-chat-attention { padding:3px 7px; }
+.pg-conversation-column { min-width:0;display:flex;flex:1;flex-direction:column;background:var(--pg-surface); }
+/* Dar sütunda okunaklı kalması için sohbetin iç boşlukları daraldı ve
+   ileti akışındaki avatar hizası (sol boşluklar) kalktı. */
+.pg-chat-dock .pg-thread { gap:18px;padding:22px 14px 16px; }
+.pg-chat-dock .pg-chat-composer { padding:10px 14px 14px; }
+.pg-chat-dock .pg-thinking,.pg-chat-dock .pg-inline-review,.pg-chat-dock .pg-coach-focus,.pg-chat-dock .pg-decision-deck,.pg-chat-dock .pg-decision-commit { margin-left:0; }
 .pg-thread { width:min(790px,100%);display:flex;flex:1;flex-direction:column;gap:24px;margin:0 auto;padding:48px clamp(22px,5vw,70px) 28px; }
-.pg-thread-welcome { display:grid;grid-template-columns:40px minmax(0,1fr);gap:13px;padding-bottom:24px;border-bottom:1px solid var(--pg-border); }.pg-assistant-mark,.pg-message-avatar { display:grid;place-items:center;background:var(--pg-accent);color:#fff; }.pg-assistant-mark { width:40px;height:40px;border-radius:12px; }.pg-thread-welcome>div:last-child>span { color:var(--pg-accent);font-size:9px;font-weight:800;letter-spacing:.12em; }.pg-thread-welcome h1 { margin:5px 0 7px;color:var(--pg-text);font-size:25px;line-height:1.16;letter-spacing:-.035em; }.pg-thread-welcome p { max-width:620px;margin:0;color:var(--pg-muted);font-size:12px;line-height:1.6; }
-.pg-original-idea { margin-left:54px;border-left:3px solid #c8c0fa;padding:8px 13px;background:#faf9ff; }.pg-original-idea span { color:var(--pg-accent);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.1em; }.pg-original-idea p { margin:5px 0 0;color:var(--pg-text);font-size:12px;line-height:1.55; }
+.pg-idea-headline { display:grid;grid-template-columns:40px minmax(0,1fr);gap:13px;padding-bottom:24px;border-bottom:1px solid var(--pg-border); }.pg-assistant-mark,.pg-message-avatar { display:grid;place-items:center;background:var(--pg-accent);color:#fff; }.pg-assistant-mark { width:40px;height:40px;border-radius:12px; }.pg-idea-headline>div:last-child>span { color:var(--pg-accent);font-size:9px;font-weight:800;letter-spacing:.12em; }.pg-idea-headline h1 { margin:5px 0 7px;color:var(--pg-text);font-size:25px;line-height:1.16;letter-spacing:-.035em; }.pg-idea-headline p { max-width:620px;margin:0;color:var(--pg-muted);font-size:12px;line-height:1.6; }
+.pg-original-idea { border-left:3px solid #c8c0fa;padding:8px 13px;background:#faf9ff; }.pg-original-idea span { color:var(--pg-accent);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.1em; }.pg-original-idea p { margin:5px 0 0;color:var(--pg-text);font-size:12px;line-height:1.55; }
 .pg-message { display:flex;align-items:flex-start;gap:12px; }.pg-message.is-user { justify-content:flex-end; }.pg-message-avatar { width:30px;height:30px;flex:0 0 30px;border-radius:9px; }.pg-message-body { max-width:min(650px,86%); }.pg-message.is-user .pg-message-body { border-radius:16px 16px 4px 16px;padding:11px 14px;background:var(--pg-accent-soft); }.pg-message-body header { display:flex;align-items:center;gap:8px;margin-bottom:4px; }.pg-message-body header b { font-size:10px; }.pg-message-body header time { color:var(--pg-faint);font-size:8px; }.pg-message-body>p { margin:0;color:var(--pg-text);font-size:13px;line-height:1.68;white-space:pre-wrap; }.pg-message-body details { margin-top:8px;border:1px solid var(--pg-border);border-radius:9px;padding:7px 9px;background:var(--pg-surface-soft);color:var(--pg-muted);font-size:9px; }.pg-message-body details summary { margin:0; }.pg-message-body details p { margin:6px 0 0;line-height:1.5; }
 .pg-thinking { display:flex;align-items:center;gap:10px;margin-left:42px;color:var(--pg-muted);font-size:10px; }.pg-thinking>span { display:flex;gap:4px; }.pg-thinking i { width:6px;height:6px;border-radius:50%;background:var(--pg-accent);animation:pg-dot 1.2s infinite ease-in-out; }.pg-thinking i:nth-child(2){animation-delay:.16s}.pg-thinking i:nth-child(3){animation-delay:.32s}.pg-thinking p{margin:0}@keyframes pg-dot{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 .pg-inline-review { margin-left:42px; }.pg-inline-review .discovery-answer-review { margin:0;border:1px solid #d8d2fa;border-radius:15px;padding:16px;background:#fbfaff;color:var(--pg-text);box-shadow:none; }
@@ -527,9 +570,50 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-chat-composer { width:min(790px,100%);position:sticky;bottom:0;margin:0 auto;padding:12px clamp(22px,5vw,70px) 16px;background:linear-gradient(transparent,var(--pg-surface) 22%);z-index:20; }.pg-composer-box { display:grid;grid-template-columns:minmax(0,1fr) 42px;align-items:end;gap:8px;border:1px solid var(--pg-border-strong);border-radius:17px;padding:9px 9px 9px 14px;background:white;box-shadow:0 10px 35px rgba(24,32,27,.11); }.pg-composer-box:focus-within { border-color:#a69aeb;box-shadow:0 12px 38px rgba(91,66,214,.13); }.pg-composer-box textarea { min-height:48px;max-height:160px;border:0;padding:7px 0;background:transparent;color:var(--pg-text);font-size:13px;line-height:1.5;resize:none;outline:0; }.pg-composer-box>button { width:42px;height:42px;display:grid;place-items:center;border:0;border-radius:11px;background:var(--pg-accent);color:white; }.pg-composer-box>button:hover:not(:disabled){background:var(--pg-accent-hover)}
 .pg-focused-question { display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;margin-bottom:7px;border-radius:9px;padding:7px 9px;background:var(--pg-accent-soft);font-size:8px; }.pg-focused-question span { color:var(--pg-accent); }.pg-focused-question b { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }.pg-composer-foot { padding:6px 4px 0;color:var(--pg-faint);font-size:8px;line-height:1.4; }.pg-composer-mode { display:flex;gap:4px;margin-bottom:6px; }.pg-composer-mode button { border:1px solid var(--pg-border);border-radius:999px;padding:5px 8px;background:white;color:var(--pg-muted);font-size:8px; }.pg-composer-mode button.is-active { border-color:#a69aeb;background:var(--pg-accent-soft);color:var(--pg-accent); }
 .pg-idea-map { min-width:0;padding:32px 24px;background:#f4f5f2; }.pg-map-head { display:flex;align-items:flex-start;justify-content:space-between;gap:12px; }.pg-map-head span { color:var(--pg-accent);font-size:8px;font-weight:800;letter-spacing:.08em; }.pg-map-head h2 { margin:5px 0 0;font-size:18px;line-height:1.25;letter-spacing:-.025em; }.pg-map-head strong { border-radius:999px;padding:5px 8px;font-size:8px; }.pg-map-head strong.is-confirmed { background:var(--pg-success-soft);color:var(--pg-success); }.pg-map-head strong.is-draft { background:var(--pg-warning-soft);color:var(--pg-warning); }.pg-coach-steps { display:grid;gap:7px;margin:18px 0;padding:0;list-style:none; }.pg-coach-steps li { display:flex;align-items:center;gap:8px;color:var(--pg-faint);font-size:9px; }.pg-coach-steps i { width:7px;height:7px;border:1px solid #bfc5c1;border-radius:50%;background:transparent; }.pg-coach-steps li.is-active { color:var(--pg-text);font-weight:750; }.pg-coach-steps li.is-active i { border-color:var(--pg-accent);background:var(--pg-accent);box-shadow:0 0 0 3px var(--pg-accent-soft); }.pg-coach-steps li.is-complete { color:var(--pg-success); }.pg-coach-steps li.is-complete i { border-color:var(--pg-success);background:var(--pg-success); }.pg-map-fields { display:grid;gap:8px; }.pg-map-fields section { border:1px dashed var(--pg-border-strong);border-radius:11px;padding:11px;background:transparent; }.pg-map-fields section.is-confirmed { border-style:solid;border-color:#b8d9ce;background:rgba(255,255,255,.72); }.pg-map-fields section.is-contradicted,.pg-map-fields section.is-decision-required { border-color:#e0c795;background:var(--pg-warning-soft); }.pg-map-fields span { display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--pg-muted);font-size:8px;font-weight:750; }.pg-map-fields span b { flex:0 0 auto;border-radius:999px;padding:3px 6px;background:#e7e9e5;color:var(--pg-faint);font-size:7px;font-weight:750; }.pg-map-fields .is-confirmed span b { background:var(--pg-success-soft);color:var(--pg-success); }.pg-map-fields .is-contradicted span b,.pg-map-fields .is-decision-required span b { background:white;color:var(--pg-warning); }.pg-map-fields p { margin:6px 0 0;color:var(--pg-text);font-size:10px;line-height:1.5; }.pg-map-fields section:not(.is-confirmed) p { color:var(--pg-muted); }.pg-scope-snapshot { display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:12px; }.pg-scope-snapshot div { display:grid;gap:4px;border:1px solid var(--pg-border);border-radius:9px;padding:9px;background:white; }.pg-scope-snapshot span { color:var(--pg-faint);font-size:7px;line-height:1.3; }.pg-scope-snapshot b { font-size:14px; }.pg-map-note { display:flex;align-items:flex-start;gap:7px;margin:16px 0 0;color:var(--pg-muted);font-size:8px;line-height:1.5; }.pg-map-note svg { flex:0 0 auto;color:var(--pg-accent); }
+/* Fikrin güncel hali — salt-okunur türetilmiş görünüm (bkz. idea-state-view.ts).
+   Artık KENDİ sütununda (.pg-idea-state-column) duruyor; keşif panosuyla aynı
+   dar sütunu paylaşmıyor. Ölçek ve renkler .pg-idea-map diliyle aynı kalır.
+   Ayırıcı çizgi kalktı: bir şeyin ALTINDA değil, sütunun başında duruyor. */
+.pg-idea-state { display:grid;gap:11px; }
+.pg-idea-state-column { align-self:start; }
+.pg-idea-state-head span { color:var(--pg-accent);font-size:8px;font-weight:800;letter-spacing:.08em; }
+.pg-idea-state-head h2 { margin:5px 0 0;font-size:16px;line-height:1.25;letter-spacing:-.02em;color:var(--pg-text); }
+.pg-idea-state-section { display:grid;gap:6px; }
+.pg-idea-state-section h3 { margin:0;color:var(--pg-muted);font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
+.pg-idea-state-empty { margin:0;color:var(--pg-faint);font-size:9px;line-height:1.5;font-style:italic; }
+.pg-idea-state-draft-note { display:flex;align-items:center;gap:5px;margin:0;border-radius:8px;padding:6px 8px;background:var(--pg-warning-soft);color:var(--pg-warning);font-size:8px;font-weight:750;line-height:1.4; }
+.pg-idea-state-draft-note svg { flex:0 0 auto; }
+.pg-idea-state-foundation { display:grid;gap:6px;margin:0; }
+.pg-idea-state-foundation dt { color:var(--pg-faint);font-size:7px;font-weight:750;text-transform:uppercase;letter-spacing:.04em; }
+.pg-idea-state-foundation dd { margin:2px 0 0;color:var(--pg-text);font-size:10px;line-height:1.5; }
+.pg-idea-state-field-badge { text-transform:none;color:var(--pg-warning);font-weight:750;letter-spacing:0; }
+.pg-idea-state-unknown-reason { color:var(--pg-faint);font-style:italic; }
+.pg-idea-state-unknown-reason small { font-style:normal; }
+.pg-idea-state-cards { display:grid;gap:6px;margin:0;padding:0;list-style:none; }
+.pg-idea-state-cards li { border:1px solid var(--pg-border);border-radius:9px;padding:8px 9px;background:white; }
+.pg-idea-state-cards li b { font-size:9px;line-height:1.35; }
+.pg-idea-state-cards li small { color:var(--pg-faint);font-size:7px;font-style:italic; }
+.pg-idea-state-cards li p { margin:4px 0 0;color:var(--pg-muted);font-size:8px;line-height:1.5; }
+/* Karar bekleyenler: kabul edilenlerle AYNI kart şablonunu değil, kesik
+   çizgili kenarlığı paylaşır — sessizce eklenmiş görünmesin ama kutlanmış da
+   görünmesin; sade bir "bekliyor" etiketiyle kendi satırında durur. */
+.pg-idea-state-cards.is-pending li { border-style:dashed;background:var(--pg-surface-soft); }
+.pg-idea-state-pending-head { display:flex;align-items:baseline;justify-content:space-between;gap:8px; }
+.pg-idea-state-pending-marker { flex:0 0 auto;border-radius:999px;padding:2px 6px;background:var(--pg-warning-soft);color:var(--pg-warning);font-size:6px;font-weight:750;text-transform:uppercase;letter-spacing:.03em;font-style:normal; }
+.pg-idea-state-decisions { display:grid;gap:5px;margin:0;padding:0;list-style:none; }
+.pg-idea-state-decisions li { border-left:3px solid var(--pg-border-strong);border-radius:0 8px 8px 0;padding:6px 9px;background:var(--pg-surface-soft); }
+.pg-idea-state-decisions li small { display:block;color:var(--pg-faint);font-size:7px;font-weight:750;text-transform:uppercase;letter-spacing:.03em; }
+.pg-idea-state-decisions li p { margin:3px 0 0;color:var(--pg-text);font-size:9px;line-height:1.5; }
+.pg-idea-state-section.is-included .pg-idea-state-decisions li { border-left-color:var(--pg-success); }
+.pg-idea-state-section.is-excluded .pg-idea-state-decisions li { border-left-color:var(--pg-danger);background:var(--pg-danger-soft); }
+
 /* Keşif panosu; çevresindeki .pg-idea-map diliyle aynı ölçek ve renkler.
    Sekme kuralları alt proje C'de silindi: ikinci gezinme seviyesi kalktı. */
 .pg-expansion-board { display:grid;gap:11px; }.pg-expansion-lead { margin:0;color:var(--pg-muted);font-size:8px;line-height:1.55; }.pg-expansion-chips { display:flex;flex-wrap:wrap;gap:5px; }.pg-expansion-chips button { border:1px solid var(--pg-border-strong);border-radius:999px;padding:5px 9px;background:var(--pg-surface);color:var(--pg-muted);font-size:8px;font-weight:750;line-height:1.25; }.pg-expansion-chips button:hover { border-color:var(--pg-accent);color:var(--pg-accent); }.pg-expansion-chips button.is-active { border-color:transparent;background:var(--pg-accent);color:white; }
+.pg-expansion-own-idea { display:grid;gap:5px;border:1px dashed var(--pg-border-strong);border-radius:11px;padding:9px; }.pg-expansion-own-idea label { color:var(--pg-muted);font-size:8px;font-weight:750; }.pg-expansion-own-idea-row { display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:end; }.pg-expansion-own-idea textarea { min-height:38px;resize:vertical;border:1px solid var(--pg-border);border-radius:9px;padding:7px 9px;background:var(--pg-surface);color:var(--pg-text);font-size:9px;line-height:1.45; }.pg-expansion-own-idea button { flex:0 0 auto;display:flex;align-items:center;gap:4px;border:0;border-radius:8px;padding:8px 10px;background:var(--pg-accent);color:white;font-size:8px;font-weight:750; }.pg-expansion-own-idea button:hover:not(:disabled) { background:var(--pg-accent-hover); }.pg-expansion-own-idea button:disabled { background:var(--pg-surface-soft);color:var(--pg-faint);cursor:not-allowed; }
+.pg-expansion-auto-note { display:flex;align-items:center;gap:5px;margin:0;color:var(--pg-accent);font-size:8px;line-height:1.4; }.pg-expansion-auto-note svg { flex:0 0 auto; }
+.pg-expansion-decision-origin { display:block;color:var(--pg-faint);font-size:7px;line-height:1.4;font-style:italic; }
+.pg-expansion-ai-axes { display:grid;gap:5px;border-top:1px dashed var(--pg-border);padding-top:8px; }.pg-expansion-ai-axes-heading { display:flex;align-items:center;gap:4px;margin:0;color:var(--pg-accent);font-size:8px;font-weight:750;letter-spacing:-.01em; }.pg-expansion-ai-axes-heading svg { flex:0 0 auto; }.pg-expansion-ai-axes .pg-expansion-chips button { border-style:dashed; }
 .pg-expansion-panel { display:grid;gap:8px; }.pg-expansion-panel>header { display:flex;align-items:flex-start;justify-content:space-between;gap:8px; }.pg-expansion-panel>header b { display:block;font-size:11px;line-height:1.3;letter-spacing:-.015em; }.pg-expansion-panel>header small { display:block;margin-top:2px;color:var(--pg-faint);font-size:8px; }.pg-expansion-panel>header button { flex:0 0 auto;display:flex;align-items:center;gap:4px;border:1px solid var(--pg-border-strong);border-radius:8px;padding:5px 8px;background:var(--pg-surface);color:var(--pg-muted);font-size:8px;font-weight:750; }
 .pg-expansion-loading,.pg-expansion-fallback { display:flex;align-items:center;gap:6px;margin:0;border-radius:9px;padding:8px 9px;font-size:8px;line-height:1.45; }.pg-expansion-loading { background:var(--pg-surface-soft);color:var(--pg-muted); }.pg-expansion-loading svg,.pg-expansion-fallback svg { flex:0 0 auto; }.pg-expansion-fallback { border:1px solid #e0c795;background:var(--pg-warning-soft);color:var(--pg-warning);font-weight:750; }
 .pg-expansion-card { display:grid;gap:5px;border:1px solid var(--pg-border);border-radius:11px;padding:10px;background:var(--pg-surface); }.pg-expansion-card h4 { margin:0;font-size:10px;line-height:1.35;letter-spacing:-.015em; }.pg-expansion-card p { margin:0;color:var(--pg-muted);font-size:9px;line-height:1.5; }.pg-expansion-card footer { display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:2px; }.pg-expansion-card footer span { border-radius:999px;padding:3px 6px;background:var(--pg-surface-soft);color:var(--pg-faint);font-size:7px;font-weight:750; }.pg-expansion-card footer span.is-unassessed { background:var(--pg-warning-soft);color:var(--pg-warning); }.pg-expansion-card footer button { margin-left:auto;display:flex;align-items:center;gap:4px;border:0;border-radius:8px;padding:6px 9px;background:var(--pg-accent);color:white;font-size:8px;font-weight:750; }.pg-expansion-card footer button:hover { background:var(--pg-accent-hover); }
@@ -551,8 +635,9 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 
 @media (max-width:1100px) {
   :root { --pg-sidebar:210px; }
-  .pg-idea-workspace { grid-template-columns:minmax(0,1fr) 270px; }
-  .pg-idea-workspace.has-stage-panel { grid-template-columns:minmax(0,1fr) 260px 270px; }
+  .pg-idea-workspace { grid-template-columns:minmax(0,1fr) 270px auto; }
+  .pg-idea-workspace.has-stage-panel { grid-template-columns:minmax(0,1fr) 260px 270px auto; }
+  .pg-chat-dock.is-open { width:min(300px,30vw); }
   .pg-plan-layout { grid-template-columns:190px minmax(0,1fr); }.pg-plan-context { grid-column:1/-1; }
 }
 @media (max-width:860px) {
@@ -563,12 +648,19 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
   .pg-studio-header { grid-template-columns:minmax(120px,1fr) auto; }.pg-view-tabs { order:3;grid-column:1/-1;justify-self:center; }.pg-history-button { grid-column:2;grid-row:1; }
   .pg-idea-workspace,
   .pg-idea-workspace.has-stage-panel { grid-template-columns:1fr; }
-  .pg-stage-panel { border-left:0;border-top:1px solid var(--pg-border); }.pg-conversation-column { border-right:0; }.pg-idea-map { border-top:1px solid var(--pg-border); }
+  .pg-stage-panel { border-left:0;border-top:1px solid var(--pg-border); }.pg-expansion-column { border-right:0; }.pg-idea-map { border-top:1px solid var(--pg-border); }
+  /* Tek sütuna düşen yerleşimde sohbet iskelesi de tam genişlik alır ve
+     açma şeridi yatay okunur — dikey şerit yalnız çok sütunlu düzende
+     anlamlı. Sohbet burada da varsayılan olarak kapalıdır. */
+  .pg-chat-dock,.pg-chat-dock.is-collapsed,.pg-chat-dock.is-open { width:auto;border-left:0;border-top:1px solid var(--pg-border); }
+  .pg-chat-dock.is-collapsed .pg-chat-toggle { height:auto;flex-direction:row;padding:12px 14px; }
+  .pg-chat-dock.is-collapsed .pg-chat-toggle>span,.pg-chat-dock.is-collapsed .pg-chat-attention { writing-mode:horizontal-tb; }
+  .pg-chat-dock.is-collapsed .pg-chat-attention { padding:3px 7px; }
   .pg-plan-layout { grid-template-columns:1fr; }.pg-section-nav { display:flex;overflow:auto; }.pg-section-nav>div { flex:0 0 auto;gap:8px; }.pg-section-nav>button { width:auto;min-width:150px;flex:0 0 auto; }
 }
 @media (max-width:600px) {
   .pg-onboarding-center { width:calc(100% - 24px);padding:28px 0 46px; }.pg-onboarding-topbar { height:54px;padding:0 12px; }.pg-onboarding-copy { text-align:left; }.pg-onboarding-copy h1 { font-size:39px; }.pg-onboarding-copy p { font-size:13px; }.pg-start-composer { margin-top:24px;border-radius:16px;padding:14px 14px 10px; }.pg-start-composer textarea { min-height:120px;font-size:16px; }.pg-start-composer-footer label span { display:none; }.pg-start-submit span { display:none; }.pg-start-submit { width:44px;justify-content:center;padding:0; }.pg-starter-prompts { grid-template-columns:1fr; }.pg-local-mode-note { grid-template-columns:auto 1fr; }.pg-local-mode-note button { grid-column:auto; }.pg-import-options>div { grid-template-columns:1fr; }.pg-onboarding-footer { flex-wrap:wrap;gap:7px 14px; }.pg-onboarding-footer span+span:before { margin-right:14px; }
-  .pg-studio-header { min-height:58px;padding:7px 10px;gap:8px; }.pg-project-heading>span { max-width:150px; }.pg-history-button { display:none; }.pg-view-tabs { width:100%;display:grid;grid-template-columns:repeat(3,1fr); }.pg-view-tabs button { justify-content:center;padding:7px 6px; }.pg-thread { gap:20px;padding:28px 14px 18px; }.pg-thread-welcome { grid-template-columns:34px 1fr; }.pg-assistant-mark { width:34px;height:34px; }.pg-thread-welcome h1 { font-size:21px; }.pg-original-idea,.pg-inline-review,.pg-coach-focus,.pg-decision-deck,.pg-decision-commit { margin-left:0; }.pg-message-body { max-width:88%; }.pg-coach-actions { grid-template-columns:1fr; }.pg-chat-composer { padding:10px 10px 13px; }.pg-idea-map { padding:24px 16px; }.pg-document-workspace,.pg-plan-workspace { padding:28px 12px 60px; }.pg-document-title h1,.pg-plan-gate h1,.pg-plan-header h1 { font-size:27px; }.pg-plan-header { align-items:flex-start;flex-direction:column; }.pg-plan-header>div:last-child { width:100%;flex-wrap:wrap; }.pg-plan-header label { flex:1; }.pg-plan-header select { width:100%; }.pg-plan-editor { padding:14px; }
+  .pg-studio-header { min-height:58px;padding:7px 10px;gap:8px; }.pg-project-heading>span { max-width:150px; }.pg-history-button { display:none; }.pg-view-tabs { width:100%;display:grid;grid-template-columns:repeat(3,1fr); }.pg-view-tabs button { justify-content:center;padding:7px 6px; }.pg-thread { gap:20px;padding:28px 14px 18px; }.pg-idea-headline { grid-template-columns:34px 1fr; }.pg-assistant-mark { width:34px;height:34px; }.pg-idea-headline h1 { font-size:21px; }.pg-original-idea,.pg-inline-review,.pg-coach-focus,.pg-decision-deck,.pg-decision-commit { margin-left:0; }.pg-message-body { max-width:88%; }.pg-coach-actions { grid-template-columns:1fr; }.pg-chat-composer { padding:10px 10px 13px; }.pg-idea-map { padding:24px 16px; }.pg-expansion-column { padding:24px 12px 40px;gap:16px; }.pg-document-workspace,.pg-plan-workspace { padding:28px 12px 60px; }.pg-document-title h1,.pg-plan-gate h1,.pg-plan-header h1 { font-size:27px; }.pg-plan-header { align-items:flex-start;flex-direction:column; }.pg-plan-header>div:last-child { width:100%;flex-wrap:wrap; }.pg-plan-header label { flex:1; }.pg-plan-header select { width:100%; }.pg-plan-editor { padding:14px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .pg-sidebar { transition:none; }.pg-thinking i { animation:none;opacity:.7; }
@@ -599,6 +691,10 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-stage-panel h2 { margin:0;font-size:15px;line-height:1.35;color:var(--pg-text); }
 .pg-stage-why { display:flex;align-items:flex-start;gap:6px;margin:0;color:var(--pg-muted);font-size:12px;line-height:1.45; }
 .pg-stage-note { margin:0;color:var(--pg-muted);font-size:12px; }
+/* Pozitif kutuya karışmış dışlama ipucu — non-blocking, salt-öneri. Sessiz
+   ve dikkat çekmeyen görünür; `pg-stage-error` (kırmızı, engelleyici) ile
+   karıştırılmasın diye kasıtlı olarak nötr renk paletinde. */
+.pg-stage-hint { margin:0;border-radius:9px;padding:7px 9px;background:var(--pg-surface-soft);color:var(--pg-muted);font-size:11px;line-height:1.45; }
 .pg-stage-panel label { display:grid;gap:4px;color:var(--pg-muted);font-size:11px; }
 .pg-stage-panel input[type=text],.pg-stage-panel textarea { width:100%;box-sizing:border-box;border:1px solid var(--pg-border);border-radius:8px;padding:7px 9px;font:inherit;font-size:12px;color:var(--pg-text);background:white; }
 .pg-stage-options { display:grid;gap:6px;margin:0;padding:8px;border:1px solid var(--pg-border);border-radius:10px; }

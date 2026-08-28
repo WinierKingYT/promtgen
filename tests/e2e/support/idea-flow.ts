@@ -11,8 +11,21 @@ import { expect, type Page } from '@playwright/test';
  *   -> deste çözülür -> konsept özeti tamamlanır -> plana dönüşüm açılır
  */
 
+/**
+ * Sohbet artık ekranın belkemiği değil, katlanabilir bir yan kanal ve
+ * VARSAYILAN OLARAK KAPALI. Sohbetin içini sınayan her adım önce onu açmak
+ * zorunda; bu yardımcı idempotenttir (açıksa tıklamaz).
+ */
+export async function ensureIdeaChatOpen(page: Page) {
+  const toggle = page.getByRole('button', { name: /^Sohbeti (aç|kapat)/ });
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('region', { name: 'Fikir geliştirme sohbeti' })).toBeVisible();
+}
+
 /** Bir soruyu cevaplar, çıkarılan alanları kabul edip uygular. */
 export async function answerCoachQuestion(page: Page, answer: string) {
+  await ensureIdeaChatOpen(page);
   await page.getByLabel('Fikir sohbeti mesajı').fill(answer);
   await page.getByRole('button', { name: 'Gönder', exact: true }).click();
   const review = page.locator('.discovery-answer-review');
@@ -65,6 +78,7 @@ export async function completeConceptAgreement(page: Page) {
  * görünür, dolayısıyla özeti kullanan her senaryo önce bir tur çalıştırmalıdır.
  */
 export async function runCoachTurn(page: Page) {
+  await ensureIdeaChatOpen(page);
   const before = await page.locator('.pg-message').count();
   await page.locator('.pg-coach-actions button').first().click();
   await expect.poll(() => page.locator('.pg-message').count()).toBeGreaterThan(before);

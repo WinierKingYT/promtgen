@@ -1,5 +1,5 @@
-import { getProviderMeta } from './provider-settings.js';
-import { validateProviderSettings } from './provider-url-policy.js';
+import { getProviderMeta } from './provider-settings.ts';
+import { validateProviderSettings } from './provider-url-policy.ts';
 
 function check(id, label, status, detail, recommendation = '') {
     return { id, label, status, detail, recommendation };

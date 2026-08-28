@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubReadyProvider } from './support/provider.js';
-import { buildCandidateChoiceFixture, buildInvalidationChainFixture, buildOpenConcernFixture, buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
+import { buildCandidateChoiceFixture, buildInvalidationChainFixture, buildOpenConcernFixture, buildOpenSolutionConcernFixture, buildPlanFixture, buildStageFixture, seedProject } from './support/project-fixture.js';
 import {
   advanceToDecisionTurn,
   completeConceptAgreement,
+  ensureIdeaChatOpen,
   resolveDecisionTurn,
   runCoachTurn
 } from './support/idea-flow.js';
@@ -46,11 +47,12 @@ test.describe('PromtGen idea studio production workflow', () => {
     const panel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
     await expect(panel).toContainText('At kalıcı bir karakter mi');
 
-    // Panel üçüncü sütun olarak geliyor; ızgara iki sütunlu kalsaydı sohbet
-    // ile panel üst üste binerdi. Sınıf adı değil, hesaplanan düzen doğrulanır.
+    // Panel KENDİ sütununu alır; ızgara daralsaydı panel komşu sütunla üst
+    // üste binerdi. Sınıf adı değil, hesaplanan düzen doğrulanır. Dört parça:
+    // keşif panosu · aşama paneli · fikrin güncel hali · sohbet iskelesi.
     const columns = await page.locator('main.pg-idea-workspace')
       .evaluate(element => getComputedStyle(element).gridTemplateColumns);
-    expect(columns.split(' ').length).toBe(3);
+    expect(columns.split(' ').length).toBe(4);
     // Kullanıcıya NEDEN sorulduğu da söylenir.
     await expect(panel).toContainText('kayıt, ilerleme ve ölüm sistemini');
     // Bedeli olmayan seçenek karşılaştırılamaz.
@@ -72,6 +74,11 @@ test.describe('PromtGen idea studio production workflow', () => {
     await page.getByRole('button', { name: /At sistemi/ }).first().click();
 
     await expect(page.getByRole('complementary', { name: 'Fikir tasarımı' })).toContainText('At kalıcı bir karakter mi');
+    // Sohbet katlanmışken bu iddialar boş yere geçerdi (o elemanlar zaten
+    // DOM'da olmazdı). Sınanan davranış "aynı anda iki soru sorulmaz"
+    // olduğu için sohbet AÇIKKEN, yani her iki soru da görünebilecekken
+    // kontrol edilir.
+    await ensureIdeaChatOpen(page);
     await expect(page.locator('.pg-coach-focus')).toHaveCount(0);
     await expect(page.locator('.pg-focused-question')).toHaveCount(0);
   });
@@ -301,13 +308,22 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.getByRole('region', { name: 'Keşif panosu' })).toHaveCount(0);
   });
 
-  test('opens a conversation-first studio and preserves it across reload', async ({ page }) => {
+  test('opens an idea-first studio, keeps chat as an optional side channel, and preserves it across reload', async ({ page }) => {
     await startIdea(page, 'S&box içinde oyuncuyla bağ kuran bir at sistemi yapmak istiyorum.');
     await expect(page.getByRole('navigation', { name: 'Proje aşamaları' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Çalışma görünümleri' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fikir', exact: true })).toHaveAttribute('aria-current', 'step');
-    await expect(page.getByRole('complementary', { name: 'Keşif' })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Fikir geliştirme sohbeti' })).toBeVisible();
+    // Ekranın belkemiği fikir: keşif panosu merkezde, fikrin güncel hali
+    // sağda. İkisi de kullanıcı hiçbir şey açmadan görünür.
+    await expect(page.getByRole('region', { name: 'Keşif panosu' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Fikrin güncel hali' })).toBeVisible();
+    // Sohbet SİLİNMEDİ ama varsayılan olarak katlanmış: düğme klavyeyle
+    // erişilebilir ve durumu `aria-expanded` ile duyurur.
+    const chatToggle = page.getByRole('button', { name: /^Sohbeti aç/ });
+    await expect(chatToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('region', { name: 'Fikir geliştirme sohbeti' })).toHaveCount(0);
+    await ensureIdeaChatOpen(page);
+    await expect(page.getByLabel('Fikir sohbeti mesajı')).toBeVisible();
 
     await page.reload();
     await page.locator('.portfolio-project-open').first().click();
@@ -317,6 +333,7 @@ test.describe('PromtGen idea studio production workflow', () => {
 
   test('the single contextual action runs a real discovery turn and keeps one active question', async ({ page }) => {
     await startIdea(page, 'Bir uygulama yapmak istiyorum.');
+    await ensureIdeaChatOpen(page);
     await expect(page.locator('.pg-coach-focus')).toBeVisible();
     await expect(page.locator('.pg-coach-actions button')).toHaveCount(2);
     const previousMessages = await page.locator('.pg-message').count();
@@ -343,8 +360,10 @@ test.describe('PromtGen idea studio production workflow', () => {
 
   test('a focused answer is reviewed inline while the next question stays visible in the same turn', async ({ page }) => {
     await startIdea(page, 'Bir uygulama yapmak istiyorum.');
+    await ensureIdeaChatOpen(page);
     await expect(page.locator('.pg-coach-focus')).toBeVisible();
-    await expect(page.getByText('Şu an yanıtladığın soru')).toBeVisible();
+    // Soru artık bir TALEP değil bir DAVET; etiket de bunu söyler.
+    await expect(page.getByText('Dilersen şunu konuşalım')).toBeVisible();
     await page.getByLabel('Fikir sohbeti mesajı').fill('Problem: Bireysel geliştiriciler projeye başlamadan önce kapsamı ve kararları netleştiremiyor.');
     await page.getByRole('button', { name: 'Gönder', exact: true }).click();
 
@@ -576,10 +595,16 @@ test.describe('PromtGen idea studio production workflow', () => {
 
   test('the idea studio remains usable without horizontal overflow across layouts', async ({ page }) => {
     await startIdea(page);
+    // Sohbet AÇIKKEN ölçülür: taşma riski en yüksek olan hâl dört sütunun
+    // (pano · aşama · fikrin güncel hali · sohbet) aynı anda durduğu hâldir.
+    // Ayrıca panonun ve sohbet bestecisinin her genişlikte kullanılabilir
+    // kaldığı da burada doğrulanır.
+    await ensureIdeaChatOpen(page);
     for (const width of [375, 768, 1180, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow, `${width}px workspace overflow`).toBeLessThanOrEqual(1);
+      await expect(page.getByRole('region', { name: 'Keşif panosu' })).toBeVisible();
       await expect(page.getByLabel('Fikir sohbeti mesajı')).toBeVisible();
     }
   });
@@ -596,6 +621,157 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(skipLink).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('#idea-input')).toBeFocused();
+  });
+
+  test('konu cevabinda YAPILMAYACAK kutusu: pozitif plana gecer, disgi sizmaz', async ({ page }) => {
+    // Mimari düzeltme burada gerçek kullanıcı gözünden doğrulanır: panel artık
+    // "Kararın" ile birlikte ayrı bir "neyi YAPMAYACAĞIZ" kutusu sunuyor.
+    // Kutu doldurulunca `answerConcern`e `excluded` EXPLICIT gönderilir ve
+    // `scopeSplit` 'confirmed' olur — anahtar kelime çıkarımı hiç çalışmaz,
+    // pozitif ve negatif yarı asla karışmaz.
+    await seedProject(page, buildOpenConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const ideaPanel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    await ideaPanel.getByLabel('Kararın').fill('At kalıcı bir karakterdir.');
+    await ideaPanel.getByLabel(/YAPMAYACAĞIZ/).fill('SMS bildirimi göndermeyeceğiz.');
+    await ideaPanel.getByRole('button', { name: 'Karara bağla' }).click();
+    await expect(ideaPanel).toContainText('Fikir tasarımı yeterince net');
+
+    await ideaPanel.getByRole('button', { name: 'Fikir tasarımını onayla' }).click();
+
+    const solutionPanel = page.getByRole('complementary', { name: 'Teknik tasarım' });
+    await expect(solutionPanel).toContainText('Bunu nasıl kuracağız?');
+    await solutionPanel.getByRole('button', { name: 'Teknik tasarımı onayla' }).click();
+    await expect(solutionPanel).toContainText('Plan üretilebilir');
+
+    await page.getByRole('button', { name: 'Ortak Anlayış', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Ortak anlayışımızı kontrol et' })).toBeVisible();
+    await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+
+    const preview = page.getByRole('region', { name: 'Plan dönüşümü önizlemesi' });
+    await expect(preview).toContainText('At kalıcı bir karakterdir.');
+    await expect(preview).not.toContainText('SMS bildirimi göndermeyeceğiz.');
+  });
+
+  test('teknik konu cevabinda da YAPILMAYACAK kutusu render edilir ve karari kapatir', async ({ page }) => {
+    // Tam bir plan-dönüşümü ucu SolutionStagePanel için orantısız olurdu
+    // (ADR akışı zaten `buildCandidateChoiceFixture` testinde kapsanıyor);
+    // burada panelin "konu ⇒ cevap" dalında kutunun render edildiği ve
+    // gönderimi engellemediği doğrulanıyor.
+    await seedProject(page, buildOpenSolutionConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const panel = page.getByRole('complementary', { name: 'Teknik tasarım' });
+    await expect(panel).toContainText('Bildirimler hangi kanaldan gidecek?');
+    await panel.getByLabel('Kararın').fill('E-posta ile bildirim gönderilecek.');
+    await panel.getByLabel(/YAPMAYACAĞIZ/).fill('SMS bildirimi göndermeyeceğiz.');
+    await panel.getByRole('button', { name: 'Karara bağla' }).click();
+
+    await expect(panel).toContainText('Teknik konular karara bağlandı');
+  });
+
+  test('fikir panelinde pozitif kutuya karisan dislama SEZILIR ama hicbir sey TASINMAZ', async ({ page }) => {
+    // Kalan boşluk: kullanıcı karışık bir cümleyi TAMAMEN "Kararın" kutusuna
+    // yazıp "neyi YAPMAYACAĞIZ" kutusunu boş bırakabiliyor — o zaman "SMS
+    // yok" yine `must` gereksinimine dönüşür, ama bu sefer sessiz bir kural
+    // yerine kullanıcının kendi görünür eylemiyle. İpucu yalnız SEZER;
+    // otomatik taşıma/temizleme/bölme YOKTUR — sınırı hâlâ kullanıcı çizer.
+    await seedProject(page, buildOpenConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const panel = page.getByRole('complementary', { name: 'Fikir tasarımı' });
+    const answerBox = panel.getByLabel('Kararın');
+    const excludedBox = panel.getByLabel(/YAPMAYACAĞIZ/);
+    const hint = panel.getByRole('status').filter({ hasText: 'dışlama gibi görünüyor' });
+
+    // Temiz bir cevapta ipucu görünmez.
+    await answerBox.fill('At kalıcı bir karakterdir.');
+    await expect(hint).toHaveCount(0);
+
+    // Kullanıcı dışlamayı yanlışlıkla pozitif kutuya yazınca ipucu görünür —
+    // ekran okuyucuya `role="status"` ile duyurulur, odağı ÇALMAZ.
+    const mixedAnswer = 'At kalıcı bir karakterdir; SMS bildirimi yok.';
+    await answerBox.fill(mixedAnswer);
+    await expect(hint).toBeVisible();
+    await expect(answerBox).toBeFocused();
+
+    // İpucu göründüğü için hiçbir kutunun içeriği DEĞİŞMEZ — ne taşıma ne
+    // otomatik bölme var.
+    await expect(answerBox).toHaveValue(mixedAnswer);
+    await expect(excludedBox).toHaveValue('');
+
+    // İpucu göz ardı edilebilir: gönderim hâlâ çalışır.
+    await panel.getByRole('button', { name: 'Karara bağla' }).click();
+    await expect(panel).toContainText('Fikir tasarımı yeterince net');
+  });
+
+  test('teknik panelde de pozitif kutuya karisan dislama SEZILIR ve gonderimi engellemez', async ({ page }) => {
+    await seedProject(page, buildOpenSolutionConcernFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const panel = page.getByRole('complementary', { name: 'Teknik tasarım' });
+    const answerBox = panel.getByLabel('Kararın');
+    const excludedBox = panel.getByLabel(/YAPMAYACAĞIZ/);
+    const hint = panel.getByRole('status').filter({ hasText: 'dışlama gibi görünüyor' });
+
+    const mixedAnswer = 'E-posta ile bildirim gönderilecek; SMS yok.';
+    await answerBox.fill(mixedAnswer);
+    await expect(hint).toBeVisible();
+    await expect(answerBox).toHaveValue(mixedAnswer);
+    await expect(excludedBox).toHaveValue('');
+
+    await panel.getByRole('button', { name: 'Karara bağla' }).click();
+    await expect(panel).toContainText('Teknik konular karara bağlandı');
+  });
+
+  test('proje degistirince ONCEKI projenin gorev taslak onizlemesi kalmaz', async ({ page }) => {
+    // Workspace, aktif proje değişince yeniden monte OLMUYOR (App.tsx
+    // <Workspace/>'e `key={project.id}` vermiyor) — yani `taskCompilation`
+    // gibi proje-özel taslak state'i elle sıfırlanmazsa hayatta kalır.
+    // Senaryo: A'da görev taslağı üret, B'ye geç, B'de Plan/Görevler'e dön.
+    // Sıfırlanmadıysa A'nın önizlemesi "Onayla" düğmesiyle birlikte geri
+    // gelir ve tıklanırsa A'nın taslağını B'nin belgesine yazar
+    // (applyCompiledTaskPlan(YENİ proje, ESKİ taslak) — sessiz veri karışması).
+    const projectA = buildPlanFixture();
+    projectA.identity.name = 'Proje A';
+    const projectB = buildPlanFixture();
+    projectB.identity.name = 'Proje B';
+    await seedProject(page, projectA);
+    await seedProject(page, projectB);
+    await page.goto('/');
+
+    await page.locator('.portfolio-project-open', { hasText: 'Proje A' }).click();
+    await page.getByRole('button', { name: 'Plan', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    await page.getByRole('button', { name: /Görevler ve Yol Haritası/ }).click();
+    await page.getByRole('button', { name: 'Gereksinimlerden görev taslağı üret' }).click();
+
+    const previewInA = page.locator('.pg-task-preview');
+    await expect(previewInA).toContainText('görev taslağı hazır');
+    await expect(previewInA.getByRole('button', { name: 'Onayla' })).toBeEnabled();
+
+    // Proje B'ye geç — aynı Workspace örneği kalır, asıl senaryo bu.
+    // (Masaüstü genişliğinde `.pg-sidebar` zaten görünür; `.pg-mobile-menu`
+    // yalnız dar ekranlarda gösterilen bir açma düğmesi, burada gerekmiyor.)
+    await page.locator('.pg-sidebar .pg-project-stack button', { hasText: 'Proje B' }).click();
+    await expect(page.getByRole('heading', { name: 'Fikrini birlikte şekillendirelim' })).toBeVisible();
+
+    // Efekt görünümü zaten 'develop'a sıfırlıyor; kullanıcı normal akışta
+    // Plan'a geri tıklar. activeSection ('tasks') kasıtlı olarak sağ kalan
+    // bir gezinme tercihi, bu yüzden Görevler bölümüne tekrar tıklamaya
+    // gerek yok.
+    await page.getByRole('button', { name: 'Plan', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    // BUG: taskCompilation sıfırlanmadıysa A'nın önizlemesi burada, B'nin
+    // belgesi üzerine "Onayla" ile uygulanabilir hâlde yeniden görünür.
+    await expect(page.locator('.pg-task-preview')).toHaveCount(0);
   });
 });
 

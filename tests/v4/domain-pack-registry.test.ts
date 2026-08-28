@@ -9,7 +9,7 @@ import {
   type DomainPackRuntime
 } from '../../src/v4/domain-packs/registry.js';
 import { analyzeIdea } from '../../src/v4/planning-engine.js';
-import type { TaskContractV2 } from '../../src/v4/contracts.js';
+import type { DomainPackExpansionAxis, TaskContractV2 } from '../../src/v4/contracts.js';
 
 const BASE_CONTRACT: TaskContractV2 = {
   version: 2,
@@ -100,13 +100,87 @@ function fakeRuntime(): DomainPackRuntime {
   };
 }
 
-test('production domain pack registry exposes unique Web/SaaS and Backend/API runtimes', () => {
+/**
+ * fakeRuntime()'ın genişletme eksenleri (expansionAxes) sürümü: registry seviyesinde
+ * collectExpansionAxes davranışını (applicable üzerinden, aktivasyon şartsız; kimlik
+ * çakışmasında ilk pack kazanır) izole test etmek için kullanılır.
+ */
+function fakeRuntimeWithExpansionAxes(
+  id: string,
+  moduleId: string,
+  axes: DomainPackExpansionAxis[]
+): DomainPackRuntime {
+  const module = {
+    id: moduleId,
+    version: '1.0.0',
+    name: `Sahte Eksen Paketi ${id}`,
+    description: 'Registry collectExpansionAxes testi.',
+    category: 'software' as const,
+    dependencies: [],
+    conflicts: [],
+    triggers: ['fake'],
+    contributions: {
+      requiredSections: [],
+      suggestedSections: [],
+      reviewerRuleIds: [],
+      exportDocumentIds: [],
+      domainPack: {
+        id,
+        maturity: 'experimental' as const,
+        projectTypes: ['fake-project'],
+        limitations: [],
+        discoveryQuestions: [],
+        expansionAxes: axes,
+        requirementGuidance: [],
+        riskGuidance: [],
+        taskContractGuidance: {
+          expectedOutputs: [],
+          completionEvidence: []
+        }
+      }
+    }
+  };
+  return {
+    id,
+    module,
+    ui: {
+      titleId: `${id}-title`,
+      previewLabel: `${id} önizlemesi`,
+      activationMessage: `${id} etkinleştirildi.`,
+      commandType: `Apply${id}`,
+      description: `${id} paketi.`,
+      activeDescription: `${id} etkin.`
+    },
+    promptInstruction: '',
+    // applicable: true, active: false her zaman -> aktivasyon gerektirmeden
+    // fikir aşamasında görünmesi gerektiğini doğrular.
+    assess: () => ({
+      applicable: true,
+      active: false,
+      maturity: 'experimental',
+      signals: {},
+      checks: [],
+      discoveryQuestions: [],
+      limitations: []
+    }),
+    discoveryQuestions: () => [],
+    enrichTaskContract: (_project, _requirement, contract) => contract,
+    testKind: () => 'integration',
+    readinessDimension: () => 'consistency',
+    reviewCategory: () => 'domain',
+    reviewPromptLabel: 'Sahte'
+  };
+}
+
+test('production domain pack registry exposes unique Web/SaaS, Backend/API and Game runtimes', () => {
   const runtimes = DOMAIN_PACK_REGISTRY.list();
-  assert.deepEqual(runtimes.map(item => item.id), ['web-saas', 'backend-api']);
+  // game.ts eklendi (üçüncü tam eş domain pack): registry artık üç runtime pinliyor.
+  assert.deepEqual(runtimes.map(item => item.id), ['web-saas', 'backend-api', 'game']);
   assert.equal(new Set(runtimes.map(item => item.id)).size, runtimes.length);
   assert.equal(new Set(runtimes.map(item => item.module.id)).size, runtimes.length);
   assert.equal(DOMAIN_PACK_REGISTRY.getByModuleId('software.web')?.id, 'web-saas');
   assert.equal(DOMAIN_PACK_REGISTRY.getByModuleId('software.backend-api')?.id, 'backend-api');
+  assert.equal(DOMAIN_PACK_REGISTRY.getByModuleId('software.game')?.id, 'game');
 });
 
 test('registry factory adds a third pack without changing consumers', () => {
@@ -153,16 +227,72 @@ test('registry rejects duplicate runtime and module identities', () => {
   );
 });
 
+test('collectExpansionAxes surfaces applicable packs axes without requiring activation', () => {
+  const axis: DomainPackExpansionAxis = {
+    id: 'fake-axis-inactive',
+    label: 'Sahte eksen',
+    hint: 'Sahte ipucu?',
+    seedTitles: ['Başlangıç 1', 'Başlangıç 2']
+  };
+  const runtime = fakeRuntimeWithExpansionAxes('fake-axis-pack', 'software.fake-axis-pack', [axis]);
+  const registry = createDomainPackRegistry([runtime]);
+  const project = analyzeIdea('Fake proje fikri');
+
+  // Sahte modül henüz aktive edilmedi (yalnız varsayılan core.planning aktif) ama
+  // applicable=true olduğu için eksen görünmeli — fikir aşaması aktivasyon şartı taşımaz.
+  assert.equal(project.modules.active.some(item => item.id === 'software.fake-axis-pack'), false);
+  assert.deepEqual(
+    registry.collectExpansionAxes(project).map(item => item.id),
+    ['fake-axis-inactive']
+  );
+});
+
+test('collectExpansionAxes dedupes by id across packs, first pack wins', () => {
+  const sharedFromA: DomainPackExpansionAxis = {
+    id: 'shared-axis',
+    label: 'A paketinin etiketi',
+    hint: 'A ipucu',
+    seedTitles: ['A1', 'A2']
+  };
+  const sharedFromB: DomainPackExpansionAxis = {
+    id: 'shared-axis',
+    label: 'B paketinin etiketi',
+    hint: 'B ipucu',
+    seedTitles: ['B1', 'B2']
+  };
+  const onlyInB: DomainPackExpansionAxis = {
+    id: 'only-in-b',
+    label: 'Yalnız B',
+    hint: 'B ipucu 2',
+    seedTitles: ['C1', 'C2']
+  };
+  const runtimeA = fakeRuntimeWithExpansionAxes('fake-axis-pack-a', 'software.fake-axis-pack-a', [sharedFromA]);
+  const runtimeB = fakeRuntimeWithExpansionAxes('fake-axis-pack-b', 'software.fake-axis-pack-b', [sharedFromB, onlyInB]);
+  const registry = createDomainPackRegistry([runtimeA, runtimeB]);
+  const project = analyzeIdea('Fake proje fikri');
+
+  const axes = registry.collectExpansionAxes(project);
+  assert.deepEqual(axes.map(item => item.id), ['shared-axis', 'only-in-b']);
+  assert.equal(axes.find(item => item.id === 'shared-axis')?.label, 'A paketinin etiketi', 'ilk pack (runtimeA) kazanmalı');
+});
+
 test('production consumers depend on the registry, not individual packs', () => {
   const consumerPaths = [
     'src/v4/module-registry.js',
     'src/v4/application/readiness-service.ts',
     'src/v4/review-engine.js',
-    'src/v4/task-compiler.js'
+    // task-compiler.js -> .ts donusumunun yansimasi; guard hala uzanti-bagimsiz
+    // ve "registry'ye bagli, tekil pack'lere degil" mimari kuralini denetliyor.
+    'src/v4/task-compiler.ts',
+    // idea-expansion/categories.ts artik tier 2 eksenlerini registry.collectExpansionAxes
+    // uzerinden okuyor; ayni mimari kural (tekil pack'lere degil, registry'ye bagli olmak)
+    // burada da kilitlenir.
+    'src/v4/idea-expansion/categories.ts'
   ];
   for (const relativePath of consumerPaths) {
     const content = fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
     assert.match(content, /domain-packs\/registry/);
-    assert.doesNotMatch(content, /domain-packs\/(?:web-saas|backend-api)/);
+    // game.ts eklendi: uc pack'e de dogrudan bagli olunmadigini denetler.
+    assert.doesNotMatch(content, /domain-packs\/(?:web-saas|backend-api|game)/);
   }
 });

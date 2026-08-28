@@ -17,10 +17,13 @@ const registeredTaskIds = [
 ] as const;
 
 describe('AI schema ownership and prompt parity', () => {
-  it('keeps ai-schemas.js as an export-only compatibility facade', () => {
-    const source = read('src/v4/ai-schemas.js');
+  it('keeps ai-schemas.ts as an export-only compatibility facade', () => {
+    const source = read('src/v4/ai-schemas.ts');
     assert.doesNotMatch(source, /\bz\.(?:object|array|enum|union)\s*\(/);
-    assert.match(source, /export \* from ['"]\.\/ai\/schemas\/schemas\.ts['"]/);
+    // Bu dosya artık .ts; repo kuralı gereği .ts modülleri birbirini .js
+    // uzantısıyla import eder. Aşağıdaki desen re-export'un KAYNAĞINI
+    // (ai/schemas/schemas) doğrular, uzantıyı değil — bu yüzden .js bekler.
+    assert.match(source, /export \* from ['"]\.\/ai\/schemas\/schemas\.js['"]/);
     assert.equal(compatibilitySchemas.discoverySchema, productionSchemas.discoverySchema);
     assert.equal(compatibilitySchemas.ideaLabSchema, productionSchemas.ideaLabSchema);
     assert.equal(
@@ -35,7 +38,7 @@ describe('AI schema ownership and prompt parity', () => {
 
   it('prevents production AI modules from importing the compatibility schema facade', () => {
     for (const path of [
-      'src/v4/ai-discovery.js',
+      'src/v4/ai-discovery.ts',
       'src/v4/ai/provider-adapters.ts',
       'src/v4/ai/tasks/discovery.ts',
       'src/v4/ai/tasks/idea-lab.ts',

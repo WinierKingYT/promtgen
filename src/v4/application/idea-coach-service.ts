@@ -118,9 +118,18 @@ function statusFor(options: {
   return options.confirmed ? 'confirmed' : 'draft';
 }
 
-function statusCopy(status: IdeaEvidenceStatus): Pick<IdeaEvidenceField, 'statusLabel' | 'detail'> {
+function statusCopy(status: IdeaEvidenceStatus, isFoundationDraft = false): Pick<IdeaEvidenceField, 'statusLabel' | 'detail'> {
   if (status === 'confirmed') return { statusLabel: 'Doğrulandı', detail: 'Kullanıcı tarafından onaylandı.' };
-  if (status === 'draft') return { statusLabel: 'Taslak', detail: 'Konuşmadan çıkarıldı; henüz kesin karar değil.' };
+  if (status === 'draft') {
+    // Aynı 'draft' durumu iki farklı kaynaktan gelebilir: kullanıcının konuşmada
+    // onayladığı bir yama (applyDiscoveryAnswerDraft) veya proje oluşturulurken
+    // AI'nin ürettiği, kullanıcının HENÜZ hiç incelemediği bir temel taslağı
+    // (idea-foundation-service.ts). İkincisi gerçek bir onay değildir; etiket
+    // bunu gizlemez, açıkça "düzeltebilirsin" der.
+    return isFoundationDraft
+      ? { statusLabel: 'Taslak · düzeltebilirsin', detail: 'AI fikri ilk okuyuşta bu şekilde yorumladı; onaylamadan önce düzelt veya doğrula.' }
+      : { statusLabel: 'Taslak', detail: 'Konuşmadan çıkarıldı; henüz kesin karar değil.' };
+  }
   if (status === 'contradicted') return { statusLabel: 'Çelişki var', detail: 'Birbiriyle uyuşmayan ifadeler çözülmeli.' };
   if (status === 'decision-required') return { statusLabel: 'Karar gerekli', detail: 'Devam etmek için bu alan netleştirilmeli.' };
   return { statusLabel: 'Bilinmiyor', detail: 'Bu alanı şimdi veya daha sonra konuşabilirsin.' };
@@ -130,13 +139,16 @@ function field(
   id: IdeaCoachStepId,
   label: string,
   value: string,
-  status: IdeaEvidenceStatus
+  status: IdeaEvidenceStatus,
+  isFoundationDraft = false
 ): IdeaEvidenceField {
-  const copy = statusCopy(status);
-  // A field's value only ever gets written through applyDiscoveryAnswerDraft, which
-  // requires the user to have reviewed and accepted that specific patch — so a 'draft'
-  // status (not yet globally confirmed) still holds a real, user-approved value, not an
-  // unconfirmed AI guess. Only 'contradicted' hides the value, since two conflicting
+  const copy = statusCopy(status, isFoundationDraft);
+  // A field's value gets written either through applyDiscoveryAnswerDraft (the user
+  // reviewed and accepted that specific patch) or, before any conversation happens,
+  // through the AI foundation step at project creation (idea-foundation-service.ts —
+  // an unreviewed model-derived draft, or its per-field deterministic fallback). Both
+  // are real, displayable text; neither is a guaranteed-correct claim — only
+  // 'confirmed' means that. Only 'contradicted' hides the value, since two conflicting
   // claims exist and showing either one silently would be misleading.
   const displayText = value && status !== 'contradicted' ? value : copy.detail;
   return { id, label, value, status, ...copy, displayText };
@@ -265,12 +277,18 @@ export function buildIdeaCoachState(project: ProjectDocumentV5): IdeaCoachState 
     risks: hasContradiction(project, /risk|varsayım|engel/i)
   };
 
+  // `conceptSummaryProvenance` yalnız idea-foundation-service.ts'in proje
+  // oluşturulurken yazdığı, kullanıcının henüz hiç incelemediği taslakta var
+  // olur (bkz. contracts.ts IdeaLabSession yorumu). Onaylandıktan sonra artık
+  // "düzeltebilirsin" değil "Doğrulandı" gösterilir; bu yüzden `!confirmed` şartı.
+  const isFoundationDraft = Boolean(project.ideaLabSession?.conceptSummaryProvenance) && !confirmed;
+
   const evidence = [
-    field('problem', 'Temel problem', text(summary?.problemStatement), statusFor({ exists: problemReady, confirmed, contradicted: contradiction.problem })),
-    field('user', 'Hedef kullanıcı', text(summary?.targetUser), statusFor({ exists: userReady, confirmed, contradicted: contradiction.user })),
-    field('value', 'Ana değer', text(summary?.desiredOutcome || project.identity.desiredOutcome), statusFor({ exists: alternativeReady && outcomeReady, confirmed, contradicted: contradiction.value })),
-    field('mvp', 'MVP hipotezi', text(summary?.mvpTarget), statusFor({ exists: mvpReady, confirmed, contradicted: contradiction.mvp })),
-    field('risks', 'Kritik risk', text(summary?.knownRisks?.[0]), statusFor({ exists: risksReady, confirmed, contradicted: contradiction.risks, optional: true }))
+    field('problem', 'Temel problem', text(summary?.problemStatement), statusFor({ exists: problemReady, confirmed, contradicted: contradiction.problem }), isFoundationDraft),
+    field('user', 'Hedef kullanıcı', text(summary?.targetUser), statusFor({ exists: userReady, confirmed, contradicted: contradiction.user }), isFoundationDraft),
+    field('value', 'Ana değer', text(summary?.desiredOutcome || project.identity.desiredOutcome), statusFor({ exists: alternativeReady && outcomeReady, confirmed, contradicted: contradiction.value }), isFoundationDraft),
+    field('mvp', 'MVP hipotezi', text(summary?.mvpTarget), statusFor({ exists: mvpReady, confirmed, contradicted: contradiction.mvp }), isFoundationDraft),
+    field('risks', 'Kritik risk', text(summary?.knownRisks?.[0]), statusFor({ exists: risksReady, confirmed, contradicted: contradiction.risks, optional: true }), isFoundationDraft)
   ];
 
   const pendingItems = latestOpenItems(project).filter(item => item.status === 'pending');

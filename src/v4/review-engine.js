@@ -1,7 +1,7 @@
 import { analyzeCanonicalTraceability } from './canonical-graph.js';
-import { normalizeReviewFinding, normalizeSimulationRun } from './canonical-entities.js';
+import { normalizeReviewFinding, normalizeSimulationRun } from './canonical-entities.ts';
 import { DOMAIN_PACK_REGISTRY } from './domain-packs/registry.ts';
-import { getRequiredSections } from './project-document.js';
+import { getRequiredSections } from './project-document.ts';
 
 const SEVERITY_WEIGHT = { info: 0, low: 3, medium: 8, high: 18, critical: 35 };
 function id(prefix) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }

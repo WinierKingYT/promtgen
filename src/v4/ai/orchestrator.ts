@@ -1,4 +1,5 @@
 import type { GenerationProvenance, ProjectDocumentV5 } from '../contracts.js';
+import { findNonLatinScriptPaths } from './schemas/language-guard.js';
 
 export interface StructuredProvider {
   model?: string;
@@ -19,6 +20,14 @@ export interface AITaskDefinition {
   outputFields: readonly string[];
   timeoutMs: number;
   maxRepairAttempts: number;
+  /**
+   * Çıktısı kullanıcıya DÜZYAZI olarak gösterilen ve istemi bir çıktı dili
+   * BELİRTEN görevler için açılır: şema geçerli olsa bile Latin dışı yazı
+   * sistemine sapmış çıktı reddedilir (bkz. schemas/language-guard.ts).
+   * İstemi bir dil belirtmeyen görevlerde açılmaz -- orada dili istem değil
+   * koruma tanımlamış olurdu.
+   */
+  guardsOutputLanguage?: boolean;
   buildPrompt(project: ProjectDocumentV5, input?: Record<string, unknown>): string;
   buildContext(project: ProjectDocumentV5, input?: Record<string, unknown>): unknown;
 }
@@ -48,6 +57,36 @@ function describeSchemaFailure(error: unknown): string {
     if (lines.length >= 6) break;
   }
   return lines.join('\n');
+}
+
+/**
+ * Onarım denemesinin BAŞ CÜMLESİ. Şema reddi varsayılandır; başka bir red
+ * nedeni kendi cümlesini hatanın üstünde taşır (`repairInstruction`). Aynı
+ * mekanizma kullanılır, yeni bir onarım yolu AÇILMAZ.
+ */
+const SCHEMA_REPAIR_INSTRUCTION =
+  'Önceki yanıt şemaya uymadı. Eksik/fazla alan bırakmadan yalnız geçerli JSON üret.';
+
+/**
+ * Dil sapması reddi. Hata, şema hatasıyla AYNI biçimi taşır (`issues`), çünkü
+ * `describeSchemaFailure` onarım ipucunu oradan çıkarır: model hangi alanı
+ * düzelteceğini görür. Denemeler tükenince bu hata çağırana fırlar ve mevcut
+ * `fallbackPolicy` yolu devreye girer; mesaj oradaki `fallbackReason` alanına
+ * yazılır, yani sapma arayüze yeni bir metin eklemeden izlenebilir kalır.
+ */
+function createLanguageDeviationError(paths: readonly string[]): Error {
+  const error = new Error(
+    `Model Latin dışı bir yazı sistemi kullandı (${paths.join(', ')}); çıktı reddedildi.`
+  ) as Error & { issues: unknown[]; repairInstruction: string };
+  error.issues = paths.map(path => ({
+    path: path.split('.'),
+    message: 'Latin dışı yazı sistemi kullanılmış; bu alanı Türkçe ve Latin harfleriyle yaz'
+  }));
+  error.repairInstruction =
+    'Önceki yanıt Latin dışı bir yazı sistemiyle (Çince/Kiril/Arap vb.) yazılmıştı. '
+    + 'TÜM metin alanlarını Türkçe ve Latin harfleriyle yeniden yaz; '
+    + 'Latin harfli teknik terimler (Unity, WebSocket, API) serbesttir.';
+  return error;
 }
 
 async function sha256(value: string): Promise<string> {
@@ -98,7 +137,7 @@ export async function runAITask<T = unknown>({
         ? prompt
         : [
           prompt,
-          'Önceki yanıt şemaya uymadı. Eksik/fazla alan bırakmadan yalnız geçerli JSON üret.',
+          (lastError as { repairInstruction?: string })?.repairInstruction || SCHEMA_REPAIR_INSTRUCTION,
           failureDetail && `Düzeltilecek noktalar:\n${failureDetail}`
         ].filter(Boolean).join('\n');
       const output = await provider.structured({
@@ -107,6 +146,13 @@ export async function runAITask<T = unknown>({
         schema: task.schema,
         signal: attemptController.signal
       });
+      // Şema geçmek yeterli DEĞİLDİR: canlı ölçümde şemaya tam uyan bir çıktının
+      // tüm metin alanları Çince geldi. Sapma burada REDDEDİLİR ve aşağıdaki
+      // catch aynı onarım döngüsünü yeniden çalıştırır.
+      if (task.guardsOutputLanguage) {
+        const deviantPaths = findNonLatinScriptPaths(output);
+        if (deviantPaths.length) throw createLanguageDeviationError(deviantPaths);
+      }
       const completedAt = new Date().toISOString();
       return {
         output: output as T,

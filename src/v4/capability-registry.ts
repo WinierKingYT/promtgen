@@ -255,6 +255,28 @@ export const CAPABILITY_REGISTRY: ProductCapability[] = [
     })
   },
   {
+    id: 'game-domain-pack',
+    publicName: 'Oyun Planlama Paketi',
+    description: '2D/3D ve çok oyunculu oyun planlarında oyun döngüsü, performans, girdi, ağ yetkisi, determinism/replay ve varlık hattı için koşullu alan rehberi.',
+    maturity: 'experimental',
+    platforms: ['web', 'desktop'],
+    platformMaturity: { web: 'experimental', desktop: 'experimental' },
+    implementationMode: 'rule-engine',
+    limitations: [
+      'Büyük dağıtık altyapı ve kritik finans/sağlık sistemleri destek kapsamında değildir',
+      'Oyun motoru, render pipeline veya ağ kütüphanesi seçmez; teknoloji kararı kullanıcıya aittir',
+      'Benchmark ve gerçek kullanıcı kanıtı henüz yoktur; deneysel (experimental) aşamadadır'
+    ],
+    evidence: [
+      { testId: 'tests/v4/game-domain-pack.test.ts', level: 'integration-test', platforms: ['web', 'desktop'] }
+    ],
+    supportedDomains: ['game-2d', 'game-3d', 'multiplayer-game'],
+    promotionEvidence: baselinePromotionEvidence('docs/release/rollback.md', {
+      scenarios: benchmarkScenarios('game-domain-pack'),
+      users: userEvidence('game-domain-pack')
+    })
+  },
+  {
     id: 'canonical-planning',
     publicName: 'Canonical Yaşayan Plan ve Revizyon Yönetimi',
     description: 'Proje durumunun JSON formatında saklanması, sürüm takibi ve geri alma.',

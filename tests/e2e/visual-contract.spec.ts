@@ -126,8 +126,18 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   await expect(page.locator('.pg-start-composer')).toHaveCSS('border-color', 'rgb(154, 141, 235)');
   captured['başlangıç'] = await captureComputedStyles(page);
 
-  await page.getByRole('button', { name: 'AI ayarları' }).click();
+  const ayarlarDugmesi = page.getByRole('button', { name: 'AI ayarları' });
+  await ayarlarDugmesi.click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  // Bu düğme, dosyadaki diğer hover örneklerinin TERSİ: tıklama anında
+  // `.pg-onboarding-settings:hover` (styles.css:453, `#e6e9e5`) uygulanır ama
+  // açılan diyaloğun örtüsü imleci düğmeden koparır, hover GERİ ALINIR ve
+  // oturmuş durum yeniden saydamdır. Bekleme yokken yakalama bu iki an
+  // arasında yarışıyordu — deneyle doğrulandı: aynı kod tabanında bir koşu
+  // `rgb(230,233,229)`, öbürü `rgba(0,0,0,0)` kaydetti; referans bu yüzden
+  // tekrarlanabilir değildi. Diyaloğun görünürlüğü yalnız içerik tarafının
+  // geldiğini kanıtlar, arkadaki düğmenin hover'ının çözüldüğünü değil.
+  await expect(ayarlarDugmesi).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   captured['ayarlar-diyaloğu'] = await captureComputedStyles(page);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();

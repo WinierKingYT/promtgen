@@ -1,0 +1,389 @@
+import { normalizeAgentPrompt, normalizeMilestone, normalizeTask, normalizeTestCase, normalizeTraceLink } from './canonical-entities.js';
+import { evaluateRequirementQuality } from './application/requirement-quality-service.js';
+import { DOMAIN_PACK_REGISTRY } from './domain-packs/registry.js';
+import type {
+    AgentPrompt,
+    Milestone,
+    ProjectDocumentV5,
+    Requirement,
+    Task,
+    TaskContractV2,
+    TestCase,
+    TraceLink
+} from './contracts.js';
+
+function slug(value: unknown): string {
+    return String(value || 'item').toLocaleLowerCase('tr-TR').normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 36) || 'item';
+}
+
+function uniqueId(prefix: string, label: unknown, used: Set<string>): string {
+    const base = `${prefix}-${slug(label)}`;
+    let candidate = base; let suffix = 2;
+    while (used.has(candidate)) { candidate = `${base}-${suffix}`; suffix += 1; }
+    used.add(candidate); return candidate;
+}
+
+const DEFAULT_FORBIDDEN_PATHS: string[] = ['.git/**', '.env*', '**/*.pem', '**/*secret*', 'node_modules/**', 'dist/**', 'target/**'];
+
+/**
+ * `profile.projectInventory` sözleşmede `Record<string, unknown>` -- gerçek
+ * şekli ayrı bir proje envanteri özelliği üretiyor, bu dosyanın sahipliğinde
+ * değil. Bu, dosyadaki TEK sınır (`as`) iddiası: aşağıdaki her yardımcı
+ * fonksiyon, orijinal JS'in kullandığı AYNI `Array.isArray`/`typeof` savunma
+ * denetimleriyle alanları okuyor; beklenmeyen/eski bir şekil yine aynı
+ * güvenli varsayılanlara düşer.
+ */
+interface ProjectInventoryEntryLike {
+    path?: unknown;
+    secretDetected?: unknown;
+    injectionDetected?: unknown;
+}
+
+interface ProjectInventorySnapshot {
+    inventory?: ProjectInventoryEntryLike[];
+    excluded?: ProjectInventoryEntryLike[];
+    security?: { secretFiles?: unknown[] };
+    scriptNames?: unknown[];
+    manifests?: unknown[];
+}
+
+function projectInventory(project: ProjectDocumentV5): ProjectInventorySnapshot | null {
+    const value = project.profile?.projectInventory;
+    return value && typeof value === 'object' ? (value as ProjectInventorySnapshot) : null;
+}
+
+function inventoryAllowedPaths(project: ProjectDocumentV5): string[] {
+    const entries = Array.isArray(projectInventory(project)?.inventory) ? projectInventory(project)!.inventory! : [];
+    const paths = entries
+        .filter(entry => entry && typeof entry === 'object' && !entry.secretDetected && !entry.injectionDetected)
+        .map(entry => String(entry.path || '').replaceAll('\\', '/').replace(/^\.?\//, ''))
+        .filter(Boolean)
+        .map(path => path.includes('/') ? `${path.split('/')[0]}/**` : path);
+    return [...new Set(paths)].slice(0, 12);
+}
+
+function inventoryForbiddenPaths(project: ProjectDocumentV5): string[] {
+    const inventory = projectInventory(project);
+    const excluded = Array.isArray(inventory?.excluded)
+        ? inventory.excluded.map(entry => String(entry?.path || '').replaceAll('\\', '/')).filter(Boolean)
+        : [];
+    const sensitive = Array.isArray(inventory?.security?.secretFiles)
+        ? inventory.security!.secretFiles!.map(String)
+        : [];
+    return [...new Set([...DEFAULT_FORBIDDEN_PATHS, ...excluded, ...sensitive])].slice(0, 30);
+}
+
+function inventoryTestCommands(project: ProjectDocumentV5): string[] {
+    const inventory = projectInventory(project);
+    const scripts = Array.isArray(inventory?.scriptNames) ? inventory.scriptNames.map(String) : [];
+    const manifests = Array.isArray(inventory?.manifests) ? inventory.manifests.map(String) : [];
+    const packageManager = manifests.some(item => /pnpm-lock/i.test(item))
+        ? 'pnpm'
+        : manifests.some(item => /yarn\.lock/i.test(item))
+            ? 'yarn'
+            : 'npm';
+    const preferred = ['test', 'typecheck', 'lint', 'build'].filter(name => scripts.includes(name));
+    return preferred.map(name => packageManager === 'npm'
+        ? (name === 'test' ? 'npm test' : `npm run ${name}`)
+        : `${packageManager} ${name}`);
+}
+
+function taskContract(project: ProjectDocumentV5, requirement: Requirement, taskId: string): TaskContractV2 {
+    const allowedPaths = inventoryAllowedPaths(project);
+    const commands = inventoryTestCommands(project);
+    const testCaseId = `test-${taskId.replace(/^task-/, '')}`;
+    const baseContract: TaskContractV2 = {
+        version: 2,
+        objective: requirement.statement,
+        inScope: [requirement.title, ...requirement.acceptanceCriteria],
+        outOfScope: [
+            ...(project.ideaLabSession?.conceptSummary?.outOfScope || []),
+            'Bu göreve bağlı olmayan canonical gereksinimler'
+        ],
+        filePolicy: {
+            status: allowedPaths.length ? 'inferred' : 'requires_inventory',
+            allowedPaths,
+            forbiddenPaths: inventoryForbiddenPaths(project)
+        },
+        verification: {
+            testCaseIds: [testCaseId],
+            commands,
+            requiresCommandDiscovery: commands.length === 0
+        },
+        expectedOutputs: [
+            `"${requirement.title}" gereksinimini karşılayan değişiklik`,
+            'Değiştirilen dosyaların listesi',
+            'Kabul kriteri ve test kanıtı',
+            'Kalan riskler'
+        ],
+        completionEvidence: [
+            ...requirement.acceptanceCriteria.map(criterion => `Kabul kriteri: ${criterion}`),
+            `Test senaryosu: ${testCaseId}`,
+            'Çalıştırılan komutların çıktısı veya komut keşfi açıklaması'
+        ],
+        rollbackPlan: 'Değişiklikleri görev bazlı patch/commit olarak tut; doğrulama başarısızsa yalnız bu görevin değişikliklerini geri al ve canonical planı değiştirme.'
+    };
+    return DOMAIN_PACK_REGISTRY.enrichTaskContract(project, requirement, baseContract);
+}
+
+export interface TaskCompilationResult {
+    baseRevision: number;
+    tasks: Task[];
+    testCases: TestCase[];
+    milestones: Milestone[];
+    traceLinks: TraceLink[];
+    agentPrompts: AgentPrompt[];
+    warnings: string[];
+}
+
+export interface ApplyResult {
+    success: boolean;
+    project: ProjectDocumentV5;
+    reason: string;
+    warnings?: string[];
+}
+
+/**
+ * Aşağıdaki "Candidate" tipleri yalnız `assertValidCompilation` içindir. Bu
+ * fonksiyonun tüm sözleşmesi, güvenilmeyen bir TaskCompilationResult ADAYINI
+ * çalışma zamanında doğrulamak -- girdi doğası gereği henüz
+ * `TaskCompilationResult` DEĞİL, bu yüzden parametre tipi `unknown`.
+ * Alanlar orijinal JS'teki optional chaining ile AYNI "olabilir/garanti"
+ * varsayımını izliyor: bir önceki throw koruması bir alanın varlığını
+ * ÇALIŞMA ZAMANINDA garanti ettiğinde, o noktadan sonra `!` (non-null
+ * assertion) kullanılıyor -- orijinal kodda da o noktada optional chaining
+ * yoktu, yani davranış birebir aynı kalıyor (gerçekten bozuk bir girdi hâlâ
+ * aynı şekilde patlar, yalnızca TypeScript bu garantiyi kendi başına
+ * çıkaramadığı için `!` ile belirtiliyor).
+ */
+interface CompiledFilePolicyCandidate {
+    status?: unknown;
+    allowedPaths?: unknown[];
+    forbiddenPaths?: unknown[];
+}
+
+interface CompiledVerificationCandidate {
+    testCaseIds?: unknown[];
+    commands?: unknown[];
+    requiresCommandDiscovery?: unknown;
+}
+
+interface CompiledContractCandidate {
+    version?: unknown;
+    objective?: unknown;
+    inScope?: unknown[];
+    outOfScope?: unknown[];
+    filePolicy?: CompiledFilePolicyCandidate;
+    verification?: CompiledVerificationCandidate;
+    completionEvidence?: unknown[];
+    rollbackPlan?: unknown;
+}
+
+interface CompiledTaskCandidate {
+    id?: unknown;
+    title?: unknown;
+    contract?: CompiledContractCandidate;
+}
+
+interface CompiledTestCaseCandidate {
+    id?: unknown;
+    title?: unknown;
+}
+
+interface TaskCompilationResultCandidate {
+    baseRevision?: unknown;
+    tasks?: unknown;
+    testCases?: unknown;
+    milestones?: unknown;
+    traceLinks?: unknown;
+    agentPrompts?: unknown;
+    warnings?: unknown;
+}
+
+export function assertValidCompilation(result: unknown): asserts result is TaskCompilationResult {
+    if (!result || typeof result !== 'object') throw new Error('TaskCompilationResult must be a non-null object.');
+    const candidate = result as TaskCompilationResultCandidate;
+    if (typeof candidate.baseRevision !== 'number') throw new Error('TaskCompilationResult.baseRevision must be a number.');
+    if (!Array.isArray(candidate.tasks)) throw new Error('TaskCompilationResult.tasks must be an array.');
+    if (!Array.isArray(candidate.testCases)) throw new Error('TaskCompilationResult.testCases must be an array.');
+    if (!Array.isArray(candidate.milestones)) throw new Error('TaskCompilationResult.milestones must be an array.');
+    if (!Array.isArray(candidate.traceLinks)) throw new Error('TaskCompilationResult.traceLinks must be an array.');
+    if (!Array.isArray(candidate.agentPrompts)) throw new Error('TaskCompilationResult.agentPrompts must be an array.');
+    if (!Array.isArray(candidate.warnings)) throw new Error('TaskCompilationResult.warnings must be an array.');
+    const tasks = candidate.tasks as CompiledTaskCandidate[];
+    const testCases = candidate.testCases as CompiledTestCaseCandidate[];
+    const compiledTestIds = new Set(testCases.map(testCase => testCase.id));
+    for (const task of tasks) {
+        if (!task.id || !task.title) throw new Error('Each compiled task must have id and title.');
+        if (task.contract?.version !== 2) throw new Error(`Compiled task ${task.id} must have TaskContract V2.`);
+        const contract = task.contract!;
+        if (!contract.objective || !contract.inScope?.length || !contract.outOfScope?.length) throw new Error(`Compiled task ${task.id} scope contract is incomplete.`);
+        if (!contract.filePolicy?.forbiddenPaths?.length) throw new Error(`Compiled task ${task.id} file policy is incomplete.`);
+        if (!contract.verification?.testCaseIds?.length || !contract.completionEvidence?.length || !contract.rollbackPlan) throw new Error(`Compiled task ${task.id} verification contract is incomplete.`);
+        if (contract.verification!.testCaseIds!.some(id => !compiledTestIds.has(id))) throw new Error(`Compiled task ${task.id} references a missing contract test case.`);
+        if (!contract.verification!.requiresCommandDiscovery && !contract.verification!.commands!.length) throw new Error(`Compiled task ${task.id} must define verification commands.`);
+        if (contract.filePolicy!.status === 'confirmed' && !contract.filePolicy!.allowedPaths!.length) throw new Error(`Compiled task ${task.id} confirmed file policy must have allowed paths.`);
+    }
+    for (const testCase of testCases) {
+        if (!testCase.id || !testCase.title) throw new Error('Each compiled test case must have id and title.');
+    }
+}
+
+export function topologicalOrder<T extends { id: string; dependencies: string[] }>(tasks: T[]): { ordered: T[]; cycles: string[] } {
+    const byId = new Map<string, T>(tasks.map(task => [task.id, task]));
+    const visiting = new Set<string>(); const visited = new Set<string>(); const ordered: T[] = []; const cycles: string[] = [];
+    function visit(task: T): void {
+        if (visited.has(task.id)) return;
+        if (visiting.has(task.id)) { cycles.push(task.id); return; }
+        visiting.add(task.id);
+        for (const dependencyId of task.dependencies) if (byId.has(dependencyId)) visit(byId.get(dependencyId)!);
+        visiting.delete(task.id); visited.add(task.id); ordered.push(task);
+    }
+    tasks.forEach(visit);
+    return { ordered, cycles: [...new Set(cycles)] };
+}
+
+function buildPromptChain(project: ProjectDocumentV5, tasks: Task[]): AgentPrompt[] {
+    if (!tasks.length) return [];
+    const taskIds = tasks.map(task => task.id);
+    const projName = project.identity?.name || project.identity?.originalIdea || 'Proje';
+    const decisionsSummary = (project.decisions || []).slice(0, 3).map(d => d.title).join(', ') || 'Temel mimari kararlar';
+    const domainInstruction = DOMAIN_PACK_REGISTRY.active(project)
+        .map(runtime => runtime.promptInstruction)
+        .join('');
+
+    const planner = normalizeAgentPrompt({
+        id: 'prompt-planner', role: 'planner', title: `"${projName}" Uygulama Sırasını Doğrula`, taskIds,
+        instructions: `"${projName}" projesi için canonical gereksinimleri, mimari kararları (${decisionsSummary}), bağımlılıkları ve her görevin TaskContract V2 sözleşmesini kontrol et. Dosya politikası requires_inventory ise değişiklik yapmadan önce dosya envanteri ve kullanıcı onayı iste.${domainInstruction}`,
+        expectedOutputs: ['Onaylanmış görev sırası', 'Dosya etki listesi', 'Doğrulama planı'], status: 'ready'
+    });
+    const implementer = normalizeAgentPrompt({
+        id: 'prompt-implementer', role: 'implementer', title: `"${projName}" Kodlama & Uygulama`, taskIds, dependsOnPromptIds: [planner.id],
+        instructions: `"${projName}" projesinin görevlerini bağımlılık sırasıyla uygula. Her görevde inScope, outOfScope, izinli/yasak yollar, doğrulama ve rollback sözleşmesine uy; kabul edilen kararları (${decisionsSummary}) sessizce değiştirme.${domainInstruction}`,
+        expectedOutputs: ['Kod değişiklikleri', 'Çalıştırılan testler', 'Kalan riskler'], status: 'ready'
+    });
+    const reviewer = normalizeAgentPrompt({
+        id: 'prompt-reviewer', role: 'reviewer', title: `"${projName}" Mimari & Güvenlik İncelemesi`, taskIds, dependsOnPromptIds: [implementer.id],
+        instructions: `"${projName}" kod değişikliklerini TaskContract V2 dosya/kapsam politikası, güvenlik, geriye uyumluluk ve mimari kararlar (${decisionsSummary}) açısından incele. Sözleşme dışı değişiklikleri engelleyici bulgu olarak raporla.${domainInstruction}`,
+        expectedOutputs: ['Öncelikli bulgular', 'Düzeltme önerileri'], status: 'ready'
+    });
+    const verifier = normalizeAgentPrompt({
+        id: 'prompt-verifier', role: 'verifier', title: `"${projName}" Kabul Testi Doğrulama`, taskIds, dependsOnPromptIds: [reviewer.id],
+        instructions: `"${projName}" görev sözleşmelerindeki kabul kriterlerini, test senaryolarını, beklenen çıktıları ve tamamlanma kanıtlarını doğrula; kanıt eksikken görevi tamamlandı sayma ve gerekirse rollback planını uygulat.${domainInstruction}`,
+        expectedOutputs: ['Kabul matrisi', 'Test kanıtları', 'Yayın kararı'], status: 'ready'
+    });
+    return [planner, implementer, reviewer, verifier];
+}
+
+export function compileTaskPlan(project: ProjectDocumentV5): TaskCompilationResult {
+    const used = new Set((project.tasks || []).map(task => task.id));
+    const tasks: Task[] = [];
+    const sourceRequirements = (project.requirements || []).filter(requirement => requirement.status === 'accepted');
+    const quality = evaluateRequirementQuality(project);
+    // Task compiler strictly uses formal accepted requirements
+    if (!sourceRequirements.length) {
+        return {
+            baseRevision: project.canonicalRevision || 1,
+            tasks: [],
+            testCases: [],
+            milestones: [],
+            traceLinks: [],
+            agentPrompts: [],
+            warnings: ['Görev üretmek için en az bir kabul edilmiş (accepted) gereksinim bulunmalıdır.']
+        };
+    }
+    if (!quality.readyForTaskCompilation) {
+        return {
+            baseRevision: project.canonicalRevision || 1,
+            tasks: [],
+            testCases: [],
+            milestones: [],
+            traceLinks: [],
+            agentPrompts: [],
+            warnings: quality.issues
+        };
+    }
+
+    for (const requirement of sourceRequirements) {
+        const id = uniqueId('task', requirement.title, used);
+        tasks.push(normalizeTask({
+            id, title: requirement.title, description: requirement.statement,
+            priority: requirement.priority || 'medium', effort: requirement.kind === 'quality' ? 'medium' : 'low',
+            requirementIds: [requirement.id], acceptanceCriteria: requirement.acceptanceCriteria || [],
+            contract: taskContract(project, requirement, id),
+            status: (requirement.acceptanceCriteria || []).length ? 'ready' : 'backlog'
+        }));
+    }
+    const requirementById = new Map(sourceRequirements.map(requirement => [requirement.id, requirement]));
+    const testCases: TestCase[] = tasks.map(task => {
+        const requirement = requirementById.get(task.requirementIds[0]);
+        const kind = DOMAIN_PACK_REGISTRY.selectTestKind(project, requirement!);
+        return normalizeTestCase({
+            id: `test-${task.id.replace(/^task-/, '')}`, title: `${task.title} kabul testi`, kind,
+            steps: task.acceptanceCriteria, expectedResult: task.acceptanceCriteria.join('; ') || 'Gereksinim davranışı doğrulanır.',
+            requirementIds: task.requirementIds, status: task.acceptanceCriteria.length ? 'ready' : 'draft'
+        });
+    });
+    for (let index = 0; index < tasks.length; index += 1) tasks[index].verificationIds = [testCases[index].id];
+    const orderedResult = topologicalOrder(tasks);
+    const milestone = tasks.length ? normalizeMilestone({ id: 'milestone-initial', title: 'İlk uygulanabilir teslim', outcome: project.identity.desiredOutcome || project.identity.summary, taskIds: orderedResult.ordered.map(task => task.id), status: 'planned' }) : null;
+    const traceLinks: TraceLink[] = [
+        ...tasks.flatMap(task => task.requirementIds.map(requirementId => normalizeTraceLink({ id: `trace-${requirementId}-${task.id}`, fromType: 'requirement', fromId: requirementId, toType: 'task', toId: task.id, relation: 'implements' }))),
+        ...testCases.flatMap(testCase => testCase.requirementIds.map(requirementId => normalizeTraceLink({ id: `trace-${requirementId}-${testCase.id}`, fromType: 'requirement', fromId: requirementId, toType: 'test', toId: testCase.id, relation: 'validated_by' })))
+    ];
+    return {
+        baseRevision: project.canonicalRevision,
+        tasks: orderedResult.ordered,
+        testCases,
+        milestones: milestone ? [milestone] : [],
+        traceLinks,
+        agentPrompts: buildPromptChain(project, orderedResult.ordered),
+        warnings: [
+            ...orderedResult.cycles.map(id => `Görev bağımlılık döngüsü: ${id}`),
+            ...(project.requirements?.length ? [] : ['Görev üretmek için önce canonical gereksinim oluşturulmalı.']),
+            ...tasks.filter(task => !task.acceptanceCriteria.length).map(task => `${task.title} için kabul kriteri eksik.`)
+        ]
+    };
+}
+
+export function applyCompiledTaskPlan(project: ProjectDocumentV5, compilation: TaskCompilationResult, { approved = false }: { approved?: boolean } = {}): ApplyResult {
+    assertValidCompilation(compilation);
+    if (!approved) return { success: false, project, reason: 'Görev planı kullanıcı onayı bekliyor.' };
+    if (compilation.baseRevision !== project.canonicalRevision) return { success: false, project, reason: 'Plan revision değişti; görev taslağı yeniden üretilmeli.' };
+    if (!compilation.tasks.length) return { success: false, project, reason: compilation.warnings[0] || 'Uygulanabilir görev üretilemedi.' };
+    const next = structuredClone(project);
+    next.tasks = compilation.tasks.map(task => ({
+        ...task,
+        contract: {
+            ...task.contract,
+            filePolicy: {
+                ...task.contract.filePolicy,
+                status: task.contract.filePolicy.status === 'inferred' ? 'confirmed' : task.contract.filePolicy.status
+            }
+        }
+    }));
+    next.testCases = compilation.testCases;
+    next.milestones = compilation.milestones;
+    next.traceLinks = [
+        ...next.traceLinks.filter(link => !['task', 'test'].includes(link.fromType) && !['task', 'test'].includes(link.toType)),
+        ...compilation.traceLinks
+    ];
+    next.agentPrompts = compilation.agentPrompts;
+    next.documentRevision += 1;
+    next.canonicalRevision += 1;
+    next.lifecycle.updatedAt = new Date().toISOString();
+    next.sections.tasks.items = compilation.tasks.map(task => task.title);
+    next.sections.tasks.status = 'draft';
+    next.sections.tasks.updatedAtRevision = next.canonicalRevision;
+    next.sections.testing.items = compilation.testCases.map(testCase => testCase.title);
+    next.sections.testing.status = 'draft';
+    next.sections.testing.updatedAtRevision = next.canonicalRevision;
+    const snapshot = structuredClone(next);
+    snapshot.revisions = [];
+    next.revisions.push({
+        id: `revision-${Date.now()}`, number: next.canonicalRevision, createdAt: next.lifecycle.updatedAt,
+        summary: 'Onaylı görev ve ajan planı oluşturuldu', acceptedSuggestionIds: [],
+        affectedSections: ['tasks', 'testing'], snapshot
+    });
+    return { success: true, project: next, reason: '', warnings: compilation.warnings };
+}

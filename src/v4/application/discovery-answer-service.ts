@@ -128,13 +128,42 @@ const LABEL_PATTERNS: Array<[DiscoveryConceptField, RegExp]> = [
   ['mvpTarget', /^(?:mvp hedefi|ilk sürüm hedefi|mvp|first release)\s*:/i]
 ];
 
-function splitClauses(answer: string): string[] {
+/**
+ * Bir cevabi yan cumlelere boler: satir sonu, noktali virgul veya cumle
+ * sonu noktalama isaretinin ardindan. conversion-v2.ts da bunu kullanir
+ * (kararin cevabini confirmedFeatures/outOfScope arasinda bolmek icin) -
+ * iki yer ayni bolme mantigini kopyalamasin diye burada disa aktarilir.
+ */
+export function splitClauses(answer: string): string[] {
   return answer
     .split(/\r?\n|;|(?<=[.!?])\s+/)
     .map(clause => clause.trim())
     .filter(Boolean)
     .slice(0, 24);
 }
+
+/**
+ * Kapsam disi / olumsuz cumle sinyalleri. Yalnizca asagidaki
+ * ruleSignalFields'in cok-alanli siniflandirmasinda kullanilir.
+ *
+ * BU KALIP conversion-v2.ts'teki dislama tespitiyle BILEREK AYRIDIR ve
+ * BIRLESTIRILMEMELIDIR. Ayrimin gerekcesi conversion-v2.ts'te
+ * `EXPLICIT_EXCLUSION_PATTERN` uzerindeki yorum blogunda belgelidir; ozeti: buradaki
+ * kalip yalnizca INCELENEBILIR bir oneri uretir (kullanici kabul/red etmeden
+ * hicbir sey degismez), o yuzden "ileride", "daha sonra", "olmayacak",
+ * "future", "later" gibi baglama gore anlami degisen kelimeleri guvenle
+ * icerebilir. conversion-v2 ise HICBIR incelemeden gecmeden OTOMATIK uygular;
+ * orada ayni genis kelimeler gercek gereksinimleri sessizce dusururdu, bu
+ * yuzden orasi kasitli olarak DAHA DAR kaliplar kullanir
+ * (EXPLICIT_EXCLUSION_PATTERN / BARE_NEGATION_PATTERN).
+ *
+ * Ciplak tumce-sonu "yok." bicimi de yakalanir: "SMS yok.", "muhasebe
+ * entegrasyonu yok." gibi kisa olumsuzlama cumleleri "kapsam disi" kalibini
+ * hic kullanmaz ama ayni anlama gelir. "degil." biteni BILEREK eklenmedi:
+ * corpus icinde "React zorunlu degil." gibi kapsam disiligiyla ilgisiz,
+ * meşru nitelik cumleleri de ayni bicimde bitiyor; yanlis pozitif riski.
+ */
+export const OUT_OF_SCOPE_PATTERN = /kapsam dış|sonraki sürüm|ileride|daha sonra|şimdilik yok|olmayacak|future|later|not in mvp|\byok\.?\s*$/;
 
 function explicitField(clause: string): DiscoveryConceptField | null {
   return LABEL_PATTERNS.find(([, pattern]) => pattern.test(clause))?.[0] || null;
@@ -157,7 +186,7 @@ function ruleSignalFields(clause: string): DiscoveryConceptField[] {
   add('problemStatement', /sorun|zorlan|kaybol|gecik|yapam|dağınık|pain|struggle|problem/);
   add('currentAlternative', /şu anda|bugün|halen|mevcutta|yerine|currently|today|şimdilik/);
   add('desiredOutcome', /amaç|hedeflenen sonuç|sağlayacak|azaltmak|artırmak|başarı|ölçülecek|outcome|so that/);
-  add('outOfScope', /kapsam dış|sonraki sürüm|ileride|daha sonra|şimdilik yok|olmayacak|future|later|not in mvp/);
+  add('outOfScope', OUT_OF_SCOPE_PATTERN);
   add('confirmedFeatures', /mvp içinde|ilk sürümde|zorunlu özellik|must have|çekirdek özellik/);
   if (!/zorunlu değil|şart değil|not required|tercih değil/.test(text)) {
     add('technicalApproaches', /react|vue|angular|next\.?js|typescript|python|tauri|electron|flutter|postgres|sqlite|redis|kafka|mikroservis|microservice|server.?auth|local.?first/);

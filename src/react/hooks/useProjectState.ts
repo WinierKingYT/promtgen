@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { analyzeIdea } from '../../v4/planning-engine.js';
 import { createPlatformRepository } from '../../v4/tauri-storage.js';
 import { generateIdeaLabBundle } from '../../v4/application/idea-planning-api.js';
-import { loadProviderSettings } from '../../v4/provider-settings.js';
+import { applyIdeaFoundationDraft, generateIdeaFoundation } from '../../v4/application/idea-foundation-service.js';
+import { hasSavedProviderSettings, loadProviderSettings } from '../../v4/provider-settings.js';
+import { detectFirstRunProviderSettings } from '../../v4/application/first-run-provider-detection.js';
+import { listOllamaModels } from '../../v4/ai/ollama-models.js';
 import { createCredentialVault } from '../../v4/credential-vault.js';
 import { analyzeSelectedFiles, projectInventoryContext } from '../../v4/project-analyzer.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
@@ -30,10 +33,38 @@ export function useProjectState() {
   const [providerSettings, setProviderSettings] = useState(loadProviderSettings);
   const activeProject = useMemo(() => projects.find(project => project.id === activeId), [projects, activeId]);
 
+  // İlk çalıştırma: hiçbir sağlayıcı ayarı kaydedilmemişse ve yerelde çalışan
+  // bir Ollama en az bir model bildiriyorsa onu tercih eder. Kaydedilmiş bir
+  // seçim varsa (NVIDIA, offline veya başka biri) bu efekt hiç dokunmaz.
+  // Ağ çağrısı kısa bir zaman aşımıyla sınırlıdır ve açılışı bloklamaz;
+  // sonuç gelene kadar mevcut varsayılan (NVIDIA) kullanılmaya devam eder.
+  useEffect(() => {
+    let cancelled = false;
+    detectFirstRunProviderSettings({
+      hasSavedSettings: hasSavedProviderSettings,
+      listModels: listOllamaModels
+    }).then(detected => {
+      if (!cancelled && detected) setProviderSettings(detected);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     repository.list().then((items: Project[]) => {
       setProjects(items);
       setActiveId(null);
+      // Her iki platform da (masaüstü Tauri/SQLite ve web IndexedDB) aynı
+      // instance-scoped `takeListWarning()` sözleşmesini uygular (bkz.
+      // ProjectRepository.takeListWarning, src/v4/contracts.ts) -- burada
+      // artık `instanceof` dallanmasına gerek yok. İkisi de aynı `appError`
+      // banner'ına akar, böylece kullanıcı hangi platformda olursa olsun
+      // aynı geri bildirimi görür (bkz. src/v4/storage.ts
+      // IndexedDbProjectRepository.takeListWarning ve
+      // src/v4/tauri-storage.ts TauriSqliteProjectRepository.takeListWarning).
+      const listWarning = repository.takeListWarning?.() ?? null;
+      if (listWarning) reportRepositoryError(new Error(listWarning), listWarning);
+    }).catch((error: unknown) => {
+      reportRepositoryError(error, 'Projeler yüklenemedi. Verileriniz silinmedi; yerel depolamayı kontrol edip tekrar deneyin.');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -68,7 +99,7 @@ export function useProjectState() {
   const create = async (idea: string, outputLanguage: ProjectDocumentV5['identity']['outputLanguage'], files: File[], nativeInventory?: ProjectInventoryReport) => {
     const inventory = nativeInventory || await analyzeSelectedFiles(files);
     const importedContext = projectInventoryContext(inventory);
-    const project = analyzeIdea(idea, { outputLanguage, importedContext });
+    let project = analyzeIdea(idea, { outputLanguage, importedContext });
     project.profile.projectInventory = inventory as unknown as Record<string, unknown>;
     project.metadata.projectAnalysis = {
       version: inventory.version,
@@ -77,6 +108,19 @@ export function useProjectState() {
       excludedFiles: inventory.totals.excluded,
     };
     const credential = await credentialVault.get(providerSettings.providerId) || '';
+    // AI'nin fikri anlayıp temelini kurduğu adım: proje oluşturulmayı ASLA bekletmez
+    // veya engellemez -- offline, sağlayıcı hatası veya zaman aşımında servis kendi
+    // içinde deterministik yedeğe düşer (bkz. idea-foundation-service.ts). Yalnız
+    // GERÇEKTEN üretilmiş bir taslak varsa projeye yazılır; aksi hâlde bugünkü
+    // davranış (fikir koçu boş başlar) sessizce korunur.
+    try {
+      const foundation = await generateIdeaFoundation(project, { settings: providerSettings, credential });
+      if (!foundation.usedFallback) {
+        project = applyIdeaFoundationDraft(project, foundation);
+      }
+    } catch {
+      // Fikir temeli oluşturulamasa da proje açılmaya devam eder.
+    }
     const prepared = await prepareInitialProject({
       project,
       generateIdeaLab: candidate => generateIdeaLabBundle(candidate, {

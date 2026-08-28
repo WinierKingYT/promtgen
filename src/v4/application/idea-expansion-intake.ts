@@ -49,6 +49,14 @@ function openExpansionBundle(project: ProjectDocumentV5): SuggestionBundle {
 const LOCAL_SEED_REASON =
   'Bu kart yerel başlangıç önerilerinden geldi; AI değerlendirmesi yok, eforu ve etkisi ölçülmedi.';
 
+/**
+ * Kullanıcının kendi yazdığı kart da aynı kabı paylaşır ama kökeni farklıdır:
+ * bu bir başlangıç önerisi değil, kullanıcının bilerek eklediği kendi fikri.
+ * İkisini aynı cümleyle anlatmak yanlış bir köken bildirir.
+ */
+const USER_AUTHORED_REASON =
+  'Bu kartı kendi yazdın; AI değerlendirmesi yok, eforu ve etkisi ölçülmedi.';
+
 /** Öneri kaydına düşen efor/etki değeri; AI kartlarında model yargısıdır. */
 const UNASSESSED_LEVEL: SuggestionItem['effort'] = 'medium';
 
@@ -124,7 +132,7 @@ export function addExpansionCardAsSuggestion(
     effort: (assessed ? card.effort as SuggestionItem['effort'] : undefined) || UNASSESSED_LEVEL,
     impact: (assessed ? card.impact as SuggestionItem['impact'] : undefined) || UNASSESSED_LEVEL,
     recommended: false,
-    recommendationReason: assessed ? '' : LOCAL_SEED_REASON,
+    recommendationReason: assessed ? '' : (card.origin === 'user' ? USER_AUTHORED_REASON : LOCAL_SEED_REASON),
     affectedSections: SECTIONS_BY_KIND[card.kind] || ['scope'],
     dependencies: [],
     status: 'pending'

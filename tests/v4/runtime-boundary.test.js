@@ -33,9 +33,16 @@ walk(entry);
 const runtimeFiles = [...visited].map(file => relative(root, file).replaceAll('\\', '/'));
 for (const prefix of forbidden) assert.ok(!runtimeFiles.some(file => file === prefix || file.startsWith(prefix)), `Legacy runtime yolu production graph'ına girdi: ${prefix}`);
 assert.ok(runtimeFiles.includes('src/react/App.tsx'));
-assert.ok(runtimeFiles.includes('src/v4/project-document.js'));
-assert.ok(runtimeFiles.includes('src/v4/exporter.js'));
-assert.ok(!runtimeFiles.includes('src/v4/project-state-v4.js'), 'Legacy V4 constructor production import graphına giremez.');
+assert.ok(runtimeFiles.includes('src/v4/project-document.ts'));
+// exporter now compiles as TypeScript (src/v4/exporter.ts) per the exporter.js -> .ts
+// conversion; the .ts extension here reflects that conversion, not a relaxed guard —
+// the fact being asserted is still "exporter is reachable from the production graph".
+assert.ok(runtimeFiles.includes('src/v4/exporter.ts'));
+// project-state-v4 converted .js -> .ts; the extension here must track that
+// conversion, or the assertion below would become vacuous (it would still
+// pass — vacuously — because '...v4.js' no longer exists, not because the
+// legacy constructor is actually excluded from the graph).
+assert.ok(!runtimeFiles.includes('src/v4/project-state-v4.ts'), 'Legacy V4 constructor production import graphına giremez.');
 for (const file of runtimeFiles.filter(file => file.startsWith('src/react/'))) {
     const source = readFileSync(resolve(root, file), 'utf8');
     assert.doesNotMatch(source, /type\s+Project\s*=\s*any\b/, `${file} canonical ProjectDocument tipini atlayamaz.`);

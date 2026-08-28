@@ -4,7 +4,6 @@ import type { LocalPlanningMemory } from '../planning-memory.js';
 import {
   buildDiscoverySystemPrompt,
   createDiscoveryFallback,
-  generateConceptSummaryProject,
   generateExpansionDimensions,
   generateLocalIdeaLabOutput,
   getSeenSuggestionFingerprints,
@@ -66,13 +65,6 @@ export async function generateIdeaLabBundle(
   } = {}
 ) {
   return generateIdeaLabBundleService(project, options, generateLocalIdeaLabOutput);
-}
-
-export async function generateConceptSummary(
-  project: ProjectDocumentV5,
-  { selectedApproachId = '' }: { selectedApproachId?: string } = {}
-): Promise<ProjectDocumentV5> {
-  return generateConceptSummaryProject(project, selectedApproachId);
 }
 
 export async function generateImpactAnalysis(

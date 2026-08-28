@@ -38,7 +38,7 @@ describe('Category 8: Data Storage & Durability Protection', () => {
   });
 
   it('production IndexedDB repository declares durable stores and SHA-256 integrity', () => {
-    const storageSource = readFileSync(new URL('../../src/v4/storage.js', import.meta.url), 'utf8');
+    const storageSource = readFileSync(new URL('../../src/v4/storage.ts', import.meta.url), 'utf8');
     for (const store of ['projects', 'checkpoints', 'quarantine', 'commandLog', 'metadata']) {
       assert.match(storageSource, new RegExp(`${store}: '${store}'`));
     }

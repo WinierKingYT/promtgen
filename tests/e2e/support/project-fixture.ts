@@ -265,6 +265,26 @@ export function buildInvalidationChainFixture(): ProjectDocumentV5 {
 
 
 /**
+ * Fikir onaylı, teknik aşamada cevap bekleyen açık bir konusu olan belge
+ * (adaysız — `SolutionStagePanel`in "konu ⇒ cevap" dalını tetikler, "aday
+ * seç" dalını değil).
+ */
+export function buildOpenSolutionConcernFixture(): ProjectDocumentV5 {
+  const project = buildStageFixture();
+  project.solutionDesign.concerns = [normalizeConcern({
+    id: 'tc-bildirim',
+    title: 'Bildirim kanalı',
+    category: 'Entegrasyon',
+    importance: 'critical',
+    status: 'open',
+    whyItMatters: 'Kullanıcıya nasıl ulaşılacağını belirler.',
+    questions: ['Bildirimler hangi kanaldan gidecek?']
+  })];
+  return project;
+}
+
+
+/**
  * Aynı teknik konuya iki aday sunulmuş, fikir onaylı belge.
  *
  * ADR disiplininin arayüzde gerçekten uygulandığını doğrulamak için gerekiyor:

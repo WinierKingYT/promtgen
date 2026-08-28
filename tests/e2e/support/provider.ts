@@ -83,3 +83,58 @@ export async function stubExpansionProvider(page: Page, cards: StubbedExpansionC
     });
   });
 }
+
+/** idea-axes prompt'unu diğer görevlerden ayıran değişmez cümle. */
+const AXES_PROMPT_MARK = 'en fazla 3 genişletme ekseni';
+
+export interface StubbedIdeaAxis {
+  label: string;
+  hint: string;
+}
+
+/**
+ * Tier 3 (fikre özel eksen) VE idea-expansion yolunu birlikte ayakta tutar:
+ * idea-axes prompt'u eksen listesini, idea-expansion prompt'u (yalnız
+ * `axisId` ile eşleşen çağrıda) kartları döner. Diğer tüm görevler
+ * `stubReadyProvider`'daki gibi düşürülür. Bu, panonun kullanıcı hiçbir
+ * kategoriye tıklamadan otomatik önerdiği ekseni test etmek için gerekir.
+ */
+export async function stubIdeaAxesAndExpansionProvider(
+  page: Page,
+  axes: StubbedIdeaAxis[],
+  cards: StubbedExpansionCard[]
+): Promise<void> {
+  await stubReadyProvider(page);
+  await page.route('**/api/chat', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type'
+        }
+      });
+      return;
+    }
+    const body = request.postData() || '';
+    if (body.includes(AXES_PROMPT_MARK)) {
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ message: { content: JSON.stringify({ axes }) } })
+      });
+      return;
+    }
+    if (body.includes(EXPANSION_PROMPT_MARK)) {
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ message: { content: JSON.stringify({ cards }) } })
+      });
+      return;
+    }
+    await route.fallback();
+  });
+}

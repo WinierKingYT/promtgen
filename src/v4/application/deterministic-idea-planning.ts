@@ -27,7 +27,7 @@ function createId(prefix: string): string {
   return `${prefix}-${globalThis.crypto.randomUUID()}`;
 }
 
-function fingerprint(value: string): string {
+export function fingerprint(value: string): string {
   return String(value)
     .toLocaleLowerCase('tr-TR')
     .normalize('NFKD')

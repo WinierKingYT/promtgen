@@ -19,6 +19,7 @@ export const discoveryTask = {
   // ikinci onarımın kazanma şansı ilkinden düşük değil. En kötü bekleme
   // 3 x timeoutMs; ölçülen medyan bunun çok altında.
   maxRepairAttempts: 2,
+  guardsOutputLanguage: true,
   fallbackPolicy: 'local-rule-engine' as const,
   buildPrompt(project: ProjectDocumentV5): string {
     const idea = project.identity.originalIdea.trim();

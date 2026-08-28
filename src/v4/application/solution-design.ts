@@ -191,6 +191,12 @@ export function promoteCandidate(
       concernId: candidate.concernId,
       chosenOptionId: null,
       answer: text(input.statement, candidate.title),
+      // Bir aday kabul edilirken kullanıcı bir dışlama YAZMIYOR — teknik karar
+      // adayı kabul etmek ve reddetmektir, o yüzden negatif yarı bilinen
+      // biçimde boş. `scopeSplit: 'confirmed'` yine de doğru: bu, kullanıcının
+      // (adayı kabul ederek) BİZZAT yaptığı bir ayrım, çıkarım değil.
+      excluded: [],
+      scopeSplit: 'confirmed',
       rationale: input.rationale.trim(),
       decidedAtRevision: Number.isInteger(input.revision) ? input.revision : 0,
       decisionId

@@ -82,8 +82,28 @@ export interface ConcernDecision {
   concernId: string
   /** Seçilen seçenek; kullanıcı kendi cevabını yazdıysa null. */
   chosenOptionId: string | null
-  /** Kararın kullanıcının kendi kelimeleriyle karşılığı. */
+  /** Kararın kullanıcının kendi kelimeleriyle karşılığı — YAPILACAK yarısı. */
   answer: string
+  /**
+   * YAPILMAYACAK yarısı; her madde bir `outOfScope` satırına eşlenir.
+   * `answer`den ayrı tutulur çünkü kullanıcının cevabı ikisini birden
+   * anlatabilir ("Hatırlatma e-posta ile; SMS yok.") ve sınırı kullanıcı
+   * çizer, sistem asla çıkarım yapmaz.
+   */
+  excluded: string[]
+  /**
+   * Bu kaydın yapılacak/yapılmayacak ayrımını bir İNSAN mı yaptı?
+   *
+   * `'confirmed'`: kullanıcı `answer` ve `excluded`i ayrı ayrı verdi; sıfır
+   * kutupluluk çıkarımı yapılır, ikisi olduğu gibi kullanılır.
+   * `'legacy-unsplit'`: kayıt bu alan var olmadan önce yazıldı; `answer` tek
+   * parça metindir ve göç onu ASLA ayrıştırmaz — bugünkü anahtar kelime yolu
+   * (`classifyDecidedAnswer`) değişmeden çalışmaya devam eder.
+   *
+   * Kasıtlı olarak `'inferred'` YOK: bir AI önerisi kullanıcı kabul etmeden
+   * belgeye hiç yazılmaz; kabul edildiğinde zaten kullanıcının kararıdır.
+   */
+  scopeSplit: 'confirmed' | 'legacy-unsplit'
   rationale: string
   decidedAtRevision: number
   /** Canonical Decision kaydına bağ; henüz üretilmediyse null. */
@@ -246,6 +266,33 @@ export interface DesignApproach {
   presetAnswers?: string[]
 }
 
+/** Foundation'ın altı düzyazı alanı -- `ideaFoundationSchema`teki alan sırasıyla birebir. */
+export const IDEA_FOUNDATION_FIELD_NAMES = ['summary', 'problemStatement', 'targetUser', 'currentAlternative', 'desiredOutcome', 'mvpTarget'] as const
+export type IdeaFoundationFieldName = typeof IDEA_FOUNDATION_FIELD_NAMES[number]
+
+/**
+ * Bir foundation alanının NEREDEN geldiği:
+ * - `idea`: model, fikir metninde bunun gerçek karşılığı olduğunu söylüyor.
+ * - `assumption`: fikirde karşılığı yok; model ürün ortağı olarak bunu
+ *   ÖNERİYOR ve öyle işaretliyor (kullanıcı ek öneri zaten istiyor -- yasak
+ *   olan öneri değil, öneriyi kullanıcının kendi fikriymiş gibi sunmaktır).
+ * - `unknown`: fikirden bu alan hiç çıkarılamıyor; `reason` kısaca nedenini
+ *   taşır, `text` alanı boş kalabilir.
+ * - `fallback`: bu metin modelden GELMEDİ -- enjeksiyon şüphesiyle düşürüldü
+ *   ya da AI hiç çağrılamadı/başarısız oldu; deterministik motorun ürettiği
+ *   metindir ve idea-grounded SAYILMAZ (bkz. idea-foundation-service.ts).
+ */
+export type IdeaFoundationFieldSource = 'idea' | 'assumption' | 'unknown' | 'fallback'
+
+export interface IdeaFoundationFieldGrounding {
+  source: IdeaFoundationFieldSource
+  /** yalnız `source === 'unknown'` iken dolu: alanın neden bilinmediğinin kısa gerekçesi. */
+  reason?: string
+}
+
+/** Foundation'ın altı alanının HER BİRİ için ayrı bir kaynak kaydı. */
+export type IdeaFoundationGrounding = Record<IdeaFoundationFieldName, IdeaFoundationFieldGrounding>
+
 export interface ConceptSummary {
   summary: string
   targetUser: string
@@ -262,6 +309,13 @@ export interface ConceptSummary {
   mvpTarget: string
   userConfirmed: boolean
   confirmedAt?: string
+  /**
+   * Yukarıdaki altı foundation alanının HER BİRİNİN kaynağı -- bkz.
+   * `IdeaFoundationFieldSource`. Opsiyonel: eski/kısmi belgeler bunu hiç
+   * yazmadı; yokluğu idea-grounded olduğu anlamına GELMEZ -- okuyucular
+   * eksikken `fallback` gibi davranmalıdır (bkz. `idea-state-view.ts`).
+   */
+  foundationGrounding?: IdeaFoundationGrounding
   simulationResult?: {
     riskCount: number
     taskEstimate: number
@@ -312,6 +366,15 @@ export interface IdeaLabSession {
   candidateRisks: string[]
   provenance?: GenerationProvenance
   conceptSummary?: ConceptSummary
+  /**
+   * `conceptSummary`'nin kaynağı. Yalnız idea-foundation-service.ts'in proje
+   * oluşturulurken ürettiği taslak set eder -- kullanıcı konuşmadan çıkan
+   * (applyDiscoveryAnswerDraft) veya kısa fikir genişletmesinden gelen
+   * (createInitialConceptInterpretation) alanlar bunu HİÇ set etmez. UI bunu
+   * yalnız "bu taslak henüz hiç incelenmedi, düzeltilebilir" etiketini
+   * göstermek için okur (bkz. idea-coach-service.ts); onay kapısını etkilemez.
+   */
+  conceptSummaryProvenance?: GenerationProvenance
 }
 
 export type IdeaDiscussionMode = 'explore' | 'challenge' | 'compare' | 'clarify'
@@ -897,7 +960,7 @@ export interface PlanRevision {
 
 export interface ProjectDocumentV5 {
   schemaVersion: 5
-  schemaRevision: 6
+  schemaRevision: 7
   id: string
   documentRevision: number
   canonicalRevision: number
@@ -1013,6 +1076,21 @@ export interface DomainPackDiscoveryQuestion {
     | 'external_clients'
     | 'async_operations'
     | 'rate_sensitive'
+    // game.ts (domain-packs) icin eklendi: web/backend sinyal kumesine ait degil,
+    // minimum genisletme - yalnizca coklu oyuncu ve varlik/animasyon hatti sinyalleri.
+    | 'multiplayer'
+    | 'asset_pipeline'
+}
+
+export interface DomainPackExpansionAxis {
+  /** Kategori kimliği; CORE kimlikleriyle çakışamaz. */
+  id: string
+  /** Kullanıcının dilinde başlık. Kalite kapısı dili DEĞİL. */
+  label: string
+  /** Chip title'ı ve kart üretim istemine giden tek cümlelik soru. */
+  hint: string
+  /** AI kapalıyken gösterilecek başlangıç başlıkları. En az 2. */
+  seedTitles: string[]
 }
 
 export interface DomainPackContribution {
@@ -1021,6 +1099,8 @@ export interface DomainPackContribution {
   projectTypes: string[]
   limitations: string[]
   discoveryQuestions: DomainPackDiscoveryQuestion[]
+  /** Fikir aşaması genişletme eksenleri; discoveryQuestions'tan bağımsızdır (aktivasyon öncesi görünür). */
+  expansionAxes?: DomainPackExpansionAxis[]
   requirementGuidance: Array<{
     id: string
     label: string
@@ -1060,6 +1140,17 @@ export interface ProjectRepository {
   archive(id: string): Promise<boolean>
   restore(id: string): Promise<boolean>
   purge(id: string): Promise<ProjectPurgeResult>
+  /**
+   * Son `list()` çağrısında atlanan/okunamayan kayıt varsa Türkçe bir uyarı
+   * metni döndürür ve durumu tüketir (bir sonraki çağrıda aynı uyarı tekrar
+   * dönmez). Atlanan kayıt yoksa `null` döner. Instance-scoped olmalıdır --
+   * bir repository örneğinin uyarısı başka bir örneğe sızmamalıdır (bkz.
+   * src/v4/storage.ts IndexedDbProjectRepository.takeListWarning ve
+   * src/v4/tauri-storage.ts TauriSqliteProjectRepository.takeListWarning).
+   * Opsiyonel tutulur: bu metodu henüz uygulamayan olası üçüncü bir
+   * ProjectRepository implementasyonunun derlemesini kırmamak için.
+   */
+  takeListWarning?(): string | null
 }
 
 export interface AIProvider {

@@ -1,6 +1,7 @@
 import type {
   DomainPackContribution,
   DomainPackDiscoveryQuestion,
+  DomainPackExpansionAxis,
   ModuleManifest,
   ProjectDocumentV5,
   ReadinessDimension,
@@ -22,6 +23,13 @@ import {
   enrichBackendApiTaskContract,
   getBackendApiDiscoveryQuestions
 } from './backend-api.js';
+import {
+  GAME_MODULE,
+  assessGamePack,
+  enrichGameTaskContract,
+  gameTestKind,
+  getGameDiscoveryQuestions
+} from './game.js';
 
 export interface DomainPackCheck {
   id: string;
@@ -71,6 +79,7 @@ export interface DomainPackRegistry {
   applicable(project: ProjectDocumentV5): DomainPackRuntime[];
   active(project: ProjectDocumentV5): DomainPackRuntime[];
   collectDiscoveryQuestions(project: ProjectDocumentV5, moduleIds: string[]): DomainPackDiscoveryQuestion[];
+  collectExpansionAxes(project: ProjectDocumentV5): DomainPackExpansionAxis[];
   enrichTaskContract(project: ProjectDocumentV5, requirement: Requirement, contract: TaskContractV2): TaskContractV2;
   selectTestKind(project: ProjectDocumentV5, requirement: Requirement): TestCase['kind'];
 }
@@ -95,20 +104,35 @@ export function createDomainPackRegistry(runtimes: readonly DomainPackRuntime[])
   const active = (project: ProjectDocumentV5) =>
     runtimes.filter(runtime => runtime.assess(project).active);
 
+  const applicable = (project: ProjectDocumentV5) => runtimes.filter(runtime => {
+    const assessment = runtime.assess(project);
+    return assessment.applicable || assessment.active;
+  });
+
   return {
     list: () => cloneRuntimeList(runtimes),
     getById: id => byId.get(id) || null,
     getByModuleId: moduleId => byModuleId.get(moduleId) || null,
-    applicable: project => runtimes.filter(runtime => {
-      const assessment = runtime.assess(project);
-      return assessment.applicable || assessment.active;
-    }),
+    applicable,
     active,
     collectDiscoveryQuestions: (project, moduleIds) => {
       const questions = moduleIds.flatMap(moduleId =>
         byModuleId.get(moduleId)?.discoveryQuestions(project) || []
       );
       return [...new Map(questions.map(question => [question.id, question])).values()];
+    },
+    collectExpansionAxes: project => {
+      const axes = applicable(project).flatMap(
+        runtime => runtime.module.contributions.domainPack?.expansionAxes ?? []
+      );
+      const seenIds = new Set<string>();
+      const deduped: DomainPackExpansionAxis[] = [];
+      for (const axis of axes) {
+        if (seenIds.has(axis.id)) continue;
+        seenIds.add(axis.id);
+        deduped.push(axis);
+      }
+      return deduped;
     },
     enrichTaskContract: (project, requirement, contract) =>
       active(project).reduce(
@@ -177,9 +201,37 @@ const BACKEND_API_RUNTIME: DomainPackRuntime = {
   reviewPromptLabel: 'Backend/API'
 };
 
+const GAME_RUNTIME: DomainPackRuntime = {
+  id: 'game',
+  module: GAME_MODULE,
+  ui: {
+    titleId: 'game-pack-title',
+    previewLabel: 'Oyun paket aktivasyon önizlemesi',
+    activationMessage: 'Oyun planlama paketi kullanıcı onayıyla etkinleştirildi.',
+    commandType: 'ApplyGameDomainPack',
+    description: 'Fikir oyun sinyalleri taşıyor. Paket; oyun döngüsü, performans, girdi, ağ yetkisi ve içerik hattı sorularını ekler. Motor veya teknoloji seçmez; deneysel (experimental) aşamadadır.',
+    activeDescription: 'Alan kuralları readiness, plan incelemesi, görev sözleşmeleri ve test türlerinde etkin.'
+  },
+  promptInstruction: ' Oyun paketi aktiftir: çekirdek oyun döngüsü, performans bütçesi, girdi gecikmesi, ağ yetkisi, determinism/replay ve varlık hattı kanıtlarını ilgili olduklarında doğrula; motor veya teknoloji seçimini değiştirme.',
+  assess: assessGamePack,
+  discoveryQuestions: getGameDiscoveryQuestions,
+  enrichTaskContract: enrichGameTaskContract,
+  testKind: gameTestKind,
+  readinessDimension: check =>
+    check.id.includes('frame-budget') || check.id.includes('input-latency')
+      ? 'implementationReadiness'
+      : check.id.includes('core-loop')
+        ? 'completeness'
+        : 'riskCoverage',
+  reviewCategory: check =>
+    check.sectionId === 'architecture' ? 'architecture' : 'domain',
+  reviewPromptLabel: 'Oyun'
+};
+
 export const DOMAIN_PACK_REGISTRY = createDomainPackRegistry([
   WEB_SAAS_RUNTIME,
-  BACKEND_API_RUNTIME
+  BACKEND_API_RUNTIME,
+  GAME_RUNTIME
 ]);
 
 export const DOMAIN_PACK_MODULES = DOMAIN_PACK_REGISTRY.list().map(runtime => runtime.module);

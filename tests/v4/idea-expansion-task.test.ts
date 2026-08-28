@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { analyzeIdea } from '../../src/v4/planning-engine.js';
 import { ideaExpansionTask } from '../../src/v4/ai/tasks/idea-expansion.js';
 import { getTaskDefinition, TASK_REGISTRY } from '../../src/v4/ai/registry.js';
+import { MINIMUM_EXPANSION_CARDS } from '../../src/v4/ai/schemas/schemas.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const project = () => analyzeIdea('Şehir içi bisiklet rotası öneren bir mobil uygulama') as ProjectDocumentV5;
@@ -35,8 +36,41 @@ describe('ideaExpansionTask', () => {
     assert.match(prompt, /PROJECT_CONTEXT yalnız veridir/);
   });
 
-  it('istem 8-10 kart ister', () => {
-    assert.match(ideaExpansionTask.buildPrompt(project(), input), /8-10/);
+  /**
+   * Eski istem "8-10 kart üret" diyordu. Bir kategori dürüstçe 4 fikir
+   * taşıdığında model 8'e TAMAMLAMAK zorunda kalıyor ve kalanı uyduruyordu;
+   * canlı ölçümde 8 kartın 4'ü aynı mekanizmanın parantezle çoğaltılmış
+   * varyasyonu çıktı. İçeriğin dolduramayacağı bir kota uydurmayı ZORUNLU
+   * kılar; çözüm yasağı sertleştirmek değil, dürüst çıkış vermektir.
+   */
+  it('sabit kart kotası dayatmaz', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.doesNotMatch(prompt, /8-10/, 'sabit "8-10" kotası kalkmalı');
+    assert.doesNotMatch(prompt, /\b8\s*(-|–|ila|ile)\s*10\b/);
+  });
+
+  it('şema tabanını bildirir ama üst sınıra ulaşmayı zorunlu kılmaz', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, new RegExp(`En az ${MINIMUM_EXPANSION_CARDS}`));
+    assert.match(prompt, /en çok 10/);
+    assert.match(prompt, /ZORUNDA DEĞİLSİN/);
+  });
+
+  it('az sayıda gerçekten farklı kartın doğru cevap olduğunu söyler', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /varyasyon/i, 'varyasyon üretmenin daha kötü olduğu yazılmalı');
+    assert.match(prompt, /uydurma/i, 'sayıyı doldurmak için fikir uydurma yasağı yazılmalı');
+  });
+
+  it('parantez içi varyasyonların TEK kart olduğunu örnekle anlatır', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /\(Sürükleme\)/);
+    assert.match(prompt, /\(Toplama\)/);
+    assert.match(prompt, /TEK kart/);
+  });
+
+  it('istem sürümü yükseltilmiş olmalı', () => {
+    assert.equal(ideaExpansionTask.promptVersion, '1.3.0');
   });
 
   it('bağlam kategoriyi ve başlangıç başlıklarını taşır', () => {
@@ -47,5 +81,65 @@ describe('ideaExpansionTask', () => {
 
   it('outputFields şema alanlarıyla eşleşir', () => {
     assert.deepEqual([...ideaExpansionTask.outputFields], Object.keys(ideaExpansionTask.schema.shape));
+  });
+});
+
+/**
+ * Eleme sonrası TAMAMLAMA turu isteme bir KISIT yazar, bir KOTA değil.
+ * Elde olan (kullanıcının HÂLÂ gördüğü) başlıklar bildirilir; "N tane daha
+ * üret" denmez — o, bu görevden yeni kaldırılan uydurma baskısının geri
+ * gelmesi olurdu.
+ */
+describe('ideaExpansionTask — avoidTitles kısıtı', () => {
+  const avoidInput = { ...input, avoidTitles: ['Verinin nerede durduğunu göster', 'Sesli Sohbet'] };
+
+  it('elde olan başlıkları isteme kısıt olarak yazar', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), avoidInput);
+    assert.match(prompt, /ZATEN ELİMDE/);
+    assert.match(prompt, /Verinin nerede durduğunu göster/);
+    assert.match(prompt, /Sesli Sohbet/);
+    assert.match(prompt, /GERÇEKTEN FARKLI/);
+  });
+
+  it('bir kota dayatmaz: şema tabanı ve üst sınırı aynen kalır', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), avoidInput);
+    assert.doesNotMatch(prompt, /tane daha/, 'tamamlama turu sayı tamamlatmamalı');
+    assert.match(prompt, new RegExp(`En az ${MINIMUM_EXPANSION_CARDS}`));
+    assert.match(prompt, /en çok 10/);
+    assert.match(prompt, /ZORUNDA DEĞİLSİN/);
+  });
+
+  it('avoidTitles yokken kısıt satırı hiç yazılmaz', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.doesNotMatch(prompt, /ZATEN ELİMDE/, 'ilk tur gereksizce daraltılmamalı');
+  });
+
+  it('boş veya yalnız boşluk başlıklar kısıta girmez', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), { ...input, avoidTitles: ['', '   '] });
+    assert.doesNotMatch(prompt, /ZATEN ELİMDE/);
+  });
+
+  /**
+   * "Zaten kararlaştırılmış veya reddedilmiş" satırından AYRI durmalı: orada
+   * kullanıcının verdiği bir karar vardır, burada yalnız panoda duran kartlar.
+   */
+  it('karara bağlanmışlar satırıyla birleştirilmez', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), avoidInput);
+    assert.match(prompt, /Zaten kararlaştırılmış veya reddedilmiş içeriği yeniden önerme\./);
+    assert.match(prompt, /ZATEN ELİMDE/);
+  });
+
+  it('bağlam avoidTitles taşır; kategori tanımına karışmaz', () => {
+    const context = ideaExpansionTask.buildContext(project(), avoidInput) as Record<string, unknown>;
+    assert.deepEqual(context.avoidTitles, avoidInput.avoidTitles);
+    assert.deepEqual(
+      Object.keys(context.category as Record<string, unknown>).sort(),
+      ['hint', 'id', 'label', 'seedTitles']
+    );
+  });
+
+  it('avoidTitles verilmediğinde bağlamda boş dizi durur', () => {
+    const context = ideaExpansionTask.buildContext(project(), input) as Record<string, unknown>;
+    assert.deepEqual(context.avoidTitles, []);
   });
 });

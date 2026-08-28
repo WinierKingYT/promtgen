@@ -4,9 +4,11 @@ import {
   Check,
   Download,
   LoaderCircle,
+  MessageSquare,
   Save,
   Send,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import {
   applyApprovedChanges,
@@ -57,7 +59,8 @@ import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
 import {
   IdeaCoachTurn,
-  IdeaSnapshot,
+  IdeaExpansionColumn,
+  IdeaStateColumn,
   IdeaStudioHeader,
   IdeaStudioSidebar,
   type IdeaStudioView
@@ -94,27 +97,66 @@ interface WorkspaceProps {
 }
 
 export function Workspace({ project, projects, onProject, onNew, onPersist, providerSettings, onProviderSettings, credentialVault }: WorkspaceProps) {
+  // Workspace, aktif proje değişince yeniden MONTE OLMUYOR (App.tsx
+  // <Workspace/>'i `key={project.id}` ile keylemiyor) — yani burada tutulan
+  // her state, kullanıcı sidebar'dan başka bir projeye geçtiğinde de hayatta
+  // kalır. Aşağıdaki iki grup bu yüzden ayrılıyor:
+  //
+  //   GLOBAL SOHBET (proje kimliğinden bağımsız, geçişte KORUNUR): sidebar
+  //   açık/kapalı gibi salt arayüz tercihleri, ayarlar diyaloğu (sağlayıcı
+  //   ayarı projeye değil uygulamaya ait) ve toast bildirimi (kendiliğinden
+  //   kapanır, bir "onayla" eylemine bağlı değil). `activeSection` de buraya
+  //   girer: bölüm kimlikleri (`vision`, `tasks`, ...) tüm projelerde aynı
+  //   sabit şemadan gelir, içerik her zaman GÜNCEL `project`ten okunur — hangi
+  //   sekmede kaldığın bir proje tercihi değil bir gezinme tercihi.
+  //
+  //   PROJE-KAPSAMLI (yalnız BU projede anlamlı, proje değişince SIFIRLANIR):
+  //   bir önizleme, taslak veya uyarı; ESKİ projeden hesaplanmış olup YENİ
+  //   `project` ile birlikte onaylanabilir/gösterilebilir hâle geldiğinde
+  //   veri karışmasına yol açar. `taskCompilation` (bkz. applyTaskPlan) ve
+  //   `finalizationBlockers` bunun doğrulanmış örnekleri; `selectedStage`,
+  //   `discoveryAnswerDraft`, `messageDraft`, `generating`, `solutionRunning`,
+  //   `changeImpactMode` ve proje geçmişi diyaloğu (`historyOpen`) aynı
+  //   sınıfa giriyor. YENİ proje-kapsamlı state eklenirse buraya (ve aşağıdaki
+  //   sıfırlama efektine) eklenmesi gerekir — derleyici bunu hatırlatmaz.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sohbet paneli VARSAYILAN OLARAK KAPALI. Ekranın belkemiği artık fikir
+  // (keşif panosu + fikrin güncel hali); sohbet isteğe bağlı bir yan kanal.
+  // `sidebarOpen` gibi salt bir arayüz tercihi olduğu için GLOBAL gruptadır:
+  // proje değişince sıfırlanmaz — kullanıcı sohbeti açık tuttuysa öbür
+  // projede de açık kalır. Sohbetin İÇERİĞİ (`messageDraft`,
+  // `discoveryAnswerDraft`) proje-kapsamlıdır ve aşağıda sıfırlanır.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [activeSection, setActiveSection] = useState('vision');
+
   const [view, setView] = useState<IdeaStudioView>('develop');
   const [solutionRunning, setSolutionRunning] = useState(false);
   // Kullanıcı tamamlanmış bir aşamaya dönebilir; seçim yoksa bulunulan aşama.
   const [selectedStage, setSelectedStage] = useState<ProjectStage | null>(null);
-  const [activeSection, setActiveSection] = useState('vision');
   const [sectionDraft, setSectionDraft] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
   const [generating, setGenerating] = useState(false);
   const [changeImpactMode, setChangeImpactMode] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [finalizationBlockers, setFinalizationBlockers] = useState<string[]>([]);
   const [discoveryAnswerDraft, setDiscoveryAnswerDraft] = useState<DiscoveryAnswerDraft | null>(null);
   const [taskCompilation, setTaskCompilation] = useState<TaskCompilationResult | null>(null);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
+  // PROJE-KAPSAMLI state'i sıfırlar — yukarıdaki gruplamayla senkron kalmalı.
   useEffect(() => {
     setView('develop');
+    setSolutionRunning(false);
+    setSelectedStage(null);
+    setMessageDraft('');
+    setGenerating(false);
+    setChangeImpactMode(false);
+    setHistoryOpen(false);
+    setFinalizationBlockers([]);
     setDiscoveryAnswerDraft(null);
+    setTaskCompilation(null);
   }, [project.id]);
 
   // Yalnız konuşma turunun paketi. Keşif panosundan eklenen kartlar kendi
@@ -137,6 +179,10 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   const coach = useMemo(() => buildIdeaCoachState(project), [project]);
   const showDecisionTurn = !['problem', 'user', 'value'].includes(coach.activeStep)
     && pendingItems.some(item => item.status === 'pending');
+  // Sohbet katlanınca içindeki bekleyen iş SESSİZCE kaybolmasın: taslak
+  // incelemesi ve karara bağlanmamış öneriler yalnız sohbet panelinde
+  // görünüyor, bu yüzden açma düğmesi kaç işin beklediğini söyler.
+  const chatAttention = (discoveryAnswerDraft ? 1 : 0) + (showDecisionTurn ? unresolvedCount : 0);
   const hasCanonicalPlan = project.requirements.length > 0 || project.decisions.length > 0 || project.tasks.length > 0;
   const planUnlocked = legacyPlanUnlocked(project);
   // Panel yalnız aşama modeline girmiş belgelerde görünür. Konusu olmayan bir
@@ -306,7 +352,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   };
 
   const finish = () => {
-    const result = finalizePlan(project, false);
+    const result = finalizePlan(project);
     if (result.success) commit(result.project, 'Plan finalleştirildi.', 'FinalizePlan');
     else setFinalizationBlockers(result.blockers);
   };
@@ -353,83 +399,18 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setView('plan')}/>
       <StageRail project={project} selected={selectedStage} onSelect={setSelectedStage}/>
 
-      {view === 'develop' && <main id="pg-primary-content" className={`pg-idea-workspace${stagePanelVisible ? ' has-stage-panel' : ''}`} tabIndex={-1}>
-        <section className="pg-conversation-column" aria-label="Fikir geliştirme sohbeti">
-          <div className="pg-thread" role="log" aria-live="polite" aria-label="Fikir geliştirme konuşması">
-            <header className="pg-thread-welcome">
-              <div className="pg-assistant-mark"><Sparkles size={19}/></div>
-              <div><span>FİKİR STÜDYOSU</span><h1>Fikrini birlikte şekillendirelim</h1><p>Ben sorular soracağım, alternatifler çıkaracağım ve riskleri göstereceğim. Seçim her zaman sende kalacak.</p></div>
-            </header>
-
-            <article className="pg-original-idea"><span>Başlangıç fikrin</span><p>{project.identity.originalIdea}</p></article>
-
-            {project.messages.map(message => <article key={message.id} className={`pg-message is-${message.role}`}>
-              {message.role === 'assistant' && <div className="pg-message-avatar"><Sparkles size={15}/></div>}
-              <div className="pg-message-body">
-                <header><b>{message.role === 'user' ? 'Sen' : 'PromtGen'}</b>{message.createdAt && <time>{new Date(message.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</time>}</header>
-                <p>{message.content}</p>
-                {message.analysisNote && <details><summary>Bu yoruma nasıl ulaştım?</summary><p>{message.analysisNote}</p></details>}
-              </div>
-            </article>)}
-
-            {generating && <div className="pg-thinking" role="status"><span><i/><i/><i/></span><p>Fikrini analiz ediyor, seçenekleri hazırlıyorum…</p></div>}
-
-            <IdeaCoachTurn
-              draft={discoveryAnswerDraft}
-              coach={coach}
-              showDecisionTurn={showDecisionTurn}
-              stageOwnsQuestion={stageOwnsQuestion}
-              pendingItems={pendingItems}
-              disabled={generating}
-              onChoose={prompt => void sendMessage(prompt, '')}
-              onStatus={setSuggestion}
-              onDraftChange={setDiscoveryAnswerDraft}
-              onDraftDiscard={() => setDiscoveryAnswerDraft(null)}
-              onDraftApply={() => {
-                if (!discoveryAnswerDraft) return;
-                const result = applyDiscoveryAnswerDraft(project, discoveryAnswerDraft);
-                if (!result.success) { setNotice(result.reason); return; }
-                void persistCandidate(result.project, `${result.appliedFields.length} alan fikir özetine işlendi.`, 'UpdateConceptAgreement')
-                  .then(saved => { if (saved) setDiscoveryAnswerDraft(null); });
-              }}
-            />
-            {showDecisionTurn && pendingItems.length > 0 && !bundleResolved && <div className="pg-decision-commit">
-              <span>{coach.criticalDecisionCount
-                ? `${coach.criticalDecisionCount} kritik karar var; kalanları erteleyebilirsin.`
-                : unresolvedCount
-                  ? `${unresolvedCount} düşük öncelikli yönü daha sonra konuşabilirsin.`
-                  : `${acceptedCount} seçim fikre işlenmeye hazır.`}</span>
-              <button type="button" onClick={() => void applySuggestions()}>{acceptedCount ? 'Seçtiğim yönü fikre işle' : 'Bu turu şimdilik kapat'} <ArrowRight size={16}/></button>
-            </div>}
-            <div ref={messageEndRef}/>
-          </div>
-
-          <form className="pg-chat-composer" onSubmit={event => { event.preventDefault(); void sendMessage(messageDraft); }}>
-            {!stageOwnsQuestion && <div className="pg-focused-question"><span>Şu an yanıtladığın soru</span><b>{coach.activeQuestion}</b></div>}
-            {hasCanonicalPlan && <div className="pg-composer-mode">
-              <button type="button" className={!changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(false)}>Fikri tartış</button>
-              <button type="button" className={changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(true)}>Plan etkisini incele</button>
-            </div>}
-            <div className="pg-composer-box">
-              <textarea
-                id="discovery-direction"
-                aria-label="Fikir sohbeti mesajı"
-                rows={2}
-                value={messageDraft}
-                onChange={event => setMessageDraft(event.target.value)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    void sendMessage(messageDraft);
-                  }
-                }}
-                placeholder="Bu soruya doğal şekilde cevap ver…"
-              />
-              <button type="submit" aria-label="Gönder" disabled={!messageDraft.trim() || generating}>{generating ? <LoaderCircle className="spin" size={19}/> : <Send size={19}/>}</button>
-            </div>
-            <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><small>Çıkarımlar önce taslak olarak gösterilir; sen onaylamadan kesinleşmez.</small></div>
-          </form>
-        </section>
+      {/* YERLEŞİM: merkez = keşif panosu (fikir), sağ = fikrin güncel hali,
+          en sağda = katlanabilir sohbet. Sohbet SİLİNMEDİ; mesaj akışı,
+          koç turu, taslak incelemesi ve karar işleme aynen çalışıyor —
+          yalnız yeri ve ağırlığı değişti: artık ekranın belkemiği değil,
+          kullanıcının istediğinde açtığı bir yan kanal. */}
+      {view === 'develop' && <main id="pg-primary-content" className={`pg-idea-workspace${stagePanelVisible ? ' has-stage-panel' : ''}${chatOpen ? ' has-chat-open' : ''}`} tabIndex={-1}>
+        <IdeaExpansionColumn
+          project={project}
+          settings={providerSettings}
+          onPersist={(next, message, commandType) => void persistCandidate(next, message, commandType)}
+          onNotice={notify}
+        />
         {stagePanelVisible && shownStage === 'solution' && ideaApproved && (
           <SolutionStagePanel
             project={project}
@@ -451,12 +432,96 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
             }}
           />
         )}
-        <IdeaSnapshot
-          project={project}
-          settings={providerSettings}
-          onPersist={(next, message, commandType) => void persistCandidate(next, message, commandType)}
-          onNotice={notify}
-        />
+        <IdeaStateColumn project={project}/>
+        <div className={`pg-chat-dock${chatOpen ? ' is-open' : ' is-collapsed'}`}>
+          {/* Açma/kapama düğmesi: klavyeyle erişilebilir gerçek bir <button>,
+              `aria-expanded` durumu taşır ve görünen metniyle erişilebilir
+              adı aynı kalır (WCAG 2.5.3). Katlanmış sohbet DOM'dan çıkar —
+              yani ekran okuyucuya "orada ama gizli" gibi yanlış bir tablo
+              sunulmaz; durum tek yerde, düğmenin üstünde duyurulur. */}
+          <button
+            type="button"
+            className="pg-chat-toggle"
+            aria-expanded={chatOpen}
+            aria-controls="pg-chat-panel"
+            onClick={() => setChatOpen(open => !open)}
+          >
+            {chatOpen ? <X size={16}/> : <MessageSquare size={16}/>}
+            <span>{chatOpen ? 'Sohbeti kapat' : 'Sohbeti aç'}</span>
+            {!chatOpen && chatAttention > 0 && <b className="pg-chat-attention">{chatAttention} bekleyen</b>}
+          </button>
+          {chatOpen && <section id="pg-chat-panel" className="pg-conversation-column" aria-label="Fikir geliştirme sohbeti">
+            <div className="pg-thread" role="log" aria-live="polite" aria-label="Fikir geliştirme konuşması">
+              {project.messages.map(message => <article key={message.id} className={`pg-message is-${message.role}`}>
+                {message.role === 'assistant' && <div className="pg-message-avatar"><Sparkles size={15}/></div>}
+                <div className="pg-message-body">
+                  <header><b>{message.role === 'user' ? 'Sen' : 'PromtGen'}</b>{message.createdAt && <time>{new Date(message.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</time>}</header>
+                  <p>{message.content}</p>
+                  {message.analysisNote && <details><summary>Bu yoruma nasıl ulaştım?</summary><p>{message.analysisNote}</p></details>}
+                </div>
+              </article>)}
+
+              {generating && <div className="pg-thinking" role="status"><span><i/><i/><i/></span><p>Fikrini analiz ediyor, seçenekleri hazırlıyorum…</p></div>}
+
+              <IdeaCoachTurn
+                draft={discoveryAnswerDraft}
+                coach={coach}
+                showDecisionTurn={showDecisionTurn}
+                stageOwnsQuestion={stageOwnsQuestion}
+                pendingItems={pendingItems}
+                disabled={generating}
+                onChoose={prompt => void sendMessage(prompt, '')}
+                onStatus={setSuggestion}
+                onDraftChange={setDiscoveryAnswerDraft}
+                onDraftDiscard={() => setDiscoveryAnswerDraft(null)}
+                onDraftApply={() => {
+                  if (!discoveryAnswerDraft) return;
+                  const result = applyDiscoveryAnswerDraft(project, discoveryAnswerDraft);
+                  if (!result.success) { setNotice(result.reason); return; }
+                  void persistCandidate(result.project, `${result.appliedFields.length} alan fikir özetine işlendi.`, 'UpdateConceptAgreement')
+                    .then(saved => { if (saved) setDiscoveryAnswerDraft(null); });
+                }}
+              />
+              {showDecisionTurn && pendingItems.length > 0 && !bundleResolved && <div className="pg-decision-commit">
+                <span>{coach.criticalDecisionCount
+                  ? `${coach.criticalDecisionCount} kritik karar var; kalanları erteleyebilirsin.`
+                  : unresolvedCount
+                    ? `${unresolvedCount} düşük öncelikli yönü daha sonra konuşabilirsin.`
+                    : `${acceptedCount} seçim fikre işlenmeye hazır.`}</span>
+                <button type="button" onClick={() => void applySuggestions()}>{acceptedCount ? 'Seçtiğim yönü fikre işle' : 'Bu turu şimdilik kapat'} <ArrowRight size={16}/></button>
+              </div>}
+              <div ref={messageEndRef}/>
+            </div>
+
+            <form className="pg-chat-composer" onSubmit={event => { event.preventDefault(); void sendMessage(messageDraft); }}>
+              {/* Etiket bir TALEP değil bir DAVET: kullanıcı bu soruyu
+                  yanıtlamak zorunda değil, fikri panodan da geliştirebiliyor. */}
+              {!stageOwnsQuestion && <div className="pg-focused-question"><span>Dilersen şunu konuşalım</span><b>{coach.activeQuestion}</b></div>}
+              {hasCanonicalPlan && <div className="pg-composer-mode">
+                <button type="button" className={!changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(false)}>Fikri tartış</button>
+                <button type="button" className={changeImpactMode ? 'is-active' : ''} onClick={() => setChangeImpactMode(true)}>Plan etkisini incele</button>
+              </div>}
+              <div className="pg-composer-box">
+                <textarea
+                  id="discovery-direction"
+                  aria-label="Fikir sohbeti mesajı"
+                  rows={2}
+                  value={messageDraft}
+                  onChange={event => setMessageDraft(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendMessage(messageDraft);
+                    }
+                  }}
+                  placeholder="Aklındakini yaz — soruyu cevaplayabilir ya da bambaşka bir şey anlatabilirsin…"
+                />
+                <button type="submit" aria-label="Gönder" disabled={!messageDraft.trim() || generating}>{generating ? <LoaderCircle className="spin" size={19}/> : <Send size={19}/>}</button>
+              </div>
+              <div className="pg-composer-foot"><span>Enter gönderir · Shift + Enter yeni satır</span><small>Çıkarımlar önce taslak olarak gösterilir; sen onaylamadan kesinleşmez.</small></div>
+            </form>
+          </section>}
+        </div>
       </main>}
 
       {view === 'guide' && <main id="pg-primary-content" className="pg-document-workspace" tabIndex={-1}>

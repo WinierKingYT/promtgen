@@ -29,6 +29,7 @@ export const solutionDiscoveryTask = {
   outputFields: ['reply', 'technicalConcerns', 'candidates', 'openQuestions', 'uncertainty'] as const,
   timeoutMs: 30_000,
   maxRepairAttempts: 2,
+  guardsOutputLanguage: true,
   // Teknik keşif için yerel kural motoru YOK. Diğer görevlerdeki değeri
   // kopyalamak, var olmayan bir güvenlik ağı olduğunu iddia etmek olurdu;
   // sağlayıcı yoksa tur dürüstçe hata verir.

@@ -4,10 +4,16 @@ import type { StructuredProvider } from '../ai/provider-adapters.js';
 import { runRegisteredAITask } from '../ai/runtime.js';
 import { getExpansionCategories, type ExpansionCategory } from '../idea-expansion/categories.js';
 import { findExpansionItemByTitle } from './proposal-bundle-selectors.js';
+import { dropDuplicateExpansionCards } from './expansion-card-dedup.js';
+import { fingerprint } from './deterministic-idea-planning.js';
 import type { IdeaExpansionOutput } from '../ai/schemas/schemas.js';
 
-/** Kartın nereden geldiği kartın kendisinde taşınır; tüketici tahmin etmez. */
-export type ExpansionCardOrigin = 'ai' | 'local-seed';
+/**
+ * Kartın nereden geldiği kartın kendisinde taşınır; tüketici tahmin etmez.
+ * `user`: kullanıcının panoya serbest metinle kendi yazdığı öneri — bir model
+ * değerlendirmesi değildir, `local-seed` gibi effort/impact/mvpHint taşımaz.
+ */
+export type ExpansionCardOrigin = 'ai' | 'local-seed' | 'user';
 
 export interface ExpansionCard {
   id: string;
@@ -32,6 +38,18 @@ export interface ExpansionResult {
   fallbackReason: string | null;
   /** Daha önce karara bağlandığı için gizlenen kart sayısı. */
   hiddenCount: number;
+  /**
+   * Aynı partide birbirinin tekrarı olduğu için elenen kart sayısı. AYRI bir
+   * sayaçtır: `hiddenCount` "bunu zaten karara bağladın" demektir ve arayüzde
+   * öyle açıklanır; bu ise "model kendini tekrar etti" demektir. İkisini
+   * toplamak kullanıcıya vermediği bir kararı atfederdi.
+   *
+   * ARAYÜZE ÇIKMAZ. Yalnız İÇ sinyaldir: tamamlama turunun gerekip
+   * gerekmediğini bu belirler (bkz. `generateExpansionCards`). Kullanıcı
+   * "elenenin yerine başkasını ver" dedi, "kaç tane elendiğini söyle"
+   * demedi.
+   */
+  duplicateCount: number;
 }
 
 /**
@@ -73,6 +91,14 @@ export interface GenerateExpansionOptions {
   provider?: StructuredProvider;
   signal?: AbortSignal;
   refresh?: boolean;
+  /**
+   * Tier 3 (fikre özel, model-üretimi) eksenler `getExpansionCategories`'in
+   * senkron/saf sonucunda YOKTUR — bilerek, bkz. idea-expansion/categories.ts.
+   * Böyle bir eksen için kart üretilecekse çağıran (board) kategori nesnesini
+   * burada doğrudan geçer; aksi hâlde bu fonksiyon onu hiçbir zaman bulamaz.
+   * `categoryId` ile eşleşmiyorsa yok sayılır — çağıran yanlış eksen geçemez.
+   */
+  category?: ExpansionCategory;
 }
 
 /**
@@ -90,6 +116,53 @@ function cacheKey(project: ProjectDocumentV5, categoryId: string): string {
   return `${project.id}::${project.canonicalRevision}::${project.documentRevision}::${categoryId}`;
 }
 
+/** Şemanın üst sınırı; birleşik sonuç da bunu aşmaz. */
+const MAX_EXPANSION_CARDS = 10;
+
+/**
+ * Eleme sonrası TAMAMLAMA turu: elenen tekrarların yerine gerçekten farklı
+ * kart ister.
+ *
+ * NE İSTEMEZ: "N tane daha üret". Bu, bu görevden yeni kaldırılan kart
+ * kotasının geri gelmesi olurdu (bkz. ai/tasks/idea-expansion.ts) ve modeli
+ * yine uydurmaya iterdi. İstenen şey bir KISITTIR: "şunlar elimde, bunlardan
+ * farkını göster". Model yeni bir şey bulamıyorsa AZ kart döndürmesi —
+ * hatta şema tabanının altına düşüp turu düşürmesi — DOĞRU cevaptır.
+ *
+ * HİÇBİR HÂLDE FIRLATMAZ. İlk parti kullanıcının elinde geçerli kartlardır;
+ * tamamlama bir İYİLEŞTİRMEDİR, ona bağlı değildir. `runRegisteredAITask`
+ * çevrimdışı ayarlarda SENKRON fırlatır; o da buradan sessizce yutulur.
+ */
+async function runTopUpRound(
+  project: ProjectDocumentV5,
+  category: ExpansionCategory,
+  options: GenerateExpansionOptions,
+  avoidTitles: string[]
+): Promise<ExpansionCard[]> {
+  try {
+    const run = await runRegisteredAITask<IdeaExpansionOutput>('idea-expansion', {
+      project,
+      settings: options.settings,
+      credential: options.credential,
+      provider: options.provider,
+      signal: options.signal,
+      input: {
+        categoryId: category.id,
+        categoryLabel: category.label,
+        categoryHint: category.hint,
+        seedTitles: category.seedTitles,
+        avoidTitles
+      }
+    });
+    return run.output.cards.map(card => ({ ...card, origin: 'ai' as const }));
+  } catch {
+    // Şema tutmadı / zaman aşımı / sağlayıcı düştü: sessizce vazgeçilir.
+    // Kullanıcı elindeki kartları görmeye devam eder; mode ve fallbackReason
+    // ilk çağrının sonucunu yansıtmayı sürdürür.
+    return [];
+  }
+}
+
 /**
  * Başlangıç başlıklarından kart üretir. Hiçbir alan uydurulmaz; başlık açıklama
  * olarak da kullanılır ve değerlendirme gerektiren alanlar boş bırakılır.
@@ -105,12 +178,46 @@ function seedCards(category: ExpansionCategory): ExpansionCard[] {
   }));
 }
 
+/** Kullanıcının serbest metinle yazdığı öneri en fazla bu uzunlukta tutulur. */
+const MAX_USER_CARD_LENGTH = 500;
+/**
+ * Kullanıcı-yazımı kart kimlikleri her zaman bu önekle başlar; `ai.` (model
+ * eksenleri) veya `seed-` (yerel başlangıç) kimlikleriyle asla çakışmaz —
+ * `ai.<fingerprint>` önekiyle aynı gerekçe: bkz. idea-axis-service.ts.
+ */
+const USER_CARD_ID_PREFIX = 'user.';
+
+/**
+ * Kullanıcının panoya serbest metinle eklediği öneriden kart üretir.
+ *
+ * AI kartlarındaki gibi bir DEĞERLENDİRME (effort/impact/mvpHint) taşımaz:
+ * kullanıcı bu konuda hiçbir yargı vermedi, uydurmak yerine alanlar hiç
+ * yazılmaz — tıpkı `seedCards`'ın yaptığı gibi.
+ *
+ * Boş veya yalnız boşluktan oluşan girişte `null` döner; çağıran (board) bunu
+ * sessizce reddeder, bildirim spamlamaz.
+ */
+export function createUserExpansionCard(text: string): ExpansionCard | null {
+  const title = String(text || '').trim().slice(0, MAX_USER_CARD_LENGTH);
+  if (!title) return null;
+  const slug = fingerprint(title) || String(Date.now());
+  return {
+    id: `${USER_CARD_ID_PREFIX}${slug}`,
+    title,
+    description: title,
+    kind: 'feature',
+    origin: 'user'
+  };
+}
+
 export async function generateExpansionCards(
   project: ProjectDocumentV5,
   categoryId: string,
   options: GenerateExpansionOptions
 ): Promise<ExpansionResult> {
-  const category = getExpansionCategories(project).find(item => item.id === categoryId);
+  const category = (options.category && options.category.id === categoryId)
+    ? options.category
+    : getExpansionCategories(project).find(item => item.id === categoryId);
   if (!category) throw new Error(`Bilinmeyen genişletme kategorisi: ${categoryId}`);
 
   const key = cacheKey(project, categoryId);
@@ -135,23 +242,66 @@ export async function generateExpansionCards(
       }
     });
     const visible = hideDecidedCards(project, run.output.cards.map(card => ({ ...card, origin: 'ai' as const })));
+    // Sıra önemlidir: önce karara bağlanmışlar düşer, SONRA parti içi tekrar
+    // elenir. Böylece elde kalan temsilci kart kullanıcının HÂLÂ görebildiği
+    // bir karttır; ters sırada temsilci seçilip ardından gizlenebilir ve
+    // arkasındaki varyasyonlar da onunla birlikte kaybolabilirdi.
+    const unique = dropDuplicateExpansionCards(visible.cards);
+    let cards = unique.cards;
+
+    // Eleme kart SAYISINI düşürür; kullanıcı tekrarların gizlenmesini istedi
+    // ama panonun boşalmasını değil. Elenmiş kartların YERİNE bir tur daha
+    // kart istenir.
+    //
+    // EN ÇOK BİR TUR. Bu dosyanın başında yazdığı gibi kategori başına üretim
+    // ~25 saniye sürüyor; ikinci çağrı beklemeyi ~50 saniyeye çıkarır. Üçüncü
+    // bir tur kullanıcıyı panonun başında kaybettirir ve kazandıracağı kart
+    // sayısı her turda azalır (model zaten söylemediğini söylemeye çalışır).
+    // Tur yeni hiçbir kart getirmezse sessizce durulur.
+    if (unique.duplicateCount > 0) {
+      const extra = await runTopUpRound(project, category, options, cards.map(card => card.title));
+      if (extra.length) {
+        // Tamamlama kartları da AYNI iki kapıdan geçer: model bu turda da
+        // karara bağlanmış bir başlığı veya elde olanın varyasyonunu
+        // önerebilir. Eleme birikmiş küme ÜZERİNDE çalışır; yalnız yeni
+        // partinin kendi içine bakmak, elde olanın kopyasını geçirirdi.
+        const freshVisible = hideDecidedCards(project, extra);
+        const merged = dropDuplicateExpansionCards([...cards, ...freshVisible.cards]);
+        cards = merged.cards.slice(0, MAX_EXPANSION_CARDS);
+      }
+    }
+
     result = {
       categoryId,
-      cards: visible.cards,
+      cards,
       mode: run.provenance.mode === 'cloud-ai' ? 'cloud-ai' : 'local-ai',
       fallbackReason: null,
-      hiddenCount: visible.hiddenCount
+      // İKİ SAYAÇ DA İLK PARTİYİ anlatır. Tamamlama turu kullanıcının hiç
+      // görmediği iç bir onarımdır; oradaki gizlemeleri "senin kararın"
+      // sayacına eklemek, kullanıcının bakmadığı bir partiden ona hesap
+      // vermek olurdu. `duplicateCount` ise burada turun NEDEN çalıştığını
+      // açıklar.
+      hiddenCount: visible.hiddenCount,
+      duplicateCount: unique.duplicateCount
     };
   } catch (error) {
     // Sağlayıcı yok, şema tutmadı veya zaman aşımı: pano yine açılır ama
     // bunun AI üretimi olmadığı açıkça bildirilir.
+    //
+    // Parti içi tekrar elemesi bu yola UYGULANMAZ. Başlangıç kartlarının
+    // açıklaması kategori ipucundan üretilir ve hepsi BİREBİR AYNIDIR;
+    // eleme burada çalışsaydı elle seçilmiş, gerçekten farklı başlıklar
+    // birbirinin tekrarı sanılıp silinirdi. Zaten uydurma da yok: bu
+    // başlıklar modelin değil, sözlüğün. Eleme çalışmadığı için tamamlama
+    // turu da ARANMAZ — burada zaten AI yoktur.
     const visible = hideDecidedCards(project, seedCards(category));
     result = {
       categoryId,
       cards: visible.cards,
       mode: 'fallback',
       fallbackReason: error instanceof Error ? error.message : 'AI çağrısı başarısız.',
-      hiddenCount: visible.hiddenCount
+      hiddenCount: visible.hiddenCount,
+      duplicateCount: 0
     };
   }
 
