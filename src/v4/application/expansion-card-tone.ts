@@ -122,6 +122,56 @@ const NOT_IMPERATIVE = new Set([
 const OPTATIVE_MARKER = 's';
 
 /**
+ * EKSİZ (2. TEKİL) EMİR -- KAPALI VE DAR LİSTE.
+ *
+ * ÖLÇÜLDÜ (aynı canlı koşu): "Azalan değeri sürekli görünür KIL". Türkçede 2.
+ * tekil emir EKSİZDİR; fiil kökünün kendisidir. Yukarıdaki ek arayan kural
+ * (`IMPERATIVE_SUFFIXES`) onu tanımı gereği göremez, çünkü ortada ek yoktur.
+ *
+ * -- NEDEN MEKANİK BİR KURAL DEĞİL, LİSTE --
+ * Eksiz emir fiil KÖKÜDÜR ve Türkçede pek çok kök aynı anda isimdir:
+ * "kur" (döviz kuru), "seç" (-> "seçim"), "tut", "kat", "boya", "tara". "Her
+ * kısa kelimeyi emir say" gibi bir kural bu isimleri eler; yanlış eleme ise
+ * kullanıcıdan GERÇEK bir öneriyi gizler. Bu yüzden tek güvenli biçim kapalı
+ * bir listedir ve liste ÖLÇÜMLE büyür, tahminle değil.
+ *
+ * -- LİSTEYE ALINANLAR VE GEREKÇELERİ --
+ *   `kıl`      : ÖLÇÜLEN ihlalin ta kendisi ("... görünür kıl"). İsim "kıl"
+ *                (saç teli) somut bir uzuv adıdır ve kart metninde daima ekle
+ *                görünür ("kılı", "kılları"); yalın hâlde cümle sonunda durmaz.
+ *   `oluştur`  : `TASK_TONE_VERBS` üyesi; 2. çoğul biçimi ("oluşturun") ölçümde
+ *                dört kez, ad-fiili ("oluşturma") aynı listede gerekçelendi.
+ *                İsim eşsesi YOK.
+ *   `geliştir` : `TASK_TONE_VERBS` üyesi; ölçümde dört kez. İsim eşsesi YOK.
+ *   `belirle`  : `TASK_TONE_VERBS` üyesi; "belirleyin" ve "belirleme" ölçüldü.
+ *                İsim eşsesi YOK.
+ *   `tanımla`  : `TASK_TONE_VERBS` üyesi; saf tanımlama eylemi, isim eşsesi YOK.
+ *   `gerçekleştir` : `TASK_TONE_VERBS` üyesi ("implement"); isim eşsesi YOK.
+ *   `ekle`     : `TASK_TONE_VERBS` üyesi; "ekleyin"/"ekleme" ölçümde iki kez.
+ *                Ürünün KENDİ arayüzü 2. tekil "Fikre ekle" der -- ama bu modül
+ *                yalnız MODELİN ürettiği kart metnini ölçer, arayüz dizesini
+ *                değil; bu yüzden çakışma yoktur.
+ *
+ * -- BİLEREK DIŞARIDA BIRAKILANLAR --
+ *   `modelle` : `TASK_TONE_VERBS` üyesi olduğu hâlde ALINMADI. "modelle" aynı
+ *               zamanda "model" + vasıta eki "-le"dir ("bir modelle"), yani
+ *               isim eşsesi VARDIR. Emin değiliz -> TUTUYORUZ.
+ *   `kur`     : "döviz kuru", "kur farkı" -- sık bir isimdir.
+ *   `seç`, `göster`, `kullan`, `yap`, `topla`, `besle`, `sür`, `tut`, `atla` :
+ *               hepsi OYUNCUNUN yaptığı şeydir; "Atı ahırdan seç" meşru bir
+ *               oyun eylemi olabilir.
+ * Hiçbiri ölçümde eksiz emir olarak görülmedi. Görülürse liste ölçümle büyür.
+ *
+ * KONUM KORUMASI DEĞİŞMEDİ: bu kökler yalnız CÜMLE/BAŞLIK SONUNDA ölçülür
+ * (bkz. SENTENCE_BOUNDARY yorumu). Cümlenin ortasındaki "ekle-" gövdeli çekimli
+ * biçimler ("eklenir", "eklenecek") zaten farklı kelimelerdir ve tam eşleşme
+ * aranarak dışarıda kalır.
+ */
+const BARE_IMPERATIVE_VERBS = new Set([
+  'kıl', 'oluştur', 'geliştir', 'belirle', 'tanımla', 'gerçekleştir', 'ekle'
+]);
+
+/**
  * Türkçe-duyarlı küçültme zorunludur: "I" -> "ı", "İ" -> "i". Varsayılan
  * küçültme bu iki harfi yanlış eşler ve "OLUŞTURUN" gibi büyük harfle yazılmış
  * bir emri kaçırır.
@@ -141,14 +191,19 @@ function lastVowel(stem: string): string | null {
 }
 
 /**
- * Tek bir kelime 2. çoğul emir kipinde mi?
+ * Tek bir kelime emir kipinde mi?
  *
- * Dört kapı da geçilmelidir: ek + gövde uzunluğu + istek kipi değil + ünlü
- * uyumu; ve kelime durak listesinde OLMAMALIDIR.
+ * İki yol vardır:
+ *   1. EKSİZ 2. TEKİL: kelime `BARE_IMPERATIVE_VERBS` içindeki kapalı listeye
+ *      TAM eşleşir. Ek olmadığı için mekanik kapılar (uzunluk, uyum) burada
+ *      anlamsızdır; güvenliği listenin darlığı sağlar.
+ *   2. EKLİ 2. ÇOĞUL: dört kapı da geçilmelidir -- ek + gövde uzunluğu + istek
+ *      kipi değil + ünlü uyumu; ve kelime durak listesinde OLMAMALIDIR.
  */
 function isImperativeWord(word: string): boolean {
   if (!word) return false;
   if (NOT_IMPERATIVE.has(word)) return false;
+  if (BARE_IMPERATIVE_VERBS.has(word)) return true;
 
   const formal = FORMAL_IMPERATIVE_SUFFIXES.find(suffix => word.endsWith(suffix));
   const suffix = formal || IMPERATIVE_SUFFIXES.find(item => word.endsWith(item));
@@ -205,8 +260,52 @@ function stripParentheticals(text: string): string {
   return text.replace(PARENTHETICAL, ' ');
 }
 
+/**
+ * VİRGÜLLE EKLENEN ÖRNEK ARA SÖZÜ DE EMİR FİİLİNİ CÜMLE SONU OLMAKTAN ÇIKARIR.
+ *
+ * ÖLÇÜLDÜ (aynı canlı koşu): "Atların farklı kıyafet seçenekleri ile donanımını
+ * EKLEYİN, örneğin uzun kuyruk ve eyer." Yüklem "ekleyin"dir ve emirdir; ama
+ * arkasına virgülle yapıştırılan örnek yüzünden cümlenin son kelimesi "eyer"
+ * olur ve kural kaçırır. Parantezli biçimi ("belirleyin (örneğin, ...)") bir
+ * önceki turda kapatıldı; bu, aynı ara sözün parantezsiz yazılmış hâlidir.
+ *
+ * VİRGÜL CÜMLE SINIRI SAYILMAZ -- SAYILAMAZ. Virgül Türkçede meşru bir
+ * liste/yan cümle ayracıdır ve virgülden önce duran kelime çoğu zaman fiil
+ * bile değildir: "At koşar, yorulur ve dinlenir.", "Eyer, dizgin ve nal ayrı
+ * ayrı takılır." Dahası tamlayan virgülden hemen önce durabilir ("Atın,
+ * oyuncunun elindeki dizginle yönlendirilir.") -- virgülü sınır saymak tam da
+ * SENTENCE_BOUNDARY yorumunun koruduğu iyelik ekini yanlış eler. Bu yüzden
+ * ölçülen açık kapatılırken kural DEĞİL, girdi düzeltilir: yalnızca AÇIK BİR
+ * ÖRNEK BELİRTECİYLE başlayan ara söz atılır.
+ *
+ * BELİRTEÇ LİSTESİ KAPALI VE GEREKÇELİDİR:
+ *   `örneğin` : ölçülen biçim; hem parantezli hem virgüllü hâlde görüldü.
+ *   `mesela`  : `örneğin`in birebir eşanlamlısı, aynı sözdizimsel konumda.
+ *   `örnek olarak` : aynı öbeğin açık yazılmış hâli.
+ * Üçü de yalnız ÖRNEK sıralar; kendi yüklemini taşımaz, dolayısıyla atıldığında
+ * cümle özgün yüklemiyle biter.
+ *
+ * BİLEREK DIŞARIDA: `yani`, `çünkü`, `ancak`, `ayrıca` -- bunların ardından
+ * gelen yan cümle KENDİ yüklemini taşır ("Atlar yorulur, yani dinlenmeleri
+ * gerekir."); atmak cümlenin gerçek yüklemini değiştirir ve yanlış elemeye
+ * kapı açar. Emin değilsek TUTARIZ.
+ *
+ * Ara söz yalnız cümle sonuna kadar silinir: desen gerçek cümle sınırı
+ * karakterlerini yemez, böylece sonraki cümle olduğu gibi ölçülmeye devam eder.
+ */
+const EXAMPLE_APPOSITIVE = /,\s*(?:örneğin|mesela|örnek olarak)\b[^.!?;\n\r…]*/gi;
+
+function stripExampleAppositives(text: string): string {
+  return text.replace(EXAMPLE_APPOSITIVE, ' ');
+}
+
+/** Ölçümden önce atılan ara sözler; ikisi de cümlenin yüklemini taşımaz. */
+function stripAsides(text: string): string {
+  return stripExampleAppositives(stripParentheticals(text));
+}
+
 export function hasCommandTone(description: string): boolean {
-  const text = stripParentheticals(String(description || ''));
+  const text = stripAsides(String(description || ''));
   if (!text.trim()) return false;
 
   for (const sentence of text.split(SENTENCE_BOUNDARY)) {
@@ -303,7 +402,7 @@ const TASK_TONE_AUXILIARY_STEMS = new Set(['implemente']);
  * GİZLER; yanlış tutma yalnız kötü yazılmış bir kart gösterir.
  */
 export function hasTaskToneTitle(title: string): boolean {
-  const text = stripParentheticals(String(title || ''));
+  const text = stripAsides(String(title || ''));
   if (!text.trim()) return false;
 
   const words = text.trim().split(/\s+/).map(normalizeWord).filter(Boolean);

@@ -89,9 +89,68 @@ describe('hasTaskToneTitle', () => {
       'Ata binme ve inme',
       'Oyuncunun atı besleme',
       'Yarış sırasında yorulma',
-      'Atların sürü hâlinde toplanması'
+      'Atların sürü hâlinde toplanması',
+      'Atları toplama',
+      'Atı besleme',
+      'Engel atlama'
     ];
     for (const title of notTasks) {
+      assert.equal(hasTaskToneTitle(title), false, `yanlış eleme: ${title}`);
+    }
+  });
+
+  /**
+   * CANLI ÖLÇÜM (aynı koşu). 2. TEKİL emir Türkçede EKSİZDİR: fiil kökünün
+   * kendisi. Ek arayan kural onu göremez.
+   */
+  it('eksiz 2. tekil emirle biten başlığı yakalar', () => {
+    assert.equal(hasTaskToneTitle('Azalan değeri sürekli görünür kıl'), true);
+    assert.equal(hasTaskToneTitle('Atlar için ayrı bir envanter oluştur'), true);
+    assert.equal(hasTaskToneTitle('Yorulma eşiğini sen belirle'), true);
+  });
+
+  /**
+   * EN KRİTİK REGRESYON (eksiz emir). Eksiz emir fiil KÖKÜDÜR ve Türkçede pek
+   * çok kök aynı anda isimdir: "kur" (döviz kuru), "kıl" (saç teli), "seç"
+   * (seçim). Liste bu yüzden DAR ve KAPALIDIR; aşağıdakilerin hiçbiri
+   * elenmemelidir.
+   */
+  it('eksiz emirle çakışan isimleri elemez', () => {
+    const nouns = [
+      'Döviz kuru',
+      'Atın kılı',
+      'Renk seçimi',
+      'Oyuncunun seçimi',
+      'Yarış göstergesi',
+      'At kılları',
+      'Ahır kurulumu',
+      'Yem kabı ve su kovası'
+    ];
+    for (const title of nouns) {
+      assert.equal(hasTaskToneTitle(title), false, `yanlış eleme: ${title}`);
+    }
+  });
+
+  /** Aynı liste açıklama sütununda da geçerlidir; cümle sonuna bakılır. */
+  it('eksiz emri açıklamada da yakalar, ismi elemez', () => {
+    assert.equal(hasCommandTone('Azalan değeri sürekli görünür kıl.'), true);
+    assert.equal(hasCommandTone('Atın kılı rüzgârda dalgalanır.'), false);
+    assert.equal(hasCommandTone('Sunucu sayısı sabit, değişen tek şey döviz kuru.'), false);
+    assert.equal(hasCommandTone('Oyuncu ahırda kendi atını seçer.'), false);
+  });
+
+  /**
+   * ASİMETRİ (eksiz emir). Aşağıdaki kökler OYUNCUNUN yaptığı şeylerdir ya da
+   * sık birer isimdir; liste ölçümle büyür, tahminle değil.
+   */
+  it('oyuncu eylemi olan eksiz kökleri elemez', () => {
+    const playerActions = [
+      'Atı ahırdan seç',
+      'Atı otlakta besle',
+      'Engelin üstünden atla',
+      'Dizgini sıkı tut'
+    ];
+    for (const title of playerActions) {
       assert.equal(hasTaskToneTitle(title), false, `yanlış eleme: ${title}`);
     }
   });
@@ -183,6 +242,51 @@ describe('hasCommandTone', () => {
     assert.equal(
       hasCommandTone('Atlar için farklı yürüyüş türleri oluşturun (tırıs, dörtnal).'),
       true
+    );
+  });
+
+  /**
+   * CANLI ÖLÇÜM (aynı koşu). Parantezin yaptığını virgül de yapar: emir fiili
+   * cümlenin ortasında kalır, arkasına "örneğin ..." diye bir örnek ara sözü
+   * yapışır ve cümle-sonu kuralı kaçırır.
+   */
+  it('virgülle eklenen örnek ara sözünün gizlediği emri yakalar', () => {
+    const measured = 'Atların farklı kıyafet seçenekleri ile donanımını ekleyin, örneğin uzun kuyruk ve eyer.';
+    assert.equal(hasCommandTone(measured), true);
+    assert.equal(
+      hasCommandTone('Atlar için farklı yürüyüş türleri oluşturun, mesela tırıs ve dörtnal.'),
+      true
+    );
+  });
+
+  /**
+   * EN KRİTİK REGRESYON (virgül). Virgül Türkçede meşru bir liste/yan cümle
+   * ayracıdır; onu toptan cümle sınırı saymak aşağıdaki cümleleri elerdi.
+   * Yalnız açık ÖRNEK belirteciyle başlayan ara söz atılır.
+   */
+  it('virgüllü meşru cümleleri emir saymaz', () => {
+    const notCommands = [
+      'At koştukça yorulur, dinlenmesi gerekir.',
+      'At koşar, yorulur ve dinlenir.',
+      'Atın enerji seviyesi azalır ve atın hareket hızını etkiler.',
+      'Atın, oyuncunun elindeki dizginle yönlendirilir.',
+      'Bu, uzun bir oyun için düşünülmüş derin bir mekanik.',
+      'Eyer, dizgin ve nal ayrı ayrı takılır.'
+    ];
+    for (const sentence of notCommands) {
+      assert.equal(hasCommandTone(sentence), false, `yanlış pozitif: ${sentence}`);
+    }
+  });
+
+  /** Örnek ara sözünü atmak meşru cümleyi emir yapmamalı. */
+  it('örnek ara sözlü meşru cümleyi emir saymaz', () => {
+    assert.equal(
+      hasCommandTone('Atın yorulması oyuncuya açıkça gösterilsin, örneğin nefes sesiyle.'),
+      false
+    );
+    assert.equal(
+      hasCommandTone('At koştukça yorulur, örneğin uzun mesafede daha hızlı.'),
+      false
     );
   });
 
