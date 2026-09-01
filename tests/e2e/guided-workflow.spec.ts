@@ -600,7 +600,10 @@ test.describe('PromtGen idea studio production workflow', () => {
     // Ayrıca panonun ve sohbet bestecisinin her genişlikte kullanılabilir
     // kaldığı da burada doğrulanır.
     await ensureIdeaChatOpen(page);
-    for (const width of [375, 768, 1180, 1440]) {
+    // 1024 sonradan eklendi: keşif kartları artık genişliğe göre sütun
+    // sayısı değiştiren bir ızgarada duruyor ve bu genişlik, üç sütundan
+    // ikiye düştüğü aralığa denk geliyor.
+    for (const width of [375, 768, 1024, 1180, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow, `${width}px workspace overflow`).toBeLessThanOrEqual(1);

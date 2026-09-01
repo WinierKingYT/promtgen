@@ -3,12 +3,23 @@ import { GitBranch, ListTree, Search } from 'lucide-react';
 import { buildTraceabilityView, type TraceabilityNodeType } from '../../v4/application/traceability-view.js';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
 
+/**
+ * Kayıt türlerinin rengi. Eskiden paletin dışından beş sabit hex geliyordu
+ * (mor #a78bfa, mavi #60a5fa, yeşil #34d399, sarı #fbbf24, gül #fb7185);
+ * bu tema mor ve mavi tanımıyor. Beş tür artık temanın kendi beş ayrı
+ * tonuyla ayrışıyor — bakır, pirinç, patina, gri ve tuğla.
+ *
+ * Bu renkler hem SVG konturu (WCAG 1.4.11, 3:1) hem de filtre düğmesinin
+ * METNİ (`--trace-color`, 9px, 4.5 gerekiyor). İkisi de --pg-surface-soft
+ * zemininde ölçüldü: bakır 4.59 · pirinç 6.81 · patina 6.36 · gri 7.22'nin
+ * altında değil (muted) · tuğla 4.98. Hepsi 4.5'in üstünde.
+ */
 const TYPE_META: Record<TraceabilityNodeType, { label: string; color: string; x: number }> = {
-  decision: { label: 'Karar', color: '#a78bfa', x: 100 },
-  requirement: { label: 'Gereksinim', color: '#60a5fa', x: 300 },
-  task: { label: 'Görev', color: '#34d399', x: 500 },
-  test: { label: 'Test', color: '#fbbf24', x: 700 },
-  risk: { label: 'Risk', color: '#fb7185', x: 900 }
+  decision: { label: 'Karar', color: 'var(--pg-accent-text)', x: 100 },
+  requirement: { label: 'Gereksinim', color: 'var(--pg-warning)', x: 300 },
+  task: { label: 'Görev', color: 'var(--pg-success)', x: 500 },
+  test: { label: 'Test', color: 'var(--pg-muted)', x: 700 },
+  risk: { label: 'Risk', color: 'var(--pg-danger)', x: 900 }
 };
 
 const TERMINAL_STATUSES = new Set(['superseded', 'implemented', 'verified', 'done', 'passed', 'mitigated', 'accepted']);
@@ -76,7 +87,7 @@ export function TraceabilityMap({ project }: { project: ProjectDocumentV5 }) {
             const meta = TYPE_META[node.type];
             return <g key={node.id} role="button" tabIndex={0} aria-label={`${meta.label}: ${node.label}, ${node.status}`} className={`trace-node ${node.impacted ? 'impacted' : ''} ${selectedId === node.id ? 'selected' : ''}`} onClick={() => setSelectedId(node.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(node.id); } }}>
               <rect x={position.x - 76} y={position.y - 22} width="152" height="44" rx="8" style={{ stroke: meta.color }}/>
-              {node.impacted && <circle cx={position.x + 65} cy={position.y - 13} r="5" fill="#fb7185"/>}
+              {node.impacted && <circle cx={position.x + 65} cy={position.y - 13} r="5" fill="var(--pg-danger)"/>}
               <text x={position.x} y={position.y - 3} textAnchor="middle">{short(node.label)}</text>
               <text className="trace-node-status" x={position.x} y={position.y + 13} textAnchor="middle">{node.status}</text>
             </g>;

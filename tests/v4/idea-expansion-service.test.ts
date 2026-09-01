@@ -538,3 +538,288 @@ describe('tekrar elendikten sonra tamamlama turu', () => {
     assert.equal(log.rounds, 1, 'ilk çağrı düştüyse tamamlama turu hiç başlamamalı');
   });
 });
+
+/**
+ * EMİR KİPİ (TON) ELEMESİ.
+ *
+ * Canlı ölçümde kartlar FİKİR değil GÖREV gibi yazılıyordu: "Oyuncuların
+ * atlarına etkileşim kurabilecek araçlar oluşturun." İstem düzeltildi
+ * (bkz. ai/tasks/idea-expansion.ts) ama istem bir SÖZDÜR; bu oturumda dört
+ * kez model isteme uymadı. Mekanik denetim
+ * `application/expansion-card-tone.ts`tedir.
+ *
+ * PARTİ REDDEDİLMEZ. 7B modelde parti reddi çoğu turda maxRepairAttempts'i
+ * tüketip başlangıç kartlarına düşürür ve ürün DAHA KÖTÜ olur; bu yüzden
+ * kart TEK TEK elenir ve zaten var olan tamamlama turu devreye girer.
+ */
+describe('emir kipiyle yazılmış kartların elenmesi', () => {
+  beforeEach(() => clearExpansionCache());
+
+  const toneCard = (title: string, description: string) => ({
+    id: `card-${title}`, title, description,
+    kind: 'feature', effort: 'low', impact: 'high', mvpHint: 'mvp-adayı'
+  });
+
+  /** Birbirinden sözlüksel olarak ayrı meşru kartlar; eleme onlara dokunmamalı. */
+  const legitBatch = [
+    toneCard('At dayanıklılığı', 'At koştukça yorulur, dinlenmesi gerekir.'),
+    toneCard('Görünürlük', 'Oyuncular birbirinin atını görebilir.'),
+    toneCard('Ağ eşitlemesi', 'Atın hareketi ağ üzerinden eşitlenir.')
+  ];
+
+  const fresh = [
+    toneCard('Eyer ve envanter', 'Eyerde taşınan eşyalar ayrı bir çantada durur.'),
+    toneCard('Uzaktan çağırma', 'Islıkla çağrılan hayvan sahibine yaklaşır.'),
+    toneCard('Nal bakımı', 'Zeminin sertliği nalların ömrünü kısaltır.')
+  ];
+
+  const rounded = (
+    rounds: Array<Array<Record<string, unknown>> | Error>,
+    log: { prompts: string[]; rounds: number }
+  ) => ({
+    model: 'mock',
+    async structured({ system, schema }: { system: string; schema: { parse(value: unknown): unknown } }) {
+      log.prompts.push(system);
+      const index = /ZATEN ELİMDE/.test(system) ? 1 : 0;
+      log.rounds = Math.max(log.rounds, index + 1);
+      const round = rounds[Math.min(index, rounds.length - 1)];
+      if (round instanceof Error) throw round;
+      return schema.parse({ cards: round });
+    }
+  });
+
+  it('emir kipli kart TEK TEK elenir; parti reddedilmez, yedeğe düşülmez', async () => {
+    const log = { prompts: [] as string[], rounds: 0 };
+    const batch = [
+      ...legitBatch,
+      toneCard('Etkileşim araçları', 'Oyuncuların atlarına etkileşim kurabilecek araçlar oluşturun.')
+    ];
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: rounded([batch, batch], log)
+    });
+    assert.deepEqual(result.cards.map(item => item.title), legitBatch.map(item => item.title));
+    assert.equal(result.commandToneCount, 1);
+    assert.equal(result.mode, 'local-ai', 'ton ihlali partiyi düşürmemeli');
+    assert.equal(result.fallbackReason, null);
+  });
+
+  it('ölçülen dört emir kipli kartın hepsi elenir, meşru kart kalır', async () => {
+    const log = { prompts: [] as string[], rounds: 0 };
+    const batch = [
+      toneCard('Yarış şablonları', 'At yarışı için farklı şablonları oluşturun. Örneğin, klasik yarış, uzun mesafe yarışı ve hız yarışı gibi.'),
+      toneCard('Zamanlayıcılar', 'At yarışlarının akışını ve zamanlamasını kontrol edecek zamanlayıcılar ve akış kontrol mekanizmaları oluşturun.'),
+      toneCard('Etkileşim araçları', 'Oyuncuların atlarına etkileşim kurabilecek araçlar oluşturun.'),
+      toneCard('Koordineli hareket', 'Atlar arasında koordineli hareketler oluşturun.'),
+      legitBatch[0]
+    ];
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: rounded([batch, batch], log)
+    });
+    assert.deepEqual(result.cards.map(item => item.title), ['At dayanıklılığı']);
+    assert.equal(result.commandToneCount, 4);
+  });
+
+  it('ton elemesi tamamlama turunu tetikler', async () => {
+    const log = { prompts: [] as string[], rounds: 0 };
+    const batch = [
+      ...legitBatch,
+      toneCard('Koordineli hareket', 'Atlar arasında koordineli hareketler oluşturun.')
+    ];
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: rounded([batch, fresh], log)
+    });
+    assert.equal(log.rounds, 2, 'eleme kart sayısını düşürdü; tamamlama turu çalışmalı');
+    assert.deepEqual(result.cards.map(item => item.title), [
+      ...legitBatch.map(item => item.title),
+      ...fresh.map(item => item.title)
+    ]);
+    assert.ok(result.cards.every(item => item.origin === 'ai'));
+  });
+
+  it('tamamlama turundaki emir kipli kartlar da elenir', async () => {
+    const log = { prompts: [] as string[], rounds: 0 };
+    const batch = [
+      ...legitBatch,
+      toneCard('Zamanlayıcılar', 'At yarışlarının akışını ve zamanlamasını kontrol edecek zamanlayıcılar ve akış kontrol mekanizmaları oluşturun.')
+    ];
+    const topUp = [
+      fresh[0],
+      fresh[1],
+      toneCard('Yarış şablonları', 'At yarışı için farklı şablonları oluşturun.')
+    ];
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: rounded([batch, topUp], log)
+    });
+    assert.deepEqual(result.cards.map(item => item.title), [
+      ...legitBatch.map(item => item.title),
+      'Eyer ve envanter',
+      'Uzaktan çağırma'
+    ], 'ikinci turun emir kipli kartı da elenmeli');
+  });
+
+  it('ton sayacı "senin kararın" ve "model tekrarı" sayaçlarına KARIŞMAZ', async () => {
+    const log = { prompts: [] as string[], rounds: 0 };
+    const batch = [
+      ...legitBatch,
+      toneCard('Koordineli hareket', 'Atlar arasında koordineli hareketler oluşturun.')
+    ];
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: rounded([batch, batch], log)
+    });
+    assert.equal(result.commandToneCount, 1);
+    assert.equal(result.hiddenCount, 0);
+    assert.equal(result.duplicateCount, 0);
+  });
+
+  it('emir kipi yokken hiçbir şey elenmez ve tamamlama turu çalışmaz', async () => {
+    const log = { prompts: [] as string[], rounds: 0 };
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: rounded([[...legitBatch, fresh[0]], fresh], log)
+    });
+    assert.equal(log.rounds, 1);
+    assert.equal(result.commandToneCount, 0);
+    assert.equal(result.cards.length, 4);
+  });
+
+  /**
+   * SIRA: ton elemesi tekrar elemesinden ÖNCE çalışır. İki kart birbirinin
+   * varyasyonuysa ve ilki emir kipliyse, ters sırada temsilci olarak emir
+   * kipli kart tutulur, meşru varyasyon onunla birlikte düşer ve ARDINDAN
+   * temsilci de elenir: kullanıcı İKİSİNİ birden kaybeder.
+   */
+  it('ton elemesi tekrar elemesinden ÖNCE çalışır; meşru varyasyon hayatta kalır', async () => {
+    const log = { prompts: [] as string[], rounds: 0 };
+    const batch = [
+      toneCard('At etkileşimleri (Sürükleme)', 'Oyuncular atı kullanarak nesneleri sürükleyebilsin diye bir mekanizma oluşturun.'),
+      toneCard('At etkileşimleri (Toplama)', 'Oyuncular atı kullanarak nesneleri toplayabilir.'),
+      legitBatch[0]
+    ];
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: rounded([batch, batch], log)
+    });
+    assert.ok(
+      result.cards.some(item => item.title === 'At etkileşimleri (Toplama)'),
+      'meşru varyasyon kartı kaybolmamalı'
+    );
+    assert.equal(result.commandToneCount, 1);
+  });
+
+  /**
+   * Fallback yolunda AI yoktur: başlangıç başlıkları sözlükten gelir ve
+   * emir kipiyle yazılmaz. Eleme oraya UYGULANMAZ — yanlış eleme elle
+   * seçilmiş bir başlığı kullanıcıdan gizlerdi.
+   */
+  it('başlangıç (fallback) kartlarına ton elemesi uygulanmaz', async () => {
+    const category = getExpansionCategories(project()).find(item => item.id === 'trust')!;
+    const result = await generateExpansionCards(project(), 'trust', {
+      settings: offlineSettings, provider: failingProvider
+    });
+    assert.equal(result.mode, 'fallback');
+    assert.equal(result.cards.length, category.seedTitles.length);
+    assert.equal(result.commandToneCount, 0);
+  });
+});
+
+/**
+ * Uçuştaki bir üretim iptal edildiğinde ortada bir SONUÇ yoktur: ne AI
+ * kartları ne de "AI bağlı değil" anlamına gelen yedek kartlar. Arka plan
+ * doldurma fikir değişince uçuştaki işi iptal ettiği için (bkz.
+ * expansion-prefetch.ts) bu yol artık her oturumda yürünüyor.
+ */
+describe('iptal edilen üretim', () => {
+  beforeEach(() => clearExpansionCache());
+
+  const hangingProvider = {
+    model: 'mock',
+    async structured({ signal }: { signal?: AbortSignal }) {
+      return new Promise<never>((_resolve, reject) => {
+        if (signal?.aborted) {
+          reject(new Error('AbortError'));
+          return;
+        }
+        signal?.addEventListener('abort', () => reject(new Error('AbortError')));
+      });
+    }
+  } as any;
+
+  it('iptal hata olarak yükselir; yedek kartlara DÜŞÜLMEZ', async () => {
+    const controller = new AbortController();
+    const pending = generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: hangingProvider, signal: controller.signal
+    });
+    controller.abort();
+    await assert.rejects(
+      () => pending,
+      'iptal edilen istek yedek kart üretmemeli; çağıran ekrana hiçbir şey yazmamalı'
+    );
+  });
+
+  it('iptal edilen istek önbelleğe HİÇBİR ŞEY yazmaz', async () => {
+    const target = project();
+    const controller = new AbortController();
+    const pending = generateExpansionCards(target, 'trust', {
+      settings: aiSettings, provider: hangingProvider, signal: controller.signal
+    });
+    controller.abort();
+    await pending.catch(() => {});
+
+    // Aynı anahtar için ikinci çağrı gerçekten yeniden üretmeli: önbellekte
+    // iptalden kalma bir yedek girdi bulursa AI'ı hiç çalıştırmazdı.
+    const calls = { count: 0 };
+    const result = await generateExpansionCards(target, 'trust', {
+      settings: aiSettings, provider: okProvider(calls)
+    });
+    assert.equal(calls.count, 1, 'iptal önbelleğe girdi bırakmamalı');
+    assert.equal(result.mode, 'local-ai');
+  });
+});
+
+
+/**
+ * Önbellek anahtarı `documentRevision` içeriyor ve kart eklemek de revizyonu
+ * artırıyor: kullanıcı fikri düzenledikçe ESKİ anahtarlara bir daha hiç
+ * bakılmaz. Arka plan doldurma bu birikimi revizyon başına ~6 girdiye
+ * çıkardığı için sınır artık gerekli.
+ */
+describe('önbellek büyümesi', () => {
+  beforeEach(() => clearExpansionCache());
+
+  const atRevision = (base: ProjectDocumentV5, documentRevision: number) =>
+    ({ ...base, documentRevision } as ProjectDocumentV5);
+
+  it('çok eski revizyonun girdisi düşürülür; önbellek sınırsız büyümez', async () => {
+    const base = project();
+    const calls = { count: 0 };
+    await generateExpansionCards(atRevision(base, 1), 'trust', {
+      settings: aiSettings, provider: okProvider(calls)
+    });
+    assert.equal(calls.count, 1);
+
+    for (let revision = 2; revision <= 200; revision += 1) {
+      await generateExpansionCards(atRevision(base, revision), 'trust', {
+        settings: aiSettings, provider: okProvider(calls)
+      });
+    }
+
+    const before = calls.count;
+    await generateExpansionCards(atRevision(base, 1), 'trust', {
+      settings: aiSettings, provider: okProvider(calls)
+    });
+    assert.equal(before + 1, calls.count, 'çok eski girdi önbellekten düşmüş olmalı');
+  });
+
+  it('son yazılan girdi sınır yüzünden düşürülmez', async () => {
+    const base = project();
+    const calls = { count: 0 };
+    for (let revision = 1; revision <= 200; revision += 1) {
+      await generateExpansionCards(atRevision(base, revision), 'trust', {
+        settings: aiSettings, provider: okProvider(calls)
+      });
+    }
+    const before = calls.count;
+    await generateExpansionCards(atRevision(base, 200), 'trust', {
+      settings: aiSettings, provider: okProvider(calls)
+    });
+    assert.equal(calls.count, before, 'en son yazılan girdi hâlâ önbellekte olmalı');
+  });
+});

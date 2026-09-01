@@ -1,5 +1,25 @@
 import { test, expect, type Page } from '@playwright/test';
-import { stubReadyProvider, stubExpansionProvider, type StubbedExpansionCard } from './support/provider.js';
+import {
+  stubReadyProvider,
+  stubExpansionProviderByCategory,
+  type StubbedExpansionCard
+} from './support/provider.js';
+import { expansionCard, expansionSection, waitForSettledSections } from './support/expansion-board.js';
+
+/**
+ * Pano artık TEK aktif kategori göstermiyor: arka planda hazırlanan altı
+ * kategori kendi bölümleriyle aynı anda duruyor. Kart iddiaları bu yüzden
+ * bölüm adıyla sınırlandırıldı: "panoda bir yerde" değil, "ŞU BAŞLIK ALTINDA".
+ *
+ * Sahte sağlayıcı kategori BAŞINA ayrı liste döndürür. Bütün başlıklara aynı
+ * listeyi veren `stubExpansionProvider` artık bu dosya için uygun değil:
+ * pano bölümler arası tekrarları eliyor (bkz. expansion-section-dedup.ts) ve
+ * aynı kart yalnız ilk bölümde kalırdı. Buradaki testler kartın KENDİSİYLE
+ * ilgili, elemeyle değil; o davranışın ölçüldüğü yer
+ * idea-expansion-board-sections.spec.ts.
+ */
+const TRUST = 'Güven ve gizlilik';
+const PREFETCHED_SECTIONS = 6;
 
 const IDEA = 'Şehir içinde bisiklet kullananlara güvenli rota öneren bir mobil uygulama yapmak istiyorum.';
 
@@ -58,29 +78,39 @@ test.describe('Keşif panosu', () => {
     await page.route('**/api/chat', route => route.abort());
 
     const board = page.getByRole('region', { name: 'Keşif panosu' });
-    await expect(board.getByRole('button', { name: 'Güven ve gizlilik' })).toBeVisible();
+    await expect(board.getByRole('button', { name: TRUST })).toBeVisible();
     await expect(board.getByRole('button', { name: 'Kapsamı daralt' })).toBeVisible();
 
     // Sağlayıcı yokken kartlar yerelden gelir; bu ekranda açıkça söylenmeli.
-    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
-    await expect(board.locator('.pg-expansion-fallback')).toContainText('AI bağlı değil');
-    await expect(board.locator('.pg-expansion-card').first())
+    await board.getByRole('button', { name: TRUST }).click();
+    const trustSection = expansionSection(page, TRUST);
+    await expect(trustSection.locator('.pg-expansion-fallback')).toContainText('AI bağlı değil');
+    // Kartın kökeni ("değerlendirilmedi") artık kart yüzünde değil, kartın
+    // kendi açılır ayrıntısında duruyor -- ama SİLİNMEDİ ve kartın metninde
+    // bulunabilir olmayı sürdürüyor. İddia bu yüzden aynı kalıyor.
+    await expect(trustSection.locator('.pg-expansion-card').first())
       .toContainText('efor ve etki değerlendirilmedi');
   });
 
   test('kategori açılınca AI kartları gelir ve fikre eklenebilir', async ({ page }) => {
-    await stubExpansionProvider(page, AI_CARDS);
+    await stubExpansionProviderByCategory(page, { [TRUST]: AI_CARDS });
     await page.goto('/');
     await startIdea(page);
 
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board).toBeVisible();
-    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
+    await board.getByRole('button', { name: TRUST }).click();
 
     // seedTitles fallback'i bu başlığı asla üretemez: kart model yolundan geldi.
-    const firstCard = board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title });
+    const firstCard = expansionCard(page, TRUST, AI_CARDS[0].title);
     await expect(firstCard).toBeVisible();
     await expect(board.locator('.pg-expansion-fallback')).toHaveCount(0);
+    // "Az efor" yalnız modelin döndürdüğü effort alanından üretilebilir
+    // (başlangıç kartlarında bu alan hiç yoktur), yani bu iddia hâlâ kartın
+    // AI yolundan geldiğini kanıtlıyor. Değişen tek şey nerede durduğu: rozet
+    // artık kart yüzünde değil, kartın açılır ayrıntısında -- kart metninde
+    // bulunabilir olması bu iddiayı zayıflatmıyor. Yüzde GÖRÜNMEDİĞİ ayrıca
+    // idea-expansion-board-sections.spec.ts'te sınanıyor.
     await expect(firstCard).toContainText('Az efor');
 
     await firstCard.getByRole('button', { name: 'Fikre ekle' }).click();
@@ -88,15 +118,23 @@ test.describe('Keşif panosu', () => {
   });
 
   test('aynı kart ikinci kez eklenince dürüst bir bildirim gösterilir', async ({ page }) => {
-    await stubExpansionProvider(page, AI_CARDS);
+    // Üretim BİLEREK yavaşlatıldı. Kart eklemek documentRevision'ı artırıyor,
+    // bu da arka plan sırasını baştan kuruyor; yeniden üretilen bölüm eklenen
+    // kartı artık göstermiyor (hideDecidedCards, idea-expansion-service.ts).
+    // Bu DOĞRU davranış -- ve ayrıca sınanıyor (idea-expansion-board-sections)
+    // -- ama burada sınanan şey ondan farkı: kullanıcı yeniden üretim
+    // tamamlanmadan aynı karta ikinci kez basarsa ALIM KAPISI ne diyor?
+    // Gecikme o pencereyi deterministik biçimde açık tutuyor; kapının
+    // kendisiyle ilgili hiçbir şeyi taklit etmiyor.
+    await stubExpansionProviderByCategory(page, { [TRUST]: AI_CARDS }, { delayMs: 2000 });
     await page.goto('/');
     await startIdea(page);
 
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board).toBeVisible();
-    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
+    await board.getByRole('button', { name: TRUST }).click();
 
-    const firstCard = board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title });
+    const firstCard = expansionCard(page, TRUST, AI_CARDS[0].title);
     await firstCard.getByRole('button', { name: 'Fikre ekle' }).click();
     await expect(page.locator('.toast')).toContainText('fikre eklendi');
     await expect(page.locator('.toast')).toHaveCount(0);
@@ -107,16 +145,16 @@ test.describe('Keşif panosu', () => {
   });
 
   test('eklenen kartlar kendi karar listesine düşer; hepsi karara bağlanmadan uygulanamaz', async ({ page }) => {
-    await stubExpansionProvider(page, AI_CARDS);
+    await stubExpansionProviderByCategory(page, { [TRUST]: AI_CARDS });
     await page.goto('/');
     await startIdea(page);
 
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board).toBeVisible();
-    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
-    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })
+    await board.getByRole('button', { name: TRUST }).click();
+    await expansionCard(page, TRUST, AI_CARDS[0].title)
       .getByRole('button', { name: 'Fikre ekle' }).click();
-    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[1].title })
+    await expansionCard(page, TRUST, AI_CARDS[1].title)
       .getByRole('button', { name: 'Fikre ekle' }).click();
 
     const decisions = page.getByRole('region', { name: 'Eklediğin kartlar' });
@@ -145,7 +183,7 @@ test.describe('Keşif panosu', () => {
   });
 
   test('eklenen kart konuşma turunun kritik karar sayısına karışmaz', async ({ page }) => {
-    await stubExpansionProvider(page, AI_CARDS);
+    await stubExpansionProviderByCategory(page, { [TRUST]: AI_CARDS });
     await page.goto('/');
     await startIdea(page);
 
@@ -158,8 +196,8 @@ test.describe('Keşif panosu', () => {
 
     await page.getByRole('button', { name: 'Fikir', exact: true }).click();
     const board = page.getByRole('region', { name: 'Keşif panosu' });
-    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
-    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[1].title })
+    await board.getByRole('button', { name: TRUST }).click();
+    await expansionCard(page, TRUST, AI_CARDS[1].title)
       .getByRole('button', { name: 'Fikre ekle' }).click();
 
     // Kart gerçekten eklendi: sayının değişmemesi başarısız bir eklemeden gelmiyor.
@@ -171,14 +209,15 @@ test.describe('Keşif panosu', () => {
   });
 
   test('karara bağlanan kart panoya geri dönmez', async ({ page }) => {
-    await stubExpansionProvider(page, AI_CARDS);
+    await stubExpansionProviderByCategory(page, { [TRUST]: AI_CARDS });
     await page.goto('/');
     await startIdea(page);
 
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board).toBeVisible();
-    await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
-    await board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })
+    await waitForSettledSections(page, PREFETCHED_SECTIONS);
+    await board.getByRole('button', { name: TRUST }).click();
+    await expansionCard(page, TRUST, AI_CARDS[0].title)
       .getByRole('button', { name: 'Fikre ekle' }).click();
 
     const decisions = page.getByRole('region', { name: 'Eklediğin kartlar' });
@@ -186,11 +225,14 @@ test.describe('Keşif panosu', () => {
       .getByRole('button', { name: 'Reddet' }).click();
     await expect(decisions.locator('li', { hasText: AI_CARDS[0].title })).toContainText('Reddedildi');
 
-    // Aynı kategoriyi yenile: model kartı yine üretse bile pano onu göstermemeli.
-    await board.getByRole('button', { name: 'Yenile' }).click();
-    await expect(board.locator('.pg-expansion-card', { hasText: AI_CARDS[1].title })).toBeVisible();
-    await expect(board.locator('.pg-expansion-card', { hasText: AI_CARDS[0].title })).toHaveCount(0);
-    await expect(board).toContainText('daha önce karara bağladığın için gizledim');
+    // Aynı kategoriyi yenile: model kartı yine üretse bile pano onu
+    // göstermemeli. "Yenile" artık bölüm başına bir düğme olduğu için iddia
+    // hedef bölümle sınırlandırıldı.
+    const trustSection = expansionSection(page, TRUST);
+    await trustSection.getByRole('button', { name: 'Yenile' }).click();
+    await expect(expansionCard(page, TRUST, AI_CARDS[1].title)).toBeVisible();
+    await expect(expansionCard(page, TRUST, AI_CARDS[0].title)).toHaveCount(0);
+    await expect(trustSection).toContainText('daha önce karara bağladığın için gizledim');
   });
 
   test('Özet ve Keşif ayrı aşamalarda durur, birbirini bozmaz', async ({ page }) => {

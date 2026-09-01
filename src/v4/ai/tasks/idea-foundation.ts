@@ -60,6 +60,12 @@ Türkçe yanıt ver. Yalnız şu JSON biçimini döndür (her alan {"source":"id
 {"summary":{"source":"...","text":"..."},"problemStatement":{"source":"...","text":"..."},"targetUser":{"source":"...","text":"..."},"currentAlternative":{"source":"...","text":"..."},"desiredOutcome":{"source":"...","text":"..."},"mvpTarget":{"source":"...","text":"..."}}`;
   },
   buildContext(project: ProjectDocumentV5) {
+    // Temel bağlama BİLEREK EKLENMEZ (`includeFoundation` geçilmez): temeli
+    // KURAN görev burasıdır. Kendi çıktısını girdi olarak alsaydı önceki
+    // turun varsayımı bir sonraki turda "zaten kurulmuş zemin" gibi geri
+    // döner ve model onu düzeltmek yerine üstüne inşa ederdi -- kapalı bir
+    // döngü. `idea-expansion`/`idea-axes` için durum tersidir: onlar temeli
+    // ÜRETMEZ, ona DAYANIR.
     const budget = buildBudgetedContext(project, 4_000);
     const imported = isolateImportedProjectContext(project);
     return {

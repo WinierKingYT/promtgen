@@ -28,6 +28,14 @@
  * yazılıdır. Başlık kuralı da tek başına yetmez: ölçülen ilk kusurda dört
  * varyasyon kartının başlıkları BİRBİRİNDEN FARKLIYDI.
  *
+ * NEDEN BAZI YARDIMCILAR DIŞA AKTARILIYOR: `expansion-section-dedup.ts`
+ * (bölümler ARASI eleme) aynı ölçütü kullanmak ZORUNDADIR. İki yer ayrı
+ * ölçüt taşısaydı pano tutarsız olurdu -- kategori içinde tekrar sayılan bir
+ * çift, bölümler arasında ayrı kart sayılabilirdi. Kopyalamak yerine
+ * paylaşmak, eşiği ayarlayan kişinin İKİ yeri birden ayarlamasını sağlar.
+ * `dropDuplicateExpansionCards`in gövdesi bundan etkilenmez: yalnız
+ * görünürlük değişti, davranış değil.
+ *
  * Neden `foundation-idea-claim.ts` ile ortak yardımcı kullanmıyor: orada
  * karşılaştırmanın BİR tarafı kullanıcının ham fikir cümlesidir, bu yüzden
  * "kısa olan uzunun ÖNEKİ mi" (tek yönlü içerme) doğru araçtır. Burada İKİ
@@ -91,7 +99,7 @@ const MIN_SHARED_STEM = 5;
  * yazılmış iki eş fikir buradan geçer. Amaç mükemmel tespit değil, ölçülen
  * ASIL hatayı -- tek mekanizmanın parantezle çoğaltılmasını -- kesmektir.
  */
-const DUPLICATE_SIMILARITY = 0.45;
+export const DUPLICATE_SIMILARITY = 0.45;
 
 /**
  * Bir kartın benzerlik ölçümüne SOKULABİLMESİ için gereken en az içerik
@@ -100,7 +108,7 @@ const DUPLICATE_SIMILARITY = 0.45;
  * Ölçülen gerçek kartlar 8-12 parçacık taşıyor; bu kapı onlara dokunmaz,
  * yalnız ölçülemeyecek kadar ince kartı KORUR (emin değilsen TUT).
  */
-const MIN_COMPARABLE_TOKENS = 3;
+export const MIN_COMPARABLE_TOKENS = 3;
 
 /** Karşılaştırma yalnız bu iki alana bakar; kart tipi bundan bağımsızdır. */
 export interface DedupableCard {
@@ -120,7 +128,7 @@ export interface ExpansionDedupResult<TCard> {
  * `toLocaleLowerCase('tr-TR')` zorunludur: "I" -> "ı", "İ" -> "i". Varsayılan
  * küçültme bu iki harfi yanlış eşler ve aynı kartı farklı sanar.
  */
-function contentTokens(value: string): string[] {
+export function contentTokens(value: string): string[] {
   const normalized = String(value || '')
     .toLocaleLowerCase('tr-TR')
     .normalize('NFC')
@@ -164,7 +172,7 @@ function sharesRoot(left: string, right: string): boolean {
  * parçacıklara oranı. Simetri şarttır -- tek yönlü ölçüt kısa kartı uzun
  * kartın içinde eritir ve gerçek bir fikri eler.
  */
-function similarity(left: string[], right: string[]): number {
+export function similarity(left: string[], right: string[]): number {
   if (left.length === 0 || right.length === 0) return 0;
   const matchedLeft = left.filter(token => right.some(other => sharesRoot(token, other))).length;
   const matchedRight = right.filter(token => left.some(other => sharesRoot(token, other))).length;
@@ -206,7 +214,7 @@ function similarity(left: string[], right: string[]): number {
  * zorunludur, çünkü "Envanter Sistemi" ile "Envanterler Sistemi" aynı
  * başlıktır; naif tam eşleşme bunu kaçırırdı.
  */
-function isSameTitle(left: string[], right: string[]): boolean {
+export function isSameTitle(left: string[], right: string[]): boolean {
   // Başlıksız kart kimliksizdir; hiçbir başlığa eşit sayılmaz (emin değilsen TUT).
   if (left.length === 0 || right.length === 0) return false;
   if (left.length !== right.length) return false;

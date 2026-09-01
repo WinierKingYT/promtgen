@@ -189,8 +189,82 @@ export function mergeExpansionCategories(
   return deduped;
 }
 
-export function getExpansionCategories(project: ProjectDocumentV5): ExpansionCategory[] {
+/**
+ * Kimlik çözümünün çıktısı, KÖKEN ayrımıyla birlikte.
+ *
+ * `categories` sırası kimlik çözümünün sırasıdır ve DEĞİŞMEZ (CORE → BY_DOMAIN
+ * → pack). `domainSpecificIds` yalnız bir ETİKETTİR: hangi kimliklerin alana
+ * özel (BY_DOMAIN veya pack) olduğunu taşır ve sunum sırası bunun üzerine
+ * kurulur. Kimlik çözümü ile sunum sırası bilerek AYRIDIR — çakışmada CORE'un
+ * kazanması bir kimlik kuralıdır, kullanıcının başlıkları hangi sırada
+ * göreceğiyle ilgisi yoktur.
+ */
+export interface ExpansionCategorySet {
+  categories: ExpansionCategory[];
+  domainSpecificIds: string[];
+}
+
+/**
+ * Köken ayrımı ÇIKARIMLA yapılır, ikinci bir kimlik listesi tutularak değil:
+ * birleşimde CORE her zaman kazandığı için, hayatta kalan bir kategorinin
+ * kimliği CORE'da yoksa o kategori BY_DOMAIN'den veya bir pack'ten gelmiştir.
+ * Böylece pack ekseni CORE ile çakışıp elendiğinde, hayatta kalan CORE girdisi
+ * doğru biçimde "genel" sayılır.
+ */
+export function getExpansionCategorySet(project: ProjectDocumentV5): ExpansionCategorySet {
   const domain = classifyProjectDomain(project.identity.originalIdea || '');
   const packAxes = DOMAIN_PACK_REGISTRY.collectExpansionAxes(project);
-  return mergeExpansionCategories(CORE, BY_DOMAIN[domain], packAxes);
+  const categories = mergeExpansionCategories(CORE, BY_DOMAIN[domain], packAxes);
+  const coreIds = new Set(CORE.map(category => category.id));
+  return {
+    categories,
+    domainSpecificIds: categories.filter(category => !coreIds.has(category.id)).map(category => category.id)
+  };
+}
+
+export function getExpansionCategories(project: ProjectDocumentV5): ExpansionCategory[] {
+  return getExpansionCategorySet(project).categories;
+}
+
+/** Sunum sırasında kategorilerin ait olduğu köken kümeleri. */
+export interface ExpansionCategoryOrigins {
+  /** Fikre özel (model üretimi) eksenlerin kimlikleri. */
+  ideaSpecificIds?: readonly string[];
+  /** Alana özel (BY_DOMAIN + pack) eksenlerin kimlikleri. */
+  domainSpecificIds?: readonly string[];
+}
+
+/**
+ * SUNUM ve ÖN-YÜKLEME sırası: fikre özel AI eksenleri → alana özel eksenler →
+ * genel CORE kategorileri.
+ *
+ * NEDEN AYRI BİR FONKSİYON. `mergeExpansionCategories` KİMLİK çözümüdür ve
+ * sırası bir değişmezdir (çakışmada ilk gelen kazanır, CORE her zaman üstün).
+ * O sıra aynı zamanda ön-yükleme sırası olarak kullanılınca ölçülen sonuç şu
+ * oldu: CORE 8 kategori önde durduğu için alana özel eksenler 9. sıradan
+ * başlıyor ve arka plan sınırının (BACKGROUND_PREFETCH_LIMIT = 6) dışında
+ * kalıyor; bir Unity oyunu fikrinde `Ağ yetkisi ve senkron` HİÇ üretilmezken
+ * `Güven ve gizlilik` çerez/oturum önerdi. Bu yüzden kimlik çözümü olduğu
+ * gibi bırakılıp sunum sırası buraya AYRILDI.
+ *
+ * SIRALAMADIR, FİLTRELEME DEĞİL: girdinin KARARLI bir bölüntüsüdür — hiçbir
+ * kategori düşmez, eklenmez, sırası küme içinde bozulmaz. Bilinmeyen köken
+ * kimlikleri yok sayılır (girdide olmayan bir kimlik çıktıya kategori
+ * ekleyemez). Saftır: I/O yok, rastgelelik yok, girdi mutasyonu yok.
+ */
+export function orderExpansionCategoriesForPresentation(
+  categories: readonly ExpansionCategory[],
+  origins: ExpansionCategoryOrigins = {}
+): ExpansionCategory[] {
+  const ideaSpecific = new Set(origins.ideaSpecificIds ?? []);
+  const domainSpecific = new Set(origins.domainSpecificIds ?? []);
+  const ideaBucket: ExpansionCategory[] = [];
+  const domainBucket: ExpansionCategory[] = [];
+  const coreBucket: ExpansionCategory[] = [];
+  for (const category of categories) {
+    if (ideaSpecific.has(category.id)) ideaBucket.push(category);
+    else if (domainSpecific.has(category.id)) domainBucket.push(category);
+    else coreBucket.push(category);
+  }
+  return [...ideaBucket, ...domainBucket, ...coreBucket];
 }

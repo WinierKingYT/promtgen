@@ -57,7 +57,22 @@ export interface StubbedExpansionCard {
  * geri düşer. Böylece testte görülen kartlar yalnız model yolundan gelebilir;
  * seedTitles fallback'i aynı içeriği üretemez.
  */
-export async function stubExpansionProvider(page: Page, cards: StubbedExpansionCard[]): Promise<void> {
+export interface ExpansionStubOptions {
+  /**
+   * Sahte yanıtın geciktirileceği süre. Varsayılan 0 -- eski çağıranlar
+   * etkilenmez. Gecikme, arka plan doldurmasının ARA durumlarını (sırada /
+   * hazırlanıyor) ölçülebilir kılmak için var: gerçek üretimde kategori başına
+   * ~25 saniye süren bu durumlar sahte sağlayıcıda anında geçip gidiyor ve
+   * hiç sınanamıyorlardı.
+   */
+  delayMs?: number;
+}
+
+export async function stubExpansionProvider(
+  page: Page,
+  cards: StubbedExpansionCard[],
+  options: ExpansionStubOptions = {}
+): Promise<void> {
   await stubReadyProvider(page);
   await page.route('**/api/chat', async route => {
     const request = route.request();
@@ -76,6 +91,100 @@ export async function stubExpansionProvider(page: Page, cards: StubbedExpansionC
       await route.fallback();
       return;
     }
+    if (options.delayMs) await new Promise(resolve => setTimeout(resolve, options.delayMs));
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ message: { content: JSON.stringify({ cards }) } })
+    });
+  });
+}
+
+/**
+ * İstemden kategori etiketini söker. İstem satırı değişmez biçimde
+ * `Şu tek kategori için öneri üret: "<etiket>" — <ipucu>` (bkz.
+ * ai/tasks/idea-expansion.ts).
+ *
+ * Gövde bir JSON dizesidir: istemdeki tırnaklar oraya `\"` olarak yazılır.
+ * Bu yüzden ÖNCE kaçış çözülür -- ilk sürüm bunu atlamıştı ve etiket hiçbir
+ * zaman eşleşmeyip her kategori dolgu kartlarını alıyordu.
+ */
+function readCategoryLabel(body: string): string {
+  const match = /Şu tek kategori için öneri üret: "([^"]*)"/.exec(body.replace(/\\"/g, '"'));
+  return match ? match[1] : '';
+}
+
+/**
+ * Kategori BAŞINA ayrı kart listesi döndürür.
+ *
+ * NEDEN GEREKLİ: `stubExpansionProvider` her kategori için AYNI listeyi
+ * döndürüyor. Pano bölümler arası tekrarları artık eliyor (bkz.
+ * expansion-section-dedup.ts), yani o sahte sağlayıcıyla ikinci bölümden
+ * sonrası bilerek boş kalıyor -- doğru davranış, ama "her başlığın KENDİ
+ * önerileri var" iddiasını ölçemez hâle geliyor. Bu sağlayıcı o iddiayı
+ * ölçmek için var: gerçek modelin yaptığı gibi her başlığa farklı kart verir.
+ *
+ * Haritada olmayan kategoriler sabit bir dolgu listesi alır: şema en az üç
+ * kart istiyor ve arka plan sırasındaki her kategori bir sonuca bağlanmalı.
+ * Dolgu kartları kasten hep aynıdır -- onların bölümleri elemeye takılır ve
+ * bu testlerde iddia konusu değildir.
+ */
+const FILLER_CARDS: StubbedExpansionCard[] = [
+  {
+    id: 'filler-1',
+    title: 'Klavye kısayolları',
+    description: 'Sık kullanılan işlemler tuş takımından yapılabilsin.',
+    kind: 'feature',
+    effort: 'low',
+    impact: 'low',
+    mvpHint: 'sonraya'
+  },
+  {
+    id: 'filler-2',
+    title: 'Tabloları dosyaya aktarma',
+    description: 'Listeler CSV biçiminde indirilebilsin.',
+    kind: 'feature',
+    effort: 'medium',
+    impact: 'low',
+    mvpHint: 'sonraya'
+  },
+  {
+    id: 'filler-3',
+    title: 'Koyu görünüm',
+    description: 'Gece saatlerinde göz yormayan bir tema bulunsun.',
+    kind: 'feature',
+    effort: 'low',
+    impact: 'medium',
+    mvpHint: 'sonraya'
+  }
+];
+
+export async function stubExpansionProviderByCategory(
+  page: Page,
+  cardsByCategoryLabel: Record<string, StubbedExpansionCard[]>,
+  options: ExpansionStubOptions = {}
+): Promise<void> {
+  await stubReadyProvider(page);
+  await page.route('**/api/chat', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type'
+        }
+      });
+      return;
+    }
+    const body = request.postData() || '';
+    if (!body.includes(EXPANSION_PROMPT_MARK)) {
+      await route.fallback();
+      return;
+    }
+    const cards = cardsByCategoryLabel[readCategoryLabel(body)] || FILLER_CARDS;
+    if (options.delayMs) await new Promise(resolve => setTimeout(resolve, options.delayMs));
     await route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },

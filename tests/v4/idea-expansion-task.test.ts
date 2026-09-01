@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { analyzeIdea } from '../../src/v4/planning-engine.js';
 import { ideaExpansionTask } from '../../src/v4/ai/tasks/idea-expansion.js';
 import { getTaskDefinition, TASK_REGISTRY } from '../../src/v4/ai/registry.js';
-import { MINIMUM_EXPANSION_CARDS } from '../../src/v4/ai/schemas/schemas.js';
+import { MINIMUM_EXPANSION_CARDS, expansionCardSchema } from '../../src/v4/ai/schemas/schemas.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const project = () => analyzeIdea('Şehir içi bisiklet rotası öneren bir mobil uygulama') as ProjectDocumentV5;
@@ -70,7 +70,11 @@ describe('ideaExpansionTask', () => {
   });
 
   it('istem sürümü yükseltilmiş olmalı', () => {
-    assert.equal(ideaExpansionTask.promptVersion, '1.3.0');
+    // 1.5.0: kart artık GÖREV değil FİKİR olarak tanımlanıyor; başlık isim
+    // öbeği, açıklama kullanıcıya hitap eden tek cümle (aşağıdaki bloğa bak).
+    // 1.6.0: temel bağlamı YALNIZ kullanıcının kendi sözüne daraltıldı;
+    // istem artık bağlama giremeyen kökenlerden hiç söz etmiyor.
+    assert.equal(ideaExpansionTask.promptVersion, '1.6.0');
   });
 
   it('bağlam kategoriyi ve başlangıç başlıklarını taşır', () => {
@@ -81,6 +85,73 @@ describe('ideaExpansionTask', () => {
 
   it('outputFields şema alanlarıyla eşleşir', () => {
     assert.deepEqual([...ideaExpansionTask.outputFields], Object.keys(ideaExpansionTask.schema.shape));
+  });
+});
+
+/**
+ * KART GÖREV DEĞİL, FİKİRDİR.
+ *
+ * CANLI ÖLÇÜM (qwen2.5:7b, fikir = "unityde bir at sistemi yapmak istiyorum
+ * multiplayer olucak"): kartlar bir geliştiriciye verilmiş iş tanımı gibi
+ * çıktı — "At yarışı için farklı şablonları oluşturun.", "Oyuncuların
+ * atlarına etkileşim kurabilecek araçlar oluşturun." Kullanıcı ise bir ŞEY
+ * istiyordu: "at sistemine health, stamina, at sürme, at envanteri gibi
+ * şeyler eklenecek".
+ *
+ * Soyut kural 7B modelde tutmuyor; bu yüzden isteme SOMUT İYİ/KÖTÜ örnek
+ * çifti konur. İstem ilk savunmadır, mekanik denetim
+ * (application/expansion-card-tone.ts) son savunmadır.
+ */
+describe('ideaExpansionTask — kart bir GÖREV değil FİKİRDİR', () => {
+  it('başlığın somut bir ŞEY, isim öbeği olmasını ister', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /isim öbeği/i);
+    assert.match(prompt, /At dayanıklılığı/);
+    assert.match(prompt, /Eyer ve envanter/);
+  });
+
+  it('görev adlandırmasını açıkça yasaklar', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /oluşturma/, 'görev adlandırması örnekle yasaklanmalı');
+    assert.match(prompt, /implemente etme/);
+  });
+
+  it('açıklamanın kullanıcıya hitap eden TEK cümle olmasını ister', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /TEK cümle/i);
+    assert.match(prompt, /TALİMAT VERMEZ|talimat verme/i);
+  });
+
+  it('emir kipini örnekleriyle yasaklar', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /emir kipi/i);
+    assert.match(prompt, /oluşturun/);
+  });
+
+  /** 7B model soyut kuraldan çok somut örnekle çalışıyor: çift ŞART. */
+  it('somut İYİ/KÖTÜ örnek çiftini taşır', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /İYİ/);
+    assert.match(prompt, /KÖTÜ/);
+    assert.match(prompt, /At koştukça yorulur, dinlenmesi gerekir\./);
+    assert.match(prompt, /At için bir dayanıklılık sistemi oluşturun\./);
+    assert.match(prompt, /Yorulma mekanizması implemente edin\./);
+  });
+
+  /**
+   * ŞEMA DEĞİŞMEZ: effort/impact/mvpHint alanları istenmeye DEVAM eder.
+   * Bunların kart yüzünden kaldırılması ayrı bir iştir (arayüz aşaması);
+   * şemayı değiştirmek `task-compiler` gibi okuyanları kırardı.
+   */
+  it('değerlendirme alanlarını istemeye devam eder', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    assert.match(prompt, /"effort"/);
+    assert.match(prompt, /"impact"/);
+    assert.match(prompt, /"mvpHint"/);
+    assert.deepEqual(
+      Object.keys(expansionCardSchema.shape).sort(),
+      ['description', 'effort', 'id', 'impact', 'kind', 'mvpHint', 'title']
+    );
   });
 });
 

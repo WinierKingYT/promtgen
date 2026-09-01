@@ -5,6 +5,7 @@ import {
   type StubbedExpansionCard,
   type StubbedIdeaAxis
 } from './support/provider.js';
+import { expansionCard, expansionSection } from './support/expansion-board.js';
 
 const IDEA = 'Şehir içinde bisiklet kullananlara güvenli rota öneren bir mobil uygulama yapmak istiyorum.';
 
@@ -130,13 +131,18 @@ test.describe('Otomatik öneri (Aşama B)', () => {
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board).toBeVisible();
 
-    // Kullanıcı hiçbir chip'e tıklamadı; panel kendiliğinden açılmalı.
-    const autoCard = board.locator('.pg-expansion-card', { hasText: AUTO_CARDS[0].title });
+    // Kullanıcı hiçbir başlığa gitmedi; eksenin bölümü kendiliğinden
+    // dolmalı. Arka plan doldurma aynı kartları sözlük kategorilerinin
+    // bölümlerine de yazdığı için kart iddiası ekseninin KENDİ bölümüyle
+    // sınırlandırıldı: sınanan şey "panoda bir yerde kart var" değil,
+    // "OTOMATİK ÖNERİLEN EKSENİN altında kart var".
+    const autoCard = expansionCard(page, AXES[0].label, AUTO_CARDS[0].title);
     await expect(autoCard).toBeVisible({ timeout: 15000 });
-    await expect(board.locator('.pg-expansion-auto-note')).toContainText('otomatik önerdim');
+    await expect(expansionSection(page, AXES[0].label).locator('.pg-expansion-auto-note'))
+      .toContainText('otomatik önerdim');
 
-    // Kullanıcı yine de başka bir chip'e geçebilir; bunu doğrulamak bu testin
-    // kapsamı dışında (chip davranışı diğer spec'te zaten kanıtlı), yalnız
+    // Kullanıcı yine de başka bir başlığa geçebilir; bunu doğrulamak bu testin
+    // kapsamı dışında (gezinme davranışı diğer spec'te zaten kanıtlı), yalnız
     // otomatik notun kalktığını kontrol ederiz.
     await board.getByRole('button', { name: 'Güven ve gizlilik' }).click();
     await expect(board.locator('.pg-expansion-auto-note')).toHaveCount(0);
@@ -153,8 +159,23 @@ test.describe('Otomatik öneri (Aşama B)', () => {
     const board = page.getByRole('region', { name: 'Keşif panosu' });
     await expect(board).toBeVisible();
     await page.waitForTimeout(500);
-    await expect(board.locator('.pg-expansion-panel')).toHaveCount(0);
-    await expect(board.locator('.pg-expansion-fallback')).toHaveCount(0);
+    // "Hiç panel açılmadı" iddiası ARTIK GEÇERSİZ ve bilerek değiştirildi:
+    // arka planda hazırlanan kategoriler artık kendi bölümleriyle görünüyor,
+    // yani bu ekranda bölüm OLMASI beklenen davranıştır. Testin koruduğu
+    // asıl şey bu değildi zaten; korunan şey ŞU İKİ İDDİA:
+    //
+    //   1. Fikre özel eksen üretilemedi -> o blok hiç render edilmez,
+    //   2. dolayısıyla hiçbir bölüm "bunu senin için ben seçtim" demez,
+    //
+    // İkisi de aşağıda ayrı ayrı sınanıyor.
+    //
+    // "Hiç fallback banner'ı yok" İDDİASI DA DÜŞTÜ ve bilerek eklenmedi: bu
+    // dosyanın AI_CARDS listesi tek kart içeriyor, şema ise en az üç kart
+    // istiyor (MINIMUM_EXPANSION_CARDS). Yani arka planda hazırlanan her
+    // kategori şemayı geçemeyip yerel başlangıç kartlarına düşüyor ve bunu
+    // söylüyor -- bu DOĞRU davranış. Yokluğunu iddia etmek, panonun
+    // dürüstlüğünü bir hata gibi sınamak olurdu.
+    await expect(board.locator('.pg-expansion-ai-axes')).toHaveCount(0);
     await expect(board.locator('.pg-expansion-auto-note')).toHaveCount(0);
   });
 });

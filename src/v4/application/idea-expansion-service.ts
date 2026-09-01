@@ -5,6 +5,7 @@ import { runRegisteredAITask } from '../ai/runtime.js';
 import { getExpansionCategories, type ExpansionCategory } from '../idea-expansion/categories.js';
 import { findExpansionItemByTitle } from './proposal-bundle-selectors.js';
 import { dropDuplicateExpansionCards } from './expansion-card-dedup.js';
+import { dropCommandToneExpansionCards } from './expansion-card-tone.js';
 import { fingerprint } from './deterministic-idea-planning.js';
 import type { IdeaExpansionOutput } from '../ai/schemas/schemas.js';
 
@@ -50,6 +51,17 @@ export interface ExpansionResult {
    * demedi.
    */
   duplicateCount: number;
+  /**
+   * Emir kipiyle -- yani FİKİR değil GÖREV gibi -- yazıldığı için elenen kart
+   * sayısı. ÜÇÜNCÜ ve AYRI bir sayaçtır: `hiddenCount` "bunu zaten karara
+   * bağladın", `duplicateCount` "model kendini tekrar etti", bu ise "model
+   * kartı bir iş tanımı gibi yazdı" demektir. Üçünü toplamak kullanıcıya
+   * vermediği kararları atfederdi.
+   *
+   * ARAYÜZE ÇIKMAZ; `duplicateCount` gibi yalnız İÇ sinyaldir ve tamamlama
+   * turunun gerekip gerekmediğini `duplicateCount` ile birlikte belirler.
+   */
+  commandToneCount: number;
 }
 
 /**
@@ -108,8 +120,41 @@ export interface GenerateExpansionOptions {
  */
 const cache = new Map<string, ExpansionResult>();
 
+/**
+ * Önbellekte tutulan en fazla girdi sayısı.
+ *
+ * GEREKÇE. Anahtar `documentRevision` içeriyor ve revizyon YALNIZ fikir metni
+ * değişince değil, kart eklemek dâhil her kalıcılaştırmada artıyor. Yani eski
+ * revizyonun girdilerine bir daha HİÇ bakılmaz — onlar canlı bir önbellek
+ * değil, ölü ağırlıktır. Arka plan doldurma (bkz. expansion-prefetch.ts) bu
+ * ölü ağırlığı revizyon başına bir-iki girdiden ~6'ya çıkardığı için sınır
+ * artık gerekli: 20 düzenleme ~120 girdi demek ve hiçbiri okunmuyor.
+ *
+ * 96 seçildi: revizyon başına en fazla ~14 kategori (pano canlı ölçümde bu
+ * kadar gösteriyor) tutulabilir; 96 bunun ~7 revizyonluk penceresidir. Yani
+ * kullanıcı fikri düzeltip geri aldığında bile eldeki revizyonun TAMAMI
+ * kesinlikle önbellekte kalır — sınır yalnız çok eskiyi düşürür.
+ *
+ * Düşürme sırası yazma sırasıdır (`Map` ekleme sırasını korur): en eski
+ * yazılan gider. Bu, "en eski revizyon" ile pratikte aynı şeydir.
+ */
+const MAX_CACHE_ENTRIES = 96;
+
 export function clearExpansionCache(): void {
   cache.clear();
+}
+
+function rememberResult(key: string, result: ExpansionResult): void {
+  // Yeniden yazılan anahtar tazelenir: `delete` + `set` onu sıranın sonuna
+  // taşır, yoksa "Yenile" ile güncellenen bir girdi ilk yazıldığı anın
+  // yaşıyla düşerdi.
+  cache.delete(key);
+  cache.set(key, result);
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next();
+    if (oldest.done) break;
+    cache.delete(oldest.value);
+  }
 }
 
 function cacheKey(project: ProjectDocumentV5, categoryId: string): string {
@@ -242,11 +287,19 @@ export async function generateExpansionCards(
       }
     });
     const visible = hideDecidedCards(project, run.output.cards.map(card => ({ ...card, origin: 'ai' as const })));
-    // Sıra önemlidir: önce karara bağlanmışlar düşer, SONRA parti içi tekrar
-    // elenir. Böylece elde kalan temsilci kart kullanıcının HÂLÂ görebildiği
-    // bir karttır; ters sırada temsilci seçilip ardından gizlenebilir ve
-    // arkasındaki varyasyonlar da onunla birlikte kaybolabilirdi.
-    const unique = dropDuplicateExpansionCards(visible.cards);
+    // BORU HATTI SIRASI -- üçü de aynı gerekçeyle bu sırada durur: eleyen her
+    // kapı, kendisinden SONRA gelen kapının elinde kullanıcının GERÇEKTEN
+    // görebileceği kartlar kalmasını sağlar.
+    //   1. karara bağlanmışlar düşer (kullanıcı onları zaten görmeyecek),
+    //   2. emir kipiyle yazılmış kartlar düşer,
+    //   3. parti içi tekrarlar elenir.
+    // 2 neden 3'ten ÖNCE: iki kart birbirinin varyasyonuysa ve ilki emir
+    // kipliyse, ters sırada temsilci olarak EMİR KİPLİ kart tutulur, meşru
+    // varyasyon onunla birlikte düşer ve ardından temsilci de elenir --
+    // kullanıcı İKİSİNİ birden kaybederdi. Aynı gerekçe 1'in 3'ten önce
+    // olmasını da gerektirir.
+    const toned = dropCommandToneExpansionCards(visible.cards);
+    const unique = dropDuplicateExpansionCards(toned.cards);
     let cards = unique.cards;
 
     // Eleme kart SAYISINI düşürür; kullanıcı tekrarların gizlenmesini istedi
@@ -258,15 +311,21 @@ export async function generateExpansionCards(
     // bir tur kullanıcıyı panonun başında kaybettirir ve kazandıracağı kart
     // sayısı her turda azalır (model zaten söylemediğini söylemeye çalışır).
     // Tur yeni hiçbir kart getirmezse sessizce durulur.
-    if (unique.duplicateCount > 0) {
+    //
+    // TON ELEMESİ DE AYNI TURU TETİKLER: kullanıcı açısından fark yoktur --
+    // her iki hâlde de panoda daha az kart kalır. Yeni bir mekanizma
+    // icat edilmez, var olan tur aynı koşulun yanına eklenir.
+    if (unique.duplicateCount > 0 || toned.commandToneCount > 0) {
       const extra = await runTopUpRound(project, category, options, cards.map(card => card.title));
       if (extra.length) {
-        // Tamamlama kartları da AYNI iki kapıdan geçer: model bu turda da
-        // karara bağlanmış bir başlığı veya elde olanın varyasyonunu
-        // önerebilir. Eleme birikmiş küme ÜZERİNDE çalışır; yalnız yeni
-        // partinin kendi içine bakmak, elde olanın kopyasını geçirirdi.
+        // Tamamlama kartları da AYNI ÜÇ kapıdan ve AYNI sırayla geçer: model
+        // bu turda da karara bağlanmış bir başlığı, emir kipli bir kart ya da
+        // elde olanın varyasyonunu önerebilir. Tekrar elemesi birikmiş küme
+        // ÜZERİNDE çalışır; yalnız yeni partinin kendi içine bakmak, elde
+        // olanın kopyasını geçirirdi.
         const freshVisible = hideDecidedCards(project, extra);
-        const merged = dropDuplicateExpansionCards([...cards, ...freshVisible.cards]);
+        const freshToned = dropCommandToneExpansionCards(freshVisible.cards);
+        const merged = dropDuplicateExpansionCards([...cards, ...freshToned.cards]);
         cards = merged.cards.slice(0, MAX_EXPANSION_CARDS);
       }
     }
@@ -276,15 +335,24 @@ export async function generateExpansionCards(
       cards,
       mode: run.provenance.mode === 'cloud-ai' ? 'cloud-ai' : 'local-ai',
       fallbackReason: null,
-      // İKİ SAYAÇ DA İLK PARTİYİ anlatır. Tamamlama turu kullanıcının hiç
+      // ÜÇ SAYAÇ DA İLK PARTİYİ anlatır. Tamamlama turu kullanıcının hiç
       // görmediği iç bir onarımdır; oradaki gizlemeleri "senin kararın"
       // sayacına eklemek, kullanıcının bakmadığı bir partiden ona hesap
-      // vermek olurdu. `duplicateCount` ise burada turun NEDEN çalıştığını
-      // açıklar.
+      // vermek olurdu. `duplicateCount` ve `commandToneCount` ise burada
+      // turun NEDEN çalıştığını açıklar.
       hiddenCount: visible.hiddenCount,
-      duplicateCount: unique.duplicateCount
+      duplicateCount: unique.duplicateCount,
+      commandToneCount: toned.commandToneCount
     };
   } catch (error) {
+    // İPTAL BİR BAŞARISIZLIK DEĞİLDİR. Arka plan doldurma fikir değişince
+    // uçuştaki üretimi iptal ediyor (bkz. expansion-prefetch.ts); o istek
+    // artık İSTENMİYOR. Yedek kartlar üretmek "AI bağlı değil" demek olurdu
+    // -- yanlış; önbelleğe yazmak ise eskimiş bir anahtarı yedek sonuçla
+    // doldurup sonraki gerçek üretimi engellerdi. İkisi de yapılmaz: hata
+    // olduğu gibi yukarı verilir, çağıran ekrana hiçbir şey yazmaz.
+    if (options.signal?.aborted) throw error;
+
     // Sağlayıcı yok, şema tutmadı veya zaman aşımı: pano yine açılır ama
     // bunun AI üretimi olmadığı açıkça bildirilir.
     //
@@ -294,6 +362,11 @@ export async function generateExpansionCards(
     // birbirinin tekrarı sanılıp silinirdi. Zaten uydurma da yok: bu
     // başlıklar modelin değil, sözlüğün. Eleme çalışmadığı için tamamlama
     // turu da ARANMAZ — burada zaten AI yoktur.
+    //
+    // TON ELEMESİ DE UYGULANMAZ ve aynı gerekçeyle: bu başlıklar elle
+    // seçilmiştir, emir kipiyle yazılmamıştır ve burada denetlenecek bir
+    // model çıktısı yoktur. Yanlış eleme burada elle yazılmış bir öneriyi
+    // kullanıcıdan gizlerdi.
     const visible = hideDecidedCards(project, seedCards(category));
     result = {
       categoryId,
@@ -301,10 +374,11 @@ export async function generateExpansionCards(
       mode: 'fallback',
       fallbackReason: error instanceof Error ? error.message : 'AI çağrısı başarısız.',
       hiddenCount: visible.hiddenCount,
-      duplicateCount: 0
+      duplicateCount: 0,
+      commandToneCount: 0
     };
   }
 
-  cache.set(key, result);
+  rememberResult(key, result);
   return result;
 }

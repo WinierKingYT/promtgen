@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { analyzeIdea } from '../../src/v4/planning-engine.js';
-import { getExpansionCategories, mergeExpansionCategories, type ExpansionCategory } from '../../src/v4/idea-expansion/categories.js';
+import {
+  getExpansionCategories,
+  getExpansionCategorySet,
+  mergeExpansionCategories,
+  orderExpansionCategoriesForPresentation,
+  type ExpansionCategory
+} from '../../src/v4/idea-expansion/categories.js';
 import type { DomainPackExpansionAxis, ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const projectFor = (idea: string) => analyzeIdea(idea) as ProjectDocumentV5;
@@ -174,5 +180,123 @@ describe('getExpansionCategories', () => {
       assert.equal(packIds.length, 6, 'pack eksenleri 6 ile sınırlı olmalı');
       assert.deepEqual(packIds, ['pack-axis-0', 'pack-axis-1', 'pack-axis-2', 'pack-axis-3', 'pack-axis-4', 'pack-axis-5'], 'ilk 6 eksen korunmalı, sıralama bozulmamalı');
     });
+  });
+});
+
+/**
+ * ÖLÇÜLEN SORUN. Canlı çalıştırmada bir Unity at oyunu fikri için `Güven ve
+ * gizlilik` bölümü çerez/oturum önerdi; aynı anda `Ağ yetkisi ve senkron`,
+ * `Girdi ve his`, `Simüle edilen durum` eksenleri HİÇ üretilmedi. Neden:
+ * kimlik çözümünün sırası (CORE 8 → BY_DOMAIN 5 → pack) aynı zamanda
+ * ön-yükleme sırası olarak kullanılıyordu ve arka plan sınırı (6) alana özel
+ * eksenlere hiç ulaşmıyordu.
+ *
+ * ÇÖZÜM AYRIMI. Kimlik çözümü (mergeExpansionCategories) DEĞİŞMEZ: sırası
+ * sabittir ve çakışmada CORE kazanır. Sunum/ön-yükleme sırası ise ayrı, saf
+ * bir fonksiyonla üretilir. Aşağıdaki testler bu ayrımı ölçer.
+ */
+describe('orderExpansionCategoriesForPresentation (sunum sırası)', () => {
+  const aiAxis = (id: string): ExpansionCategory =>
+    ({ id, label: `AI ${id}`, hint: 'fikre özel', seedTitles: ['a1', 'a2'] });
+
+  const gameProject = () => projectFor('Unity ile bir at sistemi yapmak istiyorum, multiplayer olacak');
+  const plainProject = () => projectFor('Köyde arıcılık yapmak ve bal satmak istiyorum');
+
+  it('oyun fikrinde sıra: fikre özel AI eksenleri → alana özel eksenler → CORE', () => {
+    const set = getExpansionCategorySet(gameProject());
+    const axes = [aiAxis('ai.at-bakimi'), aiAxis('ai.binicilik')];
+    const ordered = orderExpansionCategoriesForPresentation(
+      mergeExpansionCategories(set.categories, [], axes),
+      { ideaSpecificIds: axes.map(axis => axis.id), domainSpecificIds: set.domainSpecificIds }
+    ).map(category => category.id);
+
+    assert.deepEqual(ordered.slice(0, 2), ['ai.at-bakimi', 'ai.binicilik'], 'fikre özel eksenler başta olmalı');
+    assert.deepEqual(
+      ordered.slice(2, 7),
+      ['game-loop', 'simulated-state', 'network-authority', 'input-and-feel', 'content-pipeline'],
+      'alana özel oyun eksenleri CORE\'dan ÖNCE gelmeli'
+    );
+    assert.deepEqual(ordered.slice(7), CORE_IDS, 'genel CORE kategorileri en sonda, kendi sırasını koruyarak durmalı');
+  });
+
+  it('alan paketi olmayan fikirde sıra: AI eksenleri → CORE ve hiçbir kategori kaybolmaz', () => {
+    const set = getExpansionCategorySet(plainProject());
+    assert.deepEqual(set.domainSpecificIds, [], 'genel alanda alana özel eksen yoktur');
+    const axes = [aiAxis('ai.kovan-sagligi')];
+    const ordered = orderExpansionCategoriesForPresentation(
+      mergeExpansionCategories(set.categories, [], axes),
+      { ideaSpecificIds: axes.map(axis => axis.id), domainSpecificIds: set.domainSpecificIds }
+    ).map(category => category.id);
+
+    assert.deepEqual(ordered, ['ai.kovan-sagligi', ...CORE_IDS]);
+  });
+
+  it('hiç AI ekseni yokken sıra: alana özel → CORE', () => {
+    const set = getExpansionCategorySet(gameProject());
+    const ordered = orderExpansionCategoriesForPresentation(
+      set.categories,
+      { domainSpecificIds: set.domainSpecificIds }
+    ).map(category => category.id);
+
+    assert.deepEqual(
+      ordered,
+      ['game-loop', 'simulated-state', 'network-authority', 'input-and-feel', 'content-pipeline', ...CORE_IDS]
+    );
+  });
+
+  it('SIRALAMADIR, FİLTRELEME DEĞİL: kimlik kümesi ve kategori sayısı birebir korunur', () => {
+    const set = getExpansionCategorySet(gameProject());
+    const axes = [aiAxis('ai.at-bakimi')];
+    const resolved = mergeExpansionCategories(set.categories, [], axes);
+    const ordered = orderExpansionCategoriesForPresentation(resolved, {
+      ideaSpecificIds: axes.map(axis => axis.id),
+      domainSpecificIds: set.domainSpecificIds
+    });
+
+    assert.equal(ordered.length, resolved.length, 'kategori sayısı değişmemeli');
+    assert.deepEqual(
+      [...ordered.map(c => c.id)].sort(),
+      [...resolved.map(c => c.id)].sort(),
+      'aynı kimlik kümesi taşınmalı'
+    );
+    assert.ok(ordered.some(c => c.id === 'trust'), '"Güven ve gizlilik" oyunda da listede kalmalı');
+  });
+
+  it('saftır: girdiyi değiştirmez ve aynı girdi için aynı çıktıyı verir', () => {
+    const set = getExpansionCategorySet(gameProject());
+    const input = set.categories;
+    const snapshot = input.map(category => category.id);
+    const origins = { domainSpecificIds: set.domainSpecificIds };
+
+    const first = orderExpansionCategoriesForPresentation(input, origins);
+    const second = orderExpansionCategoriesForPresentation(input, origins);
+
+    assert.deepEqual(input.map(category => category.id), snapshot, 'girdi dizisi mutasyona uğramamalı');
+    assert.deepEqual(first.map(c => c.id), second.map(c => c.id), 'kararlı sıra: aynı girdi aynı çıktı');
+  });
+
+  it('bilinmeyen köken kimlikleri sıraya kategori EKLEMEZ', () => {
+    const set = getExpansionCategorySet(plainProject());
+    const ordered = orderExpansionCategoriesForPresentation(set.categories, {
+      ideaSpecificIds: ['ai.hic-olmayan'],
+      domainSpecificIds: ['hic-olmayan-alan']
+    });
+    assert.deepEqual(ordered.map(c => c.id), CORE_IDS);
+  });
+});
+
+describe('getExpansionCategorySet (kimlik çözümü + köken ayrımı)', () => {
+  it('kimlik çözümünün sırasını AYNEN korur: CORE → BY_DOMAIN', () => {
+    const project = projectFor('Unity ile bir at sistemi yapmak istiyorum, multiplayer olacak');
+    assert.deepEqual(
+      getExpansionCategorySet(project).categories.map(c => c.id),
+      getExpansionCategories(project).map(c => c.id)
+    );
+  });
+
+  it('alana özel kimlikler CORE kimliklerini İÇERMEZ', () => {
+    const set = getExpansionCategorySet(projectFor('Bir SaaS dashboard web uygulaması yapmak istiyorum'));
+    assert.deepEqual(set.domainSpecificIds, ['accounts', 'integrations', 'a11y']);
+    for (const id of CORE_IDS) assert.equal(set.domainSpecificIds.includes(id), false, `${id} alana özel sayılmamalı`);
   });
 });
