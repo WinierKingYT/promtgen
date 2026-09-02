@@ -117,15 +117,14 @@ test.describe('Keşif panosu', () => {
     await expect(page.locator('.toast')).toContainText('fikre eklendi');
   });
 
-  test('aynı kart ikinci kez eklenince dürüst bir bildirim gösterilir', async ({ page }) => {
+  test('"Fikre ekle" tek tıkta ekler: kart panodan HEMEN kalkar ve kabul edilmiş olarak düşer', async ({ page }) => {
     // Üretim BİLEREK yavaşlatıldı. Kart eklemek documentRevision'ı artırıyor,
     // bu da arka plan sırasını baştan kuruyor; yeniden üretilen bölüm eklenen
-    // kartı artık göstermiyor (hideDecidedCards, idea-expansion-service.ts).
-    // Bu DOĞRU davranış -- ve ayrıca sınanıyor (idea-expansion-board-sections)
-    // -- ama burada sınanan şey ondan farkı: kullanıcı yeniden üretim
-    // tamamlanmadan aynı karta ikinci kez basarsa ALIM KAPISI ne diyor?
-    // Gecikme o pencereyi deterministik biçimde açık tutuyor; kapının
-    // kendisiyle ilgili hiçbir şeyi taklit etmiyor.
+    // kartı zaten göstermiyor (hideDecidedCards, idea-expansion-service.ts).
+    // Gecikme o turu deterministik biçimde AÇIK tutar; yani aşağıdaki iddia
+    // yeniden üretime borçlu değildir -- kartın tıklandığı anda panodan
+    // kalktığını ölçer. Ölçülen kusur tam buydu: kart tıklamadan sonra aynı
+    // "Fikre ekle" düğmesiyle panoda kalıyordu.
     await stubExpansionProviderByCategory(page, { [TRUST]: AI_CARDS }, { delayMs: 2000 });
     await page.goto('/');
     await startIdea(page);
@@ -137,14 +136,19 @@ test.describe('Keşif panosu', () => {
     const firstCard = expansionCard(page, TRUST, AI_CARDS[0].title);
     await firstCard.getByRole('button', { name: 'Fikre ekle' }).click();
     await expect(page.locator('.toast')).toContainText('fikre eklendi');
-    await expect(page.locator('.toast')).toHaveCount(0);
 
-    await firstCard.getByRole('button', { name: 'Fikre ekle' }).click();
-    await expect(page.locator('.toast')).toContainText('zaten');
-    await expect(page.locator('.toast')).not.toContainText('fikre eklendi');
+    // Kart panodan kalktı; ikinci kez tıklanabilecek bir düğme kalmadı.
+    await expect(firstCard).toHaveCount(0);
+    // Öteki kartlar yerinde: düşen yalnız eklenen kart.
+    await expect(expansionCard(page, TRUST, AI_CARDS[1].title)).toBeVisible();
+
+    // Ve nereye gittiği görünüyor: KABUL EDİLDİ olarak, karar bekleyerek değil.
+    const decisions = page.getByRole('region', { name: 'Eklediğin kartlar' });
+    await expect(decisions.locator('li', { hasText: AI_CARDS[0].title })).toContainText('Kabul edildi');
+    await expect(decisions).not.toContainText('karar bekliyor');
   });
 
-  test('eklenen kartlar kendi karar listesine düşer; hepsi karara bağlanmadan uygulanamaz', async ({ page }) => {
+  test('eklenen kartlar kabul edilmiş düşer; kararı geri almak ve plana taşımak çalışır', async ({ page }) => {
     await stubExpansionProviderByCategory(page, { [TRUST]: AI_CARDS });
     await page.goto('/');
     await startIdea(page);
@@ -161,21 +165,21 @@ test.describe('Keşif panosu', () => {
     await expect(decisions.locator('li')).toHaveCount(2);
     const apply = decisions.getByRole('button', { name: 'Kararları uygula' });
 
-    // Bekleyen kart varsa applyApprovedChanges sessizce hiçbir şey yapmaz;
-    // düğme bu kapıyı gizlemek yerine görünür kılmalı.
-    await expect(decisions).toContainText('2 kart hâlâ karar bekliyor');
-    await expect(apply).toBeDisabled();
-
-    await decisions.locator('li', { hasText: AI_CARDS[0].title })
-      .getByRole('button', { name: 'Kabul et' }).click();
+    // Kullanıcı tıklayarak zaten karar verdi: ikisi de kabul edilmiş durumda
+    // ve kapı açık. "Önce hepsini karara bağla" diye bir ara adım yok.
     await expect(decisions.locator('li', { hasText: AI_CARDS[0].title })).toContainText('Kabul edildi');
-    await expect(decisions).toContainText('1 kart hâlâ karar bekliyor');
-    await expect(apply).toBeDisabled();
-
-    await decisions.locator('li', { hasText: AI_CARDS[1].title })
-      .getByRole('button', { name: 'Reddet' }).click();
+    await expect(decisions.locator('li', { hasText: AI_CARDS[1].title })).toContainText('Kabul edildi');
+    await expect(decisions).not.toContainText('hâlâ karar bekliyor');
     await expect(apply).toBeEnabled();
 
+    // Karar geri alınabilir: reddetme yolu bozulmadı.
+    await decisions.locator('li', { hasText: AI_CARDS[1].title })
+      .getByRole('button', { name: 'Reddet' }).click();
+    await expect(decisions.locator('li', { hasText: AI_CARDS[1].title })).toContainText('Reddedildi');
+    await expect(apply).toBeEnabled();
+
+    // "Kararları uygula" DEĞİŞMEDİ: fikirden plana geçiş hâlâ ayrı bir kapı ve
+    // plana yalnız kabul edilenler geçiyor.
     await apply.click();
     await expect(page.locator('.toast')).toContainText('1 kart plana taşındı');
     // Paket karara bağlandı: yeni kartlar için taze bir paket açılır, bu liste boşalır.

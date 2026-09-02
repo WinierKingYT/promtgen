@@ -7,6 +7,7 @@ import { findExpansionItemByTitle } from './proposal-bundle-selectors.js';
 import { dropDuplicateExpansionCards } from './expansion-card-dedup.js';
 import { dropCommandToneExpansionCards } from './expansion-card-tone.js';
 import { fingerprint } from './deterministic-idea-planning.js';
+import { buildFoundationContext } from '../ai/context/context-builder.js';
 import type { IdeaExpansionOutput } from '../ai/schemas/schemas.js';
 
 /**
@@ -115,28 +116,30 @@ export interface GenerateExpansionOptions {
 
 /**
  * Kategori başına ~25 saniyelik üretim maliyeti olduğu için sonuç bellekte
- * tutulur. Anahtar canonical revision içerir: fikir değişince önbellek doğal
- * olarak geçersizleşir.
+ * tutulur. Anahtar kartların ÜRETİLDİĞİ FİKRE dayanır (bkz.
+ * `expansionGenerationKey`): fikir metni ya da zeminli temel değişince
+ * önbellek doğal olarak geçersizleşir, oturum etkinliği onu kaydırmaz.
  */
 const cache = new Map<string, ExpansionResult>();
 
 /**
  * Önbellekte tutulan en fazla girdi sayısı.
  *
- * GEREKÇE. Anahtar `documentRevision` içeriyor ve revizyon YALNIZ fikir metni
- * değişince değil, kart eklemek dâhil her kalıcılaştırmada artıyor. Yani eski
- * revizyonun girdilerine bir daha HİÇ bakılmaz — onlar canlı bir önbellek
- * değil, ölü ağırlıktır. Arka plan doldurma (bkz. expansion-prefetch.ts) bu
- * ölü ağırlığı revizyon başına bir-iki girdiden ~6'ya çıkardığı için sınır
- * artık gerekli: 20 düzenleme ~120 girdi demek ve hiçbiri okunmuyor.
+ * GEREKÇE. Anahtar artık her kalıcılaştırmada değil, YALNIZ gerçek girdi
+ * değişiminde kayıyor (bkz. `expansionGenerationKey`): kart eklemek yeni bir
+ * giriş AÇMAZ. Yani birikim eskisinden çok daha yavaş; yine de sınırsız
+ * değildir — kullanıcı fikir metnini her düzelttiğinde eski anahtara bir daha
+ * HİÇ bakılmaz ve arka plan doldurma (bkz. expansion-prefetch.ts) her fikir
+ * sürümü için ~6 giriş yazar. Sınır bu ölü ağırlık içindir.
  *
- * 96 seçildi: revizyon başına en fazla ~14 kategori (pano canlı ölçümde bu
- * kadar gösteriyor) tutulabilir; 96 bunun ~7 revizyonluk penceresidir. Yani
- * kullanıcı fikri düzeltip geri aldığında bile eldeki revizyonun TAMAMI
- * kesinlikle önbellekte kalır — sınır yalnız çok eskiyi düşürür.
+ * 96 SEÇİMİ DEĞİŞMEDİ: fikir sürümü başına en fazla ~14 kategori (pano canlı
+ * ölçümde bu kadar gösteriyor) tutulabilir; 96 bunun ~7 sürümlük penceresidir.
+ * Kullanıcı fikri düzeltip geri aldığında eldeki sürümün TAMAMI kesinlikle
+ * önbellekte kalır — sınır yalnız çok eskiyi düşürür. Anahtar daha az
+ * kaydığı için bu pencere artık eskisinden GENİŞ bir zamanı kapsar.
  *
  * Düşürme sırası yazma sırasıdır (`Map` ekleme sırasını korur): en eski
- * yazılan gider. Bu, "en eski revizyon" ile pratikte aynı şeydir.
+ * yazılan gider. Bu, "en eski fikir sürümü" ile pratikte aynı şeydir.
  */
 const MAX_CACHE_ENTRIES = 96;
 
@@ -157,8 +160,65 @@ function rememberResult(key: string, result: ExpansionResult): void {
   }
 }
 
+/**
+ * Anahtar parçalarını ayıran görünmez damgalar. Metinde geçemeyecek kontrol
+ * karakterleri bilerek seçildi: sıradan bir ayraç (`::`) kullanılsaydı fikir
+ * metninin içindeki aynı dizi iki farklı fikri aynı anahtara düşürebilirdi.
+ */
+const KEY_PART_SEPARATOR = '\u001e';
+const FOUNDATION_FIELD_SEPARATOR = '\u001f';
+
+/**
+ * Kartların ÜRETİLDİĞİ FİKRİN anahtarı. Hem önbellek anahtarının hem de
+ * panonun arka plan sırası kuşağının (bkz.
+ * react/features/idea-studio/IdeaExpansionBoard.tsx) tabanıdır: ikisi AYNI
+ * anda tazelensin diye tek bir yerde durur.
+ *
+ * SAF ve KARARLI: yalnız belgeden okur, hiçbir şey yazmaz, saate bakmaz.
+ * Alanlar sabit bir listeden (`IDEA_FOUNDATION_FIELD_NAMES`, bkz.
+ * `buildFoundationContext`) sırayla okunduğu için nesnenin kendi alan sırası
+ * anahtarı DEĞİŞTİRMEZ.
+ *
+ * NEDEN `documentRevision` YOK. Revizyon her KALICILAŞTIRMADA artıyordu, kart
+ * eklemek dâhil. Canlı ölçümde (Ollama qwen2.5:7b, at sistemi fikri) üç kart
+ * kabul edildi ve pano 12 -> 18 -> 21 karta tırmandı: her kabul altı bölümün
+ * ~2,5 dakikalık üretimini baştan başlatıyor, bölümler farklı anlarda dolduğu
+ * için bölümler arası tekrar elemesi tutmuyor ve kabul edilen kart geri
+ * geliyordu.
+ *
+ * NEDEN `ideaDiscussion` YOK -- ve bu neden KEYFİ BİR HARİÇ TUTMA DEĞİL.
+ * Kart kabul etmek fikir defterine bir kayıt yazar ve o kayıt AI bağlamına
+ * gerçekten girer (ölçüldü). Yani önbellek kullanıcının etkinliğine göre
+ * teknik olarak BAYATLAR. Ama bu bayatlığın tek anlamlı sonucu -- kabul
+ * edilmiş bir kartın panoda yeniden görünmesi -- BAŞKA BİR KATMAN tarafından
+ * kesin olarak kapatılıyor: pano her render'da `dropCardsAlreadyInIdea` ile
+ * GÜNCEL projeye bakar ve fikre girmiş kartı eler. Dolayısıyla bayatlık YAPI
+ * GEREĞİ zararsızdır. Buna karşılık fikir metni veya zeminli temel değişirse
+ * kartlar gerçekten YANLIŞ bir fikri yanıtlıyor olur; orada tazelenme
+ * zorunludur ve anahtar tam olarak onları taşır.
+ *
+ * "Yeniden üretim doğru davranış, semptomu başka yerde yönetelim" seçeneği
+ * BİLEREK REDDEDİLDİ: tek satırlık bir bağlam değişikliği için kullanıcının
+ * kendi makinesinde ~2,5 dakikalık üretimi baştan başlatmak orantısız.
+ */
+export function expansionGenerationKey(project: ProjectDocumentV5): string {
+  const foundation = buildFoundationContext(project);
+  const groundedFields = (foundation?.fields || [])
+    .map(entry => `${entry.field}=${entry.text.trim()}`)
+    .join(FOUNDATION_FIELD_SEPARATOR);
+  return [
+    project.id,
+    String(project.identity.originalIdea || '').trim(),
+    // Temelin kullanıcı tarafından onaylanmış olması bağlama AYRI bir cümle
+    // olarak giriyor (`foundation.userConfirmed`); alanlar değişmeden de
+    // dönebildiği için anahtarda kendi başına durur.
+    foundation?.userConfirmed === true ? 'onaylı' : 'onaysız',
+    groundedFields
+  ].join(KEY_PART_SEPARATOR);
+}
+
 function cacheKey(project: ProjectDocumentV5, categoryId: string): string {
-  return `${project.id}::${project.canonicalRevision}::${project.documentRevision}::${categoryId}`;
+  return `${expansionGenerationKey(project)}::${categoryId}`;
 }
 
 /** Şemanın üst sınırı; birleşik sonuç da bunu aşmaz. */

@@ -120,8 +120,14 @@ function foundationField(
  * kurulmuş ince bir listeden KÖTÜDÜR. Zenginlik kullanıcı kart kabul
  * ettikçe gelir; kabul edilen içerik zaten `acceptedRequirements` üzerinden
  * bağlama girer.
+ *
+ * DIŞA AÇIK, çünkü bağlamı KURAN yer burasıdır ve genişletme önbelleğinin
+ * anahtarı da (bkz. application/idea-expansion-service.ts
+ * `expansionGenerationKey`) tam olarak bu alanlara dayanır. Anahtarın kendi
+ * kopyasını tutması, buradaki zeminleme kuralı değiştiğinde anahtarın sessizce
+ * geride kalması demek olurdu.
  */
-function buildFoundationContext(project: ProjectDocumentV5): FoundationContext | null {
+export function buildFoundationContext(project: ProjectDocumentV5): FoundationContext | null {
   const concept = project.ideaLabSession?.conceptSummary;
   if (!concept) return null;
   const fields = IDEA_FOUNDATION_FIELD_NAMES

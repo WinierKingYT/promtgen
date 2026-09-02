@@ -60,9 +60,14 @@ export interface ExpansionPrefetchRunner {
  * işi yapılır; bu, otomatik açılan birincil eksenle birlikte panonun
  * "hemen açılan" bölümünü kullanıcının ilk okuma süresine oturtar. Sınırın
  * dışında kalan kategori KAYBOLMAZ: tıklandığında yine üretilir, yalnız
- * beklemek gerekir. Ayrıca fikir her değiştiğinde (kart eklemek de
- * documentRevision'ı artırır) önbellek zaten geçersizleşiyor; daha uzun bir
- * sıranın sonu çoğu zaman hiç kullanılmadan çöpe gidiyordu.
+ * beklemek gerekir. Ayrıca fikir metni ya da zeminli temel değiştiğinde
+ * önbellek zaten geçersizleşiyor (bkz. idea-expansion-service.ts
+ * `expansionGenerationKey`); daha uzun bir sıranın sonu çoğu zaman hiç
+ * kullanılmadan çöpe gidiyordu.
+ *
+ * SINIR DEĞİŞMEDİ. Anahtarın artık kart kabulüyle kaymaması bu hesabı
+ * gevşetmez: bedel hâlâ kullanıcının makinesinden ödeniyor ve kullanıcı bir
+ * oturumda 14 başlığın hepsini yine okumuyor.
  */
 const BACKGROUND_PREFETCH_LIMIT = 6;
 

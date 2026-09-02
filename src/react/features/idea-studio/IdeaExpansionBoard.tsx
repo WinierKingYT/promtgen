@@ -10,6 +10,7 @@ import {
 } from '../../../v4/idea-expansion/categories.js';
 import {
   createUserExpansionCard,
+  expansionGenerationKey,
   generateExpansionCards,
   selectVisibleExpansionResult,
   type ExpansionCard,
@@ -24,7 +25,7 @@ import {
 import { dropCrossSectionDuplicates } from '../../../v4/application/expansion-section-dedup.js';
 import { generateIdeaAxes } from '../../../v4/application/idea-axis-service.js';
 import { addExpansionCardAsSuggestion } from '../../../v4/application/idea-expansion-intake.js';
-import { selectExpansionBundle } from '../../../v4/application/proposal-bundle-selectors.js';
+import { findExpansionItemByTitle, selectExpansionBundle } from '../../../v4/application/proposal-bundle-selectors.js';
 import { resolveIdeaRecordsForBundle } from '../../../v4/application/idea-discussion-service.js';
 import { applyApprovedChanges, updateSuggestionStatus } from '../../../v4/planning-engine.js';
 
@@ -77,6 +78,25 @@ function readinessTitle(hint: string, state: ExpansionReadiness | undefined): st
  */
 function sectionDomId(categoryId: string): string {
   return `pg-expansion-section-${categoryId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
+
+/**
+ * Fikre girmiş kart panodan ANINDA kalkar.
+ *
+ * Servis tarafındaki `hideDecidedCards` (idea-expansion-service.ts) aynı işi
+ * yapıyor ama yalnız YENİDEN ÜRETİMDE: kart eklendiği an belge revizyonu
+ * artıyor, arka plan sırası baştan kuruluyor ve kart ancak o tur bitince
+ * düşüyordu. O ana kadar tıklanan kart panoda, aynı "Fikre ekle" düğmesiyle
+ * duruyordu — kullanıcı neyi aldığını göremiyor, aynı karta ikinci kez
+ * basmaya çağrılıyordu (ölçüldü: "kart panoda kaldı: true").
+ *
+ * Bu bir GÖSTERİM TAZELEMESİDİR, yeni bir eleme ölçütü değil: `hideDecidedCards`
+ * ile AYNI anahtarı (başlık) ve AYNI seçiciyi kullanır, `results` state'ine ve
+ * servisin önbelleğine dokunmaz, üretim tetiklemez. Aynı `project` ve aynı
+ * kartlar için her zaman aynı sonucu verir.
+ */
+function dropCardsAlreadyInIdea(project: ProjectDocumentV5, cards: readonly ExpansionCard[]): ExpansionCard[] {
+  return cards.filter(card => !findExpansionItemByTitle(project, card.title));
 }
 
 export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
@@ -286,10 +306,15 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
     domainSpecificIds: categorySet.domainSpecificIds
   });
 
-  // Sıranın kuşağı: önbellek anahtarının revizyon kısmı. Değişmesi "eldeki
-  // her şey geçersiz" demektir; yürütücü uçuştaki işi iptal eder ve hazır
-  // damgalarını siler.
-  const generationKey = `${project.canonicalRevision}::${project.documentRevision}`;
+  // Sıranın kuşağı: önbellek anahtarının kategoriden ÖNCEKİ kısmı — aynı saf
+  // fonksiyon (`expansionGenerationKey`). Değişmesi "eldeki her şey geçersiz"
+  // demektir; yürütücü uçuştaki işi iptal eder ve hazır damgalarını siler.
+  //
+  // İKİSİ AYNI KAYNAKTAN OKUR, çünkü ayrılırlarsa düzeltme yarım kalırdı:
+  // eskiden buradaki anahtar `documentRevision` içeriyordu ve kart eklemek onu
+  // artırıyordu. Önbellek korunsa bile yürütücü her kabulde sırayı sıfırlar,
+  // altı bölümün ~2,5 dakikalık üretimini baştan başlatırdı.
+  const generationKey = expansionGenerationKey(project);
   // Sıra GÖSTERİM SIRASININ AYNISI: fikre özel eksenler, sonra alana özel
   // eksenler, sonra genel kategoriler. Kullanıcının gördüğü sıra ile dolan
   // sıra böylece tutarlı olur. Kategori kimlikleri sabit sırada geldiği için
@@ -356,13 +381,32 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
     if (!results[categoryId]) void open(categoryId);
   };
 
+  /**
+   * "Fikre ekle" GERÇEKTEN ekler: tek tık, tek sonuç.
+   *
+   * Kart `accepted` girer, `pending` DEĞİL. Ölçülen kusur buydu: düğme "Fikre
+   * ekle" diyor, kart "KARAR BEKLİYOR" oluyor ve onu çözecek "Kabul et"
+   * düğmesi 1400 piksel aşağıda duruyordu — eylem, durum ve çözüm üç ayrı
+   * yerde, ikisi ekran dışında. Kullanıcı zaten tıklayarak karar verdi;
+   * ikinci bir onay adımı istemek dürüstlük değil tören.
+   *
+   * Durum burada, ÇAĞIRAN tarafta seçilir. Servis onu sabitlemiyor: sohbet ya
+   * da keşif yolundan gelen, kullanıcının hiç dokunmadığı öneriler `pending`
+   * kalmayı sürdürüyor (bkz. idea-expansion-intake.ts).
+   *
+   * Kararın kendisi geri alınabilir kalır: kart aşağıdaki "Eklediğin kartlar"
+   * listesinde durur ve oradan ertelenebilir ya da reddedilebilir. Plana geçiş
+   * yine ayrı bir kapıdır ("Kararları uygula"); kart eklemek planı değiştirmez.
+   */
   const addCard = (card: ExpansionCard, categoryLabel: string): boolean => {
-    const intake = addExpansionCardAsSuggestion(project, card, categoryLabel);
+    const intake = addExpansionCardAsSuggestion(project, card, categoryLabel, { status: 'accepted' });
     if (!intake.added) {
       onNotice(intake.reason);
       return false;
     }
-    onPersist(intake.project, `"${card.title}" fikre eklendi.`, 'AddExpansionCard');
+    // Bildirim kartın NEREYE gittiğini de söyler: kart panodan kalktığı için
+    // "eklendi" tek başına, kullanıcının onu nerede bulacağını anlatmıyordu.
+    onPersist(intake.project, `"${card.title}" fikre eklendi; artık kabul edilenler arasında.`, 'AddExpansionCard');
     return true;
   };
 
@@ -436,13 +480,30 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
    * tetiklenmez. Girdi sırası `visibleSections`in kendisidir; bölüm sırası
    * değişmedikçe sonuç da değişmez.
    */
+  /**
+   * `dropCardsAlreadyInIdea`nın BU RENDER'da düşürdüğü kart sayısı, kategori
+   * başına.
+   *
+   * NEDEN GEREKLİ. Kart kabulü artık yeniden üretim tetiklemiyor (bkz.
+   * `expansionGenerationKey`); eldeki önbellekli sonuç HAM kalıyor ve
+   * `hiddenCount` -- üretim ANINDA gizlenenlerin sayısı -- 0 kalıyor. Kart
+   * yine panodan kalkıyor, ama nedenini söyleyen satır bu sayaca bağlı
+   * olduğu için susuyordu: kart SESSİZCE kaybolurdu. Aşağıdaki satır iki
+   * sayacı toplar; kullanıcı açısından ikisi de aynı cümledir ("bunu zaten
+   * karara bağladın"), yalnız hangi anda anlaşıldıkları farklıdır.
+   */
+  const decidedNowCounts = new Map<string, number>();
+
   const sectionViews = new Map(
     dropCrossSectionDuplicates(
       visibleSections.map(category => {
         const result = selectVisibleExpansionResult(category.id, results[category.id] ?? null);
+        const raw = result?.cards ?? [];
+        const kept = dropCardsAlreadyInIdea(project, raw);
+        decidedNowCounts.set(category.id, raw.length - kept.length);
         return {
           categoryId: category.id,
-          cards: result?.cards ?? [],
+          cards: kept,
           // Yedek yolu elemenin dışındadır -- gerekçesi
           // expansion-section-dedup.ts'te `isExemptFromDedup` üstünde yazılı.
           isExemptFromDedup: result?.mode === 'fallback'
@@ -530,12 +591,19 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
         // anlatıyor ve bu iki neden birbirine karışmamalı.
         const view = sectionViews.get(category.id);
         const shownCards = view?.cards ?? [];
+        // "Zaten karara bağladın" sayacının İKİ kaynağı: üretim anında
+        // gizlenenler (`hiddenCount`) ve bu render'da düşenler. Bölümler arası
+        // eleme buraya KARIŞMAZ; onun kendi satırı aşağıda.
+        const decidedNow = decidedNowCounts.get(category.id) ?? 0;
+        const decidedCount = (cards?.hiddenCount ?? 0) + decidedNow;
+        const decidedRemaining = (cards?.cards.length ?? 0) - decidedNow;
         const busy = state === 'running';
         // "Hazırlanıyor" satırı YALNIZ kullanıcının beklediği yerde çıkar:
         // elinde kart olmayan bir bölümde ya da kullanıcının kendi
-        // yenilediği/gittiği bölümde. Fikir her değiştiğinde (kart eklemek de
-        // documentRevision'ı artırıyor) arka plan sırası altı kategoriyi
-        // yeniden üretiyor; bunu her seferinde altı ayrı "hazırlanıyor"
+        // yenilediği/gittiği bölümde. Fikir metni ya da zeminli temel
+        // değiştiğinde arka plan sırası altı kategoriyi yeniden üretiyor
+        // (kart eklemek ARTIK üretmiyor, bkz. `expansionGenerationKey`);
+        // bunu her seferinde altı ayrı "hazırlanıyor"
         // satırıyla duyurmak, kullanıcının okuduğu kartların üstünde
         // durmadan titreyen bir pano üretirdi. Eldeki kartlar yerinde kalır,
         // yenisi geldiğinde sessizce değişir.
@@ -599,10 +667,12 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
           </p>}
 
           {/* Kart sayısı sessizce azalmaz: gizlenenin nedeni ekranda yazılı olur,
-              yoksa kullanıcı başlığı "az öneri üretti" sanır. */}
-          {!!cards?.hiddenCount && <p className="pg-expansion-hint" {...liveRegion}>
-            {cards.cards.length
-              ? `${cards.hiddenCount} öneriyi daha önce karara bağladığın için gizledim.`
+              yoksa kullanıcı başlığı "az öneri üretti" sanır. Sayaç ÜRETİM
+              anında gizlenenlerle BU RENDER'da düşenleri toplar; ikisi de aynı
+              nedendir (bkz. `decidedNowCounts`). */}
+          {!!decidedCount && <p className="pg-expansion-hint" {...liveRegion}>
+            {decidedRemaining
+              ? `${decidedCount} öneriyi daha önce karara bağladığın için gizledim.`
               : 'Bu başlıktaki önerilerin hepsini daha önce karara bağladın. Yenile diyerek yeni öneri isteyebilirsin.'}
           </p>}
 
@@ -643,7 +713,11 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
 
     {bundle && decisionItems.length > 0 && <section className="pg-expansion-decisions" aria-label="Eklediğin kartlar">
       <header>
-        <div><b>Eklediğin kartlar</b><small>Her kartı karara bağla; sonra kabul ettiklerin plana geçer.</small></div>
+        {/* Eski metin ("Her kartı karara bağla") artık doğru değil: kart
+            tıklandığı an kabul ediliyor. Yeni metin ne over-claim eder ne de
+            kullanıcıyı olmayan bir işe çağırır — burası kararı DEĞİŞTİRME
+            yeridir ve plana geçişin ayrı bir kapı olduğu yazılı kalır. */}
+        <div><b>Eklediğin kartlar</b><small>Kararını buradan değiştirebilirsin; plana yalnız kabul ettiklerin geçer.</small></div>
         <button
           type="button"
           onClick={applyDecisions}

@@ -7,13 +7,59 @@ import {
   generateExpansionCards,
   clearExpansionCache,
   createUserExpansionCard,
+  expansionGenerationKey,
   selectVisibleExpansionResult,
   type ExpansionResult
 } from '../../src/v4/application/idea-expansion-service.js';
 import { getExpansionCategories } from '../../src/v4/idea-expansion/categories.js';
-import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
+import type { ConceptSummary, ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const project = () => analyzeIdea('Şehir içi bisiklet rotası öneren bir mobil uygulama') as ProjectDocumentV5;
+
+/**
+ * Zeminli bir temel taşıyan proje: `targetUser` kullanıcının KENDİ sözüdür
+ * (`source: 'idea'`), geri kalanı modelin varsayımıdır. Anahtar testleri bu
+ * ayrımı kullanır — bağlama yalnız zeminli alanlar girer (bkz.
+ * context-builder.ts `buildFoundationContext`).
+ */
+function groundedProject(targetUser: string): ProjectDocumentV5 {
+  const target = project();
+  const summary: ConceptSummary = {
+    summary: 'Şehir içi rota öneren bir mobil uygulama.',
+    targetUser,
+    problemStatement: 'Güvenli rota bilgisi dağınık.',
+    currentAlternative: '',
+    desiredOutcome: '',
+    interpretationConfidence: 0.5,
+    confidenceRationale: [],
+    confirmedFeatures: [],
+    outOfScope: [],
+    technicalApproaches: [],
+    openQuestions: [],
+    knownRisks: [],
+    mvpTarget: '',
+    userConfirmed: false,
+    foundationGrounding: {
+      summary: { source: 'assumption' },
+      problemStatement: { source: 'assumption' },
+      targetUser: { source: 'idea' },
+      currentAlternative: { source: 'unknown', reason: 'Fikirde geçmiyor.' },
+      desiredOutcome: { source: 'assumption' },
+      mvpTarget: { source: 'assumption' }
+    }
+  };
+  target.ideaLabSession = {
+    ...(target.ideaLabSession || {
+      status: 'active' as const,
+      approaches: [],
+      ideaNotes: [],
+      candidateDecisions: [],
+      candidateRisks: []
+    }),
+    conceptSummary: summary
+  };
+  return target;
+}
 
 const card = (title: string) => ({
   id: `card-${title}`, title, description: `${title} açıklaması`,
@@ -776,33 +822,40 @@ describe('iptal edilen üretim', () => {
 
 
 /**
- * Önbellek anahtarı `documentRevision` içeriyor ve kart eklemek de revizyonu
- * artırıyor: kullanıcı fikri düzenledikçe ESKİ anahtarlara bir daha hiç
- * bakılmaz. Arka plan doldurma bu birikimi revizyon başına ~6 girdiye
- * çıkardığı için sınır artık gerekli.
+ * Sınır ve FIFO KALDI, gerekçesi güncellendi. Anahtar artık her
+ * kalıcılaştırmada değil YALNIZ fikir gerçekten değişince kayıyor; birikimi
+ * üreten şey de o. Kullanıcı fikir metnini her düzelttiğinde eski anahtara
+ * bir daha hiç bakılmaz ve arka plan doldurma her fikir sürümü için ~6 giriş
+ * yazar — sınır bu ölü ağırlık içindir.
+ *
+ * Testler bilerek fikir METNİNİ değiştirir: `documentRevision` artık yeni bir
+ * giriş açmadığı için onunla ölçmek sınırı hiç sınamazdı.
  */
 describe('önbellek büyümesi', () => {
   beforeEach(() => clearExpansionCache());
 
-  const atRevision = (base: ProjectDocumentV5, documentRevision: number) =>
-    ({ ...base, documentRevision } as ProjectDocumentV5);
+  const withIdea = (base: ProjectDocumentV5, version: number) =>
+    ({
+      ...base,
+      identity: { ...base.identity, originalIdea: `Bisiklet rotası uygulaması — sürüm ${version}` }
+    } as ProjectDocumentV5);
 
-  it('çok eski revizyonun girdisi düşürülür; önbellek sınırsız büyümez', async () => {
+  it('çok eski fikir sürümünün girdisi düşürülür; önbellek sınırsız büyümez', async () => {
     const base = project();
     const calls = { count: 0 };
-    await generateExpansionCards(atRevision(base, 1), 'trust', {
+    await generateExpansionCards(withIdea(base, 1), 'trust', {
       settings: aiSettings, provider: okProvider(calls)
     });
     assert.equal(calls.count, 1);
 
-    for (let revision = 2; revision <= 200; revision += 1) {
-      await generateExpansionCards(atRevision(base, revision), 'trust', {
+    for (let version = 2; version <= 200; version += 1) {
+      await generateExpansionCards(withIdea(base, version), 'trust', {
         settings: aiSettings, provider: okProvider(calls)
       });
     }
 
     const before = calls.count;
-    await generateExpansionCards(atRevision(base, 1), 'trust', {
+    await generateExpansionCards(withIdea(base, 1), 'trust', {
       settings: aiSettings, provider: okProvider(calls)
     });
     assert.equal(before + 1, calls.count, 'çok eski girdi önbellekten düşmüş olmalı');
@@ -811,15 +864,172 @@ describe('önbellek büyümesi', () => {
   it('son yazılan girdi sınır yüzünden düşürülmez', async () => {
     const base = project();
     const calls = { count: 0 };
-    for (let revision = 1; revision <= 200; revision += 1) {
-      await generateExpansionCards(atRevision(base, revision), 'trust', {
+    for (let version = 1; version <= 200; version += 1) {
+      await generateExpansionCards(withIdea(base, version), 'trust', {
         settings: aiSettings, provider: okProvider(calls)
       });
     }
     const before = calls.count;
-    await generateExpansionCards(atRevision(base, 200), 'trust', {
+    await generateExpansionCards(withIdea(base, 200), 'trust', {
       settings: aiSettings, provider: okProvider(calls)
     });
     assert.equal(calls.count, before, 'en son yazılan girdi hâlâ önbellekte olmalı');
+  });
+
+  it('KART KABULÜ yeni giriş AÇMAZ: sınır kullanıcının etkinliğiyle tüketilmez', async () => {
+    let target = project();
+    const calls = { count: 0 };
+    await generateExpansionCards(target, 'trust', { settings: aiSettings, provider: okProvider(calls) });
+
+    for (let index = 0; index < 30; index += 1) {
+      const intake = addExpansionCardAsSuggestion(
+        target,
+        {
+          id: `card-${index}`,
+          title: `Kabul edilen kart ${index}`,
+          description: 'Kullanıcının fikre eklediği kart.',
+          kind: 'feature',
+          origin: 'ai'
+        },
+        'Güven',
+        { status: 'accepted' }
+      );
+      assert.equal(intake.added, true);
+      target = intake.project;
+      await generateExpansionCards(target, 'trust', { settings: aiSettings, provider: okProvider(calls) });
+    }
+
+    assert.equal(calls.count, 1, '30 kabul tek bir üretimle karşılanmalı');
+  });
+});
+
+/**
+ * ÖLÇÜLEN KUSUR VE DÜZELTMESİ.
+ *
+ * Anahtar `documentRevision` içeriyordu ve revizyon HER kalıcılaştırmada
+ * artıyordu -- kart eklemek dâhil. Canlı ölçümde (Ollama qwen2.5:7b, at
+ * sistemi fikri) üç kart kabul edildi ve pano kart sayısı 12 -> 18 -> 21
+ * diye tırmandı: her kabul altı bölümün ~2,5 dakikalık üretimini BAŞTAN
+ * başlatıyor, bölümler farklı anlarda dolduğu için bölümler arası tekrar
+ * elemesi tutmuyor ve kabul edilen kartın kendisi bile geri geliyordu.
+ *
+ * Anahtar artık kartların ÜRETİLDİĞİ FİKRE dayanır: proje kimliği, fikir
+ * metni ve temelin zeminli (`source: 'idea'`) alanları.
+ */
+describe('üretim anahtarı fikre dayanır, oturum etkinliğine değil', () => {
+  const acceptCard = (target: ProjectDocumentV5, title: string) => {
+    const intake = addExpansionCardAsSuggestion(
+      target,
+      { id: `card-${title}`, title, description: `${title} açıklaması`, kind: 'feature', origin: 'ai' },
+      'Güven'
+    , { status: 'accepted' });
+    assert.equal(intake.added, true, 'kart gerçekten eklenmeli');
+    return intake.project;
+  };
+
+  it('ASIL DÜZELTME: kart kabul etmek anahtarı DEĞİŞTİRMEZ', () => {
+    const before = project();
+    const after = acceptCard(before, 'Atı uzaktan çağırma');
+    assert.equal(expansionGenerationKey(after), expansionGenerationKey(before));
+  });
+
+  it('kart kabulü belge revizyonunu artırsa bile anahtar sabit kalır', () => {
+    const before = project();
+    const after = { ...acceptCard(before, 'Eyer ve envanter'), documentRevision: 9 } as ProjectDocumentV5;
+    assert.equal(expansionGenerationKey(after), expansionGenerationKey(before));
+  });
+
+  it('BOZULMAMASI GEREKEN: fikir metni değişince anahtar DEĞİŞİR', () => {
+    const before = project();
+    const after = {
+      ...before,
+      identity: { ...before.identity, originalIdea: 'Bambaşka bir fikir: masaüstü not uygulaması' }
+    } as ProjectDocumentV5;
+    assert.notEqual(expansionGenerationKey(after), expansionGenerationKey(before));
+  });
+
+  it('zeminli (source:idea) temel alanı değişince anahtar DEĞİŞİR', () => {
+    const before = groundedProject('Şehirdeki bisikletliler');
+    const after = groundedProject('Kuryeler');
+    assert.notEqual(expansionGenerationKey(after), expansionGenerationKey(before));
+  });
+
+  it('zeminsiz (assumption) temel alanı anahtarı DEĞİŞTİRMEZ', () => {
+    const before = groundedProject('Şehirdeki bisikletliler');
+    const after = structuredClone(before);
+    after.ideaLabSession.conceptSummary.problemStatement = 'Model bunu kendi uydurdu';
+    after.ideaLabSession.conceptSummary.foundationGrounding.problemStatement = {
+      source: 'assumption', reason: 'fikirde karşılığı yok'
+    } as never;
+    assert.equal(expansionGenerationKey(after), expansionGenerationKey(before));
+  });
+
+  it('anahtar KARARLI: aynı girdi her seferinde aynı anahtarı verir', () => {
+    const target = groundedProject('Şehirdeki bisikletliler');
+    assert.equal(expansionGenerationKey(target), expansionGenerationKey(target));
+    assert.equal(expansionGenerationKey(structuredClone(target)), expansionGenerationKey(target));
+  });
+
+  it('anahtar NESNE ALAN SIRASINDAN bağımsızdır', () => {
+    const target = groundedProject('Şehirdeki bisikletliler');
+    const summary = target.ideaLabSession.conceptSummary;
+    const reordered = structuredClone(target);
+    // Aynı alanlar, ters sırayla yeniden kurulmuş bir nesne.
+    reordered.ideaLabSession.conceptSummary = Object.fromEntries(
+      Object.entries(summary).reverse()
+    ) as typeof summary;
+    reordered.identity = { ...target.identity };
+    assert.equal(expansionGenerationKey(reordered), expansionGenerationKey(target));
+  });
+
+  it('başka projenin anahtarı ayrıdır', () => {
+    const before = project();
+    const after = { ...before, id: 'baska-proje' } as ProjectDocumentV5;
+    assert.notEqual(expansionGenerationKey(after), expansionGenerationKey(before));
+  });
+});
+
+describe('önbellek anahtarı ile üretim anahtarı aynı olaylarda değişir', () => {
+  beforeEach(() => clearExpansionCache());
+
+  it('kart kabul edildikten sonra AI YENİDEN çağrılmaz', async () => {
+    const calls = { count: 0 };
+    const provider = okProvider(calls);
+    const before = project();
+    await generateExpansionCards(before, 'trust', { settings: aiSettings, provider });
+
+    const after = addExpansionCardAsSuggestion(
+      before,
+      { id: 'card-x', title: 'Atı uzaktan çağırma', description: 'Islıkla çağırma.', kind: 'feature', origin: 'ai' },
+      'Güven',
+      { status: 'accepted' }
+    ).project;
+    await generateExpansionCards(after, 'trust', { settings: aiSettings, provider });
+
+    assert.equal(calls.count, 1, 'kart kabulü altı bölümün üretimini baştan başlatmamalı');
+  });
+
+  it('fikir metni değişince AI YENİDEN çağrılır', async () => {
+    const calls = { count: 0 };
+    const provider = okProvider(calls);
+    const before = project();
+    await generateExpansionCards(before, 'trust', { settings: aiSettings, provider });
+
+    const after = {
+      ...before,
+      identity: { ...before.identity, originalIdea: 'Bambaşka bir fikir: masaüstü not uygulaması' }
+    } as ProjectDocumentV5;
+    await generateExpansionCards(after, 'trust', { settings: aiSettings, provider });
+
+    assert.equal(calls.count, 2, 'kartlar artık başka bir fikri yanıtlıyor olurdu; tazelenmeli');
+  });
+
+  it('zeminli temel alanı değişince AI YENİDEN çağrılır', async () => {
+    const calls = { count: 0 };
+    const provider = okProvider(calls);
+    const before = groundedProject('Şehirdeki bisikletliler');
+    await generateExpansionCards(before, 'trust', { settings: aiSettings, provider });
+    await generateExpansionCards(groundedProject('Kuryeler'), 'trust', { settings: aiSettings, provider });
+    assert.equal(calls.count, 2);
   });
 });

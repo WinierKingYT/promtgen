@@ -237,11 +237,12 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   await fikreEkleDugmesi.click();
   await expect(page.locator('.toast')).toBeVisible();
   await expect(page.locator('[role="status"][aria-live="polite"]')).toHaveCount(1);
-  // Kart eklemek documentRevision'ı artırıyor; bu da önbellek anahtarını
-  // geçersizleştirip arka plan sırasını BAŞTAN kuruyor (expansion-prefetch.ts).
-  // Altı bölüm yeniden üretilirken kart listeleri değişiyor -- eklenen kart
-  // artık karara bağlanmış sayıldığı için her bölümden düşüyor. Bu yüzden
-  // yakalamadan önce sıranın yeniden oturması beklenir.
+  // Kart eklemek artık ÜRETİMİ TETİKLEMİYOR: önbellek anahtarı fikrin
+  // kendisine dayanıyor (idea-expansion-service.ts `expansionGenerationKey`),
+  // kart kabulü onu kaydırmıyor ve arka plan sırası yerinde kalıyor. Eklenen
+  // kart yine her bölümden düşüyor, ama üretimle değil render'da
+  // (`dropCardsAlreadyInIdea`). Bekleme yine de korunur: bu noktada sıra
+  // hâlâ dolmakta olabilir ve yakalama oturmuş bir ekranda yapılmalı.
   await page.mouse.move(4, 4);
   await waitForSettledSections(page, SETTLED_SECTIONS);
   // GEÇİŞ ARTEFAKTI (çözüldü): tıklanan kart DOM'dan düşünce ALTINDAKİ kart
@@ -268,8 +269,8 @@ test('görsel sözleşme: hesaplanmış stiller referansla birebir aynı', async
   // yakalıyordu). Toast/duyurucu görünürlüğü yalnız bildirim tarafının
   // geldiğini kanıtlar, düğmenin hover boyamasının oturduğunu değil.
   // Eski çapa TIKLANAN düğmenin hover rengini bekliyordu. O düğme artık
-  // yakalama anında DOM'da değil: eklenen kart yeniden üretimden sonra her
-  // bölümden düşüyor (yukarıdaki yorum). Yerine geçen çapa aynı işi daha
+  // yakalama anında DOM'da değil: eklenen kart her bölümden düşüyor
+  // (yukarıdaki yorum). Yerine geçen çapa aynı işi daha
   // sağlam yapıyor -- imleç bilinen ve etkisiz bir noktaya (4,4) çekildiği
   // için hiçbir eleman hover'da değil ve düğmelerin OTURMUŞ, hover'sız
   // rengi bekleniyor. Sinyal kaybı yok: hover kuralının kendisi zaten

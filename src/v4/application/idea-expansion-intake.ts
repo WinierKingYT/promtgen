@@ -12,11 +12,18 @@ import {
  * Kart daha önce eklenmişse kullanıcıya verdiği kararı hatırlatırız. Kararı
  * değiştirmek isteyen kullanıcı kartı yeniden eklemez; kaydın kendisini fikir
  * defterinden düzenler. Aksi hâlde aynı içerik plana ikinci kez girer.
+ *
+ * `accepted`/`edited` metinleri "içeriği plana geçti" DEMEZ. Eskiden bu durum
+ * yalnız kullanıcı ayrıca "Kabul et"e bastıktan sonra oluşuyordu ve pratikte
+ * uygulama adımı hemen ardından geliyordu. Artık kart tıklandığı an kabul
+ * ediliyor; plana geçiş hâlâ ayrı bir kapı ("Kararları uygula"). Kabul
+ * edilmiş ama henüz uygulanmamış bir kart için "plana geçti" demek,
+ * olmamış bir şeyi olmuş gibi bildirmek olurdu.
  */
 const ALREADY_ADDED_REASON: Record<string, string> = {
   pending: 'Bu kart zaten fikir defterinde karar bekliyor.',
-  accepted: 'Bu kartı daha önce kabul ettin; içeriği plana geçti.',
-  edited: 'Bu kartı daha önce düzenleyerek kabul ettin; içeriği plana geçti.',
+  accepted: 'Bu kartı zaten kabul ettin; fikirde duruyor.',
+  edited: 'Bu kartı zaten düzenleyerek kabul ettin; fikirde duruyor.',
   deferred: 'Bu kartı daha önce erteledin; kararı fikir defterinden değiştirebilirsin.',
   rejected: 'Bu kartı daha önce reddettin; kararı fikir defterinden değiştirebilirsin.'
 };
@@ -73,8 +80,10 @@ const UNASSESSED_LEVEL: SuggestionItem['effort'] = 'medium';
  * liste yalnız hangi bölüm metnine dokunulacağını söyler. Soru bir plan öğesi
  * değildir: yeri fikir defteridir, plana hiçbir bölüm yazmaz.
  *
- * (Bu modül plana yazan hiçbir işlevi çağırmaz; kartı yalnız `pending` öneri
- * yapar. Bunu tests/v4/architecture/ai-runtime-ownership.test.ts denetler.)
+ * (Bu modül plana yazan hiçbir işlevi çağırmaz; kartı yalnız bir ÖNERİ kaydı
+ * yapar — kabul edilmiş bir öneri bile canonical plana kendiliğinden geçmez,
+ * o kapı ayrı bir uygulama adımıdır ve bu dosyadan çağrılmaz. Bunu
+ * tests/v4/architecture/ai-runtime-ownership.test.ts denetler.)
  */
 const SECTIONS_BY_KIND: Record<string, string[]> = {
   feature: ['scope', 'requirements'],
@@ -92,8 +101,38 @@ export interface ExpansionIntakeResult {
 }
 
 /**
- * Kartı yalnızca bekleyen öneri yapar. Canonical plana hiçbir yolla yazmaz;
- * plana geçiş mevcut kabul/ertele/reddet ve dönüşüm kapılarından geçer.
+ * Kartın fikir defterine HANGİ durumla gireceği.
+ *
+ * `pending` — kartı kullanıcı istemedi. Sohbet, keşif ya da otomatik bir yol
+ * onu aday olarak koydu; karar hâlâ kullanıcınındır ve ona sorulmalıdır.
+ *
+ * `accepted` — kullanıcı kartın kendi düğmesine BASTI. Tıklamanın kendisi
+ * karardır; ardından ikinci bir onay adımı istemek dürüstlük değil törendir
+ * (ölçüldü: düğme "Fikre ekle" diyor, sonuç "KARAR BEKLİYOR" oluyordu ve
+ * kartı çözecek düğme 1400 piksel aşağıdaydı).
+ *
+ * Bu ayrım BURADA SABİTLENMEZ. Kartın hangi yoldan geldiğini yalnız çağıran
+ * bilir; servis onu tahmin etmeye kalkarsa iki yoldan biri mutlaka yanlış
+ * damgalanır.
+ */
+export type ExpansionIntakeStatus = Extract<SuggestionItem['status'], 'pending' | 'accepted'>;
+
+/**
+ * Çağıran bir şey söylemezse kart KARAR BEKLER. Yanlış tarafa hata yapmak
+ * buradan geçer: kullanıcının dokunmadığı bir öneriyi kabul edilmiş saymak,
+ * ona sormadan fikrine bir şey eklemek olurdu.
+ */
+const DEFAULT_INTAKE_STATUS: ExpansionIntakeStatus = 'pending';
+
+export interface ExpansionIntakeOptions {
+  /** Bkz. `ExpansionIntakeStatus`. Verilmezse `pending`. */
+  status?: ExpansionIntakeStatus;
+}
+
+/**
+ * Kartı bir öneri kaydına dönüştürür. Canonical plana hiçbir yolla yazmaz;
+ * plana geçiş mevcut kabul/ertele/reddet ve dönüşüm kapılarından geçer —
+ * kart `accepted` olarak girse bile.
  *
  * Aynı kart ikinci kez geldiğinde sessizce yutulmaz: çağıran `added` alanından
  * durumu görür ve kullanıcıya doğru olanı söyleyebilir.
@@ -101,7 +140,8 @@ export interface ExpansionIntakeResult {
 export function addExpansionCardAsSuggestion(
   project: ProjectDocumentV5,
   card: ExpansionCard,
-  categoryLabel: string
+  categoryLabel: string,
+  options: ExpansionIntakeOptions = {}
 ): ExpansionIntakeResult {
   const title = card.title.trim();
   // Denetim paketten önce gelir: yalnız açık pakete bakılsaydı karara bağlanmış
@@ -135,7 +175,7 @@ export function addExpansionCardAsSuggestion(
     recommendationReason: assessed ? '' : (card.origin === 'user' ? USER_AUTHORED_REASON : LOCAL_SEED_REASON),
     affectedSections: SECTIONS_BY_KIND[card.kind] || ['scope'],
     dependencies: [],
-    status: 'pending'
+    status: options.status || DEFAULT_INTAKE_STATUS
   };
   bundle.items.push(item);
   return {

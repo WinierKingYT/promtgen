@@ -143,6 +143,12 @@ describe('AI production runtime ownership', () => {
 
     const intake = read('src/v4/application/idea-expansion-intake.ts');
     assert.doesNotMatch(intake, /confirmConceptSummary|applyApprovedChanges/);
-    assert.match(intake, /status: 'pending'/);
+    // Alım artık başlangıç durumunu ÇAĞIRANDAN alıyor (tıklama yolu
+    // 'accepted', sohbet/keşif yolu 'pending'); tek bir sabit yeterli değil.
+    // Korunan şey aynı kaldı: çağıran susarsa kart KARAR BEKLER — kimsenin
+    // dokunmadığı bir öneri kabul edilmiş sayılamaz. Kabul edilmiş bir kartın
+    // plana geçmesi yine yalnız `applyApprovedChanges` kapısından olur ve
+    // yukarıdaki doesNotMatch bu modülün o kapıyı tanımadığını koruyor.
+    assert.match(intake, /DEFAULT_INTAKE_STATUS: ExpansionIntakeStatus = 'pending'/);
   });
 });

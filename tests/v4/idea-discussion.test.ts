@@ -275,3 +275,86 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
     assert.deepEqual(record.history, []);
   });
 });
+
+/**
+ * ÖLÇÜLEN KUSUR. `captureDiscussionBundle` her kayda sabit `pending` yazıyordu.
+ * Kullanıcının AÇIKÇA kabul ettiği genişletme kartı için bu YANLIŞ bir cümle:
+ * fikir defterinde "hâlâ karar bekliyor" diye duruyor ve aynı metin bağlama da
+ * `pending` olarak giriyordu (bkz. context-builder.ts `ideaDiscussion`). Yani
+ * modele kullanıcının verdiği karar hiç söylenmiyordu.
+ *
+ * Kayıt artık kaynağın durumunu YANSITIR. Yön tek taraflıdır ve yalnız kaydın
+ * DOĞUŞUNDA çalışır: var olan bir kaydın durumu buradan asla değişmez.
+ */
+describe('defter kaydının durumu kaynak öneriden gelir', () => {
+  const bundleWith = (status: SuggestionItem['status']): SuggestionBundle => {
+    const bundle = discussionBundle();
+    return { ...bundle, items: bundle.items.map(item => ({ ...item, status })) };
+  };
+
+  it('kabul edilmiş öneriden doğan kayıt accepted olur', () => {
+    const initial = createProjectDocument({ idea: 'S&box oyun motorunda at sistemi' });
+    const captured = captureDiscussionBundle(initial, bundleWith('accepted'));
+    const fromItems = captured.ideaDiscussion.records.filter(record => record.kind !== 'question');
+    assert.ok(fromItems.length > 0);
+    assert.ok(
+      fromItems.every(record => record.status === 'accepted'),
+      'kullanıcının kabul ettiği öneri defterde de kabul olarak durmalı'
+    );
+  });
+
+  it('düzenlenerek kabul edilmiş öneri de accepted sayılır', () => {
+    const initial = createProjectDocument({ idea: 'S&box oyun motorunda at sistemi' });
+    const captured = captureDiscussionBundle(initial, bundleWith('edited'));
+    assert.ok(
+      captured.ideaDiscussion.records
+        .filter(record => record.kind !== 'question')
+        .every(record => record.status === 'accepted')
+    );
+  });
+
+  it('KORUNAN DAVRANIŞ: karar bekleyen öneriden doğan kayıt pending kalır', () => {
+    const initial = createProjectDocument({ idea: 'S&box oyun motorunda at sistemi' });
+    const captured = captureDiscussionBundle(initial, discussionBundle(), 'message-1');
+    assert.ok(
+      captured.ideaDiscussion.records.every(record => record.status === 'pending'),
+      'sohbet/keşif yolundan gelen öneri kullanıcıya sorulmadan kabul edilmiş sayılamaz'
+    );
+  });
+
+  it('KORUNAN DAVRANIŞ: açık soru her zaman pending doğar', () => {
+    const initial = createProjectDocument({ idea: 'S&box oyun motorunda at sistemi' });
+    const captured = captureDiscussionBundle(initial, bundleWith('accepted'));
+    const question = captured.ideaDiscussion.records.find(record => record.kind === 'question');
+    assert.ok(question, 'açık soru kaydı üretilmeli');
+    assert.equal(
+      question.status,
+      'pending',
+      'soru bir öneri değildir; paketteki öğelerin kararı soruya bulaşamaz'
+    );
+  });
+
+  it('ertelenen ve reddedilen öneri de defterde aynı kararla durur', () => {
+    const initial = createProjectDocument({ idea: 'S&box oyun motorunda at sistemi' });
+    for (const status of ['deferred', 'rejected'] as const) {
+      const captured = captureDiscussionBundle(initial, bundleWith(status));
+      assert.ok(
+        captured.ideaDiscussion.records
+          .filter(record => record.kind !== 'question')
+          .every(record => record.status === status),
+        `${status} öneri defterde de ${status} olmalı`
+      );
+    }
+  });
+
+  it('var olan kaydın durumu ikinci yakalamada DEĞİŞMEZ', () => {
+    const initial = createProjectDocument({ idea: 'S&box oyun motorunda at sistemi' });
+    const first = captureDiscussionBundle(initial, discussionBundle());
+    const second = captureDiscussionBundle(first, bundleWith('accepted'));
+    assert.equal(second.ideaDiscussion.records.length, first.ideaDiscussion.records.length);
+    assert.ok(
+      second.ideaDiscussion.records.every(record => record.status === 'pending'),
+      'kayıt bir kez doğar; durumu yalnız kullanıcının kendi kararıyla değişir'
+    );
+  });
+});

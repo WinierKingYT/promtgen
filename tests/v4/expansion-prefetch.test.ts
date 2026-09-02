@@ -8,9 +8,11 @@ import {
 } from '../../src/v4/application/expansion-prefetch.js';
 import {
   clearExpansionCache,
+  expansionGenerationKey,
   generateExpansionCards,
   type ExpansionResult
 } from '../../src/v4/application/idea-expansion-service.js';
+import { addExpansionCardAsSuggestion } from '../../src/v4/application/idea-expansion-intake.js';
 import {
   getExpansionCategorySet,
   mergeExpansionCategories,
@@ -379,6 +381,83 @@ describe('ön-yükleme sırası sunum sırasını izler', () => {
 
     assert.ok(result, 'sınırın dışındaki kategori tıklamayla üretilebilmeli');
     assert.equal(result.categoryId, 'trust');
+    harness.runner.stop();
+  });
+});
+
+/**
+ * ÖLÇÜLEN KUSURUN İKİNCİ YARISI. Önbellek korunsa bile yürütücünün kuşak
+ * anahtarı `documentRevision` içerdiği sürece her kart kabulü sırayı
+ * sıfırlıyor, uçuştaki üretimi iptal ediyor ve hazır damgalarını siliyordu:
+ * altı bölümün ~2,5 dakikalık üretimi baştan başlıyordu.
+ *
+ * Bu blok YÜRÜTÜCÜNÜN KENDİSİNİ DEĞİL, ona verilen anahtarı sınar. Sıra,
+ * iptal ve sınır mantığı olduğu gibi durur (yukarıdaki testler); değişen tek
+ * şey anahtarın nereden geldiğidir.
+ */
+describe('kart kabulü arka plan sırasını SIFIRLAMAZ', () => {
+  beforeEach(() => clearExpansionCache());
+
+  const acceptedProject = (base: ProjectDocumentV5) => addExpansionCardAsSuggestion(
+    base,
+    {
+      id: 'card-1',
+      title: 'Atı uzaktan çağırma',
+      description: 'Islıkla çağırma.',
+      kind: 'feature',
+      origin: 'ai'
+    },
+    'Güven',
+    { status: 'accepted' }
+  ).project;
+
+  it('kabul sonrası kuşak anahtarı AYNI kalır: hazır damgalar silinmez, uçuştaki iş iptal edilmez', async () => {
+    const base = project();
+    const harness = createHarness();
+
+    harness.runner.fill(expansionGenerationKey(base), ['trust', 'scope']);
+    await tick();
+    harness.finish('trust');
+    await tick();
+    assert.equal(harness.latest().trust, 'ready', 'ilk kategori hazır olmalı');
+
+    // Kullanıcı bir kart kabul eder; pano yeni belgeyle yeniden render olur.
+    const after = acceptedProject(base);
+    harness.runner.fill(expansionGenerationKey(after), ['trust', 'scope']);
+    await tick();
+
+    assert.equal(harness.latest().trust, 'ready', 'hazır damgası kabulle silinmemeli');
+    assert.deepEqual(harness.state.aborted, [], 'uçuştaki üretim kabulle iptal edilmemeli');
+    assert.deepEqual(
+      harness.state.calls,
+      ['trust', 'scope'],
+      'kabul, zaten üretilmiş kategoriyi yeniden üretmemeli'
+    );
+    harness.runner.stop();
+  });
+
+  it('BOZULMAMASI GEREKEN: fikir metni değişince sıra SIFIRLANIR', async () => {
+    const base = project();
+    const harness = createHarness();
+
+    harness.runner.fill(expansionGenerationKey(base), ['trust', 'scope']);
+    await tick();
+    harness.finish('trust');
+    await tick();
+    assert.equal(harness.latest().trust, 'ready');
+
+    const edited = {
+      ...base,
+      identity: { ...base.identity, originalIdea: 'Bambaşka bir fikir: masaüstü not uygulaması' }
+    } as ProjectDocumentV5;
+    harness.runner.fill(expansionGenerationKey(edited), ['trust', 'scope']);
+    await tick();
+
+    assert.notEqual(
+      harness.latest().trust,
+      'ready',
+      'kartlar başka bir fikri yanıtlıyor olurdu; hazır damgası düşmeli'
+    );
     harness.runner.stop();
   });
 });

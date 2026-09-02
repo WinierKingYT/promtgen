@@ -4,6 +4,7 @@ import { analyzeIdea, applyApprovedChanges, updateSuggestionStatus } from '../..
 import { addExpansionCardAsSuggestion } from '../../src/v4/application/idea-expansion-intake.js';
 import { selectExpansionBundle } from '../../src/v4/application/proposal-bundle-selectors.js';
 import { createUserExpansionCard, type ExpansionCard } from '../../src/v4/application/idea-expansion-service.js';
+import { buildIdeaStateView } from '../../src/v4/application/idea-state-view.js';
 import type { ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const project = () => analyzeIdea('Şehir içi bisiklet rotası öneren bir mobil uygulama') as ProjectDocumentV5;
@@ -150,6 +151,104 @@ describe('addExpansionCardAsSuggestion', () => {
     const item = openBundle(next).items.find(entry => entry.title === disguised.title);
     assert.ok(item);
     assert.match(item.recommendationReason, /yerel başlangıç/i);
+  });
+});
+
+/**
+ * BAŞLANGIÇ DURUMUNU ÇAĞIRAN BELİRLER.
+ *
+ * Ölçülen kusur: "Fikre ekle" düğmesi kartı `pending` yapıyordu. Kullanıcı
+ * tıklıyor, sonuç "KARAR BEKLİYOR" oluyor, kartı çözecek "Kabul et" düğmesi
+ * 1400 piksel aşağıda duruyordu. Kullanıcı zaten tıklayarak karar verdi;
+ * ikinci bir onay adımı istemek dürüstlük değil tören.
+ *
+ * Ama ayrım servise SABİTLENEMEZ: kullanıcının hiç dokunmadığı, sohbet ya da
+ * keşif yolundan gelen öneriler `pending` KALMALI. Aşağıdaki iki test bu
+ * ayrımın iki ucunu birden çakılı tutar.
+ */
+describe('keşif kartının başlangıç durumu', () => {
+  it('tıklama yolu: kart kabul edilmiş olarak girer ve fikrin KABUL EDİLENLER listesinde görünür', () => {
+    const { project: next, added } = addExpansionCardAsSuggestion(
+      project(),
+      card,
+      'Güven ve gizlilik',
+      { status: 'accepted' }
+    );
+    assert.equal(added, true);
+    const item = openBundle(next).items.find(entry => entry.title === card.title);
+    assert.ok(item);
+    assert.equal(item.status, 'accepted', 'kullanıcının tıklaması kararın kendisidir');
+
+    const view = buildIdeaStateView(next);
+    assert.ok(
+      view.acceptedCards.some(entry => entry.title === card.title),
+      'kabul edilen kart fikrin kabul edilenlerinde görünmeli'
+    );
+    assert.equal(
+      view.pendingCards.some(entry => entry.title === card.title),
+      false,
+      'aynı kart ayrıca karar bekleyenlerde durmamalı'
+    );
+  });
+
+  it('sohbet/keşif yolu: durum verilmezse kart KARAR BEKLER (regresyon)', () => {
+    const { project: next } = addExpansionCardAsSuggestion(project(), card, 'Güven ve gizlilik');
+    const item = openBundle(next).items.find(entry => entry.title === card.title);
+    assert.ok(item);
+    assert.equal(item.status, 'pending', 'kullanıcının tıklamadığı öneri kabul edilmiş sayılamaz');
+
+    const view = buildIdeaStateView(next);
+    assert.ok(view.pendingCards.some(entry => entry.title === card.title));
+    assert.equal(view.acceptedCards.some(entry => entry.title === card.title), false);
+  });
+
+  it('kabul edilerek eklenen kart ikinci kez eklenemez; neden dürüstçe söylenir', () => {
+    const once = addExpansionCardAsSuggestion(project(), card, 'Güven ve gizlilik', { status: 'accepted' });
+    const twice = addExpansionCardAsSuggestion(once.project, card, 'Güven ve gizlilik', { status: 'accepted' });
+    assert.equal(twice.added, false);
+    assert.match(twice.reason, /zaten kabul ettin/i, 'bildirim kartın gerçek durumunu söylemeli');
+    assert.doesNotMatch(
+      twice.reason,
+      /plana geçti/i,
+      'kabul edilmiş ama henüz uygulanmamış kart için "plana geçti" demek olmamış bir şeyi bildirmek olurdu'
+    );
+    assert.equal(twice.project, once.project, 'değişiklik yoksa yeni bir belge sürümü üretilmemeli');
+  });
+
+  it('kabul edilen kart geri alınabilir: reddetme yolu bozulmaz', () => {
+    const once = addExpansionCardAsSuggestion(project(), card, 'Güven ve gizlilik', { status: 'accepted' });
+    const bundle = openBundle(once.project);
+    const rejected = updateSuggestionStatus(once.project, bundle.id, bundle.items[0].id, 'rejected');
+
+    const view = buildIdeaStateView(rejected);
+    assert.equal(view.acceptedCards.length, 0, 'reddedilen kart kabul edilenlerden düşmeli');
+    assert.equal(view.pendingCards.length, 0, 'reddedilmiş bir karar "bekliyor" diye gösterilemez');
+    assert.equal(
+      openBundle(rejected).items[0].status,
+      'rejected',
+      'kullanıcı kararını değiştirebilmeli; kayıt yerinde kalır'
+    );
+  });
+
+  it('"Kararları uygula" kapısı DEĞİŞMEZ: bekleyen kart varsa plana hiçbir şey geçmez', () => {
+    // Bir kart tıklamayla (accepted), biri tıklanmadan (pending) girer.
+    const first = addExpansionCardAsSuggestion(project(), card, 'Güven ve gizlilik', { status: 'accepted' });
+    const second = addExpansionCardAsSuggestion(
+      first.project,
+      { ...card, id: 'card-2', title: 'Sorulmamış bir öneri' },
+      'Güven ve gizlilik'
+    );
+    const bundle = openBundle(second.project);
+    const blocked = applyApprovedChanges(second.project, bundle.id) as ProjectDocumentV5;
+    assert.equal(blocked, second.project, 'bekleyen kart varken kapı açılmaz');
+    assert.equal(blocked.requirements.length, 0);
+
+    // Bekleyen kart karara bağlanınca aynı kapı, aynı şekilde açılır.
+    const pendingItem = bundle.items.find(entry => entry.title === 'Sorulmamış bir öneri')!;
+    const decided = updateSuggestionStatus(second.project, bundle.id, pendingItem.id, 'rejected');
+    const applied = applyApprovedChanges(decided, bundle.id) as ProjectDocumentV5;
+    assert.equal(applied.requirements.length, 1, 'yalnız kabul edilen kart plana geçmeli');
+    assert.equal(applied.requirements[0].title, card.title);
   });
 });
 

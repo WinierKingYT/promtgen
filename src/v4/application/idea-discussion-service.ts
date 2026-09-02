@@ -6,7 +6,8 @@ import type {
   IdeaRecordKind,
   IdeaRecordStatus,
   ProjectDocumentV5,
-  SuggestionBundle
+  SuggestionBundle,
+  SuggestionItem
 } from '../contracts.js';
 import { isExpansionBundle } from './proposal-bundle-selectors.js';
 
@@ -174,6 +175,31 @@ function fingerprint(kind: IdeaRecordKind, text: string): string {
   return `${kind}:${text.trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ')}`;
 }
 
+/**
+ * Doğan kaydın durumu KAYNAK ÖNERİDEN gelir, burada SABİTLENMEZ.
+ *
+ * ÖLÇÜLEN KUSUR. Eskiden her kayda `pending` yazılıyordu. Kullanıcı bir
+ * genişletme kartının "Fikre ekle" düğmesine bastığında öneri `accepted`
+ * oluyor, ama fikir defteri "hâlâ karar bekliyor" diyordu. Aynı metin AI
+ * bağlamına da (`buildIdeaDiscussionContext` -> `pending`) öyle giriyordu:
+ * modele kullanıcının VERDİĞİ karar hiç söylenmiyordu.
+ *
+ * `edited` -> `accepted`: düzenleyerek kabul de bir kabuldür (kartın kendi
+ * uyarı metni de bunu söyler, bkz. idea-expansion-intake.ts). Defter böyle
+ * bir ara durum tanımıyor; `pending`e düşürmek kullanıcının kararını silerdi.
+ *
+ * KORUNAN DAVRANIŞ: `pending` gelen öneri `pending` doğar. Sohbet ve keşif
+ * yolundan (discovery-generation-service.ts) gelen paketlerin öğeleri
+ * `pending` üretilir; onlarda kullanıcının verdiği bir karar YOKTUR ve
+ * kabul edilmiş sayılamazlar.
+ */
+function recordStatus(status: SuggestionItem['status']): IdeaRecordStatus {
+  if (status === 'accepted' || status === 'edited') return 'accepted';
+  if (status === 'deferred') return 'deferred';
+  if (status === 'rejected') return 'rejected';
+  return 'pending';
+}
+
 function bounded(value: unknown, max: number): string {
   return String(value || '').trim().slice(0, max);
 }
@@ -206,8 +232,21 @@ export function captureDiscussionBundle(
   const existing = new Set(next.ideaDiscussion.records.map(item => fingerprint(item.kind, item.text)));
   const createdAt = new Date().toISOString();
   const candidates = [
-    ...bundle.items.map(item => ({ kind: recordKind(item.kind), text: item.title || item.description })),
-    ...(bundle.openQuestions || []).map(text => ({ kind: 'question' as const, text }))
+    ...bundle.items.map(item => ({
+      kind: recordKind(item.kind),
+      text: item.title || item.description,
+      status: recordStatus(item.status)
+    })),
+    /**
+     * Açık soru bir ÖNERİ DEĞİLDİR: paketin öğelerine verilen karar ona
+     * bulaşamaz. Kullanıcı "şu kartı fikre ekle" derken turun sorusunu da
+     * cevaplamış olmaz; soru her hâlde cevabı beklemeye devam eder.
+     */
+    ...(bundle.openQuestions || []).map(text => ({
+      kind: 'question' as const,
+      text,
+      status: 'pending' as const
+    }))
   ];
 
   for (const [index, candidate] of candidates.entries()) {
@@ -224,10 +263,13 @@ export function captureDiscussionBundle(
       rationale: '',
       validationPlan: '',
       history: [],
-      status: 'pending',
+      status: candidate.status,
       sourceBundleId: bundle.id,
       sourceMessageId,
-      createdAt
+      createdAt,
+      // Karara bağlı doğan kaydın çözülme anı doğduğu andır. `pending`
+      // kayıtta alan hiç yazılmaz; `updateIdeaRecordStatus` ile aynı kural.
+      ...(candidate.status === 'pending' ? {} : { resolvedAt: createdAt })
     };
     next.ideaDiscussion.records.push(record);
     existing.add(key);

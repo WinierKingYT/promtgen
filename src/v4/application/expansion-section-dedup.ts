@@ -23,8 +23,9 @@ import {
  *
  * SAF TÜRETİLMİŞ GÖRÜNÜMDÜR, ÖNBELLEĞE DOKUNMAZ. Kategori başına önbellek
  * girdileri HAM kalır; eleme yalnız gösterim anında hesaplanır. Gerekçe:
- * önbellek `documentRevision` anahtarlı ve kategoriler arasında paylaşılıyor
- * (bkz. idea-expansion-service.ts). Elenmiş sonucu önbelleğe yazmak, aynı
+ * önbellek fikrin kendisiyle anahtarlı ve kategoriler arasında paylaşılıyor
+ * (bkz. idea-expansion-service.ts `expansionGenerationKey`). Elenmiş sonucu
+ * önbelleğe yazmak, aynı
  * kategorinin kullanıcının o an hangi bölümleri açtığına göre farklı içerik
  * göstermesi demek olurdu. `idea-state-view.ts` bu kod tabanındaki saf
  * türetilmiş görünüm örneğidir; bu modül aynı çizgidedir.
