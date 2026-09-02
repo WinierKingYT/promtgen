@@ -46259,127 +46259,22 @@
       }
     },
     {
-      "tag": "label",
-      "className": "",
-      "styles": {
-        "color": "rgb(143, 174, 132)",
-        "background-color": "rgba(0, 0, 0, 0)",
-        "background-image": "none",
-        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-        "font-size": "10px",
-        "font-weight": "700",
-        "line-height": "15px",
-        "letter-spacing": "normal",
-        "border-width": "0px",
-        "border-color": "rgb(143, 174, 132)",
-        "border-radius": "0px",
-        "padding": "0px",
-        "gap": "5px",
-        "box-shadow": "none",
-        "opacity": "1"
-      }
-    },
-    {
-      "tag": "small",
-      "className": "",
-      "styles": {
-        "color": "rgb(143, 174, 132)",
-        "background-color": "rgba(0, 0, 0, 0)",
-        "background-image": "none",
-        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-        "font-size": "8px",
-        "font-weight": "500",
-        "line-height": "12px",
-        "letter-spacing": "normal",
-        "border-width": "0px",
-        "border-color": "rgb(143, 174, 132)",
-        "border-radius": "0px",
-        "padding": "0px",
-        "gap": "normal",
-        "box-shadow": "none",
-        "opacity": "1"
-      }
-    },
-    {
-      "tag": "textarea",
-      "className": "",
+      "tag": "div",
+      "className": "agreement-field",
       "styles": {
         "color": "rgb(233, 225, 214)",
-        "background-color": "rgb(29, 36, 25)",
-        "background-image": "none",
-        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-        "font-size": "10px",
-        "font-weight": "700",
-        "line-height": "15.5px",
-        "letter-spacing": "normal",
-        "border-width": "1px",
-        "border-color": "rgb(143, 174, 132)",
-        "border-radius": "1px",
-        "padding": "8px",
-        "gap": "normal",
-        "box-shadow": "none",
-        "opacity": "1"
-      }
-    },
-    {
-      "tag": "label",
-      "className": "",
-      "styles": {
-        "color": "rgb(143, 174, 132)",
         "background-color": "rgba(0, 0, 0, 0)",
         "background-image": "none",
         "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-        "font-size": "10px",
-        "font-weight": "700",
-        "line-height": "15px",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
         "letter-spacing": "normal",
         "border-width": "0px",
-        "border-color": "rgb(143, 174, 132)",
+        "border-color": "rgb(233, 225, 214)",
         "border-radius": "0px",
         "padding": "0px",
-        "gap": "5px",
-        "box-shadow": "none",
-        "opacity": "1"
-      }
-    },
-    {
-      "tag": "small",
-      "className": "",
-      "styles": {
-        "color": "rgb(143, 174, 132)",
-        "background-color": "rgba(0, 0, 0, 0)",
-        "background-image": "none",
-        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-        "font-size": "8px",
-        "font-weight": "500",
-        "line-height": "12px",
-        "letter-spacing": "normal",
-        "border-width": "0px",
-        "border-color": "rgb(143, 174, 132)",
-        "border-radius": "0px",
-        "padding": "0px",
-        "gap": "normal",
-        "box-shadow": "none",
-        "opacity": "1"
-      }
-    },
-    {
-      "tag": "textarea",
-      "className": "",
-      "styles": {
-        "color": "rgb(233, 225, 214)",
-        "background-color": "rgb(29, 36, 25)",
-        "background-image": "none",
-        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-        "font-size": "10px",
-        "font-weight": "700",
-        "line-height": "15.5px",
-        "letter-spacing": "normal",
-        "border-width": "1px",
-        "border-color": "rgb(143, 174, 132)",
-        "border-radius": "1px",
-        "padding": "8px",
-        "gap": "normal",
+        "gap": "6px",
         "box-shadow": "none",
         "opacity": "1"
       }
@@ -46448,6 +46343,27 @@
       }
     },
     {
+      "tag": "div",
+      "className": "agreement-field",
+      "styles": {
+        "color": "rgb(233, 225, 214)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(233, 225, 214)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "6px",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
       "tag": "label",
       "className": "",
       "styles": {
@@ -46506,6 +46422,195 @@
         "border-radius": "1px",
         "padding": "8px",
         "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "div",
+      "className": "agreement-field",
+      "styles": {
+        "color": "rgb(233, 225, 214)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(233, 225, 214)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "6px",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "label",
+      "className": "",
+      "styles": {
+        "color": "rgb(143, 174, 132)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "10px",
+        "font-weight": "700",
+        "line-height": "15px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(143, 174, 132)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "5px",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "small",
+      "className": "",
+      "styles": {
+        "color": "rgb(143, 174, 132)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "8px",
+        "font-weight": "500",
+        "line-height": "12px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(143, 174, 132)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "textarea",
+      "className": "",
+      "styles": {
+        "color": "rgb(233, 225, 214)",
+        "background-color": "rgb(29, 36, 25)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "10px",
+        "font-weight": "700",
+        "line-height": "15.5px",
+        "letter-spacing": "normal",
+        "border-width": "1px",
+        "border-color": "rgb(143, 174, 132)",
+        "border-radius": "1px",
+        "padding": "8px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "div",
+      "className": "agreement-field",
+      "styles": {
+        "color": "rgb(233, 225, 214)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(233, 225, 214)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "6px",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "label",
+      "className": "",
+      "styles": {
+        "color": "rgb(143, 174, 132)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "10px",
+        "font-weight": "700",
+        "line-height": "15px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(143, 174, 132)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "5px",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "small",
+      "className": "",
+      "styles": {
+        "color": "rgb(143, 174, 132)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "8px",
+        "font-weight": "500",
+        "line-height": "12px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(143, 174, 132)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "textarea",
+      "className": "",
+      "styles": {
+        "color": "rgb(233, 225, 214)",
+        "background-color": "rgb(29, 36, 25)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "10px",
+        "font-weight": "700",
+        "line-height": "15.5px",
+        "letter-spacing": "normal",
+        "border-width": "1px",
+        "border-color": "rgb(143, 174, 132)",
+        "border-radius": "1px",
+        "padding": "8px",
+        "gap": "normal",
+        "box-shadow": "none",
+        "opacity": "1"
+      }
+    },
+    {
+      "tag": "div",
+      "className": "agreement-field",
+      "styles": {
+        "color": "rgb(233, 225, 214)",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "background-image": "none",
+        "font-family": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "24px",
+        "letter-spacing": "normal",
+        "border-width": "0px",
+        "border-color": "rgb(233, 225, 214)",
+        "border-radius": "0px",
+        "padding": "0px",
+        "gap": "6px",
         "box-shadow": "none",
         "opacity": "1"
       }

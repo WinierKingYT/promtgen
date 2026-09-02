@@ -3,9 +3,9 @@
 `src/v4/application` katmanındaki dışa aktarımların üretim kodundan gerçekten
 çağrılıp çağrılmadığı. `npm run check:reachability` bunu zorlar.
 
-- Toplam dışa aktarım: **196**
-- Üretimden erişilebilir: **166**
-- Yalnız kendi modülünde kullanılan: **15**
+- Toplam dışa aktarım: **199**
+- Üretimden erişilebilir: **167**
+- Yalnız kendi modülünde kullanılan: **17**
 - Üretimde hiç çağrılmayan: **15**
 
 ## Neden var
@@ -50,6 +50,8 @@ Kod canlı; dışa aktarım gereksiz olabilir. Kapıyı düşürmez, bilgi amaç
 - `implementation-evidence-format.ts::IMPLEMENTATION_EVIDENCE_FORMAT`
 - `implementation-evidence-format.ts::IMPLEMENTATION_EVIDENCE_FORMAT_VERSION`
 - `implementation-evidence-format.ts::MAX_IMPLEMENTATION_EVIDENCE_BYTES`
+- `legacy-scope-defaults.ts::REMOVED_SCOPE_DEFAULTS`
+- `legacy-scope-defaults.ts::isRemovedScopeDefault`
 - `planning-scenario-service.ts::comparePlanningScenario`
 - `proposal-bundle-selectors.ts::EXPANSION_BUNDLE_ID_PREFIX`
 - `stage-migration.ts::classifyLegacyDecision`

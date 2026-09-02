@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Save } from 'lucide-react';
+import { CheckCircle2, Save, TriangleAlert } from 'lucide-react';
 import type { ConceptSummary, ProjectDocumentV5 } from '../../v4/contracts.js';
 import { getConceptAgreementGate } from '../../v4/application/idea-discussion-service.js';
 import { updateIdeaDocumentWithRevision } from '../../v4/application/idea-document-revision-service.js';
+import { findRemovedScopeDefaults } from '../../v4/application/legacy-scope-defaults.js';
 
 type EditableAgreement = Pick<
   ConceptSummary,
@@ -74,11 +75,54 @@ export function ConceptAgreementEditor({ project, onCommit }: {
     };
     onCommit(updateIdeaDocumentWithRevision(project, changes), 'Fikir belgesi yeni sürüm olarak kaydedildi.', 'UpdateConceptAgreement');
   };
+  // Kaldırılmış kapsam varsayılanları için dürüstlük uyarısı.
+  //
+  // `38bc893`/`06d2541` öncesinde oluşturulmuş belgeler, sistemin kullanıcı
+  // adına UYDURDUĞU kapsam satırlarını hâlâ taşıyor. Belgeyi sessizce
+  // düzeltmiyoruz — kullanıcının belgesi. Ama yalanı biz koyduk; haber
+  // vermemek onu sürdürmek olurdu.
+  //
+  // Uyarı KENDİLİĞİNDEN kaybolur: satır düzeltilince ya da silinince eşleşme
+  // biter. Ayrı bir "kapatıldı" durumu TUTULMAZ — tutulsaydı uyarı, uydurma
+  // belgede dururken susabilirdi.
+  // Silme, yalnız kullanıcının tıklamasıyla ve yalnız TASLAKTA olur; belgeye
+  // geçmesi için ayrıca "kaydet" gerekir. Sistem kendiliğinden hiçbir satırı
+  // kaldırmaz.
+  const removeLegacyLines = (key: 'confirmedFeatures' | 'outOfScope') => {
+    const kept = draft[key].split('\n').filter(line => findRemovedScopeDefaults([line.trim()]).length === 0);
+    setDraft({ ...draft, [key]: kept.join('\n') });
+  };
   const listField = (
     key: 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions',
     label: string,
     hint: string
-  ) => <label>{label}<small>{hint}</small><textarea value={draft[key]} onChange={event => setDraft({ ...draft, [key]: event.target.value })}/></label>;
+  ) => {
+    const isScopeField = key === 'confirmedFeatures' || key === 'outOfScope';
+    const legacy = isScopeField ? findRemovedScopeDefaults(lines(draft[key])) : [];
+    const noticeId = `legacy-scope-${key}`;
+    return <div className="agreement-field">
+      <label>{label}<small>{hint}</small><textarea
+        aria-describedby={legacy.length > 0 ? noticeId : undefined}
+        value={draft[key]}
+        onChange={event => setDraft({ ...draft, [key]: event.target.value })}
+      /></label>
+      {isScopeField && legacy.length > 0 && <div className="legacy-scope-notice" id={noticeId} role="note">
+        <TriangleAlert size={14} aria-hidden="true"/>
+        <div>
+          <b>Bunu sen yazmadın.</b>
+          <span>
+            Aşağıdaki {legacy.length > 1 ? 'satırları' : 'satırı'} bu alana sistem koydu; eski bir
+            varsayılandan geldi, senin cümlen değil. Bir oku: doğruysa kalsın, değilse düzelt ya da sil.
+            Kararı sen verirsin — biz kendiliğimizden dokunmuyoruz.
+          </span>
+          <ul>{legacy.map(item => <li key={item}>{item}</li>)}</ul>
+          <button type="button" onClick={() => removeLegacyLines(key)}>
+            Yukarıdaki {legacy.length > 1 ? `${legacy.length} satırı` : 'satırı'} taslaktan sil
+          </button>
+        </div>
+      </div>}
+    </div>;
+  };
 
   return <div className="concept-agreement">
     <div className="agreement-head">
