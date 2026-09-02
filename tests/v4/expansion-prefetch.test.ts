@@ -326,61 +326,114 @@ describe('arka plan üretimi eleme boru hattından geçer', () => {
 });
 
 /**
- * ÖLÇÜLEN SORUN. Sıra `[...aiAxes, ...getExpansionCategories(project)]` ile
- * kuruluyordu; kimlik çözümünün sırası (CORE 8 → BY_DOMAIN 5) aynı zamanda
- * ön-yükleme sırası olduğu için alana özel eksenler 9. sıradan başlıyor ve
- * BACKGROUND_PREFETCH_LIMIT = 6 sınırının dışında kalıyordu. Sınır DOĞRUDUR
- * ve değişmez (gerekçesi expansion-prefetch.ts'te ölçülü yazılı); değişen,
- * sınırın İÇİNE hangi eksenlerin girdiğidir.
+ * ÖLÇÜLEN SORUN (İKİ AŞAMALI). Sıra önce `[...aiAxes,
+ * ...getExpansionCategories(project)]` ile kuruluyordu; kimlik çözümünün
+ * sırası (CORE 8 → BY_DOMAIN 5) aynı zamanda ön-yükleme sırası olduğu için
+ * alana özel eksenler 9. sıradan başlıyor ve sabit sınırın dışında
+ * kalıyordu. Sunum sırası ayrıldıktan SONRA ölçülen ikinci yarısı: sabit 6,
+ * bu kez ilgili eksenlerin ORTASINDAN kesiyordu -- at sistemi fikrinde
+ * 3 AI ekseni + 5 oyun ekseni = 8 ilgili eksen vardı ve `Ağ yetkisi ve
+ * senkron`, `Girdi ve his`, `Sanat ve içerik hattı` hiç dolmuyordu. Pencere
+ * bu yüzden İLGİDEN türüyor: taban 6, tavan 9 (gerekçeleri ölçüyle
+ * expansion-prefetch.ts'te yazılı).
  */
-describe('ön-yükleme sırası sunum sırasını izler', () => {
+describe('ön-yükleme penceresi ilgiden türer', () => {
   const gameProject = () => analyzeIdea('Unity ile bir at sistemi yapmak istiyorum, multiplayer olacak') as ProjectDocumentV5;
   const aiAxis = (id: string): ExpansionCategory =>
     ({ id, label: `AI ${id}`, hint: 'fikre özel', seedTitles: ['a1', 'a2'] });
 
-  /** Panonun kurduğu sıranın birebir aynısı (bkz. IdeaExpansionBoard.tsx). */
-  const boardOrder = (axes: ExpansionCategory[]) => {
-    const set = getExpansionCategorySet(gameProject());
-    return orderExpansionCategoriesForPresentation(
+  /** Panonun kurduğu sıranın ve ilgi listesinin birebir aynısı (bkz. IdeaExpansionBoard.tsx). */
+  const boardWindow = (axes: ExpansionCategory[], project = gameProject()) => {
+    const set = getExpansionCategorySet(project);
+    const order = orderExpansionCategoriesForPresentation(
       mergeExpansionCategories(set.categories, [], axes),
       { ideaSpecificIds: axes.map(axis => axis.id), domainSpecificIds: set.domainSpecificIds }
     ).map(category => category.id);
+    return { order, relevantIds: [...axes.map(axis => axis.id), ...set.domainSpecificIds] };
   };
 
-  it('sınırın içine 2 AI ekseni + 4 alana özel eksen girer; genel CORE sıranın sonundadır', async () => {
-    const axes = [aiAxis('ai.at-bakimi'), aiAxis('ai.binicilik')];
-    const order = boardOrder(axes);
-    const harness = createHarness();
-    harness.runner.fill(KEY, order);
-    await tick();
-
-    for (let index = 0; index < 6; index += 1) {
-      harness.finish(harness.state.calls[harness.state.calls.length - 1]);
+  /** Sıra tıkanmasın diye uçuştaki her üretimi sırayla bitirir. */
+  const drain = async (harness: ReturnType<typeof createHarness>, rounds: number) => {
+    for (let index = 0; index < rounds; index += 1) {
+      const current = harness.state.calls[harness.state.calls.length - 1];
+      if (current) harness.finish(current);
       await tick();
     }
+  };
+
+  it('fikre özel + alana özel eksenlerin HEPSİ pencereye girer; genel CORE dışarıda kalır', async () => {
+    const axes = [aiAxis('ai.at-bakimi'), aiAxis('ai.binicilik'), aiAxis('ai.yaris')];
+    const { order, relevantIds } = boardWindow(axes);
+    assert.equal(relevantIds.length, 8, 'canlı ölçüm: 3 AI ekseni + 5 oyun ekseni');
+
+    const harness = createHarness();
+    harness.runner.fill(KEY, order, { relevantIds });
+    await tick();
+    await drain(harness, relevantIds.length + 2);
 
     assert.deepEqual(
       harness.state.calls,
-      ['ai.at-bakimi', 'ai.binicilik', 'game-loop', 'simulated-state', 'network-authority', 'input-and-feel'],
-      'arka plan sınırı fikre özel ve alana özel eksenlerle dolmalı'
+      [
+        'ai.at-bakimi',
+        'ai.binicilik',
+        'ai.yaris',
+        'game-loop',
+        'simulated-state',
+        'network-authority',
+        'input-and-feel',
+        'content-pipeline'
+      ],
+      'ilgili eksenlerin hiçbiri pencerenin ortasında kesilmemeli'
     );
-    assert.equal(harness.state.calls.includes('trust'), false, 'genel CORE ekseni sınırın içine girmemeli');
+    assert.equal(harness.state.calls.includes('trust'), false, 'genel CORE ekseni pencereye girmemeli');
     harness.runner.stop();
   });
 
-  it('sınırın dışında kalan CORE kategorisi KAYBOLMAZ: tıklanınca yine üretilir', async () => {
-    const order = boardOrder([]);
+  it('pencere ÜST TAVANI aşmaz: ilgi ne kadar kalabalık olursa olsun makine süresiz meşgul edilmez', async () => {
+    const many = Array.from({ length: 14 }, (_, index) => `rel${index}`);
     const harness = createHarness();
-    harness.runner.fill(KEY, order);
+    harness.runner.fill(KEY, [...many, 'trust'], { relevantIds: many });
+    await tick();
+    await drain(harness, many.length + 2);
+
+    assert.equal(harness.state.calls.length, 9, 'tavan 9 kategoridir (~3,75 dakika)');
+    assert.deepEqual(harness.state.calls, many.slice(0, 9));
+    harness.runner.stop();
+  });
+
+  it('ilgili eksen tabanın altındaysa pencere sunum sırasındaki kalanlarla tamamlanır', async () => {
+    // Genel alan: `BY_DOMAIN.general` boştur ve bu fikstürde AI ekseni de yok.
+    // İlgi sıfır olduğu için pano tamamen soğuk kalırdı; taban bunu önler.
+    const { order, relevantIds } = boardWindow([], analyzeIdea('Bir şeyler yapmak istiyorum') as ProjectDocumentV5);
+    assert.deepEqual(relevantIds, [], 'genel alanda ilgili eksen yoktur');
+
+    const harness = createHarness();
+    harness.runner.fill(KEY, order, { relevantIds });
+    await tick();
+    await drain(harness, 10);
+
+    assert.deepEqual(harness.state.calls, order.slice(0, 6), 'taban 6 kategoriyle dolmalı');
+    harness.runner.stop();
+  });
+
+  it('pencerenin dışında kalan kategori KAYBOLMAZ: tıklanınca yine üretilir', async () => {
+    const { order, relevantIds } = boardWindow([]);
+    const harness = createHarness();
+    harness.runner.fill(KEY, order, { relevantIds });
     await tick();
 
-    const clicked = harness.runner.requestNow('trust');
+    const clicked = harness.runner.requestNow('narrow');
     await tick();
-    harness.finish('trust');
+    harness.finish('narrow');
     const result = await clicked;
 
-    assert.ok(result, 'sınırın dışındaki kategori tıklamayla üretilebilmeli');
-    assert.equal(result.categoryId, 'trust');
+    assert.ok(result, 'pencerenin dışındaki kategori tıklamayla üretilebilmeli');
+    assert.equal(result.categoryId, 'narrow');
+    assert.equal(
+      harness.state.calls.filter(item => item === 'narrow').length,
+      1,
+      'bu kategori arka planda değil, yalnız tıklamayla üretilmeli'
+    );
     harness.runner.stop();
   });
 });

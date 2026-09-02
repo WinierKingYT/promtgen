@@ -37,6 +37,9 @@ function submission(blindId: string, quality: 'weak' | 'strong'): BlindCompariso
   };
 }
 
+/** Üretimdeki `rounded` ile aynı yuvarlama; test elle yuvarlanmış sayı yazmaz. */
+const rounded = (value: number) => Math.round(value * 1000) / 1000;
+
 const userSession: AnonymousUserSession = {
   schemaVersion: 2,
   anonymousSessionId: 'anon-001',
@@ -64,6 +67,56 @@ describe('Blind comparison benchmark and anonymous user evidence', () => {
       () => evaluateBlindSubmission({ ...submission('leaked', 'strong'), method: 'promtgen' } as BlindComparisonSubmission, V1_EVALUATION_CRITERIA),
       /yöntem bilgisini içeremez/
     );
+  });
+
+  /**
+   * ÖLÇÜLEN KUSUR. `scopeContainment` boş `outOfScope` listesinde 1 dönüyordu:
+   * hiç kapsam kararı vermemiş bir gönderim, kararını verip hiç sızdırmayanla
+   * toplam skorun %25'inde AYNI puanı alıyordu. Boş küme üzerinde vakum
+   * doğruluk bir ölçüm değildir.
+   */
+  it('hiç kapsam kararı olmayan gönderim kapsam puanı KAZANMAZ', () => {
+    const disciplined = evaluateBlindSubmission(submission('blind-disiplinli', 'strong'), V1_EVALUATION_CRITERIA);
+    const undecided = evaluateBlindSubmission(
+      { ...submission('blind-kararsiz', 'strong'), outOfScope: [] },
+      V1_EVALUATION_CRITERIA
+    );
+
+    assert.equal(disciplined.metrics.scopeContainment, 1, 'kararını verip sızdırmayan tam puan almalı');
+    assert.equal(undecided.metrics.scopeContainment, 0, 'hiç karar vermeyen kapsam puanı kazanmamalı');
+    assert.ok(
+      undecided.score < disciplined.score,
+      `karar vermeyen gönderim aynı puanı almamalı: ${undecided.score} vs ${disciplined.score}`
+    );
+    assert.ok(
+      undecided.findings.some(finding => /Hiç kapsam dışı kararı kaydedilmemiş/.test(finding)),
+      `sıfırın sebebi bulgularda okunabilir olmalı: ${JSON.stringify(undecided.findings)}`
+    );
+    // Sızdırma ile hiç karar vermeme AYRI kusurlardır; ikisi karışmamalı.
+    assert.equal(
+      undecided.findings.some(finding => /Kapsam dışı görevler/.test(finding)),
+      false
+    );
+  });
+
+  it('kısmi sızdırma ORANLA cezalandırılır: eşik değil, ölçüdür', () => {
+    const partial = evaluateBlindSubmission(
+      {
+        ...submission('blind-kismi', 'strong'),
+        outOfScope: ['Takım sohbeti', 'Mobil uygulama', 'Çevrimdışı mod'],
+        tasks: [{
+          id: 'task-1',
+          title: 'Not oluşturmayı uygula',
+          description: 'Not oluşturma akışını takım sohbeti ile birlikte uygula.',
+          requirementIds: ['req-1'],
+          acceptanceCriteria: ['Not yeniden açıldığında görünür.'],
+          verificationIds: ['test-1']
+        }]
+      },
+      V1_EVALUATION_CRITERIA
+    );
+
+    assert.equal(partial.metrics.scopeContainment, rounded(2 / 3));
   });
 
   it('opens publication only after balanced blind samples, superiority and user evidence exist', () => {

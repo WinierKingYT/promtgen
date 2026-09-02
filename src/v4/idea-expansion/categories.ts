@@ -242,7 +242,7 @@ export interface ExpansionCategoryOrigins {
  * sırası bir değişmezdir (çakışmada ilk gelen kazanır, CORE her zaman üstün).
  * O sıra aynı zamanda ön-yükleme sırası olarak kullanılınca ölçülen sonuç şu
  * oldu: CORE 8 kategori önde durduğu için alana özel eksenler 9. sıradan
- * başlıyor ve arka plan sınırının (BACKGROUND_PREFETCH_LIMIT = 6) dışında
+ * başlıyor ve arka plan penceresinin (o zamanki sabit sınır 6) dışında
  * kalıyor; bir Unity oyunu fikrinde `Ağ yetkisi ve senkron` HİÇ üretilmezken
  * `Güven ve gizlilik` çerez/oturum önerdi. Bu yüzden kimlik çözümü olduğu
  * gibi bırakılıp sunum sırası buraya AYRILDI.

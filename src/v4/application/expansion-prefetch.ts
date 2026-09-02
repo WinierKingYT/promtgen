@@ -35,7 +35,11 @@ export interface ExpansionPrefetchRunner {
    * Arka plan sırasını (yeniden) kurar. `generationKey` önbellek anahtarının
    * revizyon kısmıdır; değişmesi "eldeki her şey geçersiz" demektir.
    */
-  fill(generationKey: string, categoryIds: readonly string[]): void;
+  fill(
+    generationKey: string,
+    categoryIds: readonly string[],
+    relevance?: ExpansionPrefetchRelevance
+  ): void;
   /**
    * Kullanıcının beklediği üretim. Arka plan sırasını KESER: uçuştaki arka
    * plan işi iptal edilir, bu istek hemen koşar, sonra sıra kaldığı yerden
@@ -48,28 +52,61 @@ export interface ExpansionPrefetchRunner {
 }
 
 /**
- * Arka planda en fazla bu kadar kategori doldurulur.
+ * Arka plan penceresinin TABANI: ilgili eksen sayısı ne olursa olsun en az bu
+ * kadar kategori doldurulur.
  *
- * GEREKÇE. Canlı ölçümde pano ~14 kategori gösteriyor ve kategori başına
- * üretim ~25 saniye sürüyor: hepsini doldurmak yerel modeli ~6 DAKİKA
+ * GEREKÇE (ölçüyle). Canlı ölçümde pano ~14 kategori gösteriyor ve kategori
+ * başına üretim ~25 saniye sürüyor: hepsini doldurmak yerel modeli ~6 DAKİKA
  * kesintisiz meşgul etmek demek. Bunun bedeli kullanıcının makinesinden
- * ödeniyor ve karşılığı belirsiz — kullanıcı bir oturumda 14 başlığın
- * hepsini okumuyor.
+ * ödeniyor ve karşılığı belirsiz -- kullanıcı bir oturumda 14 başlığın
+ * hepsini okumuyor. 6 şu hesapla seçildi: kullanıcı bir paneli okurken
+ * ~2,5 dakika arka plan işi yapılır; bu, otomatik açılan birincil eksenle
+ * birlikte panonun "hemen açılan" bölümünü kullanıcının ilk okuma süresine
+ * oturtar. Ayrıca fikir metni ya da zeminli temel değiştiğinde önbellek zaten
+ * geçersizleşiyor (bkz. idea-expansion-service.ts `expansionGenerationKey`);
+ * daha uzun bir sıranın sonu çoğu zaman hiç kullanılmadan çöpe gidiyordu.
  *
- * 6 şu hesapla seçildi: kullanıcı bir paneli okurken ~2,5 dakika arka plan
- * işi yapılır; bu, otomatik açılan birincil eksenle birlikte panonun
- * "hemen açılan" bölümünü kullanıcının ilk okuma süresine oturtar. Sınırın
- * dışında kalan kategori KAYBOLMAZ: tıklandığında yine üretilir, yalnız
- * beklemek gerekir. Ayrıca fikir metni ya da zeminli temel değiştiğinde
- * önbellek zaten geçersizleşiyor (bkz. idea-expansion-service.ts
- * `expansionGenerationKey`); daha uzun bir sıranın sonu çoğu zaman hiç
- * kullanılmadan çöpe gidiyordu.
- *
- * SINIR DEĞİŞMEDİ. Anahtarın artık kart kabulüyle kaymaması bu hesabı
- * gevşetmez: bedel hâlâ kullanıcının makinesinden ödeniyor ve kullanıcı bir
- * oturumda 14 başlığın hepsini yine okumuyor.
+ * NEDEN TABAN, NEDEN TAVAN DEĞİL. 6 bir zamanlar tek sınırdı ve sunum sırası
+ * düzeltilmeden ÖNCE seçilmişti: o sırada pencerenin içi genel CORE
+ * kategorileriyle doluyordu. Sıra düzeltilince fikre özel + alana özel eksen
+ * sayısı arttı ve 6 tam ORTADAN kesmeye başladı -- canlı ölçüm (at sistemi
+ * fikri): 3 AI ekseni + 5 oyun paketi ekseni = 8 ilgili eksen, ama
+ * `Ağ yetkisi ve senkron`, `Girdi ve his`, `Sanat ve içerik hattı` HİÇ
+ * dolmadı; tam da at oyununa ait olanlar. Bu yüzden 6 artık pencereyi
+ * KESMİYOR, yalnız ALTTAN tutuyor: ilgili eksen az olduğunda (genel alan
+ * `BY_DOMAIN.general` boştur ve AI ekseni üretilemeyebilir) pano tamamen
+ * soğuk kalmasın diye sunum sırasındaki kategorilerle tamamlanır.
  */
-const BACKGROUND_PREFETCH_LIMIT = 6;
+const BACKGROUND_PREFETCH_FLOOR = 6;
+
+/**
+ * Arka plan penceresinin ÜST TAVANI.
+ *
+ * GEREKÇE (ölçüyle). Pencere ilgiden türüyor ama ilgi sınırsız değil:
+ * ölçülen en kalabalık ilgili küme 3 AI ekseni (MAX_AI_AXES, bkz.
+ * idea-axis-service.ts) + 5 alana özel eksen (`game`, categories.ts) = 8.
+ * Tavan 9, bu ölçüyü bir paylık boşlukla kapsar ve en kötü hâlde makineyi
+ * 9 x ~25 sn = ~3,75 DAKİKA meşgul eder -- 14 kategorinin ~6 dakikasının
+ * karşısında ölçülmüş bir üst bedel. Domain pack'leri bunun üstüne 6 eksene
+ * kadar ekleyebilir (MAX_PACK_AXES); orada tavan devreye girer.
+ *
+ * Tavanın DIŞINDA kalan kategori KAYBOLMAZ: tıklandığında `requestNow` ile
+ * yine üretilir, yalnız beklemek gerekir.
+ */
+const BACKGROUND_PREFETCH_CEILING = 9;
+
+/** Pencerenin türediği ilgi bilgisi. */
+export interface ExpansionPrefetchRelevance {
+  /**
+   * Fikre özel (AI) ve alana özel eksenlerin kimlikleri -- yani "bu fikre
+   * ait" olan başlıklar. Pencere bunlardan türer; genel CORE kategorileri
+   * yalnız taban dolmadığında pencereye girer.
+   *
+   * VERİLMEZSE ilgi BİLİNMİYOR sayılır ve pencere tavana kadar açılır:
+   * bilinmeyen bir ilgiye dayanarak kesmek keyfi olurdu.
+   */
+  relevantIds?: readonly string[];
+}
 
 /**
  * Çevrimdışı ön-kontrolü. `runRegisteredAITask` çevrimdışı ayarlarda hata
@@ -154,7 +191,11 @@ export function createExpansionPrefetch(deps: ExpansionPrefetchDeps): ExpansionP
     }
   }
 
-  function fill(nextKey: string, categoryIds: readonly string[]): void {
+  function fill(
+    nextKey: string,
+    categoryIds: readonly string[],
+    relevance?: ExpansionPrefetchRelevance
+  ): void {
     if (stopped) return;
     if (nextKey !== generationKey) {
       generationKey = nextKey;
@@ -167,12 +208,26 @@ export function createExpansionPrefetch(deps: ExpansionPrefetchDeps): ExpansionP
       publish();
     }
 
+    // PENCERE İLGİDEN TÜRER, sabit bir sayıdan değil: önce fikre özel ve
+    // alana özel eksenlerin HEPSİ girer (tavana kadar), sonra taban dolmadıysa
+    // sunum sırasındaki kalanlarla tamamlanır. `relevantIds` verilmemişse
+    // (ilgi bilinmiyor) her kategori ilgili sayılır ve pencere tavana kadar
+    // açılır.
+    const relevantIds = relevance?.relevantIds ? new Set(relevance.relevantIds) : null;
     const next: string[] = [];
-    for (const categoryId of categoryIds) {
-      if (statuses.get(categoryId) === 'ready') continue;
-      if (next.includes(categoryId)) continue;
+    const enqueue = (categoryId: string): void => {
+      if (next.length >= BACKGROUND_PREFETCH_CEILING) return;
+      if (statuses.get(categoryId) === 'ready') return;
+      if (next.includes(categoryId)) return;
       next.push(categoryId);
-      if (next.length >= BACKGROUND_PREFETCH_LIMIT) break;
+    };
+    for (const categoryId of categoryIds) {
+      if (relevantIds && !relevantIds.has(categoryId)) continue;
+      enqueue(categoryId);
+    }
+    for (const categoryId of categoryIds) {
+      if (next.length >= BACKGROUND_PREFETCH_FLOOR) break;
+      enqueue(categoryId);
     }
     queue = next;
     for (const categoryId of queue) {

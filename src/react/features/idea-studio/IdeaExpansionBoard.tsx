@@ -130,7 +130,7 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
   const [results, setResults] = useState<Record<string, ExpansionResult>>({});
   /**
    * Kullanıcının (ya da otomatik önerinin) AÇIKÇA istediği kategoriler. Arka
-   * plan sınırının (BACKGROUND_PREFETCH_LIMIT = 6) dışında kalan bir kategori
+   * plan penceresinin (BACKGROUND_PREFETCH_FLOOR/CEILING) dışında kalan bir kategori
    * ancak böyle bir istekle bölüm sahibi olur.
    */
   const [openedIds, setOpenedIds] = useState<string[]>([]);
@@ -320,6 +320,11 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
   // sıra böylece tutarlı olur. Kategori kimlikleri sabit sırada geldiği için
   // bu dizi deterministiktir.
   const prefetchKey = orderedCategories.map(category => category.id).join('|');
+  // ARKA PLAN PENCERESİ İLGİDEN TÜRER: fikre özel (AI) eksenler ve alana özel
+  // eksenler "bu fikre ait" başlıklardır ve pencereye önce onlar girer. Genel
+  // CORE kategorileri yalnız pencere tabanı dolmadığında girer; kalanı
+  // tıklamayla üretilir (bkz. expansion-prefetch.ts).
+  const relevantKey = [...aiAxes.map(axis => axis.id), ...categorySet.domainSpecificIds].join('|');
   useEffect(() => {
     // Çevrimdışıyken arka plan doldurma HİÇ başlamaz: sağlayıcı ayarı
     // önceden okunur, `runRegisteredAITask`'ın fırlatması kontrol akışı
@@ -329,8 +334,10 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
     // dizi olsaydı her render'da yeni kimlik alır ve sıra durmadan yeniden
     // kurulurdu. Anahtar bir dize olduğu için effect yalnız kategori kümesi
     // gerçekten değişince çalışır.
-    runnerRef.current?.fill(generationKey, prefetchKey.split('|').filter(Boolean));
-  }, [project.id, generationKey, prefetchKey, settings.providerId, settings.useAiWhenAvailable]);
+    runnerRef.current?.fill(generationKey, prefetchKey.split('|').filter(Boolean), {
+      relevantIds: relevantKey.split('|').filter(Boolean)
+    });
+  }, [project.id, generationKey, prefetchKey, relevantKey, settings.providerId, settings.useAiWhenAvailable]);
 
   // Kaydırma DOM yerleştikten SONRA yapılır: sınırın dışındaki bir başlığa
   // gidildiğinde bölüm aynı commit'te doğuyor, ama düğmenin `onClick`'i

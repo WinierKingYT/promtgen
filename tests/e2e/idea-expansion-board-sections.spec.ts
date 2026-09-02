@@ -15,7 +15,7 @@ const IDEA = 'Şehir içinde bisiklet kullananlara güvenli rota öneren bir mob
 
 /**
  * Arka plan doldurma sırayla ilk ALTI kategoriyi hazırlıyor
- * (BACKGROUND_PREFETCH_LIMIT, expansion-prefetch.ts). Fikre özel eksen
+ * (pencere tabanı BACKGROUND_PREFETCH_FLOOR, expansion-prefetch.ts). Fikre özel eksen
  * üretilemediği (idea-axes çağrısı düşürüldüğü) senaryolarda bu altı, SUNUM
  * SIRASININ ilk altısıdır: alana özel eksenler önce, genel kategoriler sonra
  * (bkz. orderExpansionCategoriesForPresentation, categories.ts). Bu fikir bir

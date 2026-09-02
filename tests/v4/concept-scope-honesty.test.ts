@@ -69,6 +69,34 @@ describe('konsept yorumu kullanıcı adına kapsam kararı uydurmaz', () => {
 
     assert.deepEqual(summary.outOfScope, []);
   });
+
+  it('deterministik konsept üretimi ŞABLON ÖZELLİKLERİNİ onaylanmış saymaz', () => {
+    // `generatedFeatures` alan şablonundan (`CONCEPT_PROFILES[...].features`)
+    // iki özellik alıp `confirmedFeatures`a yazıyordu. Kullanıcı bunları hiç
+    // görmedi, hiç onaylamadı; alan adı ise "onaylandı" diyordu.
+    const generated = generateConceptSummaryProject(project('Unityde çok oyunculu at sistemi'), 'approach-modular');
+    const summary = generated.ideaLabSession?.conceptSummary;
+    if (!summary) return assert.fail('conceptSummary yok');
+
+    const confirmed = summary.confirmedFeatures.join(' | ');
+    assert.equal(
+      /Oyuncu kontrolü ve temel mekanikler|Sahne ve oyun döngüsü/.test(confirmed),
+      false,
+      `Alan şablonu onaylanmış özellik diye yazıldı: ${JSON.stringify(summary.confirmedFeatures)}`
+    );
+  });
+
+  it('KULLANICININ SEÇTİĞİ yaklaşım korunur: o bir şablon değil, bir seçimdir', () => {
+    const generated = generateConceptSummaryProject(project('Unityde çok oyunculu at sistemi'), 'approach-modular');
+    const summary = generated.ideaLabSession?.conceptSummary;
+    if (!summary) return assert.fail('conceptSummary yok');
+
+    assert.equal(
+      summary.confirmedFeatures.filter(feature => feature.startsWith('Temel mimari:')).length,
+      1,
+      `Seçilen yaklaşım satırı kaybolmamalı: ${JSON.stringify(summary.confirmedFeatures)}`
+    );
+  });
 });
 
 describe('kullanıcının GERÇEK kapsam kararı etkilenmez', () => {

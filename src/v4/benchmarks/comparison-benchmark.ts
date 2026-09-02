@@ -232,7 +232,20 @@ export function evaluateBlindSubmission(
   const decisions = submission.decisionStatements.map(normalize).filter(Boolean);
   const duplicateDecisions = decisions.length - new Set(decisions).size;
   const consistency = invalidReferences.length || duplicateDecisions ? 0 : 1;
-  const scopeContainment = outOfScope.length ? 1 - scopeLeaks.length / outOfScope.length : 1;
+  // BOŞ KÜMEDE 1 DEĞİL 0. Burada eskiden `outOfScope.length ? ... : 1` vardı:
+  // hiç kapsam kararı vermemiş bir gönderim, kusursuz kapsam disiplini
+  // gösterenle toplam skorun %25'inde AYNI puanı alıyordu. Bu bir ölçüm değil,
+  // boş küme üzerinde vakum doğruluktu -- ölçülemeyen bir şey kanıtlanmış
+  // sayılıyordu.
+  //
+  // 0 seçildi, "ölçülemedi" değil. Gerekçe: bu skorlayıcının KENDİ kuralı
+  // zaten budur -- `ratio()` payda boşken 0 döner, yani hiç gereksinim
+  // yazmamış bir gönderim `requirementTaskCoverage` = 0 alır, ölçüden muaf
+  // tutulmaz. Kapsam kararı da aynı sınıftandır: "neyi YAPMAYACAĞIM" demek
+  // planlamanın bir işidir, yapılmaması bir eksikliktir. Ayrıca çalışmanın
+  // ölçtüğü şey tam olarak budur; hiç kapsam kararı üretmeyen bir kolu
+  // ölçüden muaf tutmak, o kolun lehine ağırlık dağıtmak olurdu.
+  const scopeContainment = ratio(outOfScope.length - scopeLeaks.length, outOfScope.length);
   const score = Math.round(100 * (
     scopeContainment * 0.25 +
     requirementTaskCoverage * 0.25 +
@@ -259,6 +272,10 @@ export function evaluateBlindSubmission(
     },
     findings: [
       ...(scopeLeaks.length ? [`Kapsam dışı görevler: ${scopeLeaks.join(', ')}`] : []),
+      // Sıfır puanın SEBEBİ okunabilir kalır: "hiç kapsam kararı yok" ile
+      // "kapsam kararı verildi ama sızdırıldı" aynı puanı alsa da aynı kusur
+      // değildir.
+      ...(outOfScope.length ? [] : ['Hiç kapsam dışı kararı kaydedilmemiş; kapsam koruması ölçülemez.']),
       ...(requirementTaskCoverage < 1 ? ['Bazı gereksinimler göreve bağlı değil.'] : []),
       ...(requirementTestCoverage < 1 ? ['Bazı gereksinimler teste bağlı değil.'] : []),
       ...(acceptanceCriteriaCoverage < 1 ? ['Bazı görevlerin kabul kriteri yok.'] : []),

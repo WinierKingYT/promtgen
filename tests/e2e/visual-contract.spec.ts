@@ -56,7 +56,7 @@ const CARDS: StubbedExpansionCard[] = [
 ];
 
 /**
- * Arka plan doldurma altı kategoriyi hazırlıyor (BACKGROUND_PREFETCH_LIMIT,
+ * Arka plan doldurma altı kategoriyi hazırlıyor (pencere tabanı BACKGROUND_PREFETCH_FLOOR,
  * expansion-prefetch.ts) ve bu kategoriler ARTIK kendi bölümleriyle ekrana
  * geliyor. Fikre özel eksen bu fikstürde üretilemiyor (idea-axes çağrısı
  * düşürülüyor), bu yüzden sayı tam olarak altıdır.

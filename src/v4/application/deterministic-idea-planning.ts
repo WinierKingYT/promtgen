@@ -275,18 +275,26 @@ export function generateLocalIdeaLabOutput(project: ProjectDocumentV5): IdeaLabO
   };
 }
 
+/**
+ * Alan şablonunun konsept özetine katkısı: bir AÇIK SORU ve bir RİSK.
+ *
+ * `features` alanı bilerek YOKTUR. Şablon bir özellik listesi taşıyordu ve o
+ * liste `confirmedFeatures`a giriyordu: kullanıcının hiç onaylamadığı, alan
+ * adına göre "onaylanmış" görünen özellikler. Soru ve risk ADAYDIR --
+ * "şunu da düşün" der, "şuna karar verdin" demez; özellik listesi ise
+ * onaylanmış kapsam iddiasıdır.
+ */
 interface ConceptProfile {
-  features: [string, string];
   question: string;
   risk: string;
 }
 
 const CONCEPT_PROFILES: Record<ProjectDomain, ConceptProfile> = {
-  game: { features: ['Oyuncu kontrolü ve temel mekanikler', 'Sahne ve oyun döngüsü'], question: 'Çok oyunculu senkronizasyon stratejisi ne olmalı?', risk: 'Ağ senkronizasyon gecikmesi' },
-  web: { features: ['Temel sayfa ve kullanıcı akışları', 'Veri modeli ve API katmanı'], question: 'Yetkilendirme ve oturum modeli nasıl kurulacak?', risk: 'Veritabanı darboğazı' },
-  mobile: { features: ['Temel ekran navigasyonu', 'Yerel veri ve API entegrasyonu'], question: 'Offline veri çakışmaları nasıl çözülecek?', risk: 'Çevrimdışı veri çakışması' },
-  ai: { features: ['Model çağrı ve prompt yönetimi', 'Yanıt doğrulama ve hata yönetimi'], question: 'Model fallback ve maliyet kontrolü nasıl yapılacak?', risk: 'Model yanıt uyumsuzluğu' },
-  general: { features: ['Çekirdek kullanıcı akışı', 'Temel veri ve entegrasyon katmanı'], question: 'MVP’nin en kritik özelliği nedir?', risk: 'Kapsam kayması' }
+  game: { question: 'Çok oyunculu senkronizasyon stratejisi ne olmalı?', risk: 'Ağ senkronizasyon gecikmesi' },
+  web: { question: 'Yetkilendirme ve oturum modeli nasıl kurulacak?', risk: 'Veritabanı darboğazı' },
+  mobile: { question: 'Offline veri çakışmaları nasıl çözülecek?', risk: 'Çevrimdışı veri çakışması' },
+  ai: { question: 'Model fallback ve maliyet kontrolü nasıl yapılacak?', risk: 'Model yanıt uyumsuzluğu' },
+  general: { question: 'MVP’nin en kritik özelliği nedir?', risk: 'Kapsam kayması' }
 };
 
 export function generateConceptSummaryProject(
@@ -305,7 +313,13 @@ export function generateConceptSummaryProject(
   const initial = project.ideaLabSession?.conceptSummary || createInitialConceptInterpretation(project);
   const approachTitle = selectedApproach?.title || 'Seçilen yaklaşım';
   const approachDescription = selectedApproach?.description || 'Projeye özel modüler mimari';
-  const generatedFeatures = [`Temel mimari: ${approachTitle}`, ...profile.features];
+  // Onaylanmış özellik listesine yalnız KULLANICININ SEÇTİĞİ yaklaşımdan gelen
+  // satır girer. Şablonun alan özellikleri buradan ÇIKARILDI: `profile.features`
+  // kullanıcının onayladığı bir şey değil, alanın genel dolgusuydu ve
+  // `confirmedFeatures`a giriyordu -- `createInitialConceptInterpretation`
+  // içinden kaldırılan uydurmanın bir katman ötedeki aynısı. Seçilen yaklaşım
+  // ise meşrudur: kullanıcı onu ekranda gördü ve seçti.
+  const approachFeature = `Temel mimari: ${approachTitle}`;
   const next = structuredClone(project);
   next.ideaLabSession = {
     ...(next.ideaLabSession || {
@@ -319,7 +333,7 @@ export function generateConceptSummaryProject(
     conceptSummary: {
       ...initial,
       summary: initial.summary || `"${rawIdea.slice(0, 60)}" için ${approachDescription} yaklaşımına dayanan konsept.`,
-      confirmedFeatures: [...new Set([...initial.confirmedFeatures, ...generatedFeatures])],
+      confirmedFeatures: [...new Set([...initial.confirmedFeatures, approachFeature])],
       // Kapsam dışı yalnız kullanıcının kararlarından gelir. Burada bir alan
       // şablonuna düşmek, `createInitialConceptInterpretation` içinden
       // kaldırılan uydurmayı bir katman aşağıda sürdürmek olurdu: kullanıcının
