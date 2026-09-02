@@ -507,17 +507,7 @@ export function createInitialConceptInterpretation(project: ProjectDocumentV5): 
   const text = idea.toLocaleLowerCase('tr-TR');
   const domainIds = (project.profile?.domains || []).map(domain => String(domain.name || '').toLowerCase());
   const signalAnalysis = analyzeDiscoverySignals(project);
-  const isGame = domainIds.some(domain => domain.includes('game') || domain.includes('oyun')) || /oyun|game|s&box|unity|unreal/.test(text);
-  const isMobile = domainIds.some(domain => domain.includes('mobile')) || /mobil|android|ios/.test(text);
-  const isWeb = domainIds.some(domain => domain.includes('web')) || /web|saas|panel|site|api/.test(text);
   const targetUser = inferTargetUser(idea, domainIds);
-  const confirmedFeatures = isGame
-    ? ['Temel oynanış döngüsü', 'Oyuncu etkileşimi ve durum yönetimi']
-    : isMobile
-      ? ['Temel ekran ve navigasyon akışı', 'Yerel veri saklama']
-      : isWeb
-        ? ['Temel kullanıcı arayüzü', 'Veri modeli ve ana iş akışı']
-        : ['Temel kullanıcı akışı', 'Çekirdek veri ve iş mantığı'];
   const signals = [idea.length >= 120, /,|;| ve | ile /.test(text), domainIds.length > 0].filter(Boolean).length;
   const confidence = Math.max(25, Math.min(85, 52 + signals * 9 - signalAnalysis.confidencePenalty));
   return {
@@ -532,8 +522,24 @@ export function createInitialConceptInterpretation(project: ProjectDocumentV5): 
       idea.length >= 120 ? 'Fikir işlev ve bağlam ayrıntıları içeriyor.' : 'Fikir kısa; kullanıcı ayrıntısı gerekiyor.',
       'Bu değer doğruluk garantisi değil, eksik bağlam göstergesidir.'
     ],
-    confirmedFeatures,
-    outOfScope: ['İleri seviye raporlama ve optimizasyon', 'Bulut senkronizasyonu ve çok kullanıcılı işbirliği'],
+    // KAPSAM KARARINI SİSTEM VERMEZ.
+    //
+    // Bu iki liste eskiden alan şablonundan dolduruluyordu: `confirmedFeatures`
+    // fikrin alanına (oyun/mobil/web) göre dallanan sabitlerdi, `outOfScope` ise
+    // fikre HİÇ bakmayan koşulsuz bir sabitti. Canlı ölçüm bunun bedelini
+    // gösterdi: kullanıcı "multiplayer olucak" dedi, sistem "çok kullanıcılı
+    // işbirliği"ni kapsam DIŞI ilan etti ve bu dışlama `conversion-v2` üzerinden
+    // sessizce plana aktı. Uydurulmuş bir kart görünür ve düzeltilebilir;
+    // sessizce dışlanmış bir gereksinim görünmez.
+    //
+    // Gerçek içerik iki yerden gelir: kullanıcının kendi düzenlemesi
+    // (`updateConceptAgreement`) ve iki alanlı karar kaydı (`answer` +
+    // `excluded`, `scopeSplit: 'confirmed'` -- bkz. conversion-v2.ts). İkisi de
+    // çalışmaya devam eder; boş doğmak yalnız "henüz kimse karar vermedi"
+    // demektir. Arayüzde bu boşluğun dürüst karşılığı zaten var (her iki alan
+    // "En az bir madde" ister ve dolmadan onay düğmesi açılmaz).
+    confirmedFeatures: [],
+    outOfScope: [],
     technicalApproaches: [],
     openQuestions: signalAnalysis.concerns.length
       ? signalAnalysis.concerns.slice(0, 5).map(concern => concern.question)

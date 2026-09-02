@@ -277,17 +277,16 @@ export function generateLocalIdeaLabOutput(project: ProjectDocumentV5): IdeaLabO
 
 interface ConceptProfile {
   features: [string, string];
-  outOfScope: [string, string];
   question: string;
   risk: string;
 }
 
 const CONCEPT_PROFILES: Record<ProjectDomain, ConceptProfile> = {
-  game: { features: ['Oyuncu kontrolü ve temel mekanikler', 'Sahne ve oyun döngüsü'], outOfScope: ['Derin NPC davranışı', 'İleri shader optimizasyonu'], question: 'Çok oyunculu senkronizasyon stratejisi ne olmalı?', risk: 'Ağ senkronizasyon gecikmesi' },
-  web: { features: ['Temel sayfa ve kullanıcı akışları', 'Veri modeli ve API katmanı'], outOfScope: ['Gelişmiş analitik', 'Mikroservis ayrıştırması'], question: 'Yetkilendirme ve oturum modeli nasıl kurulacak?', risk: 'Veritabanı darboğazı' },
-  mobile: { features: ['Temel ekran navigasyonu', 'Yerel veri ve API entegrasyonu'], outOfScope: ['Gelişmiş çakışma çözümü', 'Cihaz içi ML'], question: 'Offline veri çakışmaları nasıl çözülecek?', risk: 'Çevrimdışı veri çakışması' },
-  ai: { features: ['Model çağrı ve prompt yönetimi', 'Yanıt doğrulama ve hata yönetimi'], outOfScope: ['Özel model eğitimi', 'Çok modlu giriş'], question: 'Model fallback ve maliyet kontrolü nasıl yapılacak?', risk: 'Model yanıt uyumsuzluğu' },
-  general: { features: ['Çekirdek kullanıcı akışı', 'Temel veri ve entegrasyon katmanı'], outOfScope: ['İleri ölçekleme', 'Gelişmiş raporlama'], question: 'MVP’nin en kritik özelliği nedir?', risk: 'Kapsam kayması' }
+  game: { features: ['Oyuncu kontrolü ve temel mekanikler', 'Sahne ve oyun döngüsü'], question: 'Çok oyunculu senkronizasyon stratejisi ne olmalı?', risk: 'Ağ senkronizasyon gecikmesi' },
+  web: { features: ['Temel sayfa ve kullanıcı akışları', 'Veri modeli ve API katmanı'], question: 'Yetkilendirme ve oturum modeli nasıl kurulacak?', risk: 'Veritabanı darboğazı' },
+  mobile: { features: ['Temel ekran navigasyonu', 'Yerel veri ve API entegrasyonu'], question: 'Offline veri çakışmaları nasıl çözülecek?', risk: 'Çevrimdışı veri çakışması' },
+  ai: { features: ['Model çağrı ve prompt yönetimi', 'Yanıt doğrulama ve hata yönetimi'], question: 'Model fallback ve maliyet kontrolü nasıl yapılacak?', risk: 'Model yanıt uyumsuzluğu' },
+  general: { features: ['Çekirdek kullanıcı akışı', 'Temel veri ve entegrasyon katmanı'], question: 'MVP’nin en kritik özelliği nedir?', risk: 'Kapsam kayması' }
 };
 
 export function generateConceptSummaryProject(
@@ -321,7 +320,12 @@ export function generateConceptSummaryProject(
       ...initial,
       summary: initial.summary || `"${rawIdea.slice(0, 60)}" için ${approachDescription} yaklaşımına dayanan konsept.`,
       confirmedFeatures: [...new Set([...initial.confirmedFeatures, ...generatedFeatures])],
-      outOfScope: initial.outOfScope.length ? initial.outOfScope : profile.outOfScope,
+      // Kapsam dışı yalnız kullanıcının kararlarından gelir. Burada bir alan
+      // şablonuna düşmek, `createInitialConceptInterpretation` içinden
+      // kaldırılan uydurmayı bir katman aşağıda sürdürmek olurdu: kullanıcının
+      // hiç vermediği bir "yapılmayacak" kararı plana yazılırdı. Boş liste
+      // dürüsttür -- "henüz kimse karar vermedi" demektir.
+      outOfScope: initial.outOfScope,
       technicalApproaches: [approachDescription],
       openQuestions: initial.openQuestions.length ? initial.openQuestions : [profile.question],
       knownRisks: [...new Set([...initial.knownRisks, ...(selectedApproach?.risks || [profile.risk])])],

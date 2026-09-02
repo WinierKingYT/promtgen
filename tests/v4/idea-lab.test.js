@@ -36,6 +36,12 @@ test('Konsept A/B Simülasyonu ve Onayı', async () => {
     const conceptProject = generateConceptSummaryProject(ideaLab.project, ideaLab.approaches[1].id);
     conceptProject.ideaLabSession.conceptSummary.simulationResult = sim;
     conceptProject.ideaLabSession.conceptSummary.openQuestions = [];
+    // Kapsam artik sistem tarafindan uydurulmuyor: `conceptSummary` bos
+    // `confirmedFeatures`/`outOfScope` ile dogar ve onay kapisi (bkz.
+    // `getConceptAgreementGate`) kullanicinin bunlari kendi doldurmasini bekler.
+    // Bu iki satir, kullanicinin arayuzde yaptigi girisin test karsiligidir.
+    conceptProject.ideaLabSession.conceptSummary.confirmedFeatures = ['Ata binme ve inme'];
+    conceptProject.ideaLabSession.conceptSummary.outOfScope = ['At yarisi modu'];
 
     assert.equal(conceptProject.lifecycle.activePhase, 'CONCEPT_CONFIRMATION');
     assert.ok(conceptProject.ideaLabSession.conceptSummary.simulationResult);
