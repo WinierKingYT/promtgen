@@ -56,6 +56,45 @@ interface SuggestionInput {
     dependencies?: string[];
 }
 
+/**
+ * Öneri türüne göre metnin doğal olarak ait olduğu bölüm sırası.
+ * Yalnızca `affectedSections` içinde de bulunan ilk tercih kullanılır; böylece
+ * bir öneri asla etkilemediğini söylediği bir bölüme yazmaz.
+ */
+const PRIMARY_SECTION_PREFERENCE: Record<SuggestionItem['kind'], string[]> = {
+    risk: ['risks', 'security'],
+    decision: ['decisions', 'architecture'],
+    architecture: ['architecture', 'decisions'],
+    question: ['vision', 'objectives', 'scope'],
+    feature: ['scope', 'requirements', 'objectives', 'tasks']
+};
+
+/**
+ * Etki listesinden TEK bir yazım hedefi türetir. Saf ve deterministiktir;
+ * belgeye bakmaz, bu yüzden öneri üretilirken pakete gömülebilir.
+ */
+function derivePrimarySection(kind: SuggestionItem['kind'], affectedSections: string[]): string {
+    const preferred = (PRIMARY_SECTION_PREFERENCE[kind] || []).find(sectionId => affectedSections.includes(sectionId));
+    return preferred || affectedSections[0] || '';
+}
+
+/**
+ * Önerinin metnini alacak bölümü belirler.
+ * Sıra: pakette yazılı birincil bölüm → türden türetilen bölüm → etki
+ * listesindeki ilk geçerli bölüm. Her adayın belgede gerçekten var olması
+ * şarttır; hiçbiri yoksa boş döner ve metin hiçbir yere yazılmaz.
+ */
+function resolvePrimarySection(item: SuggestionItem, sections: ProjectDocumentV5['sections']): string {
+    const candidates = [
+        // Birincil bölüm bir yazım hedefidir; etki listesi dışına çıkarsa
+        // önizleme ile uygulama ayrışır, o yüzden üyelik aranır.
+        item.affectedSections.includes(item.primarySection || '') ? item.primarySection || '' : '',
+        derivePrimarySection(item.kind, item.affectedSections),
+        ...item.affectedSections
+    ];
+    return candidates.find(sectionId => Boolean(sectionId) && Boolean(sections[sectionId])) || '';
+}
+
 const DEPTH_ORDER: PlanningDepthLevel[] = ['quick', 'standard', 'advanced', 'enterprise'];
 const SECTION_PHASE: Record<string, PlanningPhase> = {
     vision: PLANNING_PHASES.DISCOVERY, objectives: PLANNING_PHASES.SHAPING, scope: PLANNING_PHASES.SHAPING,
@@ -195,7 +234,7 @@ function suggestion({ kind, title, description, pros, cons, effort, impact, affe
     return {
         id: id('suggestion'), fingerprint, kind, title, description, pros, cons, effort, impact,
         recommended, recommendationReason: recommended ? 'Mevcut fikir ve ölçek sinyalleriyle en dengeli seçenek.' : '',
-        affectedSections, dependencies, status: 'pending'
+        affectedSections, primarySection: derivePrimarySection(kind, affectedSections), dependencies, status: 'pending'
     };
 }
 
@@ -353,6 +392,10 @@ export function previewApprovedChanges(project: ProjectDocumentV5, bundleId: str
     const sectionChanges = new Map<string, SectionChangeAccumulator>();
     for (const item of accepted) {
         const description = item.editedDescription || item.description;
+        // Metin yalnız birincil bölüme yazılır. Diğer etkilenen bölümler
+        // önizlemede "değişmeyecek ama bağlı" olarak durur; etki bilgisi
+        // kaybolmasın diye listeden düşürülmezler.
+        const primarySection = resolvePrimarySection(item, project.sections);
         for (const sectionId of item.affectedSections) {
             const section = project.sections[sectionId];
             if (!section) continue;
@@ -361,7 +404,8 @@ export function previewApprovedChanges(project: ProjectDocumentV5, bundleId: str
                 change = { sectionId, title: section.title, additions: [], unchanged: [], sourceSuggestionIds: [] };
                 sectionChanges.set(sectionId, change);
             }
-            const target = section.items.includes(description) ? change.unchanged : change.additions;
+            const willWrite = sectionId === primarySection && !section.items.includes(description);
+            const target = willWrite ? change.additions : change.unchanged;
             if (!target.includes(description)) target.push(description);
             if (!change.sourceSuggestionIds.includes(item.id)) change.sourceSuggestionIds.push(item.id);
         }
@@ -396,11 +440,17 @@ export function applyApprovedChanges(project: ProjectDocumentV5, bundleId: strin
     const affected = new Set<string>();
     for (const item of accepted) {
         const description = item.editedDescription || item.description;
+        // Metin YALNIZ birincil bölüme yazılır; çözümleme önizlemedekiyle aynıdır.
+        // Diğer etkilenen bölümler yalnız etki bağı alır: kaynak izi ve revizyon
+        // damgası korunur, içerikleri ve durumları değişmez.
+        const primarySection = resolvePrimarySection(item, next.sections);
         for (const sectionId of item.affectedSections) {
             const section = next.sections[sectionId];
             if (!section) continue;
-            if (!section.items.includes(description)) section.items.push(description);
-            section.status = section.items.length >= 2 || section.content ? 'draft' : 'draft';
+            if (sectionId === primarySection) {
+                if (!section.items.includes(description)) section.items.push(description);
+                section.status = 'draft';
+            }
             section.sourceSuggestionIds.push(item.id);
             affected.add(sectionId);
         }

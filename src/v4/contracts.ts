@@ -818,7 +818,18 @@ export interface SuggestionItem {
   impact: 'low' | 'medium' | 'high'
   recommended: boolean
   recommendationReason: string
+  /**
+   * ETKİ bağlantısı: bu öneri kabul edilirse hangi bölümlerin yeniden
+   * gözden geçirilmesi gerekir. Çoktan-çoğa; metin YERLEŞİMİ değildir.
+   */
   affectedSections: string[]
+  /**
+   * İÇERİK yerleşimi: önerinin metni HANGİ TEK bölüme yazılır.
+   * `affectedSections` içinden bir değer olmalıdır. İsteğe bağlıdır; alan
+   * eklenmeden önce yazılmış paketlerde bulunmaz ve o durumda tür + etki
+   * listesinden deterministik olarak türetilir.
+   */
+  primarySection?: string
   dependencies: string[]
   status: SuggestionStatus
   editedDescription?: string
