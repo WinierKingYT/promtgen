@@ -3,9 +3,9 @@
 `src/v4/application` katmanındaki dışa aktarımların üretim kodundan gerçekten
 çağrılıp çağrılmadığı. `npm run check:reachability` bunu zorlar.
 
-- Toplam dışa aktarım: **201**
-- Üretimden erişilebilir: **169**
-- Yalnız kendi modülünde kullanılan: **17**
+- Toplam dışa aktarım: **203**
+- Üretimden erişilebilir: **170**
+- Yalnız kendi modülünde kullanılan: **18**
 - Üretimde hiç çağrılmayan: **15**
 
 ## Neden var
@@ -39,6 +39,7 @@ ya silinmeli; listenin **büyümesi** kapıyı düşürür.
 
 Kod canlı; dışa aktarım gereksiz olabilir. Kapıyı düşürmez, bilgi amaçlıdır.
 
+- `canonical-document-export.ts::IDEA_DOCUMENT_PATH`
 - `command-policy.ts::CANONICAL_CHANGE_COMMANDS`
 - `command-policy.ts::DOCUMENT_ONLY_COMMANDS`
 - `concerns.ts::concernPriority`

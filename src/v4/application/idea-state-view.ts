@@ -56,7 +56,7 @@ export interface IdeaStateFoundationView {
   /**
    * Yukarıdaki beş alanın HER BİRİ için kaynağı ve (varsa) bilinmeme
    * gerekçesi. Metin alanları geriye dönük uyumluluk için AYNEN kalır;
-   * bu yalnız ONLARIN üzerine eklenmiş bir açıklamadır (bkz. `fieldView`).
+   * bu yalnız ONLARIN üzerine eklenmiş bir açıklamadır (bkz. `describeFoundationField`).
    */
   fields: Record<IdeaFoundationDisplayField, IdeaStateFoundationFieldView>;
 }
@@ -122,7 +122,10 @@ function trimmed(value: string | undefined): string {
  * `unspecified` döner -- metin dolu olsa bile bunun idea-grounded olduğu
  * İDDİA EDİLMEZ, yalnızca bu bilginin üretilmediği belirtilir.
  */
-function fieldView(text: string, grounding: IdeaFoundationFieldGrounding | undefined): IdeaStateFoundationFieldView {
+export function describeFoundationField(
+  text: string,
+  grounding: IdeaFoundationFieldGrounding | undefined
+): IdeaStateFoundationFieldView {
   if (!grounding) return { text, source: 'unspecified' };
   if (grounding.source === 'unknown') return { text, source: 'unknown', reason: grounding.reason };
   return { text, source: grounding.source };
@@ -139,7 +142,7 @@ function buildFoundation(project: ProjectDocumentV5): IdeaStateFoundationView {
   const values: Record<IdeaFoundationDisplayField, string> = { summary, problemStatement, targetUser, desiredOutcome, mvpTarget };
   const grounding = concept?.foundationGrounding;
   const fields = Object.fromEntries(
-    DISPLAY_FIELDS.map(field => [field, fieldView(values[field], grounding?.[field])])
+    DISPLAY_FIELDS.map(field => [field, describeFoundationField(values[field], grounding?.[field])])
   ) as Record<IdeaFoundationDisplayField, IdeaStateFoundationFieldView>;
   // Bir alan düz metinle DOLU olmasa bile, model neden bilmediğini söylediyse
   // (source: 'unknown' + reason) bu GERÇEK bir içeriktir — "henüz hiçbir şey

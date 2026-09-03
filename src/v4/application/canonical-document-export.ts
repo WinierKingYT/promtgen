@@ -1,7 +1,14 @@
-import type { ModuleManifest, ProjectDocumentV5 } from '../contracts.js'
+import type {
+  IdeaFoundationFieldName,
+  ModuleManifest,
+  ProjectDocumentV5
+} from '../contracts.js'
+import { IDEA_FOUNDATION_FIELD_NAMES } from '../contracts.js'
 import type { CanonicalRevisionReference } from './canonical-export-core.js'
 import { resolveCanonicalRevision } from './canonical-export-core.js'
 import { assertIdeaPlanAlignment } from './canonical-export-service.js'
+import type { IdeaStateFoundationFieldView } from './idea-state-view.js'
+import { buildIdeaStateView, describeFoundationField } from './idea-state-view.js'
 
 export const DEFAULT_DOCUMENT_ADAPTERS = Object.freeze([
   'generic',
@@ -11,6 +18,45 @@ export const DEFAULT_DOCUMENT_ADAPTERS = Object.freeze([
   'windsurf',
   'copilot'
 ])
+
+/**
+ * Fikir aşamasının belgesi. `plan/` ve `documents/` gibi kendi öneki vardır:
+ * fikir plandan ÖNCE gelir, plan yeniden üretildiğinde de olduğu gibi kalır.
+ */
+export const IDEA_DOCUMENT_PATH = 'idea/idea-foundation.md'
+
+const IDEA_FIELD_TITLES: Record<IdeaFoundationFieldName, string> = {
+  summary: 'Özet',
+  problemStatement: 'Problem',
+  targetUser: 'Hedef kullanıcı',
+  currentAlternative: 'Bugünkü alternatif',
+  desiredOutcome: 'İstenen sonuç',
+  mvpTarget: 'MVP hedefi'
+}
+
+/**
+ * Bir foundation alanının kökeninin BELGEDEKİ karşılığı.
+ *
+ * Bu belge bir kodlama aracına gidiyor. "Hedef kullanıcı: Oyun
+ * geliştiricileri" satırını kökensiz yazmak varsayımı gerçeğe çevirir ve ajan
+ * onun üzerine kod yazar; o yüzden etiket metnin YANINDA, büyük harfle ve ne
+ * yapılması gerektiğini söyleyerek durur. Kayıt yoksa (`unspecified`) alan
+ * `idea` SAYILMAZ -- köken belirsizdir ve öyle yazılır.
+ */
+function ideaFieldOriginLabel(field: IdeaStateFoundationFieldView): string {
+  switch (field.source) {
+    case 'idea':
+      return 'FİKİRDEN — kullanıcının kendi fikir metninde karşılığı var.'
+    case 'assumption':
+      return 'VARSAYIM — fikir metninde karşılığı YOK; sistemin önerisidir, kullanıcı doğrulamadı.'
+    case 'unknown':
+      return `BİLİNMİYOR — ${field.reason || 'gerekçesi kaydedilmedi.'}`
+    case 'fallback':
+      return 'SİSTEM METNİ — modelden gelmedi, deterministik dolgudur; fikre dayandığı doğrulanmadı.'
+    default:
+      return 'KÖKEN BELİRSİZ — bu alanın kaynağı kaydedilmedi; fikirden geldiği VARSAYILAMAZ.'
+  }
+}
 
 export interface CanonicalDocumentDependencies {
   generateArchitectureDiagram(project: ProjectDocumentV5): string
@@ -166,6 +212,75 @@ export function createCanonicalDocumentExporter(
     })
   }
 
+  /**
+   * Fikir aşamasının kaydı: kullanıcının kendi cümlesi, temelin altı alanı
+   * KÖKENİYLE, kapsam kararları, kabul edilmiş kartlar ve açık sorular.
+   *
+   * Yalnız OKUR ve hiçbir boşluğu doldurmaz: kapsam boşsa boş, köken kaydı
+   * yoksa "belirsiz" yazar. `buildIdeaStateView` yeniden kullanılır -- kart
+   * ve karar kuralları (özellikle `legacy-unsplit` kayıtların `excluded`
+   * alanının anlamsız olması) ikinci kez burada TANIMLANMAZ.
+   */
+  const ideaFoundationDocument = (project: ProjectDocumentV5) => {
+    const concept = project.ideaLabSession?.conceptSummary
+    const grounding = concept?.foundationGrounding
+    const view = buildIdeaStateView(project)
+    const fieldBlock = (name: IdeaFoundationFieldName) => {
+      const field = describeFoundationField((concept?.[name] || '').trim(), grounding?.[name])
+      return [
+        `### ${IDEA_FIELD_TITLES[name]}`,
+        field.text || '_Metin yok._',
+        `- **Köken:** ${ideaFieldOriginLabel(field)}`
+      ].join('\n\n')
+    }
+    const cardLines = (cards: typeof view.acceptedCards) =>
+      cards.map(card => `- **${card.title}** — ${card.description}`)
+    const decisionLines = (items: typeof view.included) =>
+      items.map(item => `- ${item.concernTitle ? `**${item.concernTitle}:** ` : ''}${item.text}`)
+    return [
+      `# Fikir Aşaması — ${project.identity.name}`,
+      [
+        '> Bu belge fikir aşamasının kaydıdır; canonical plan',
+        `r${project.canonicalRevision} ile birlikte üretildi. Her alanın altındaki`,
+        '**Köken** satırı o metnin nereden geldiğini söyler. `VARSAYIM`,',
+        '`BİLİNMİYOR`, `SİSTEM METNİ` ve `KÖKEN BELİRSİZ` satırları kullanıcı',
+        'tarafından doğrulanMAMIŞTIR: onları gerçek kabul edip üzerine kod yazma,',
+        'önce kullanıcıya sor.'
+      ].join(' '),
+      '## Kullanıcının kendi fikri',
+      `> ${project.identity.originalIdea}`,
+      'Yukarıdaki metin kullanıcının kendi cümlesidir; belgedeki her şey bunun üzerine kuruludur.',
+      '## Fikrin temeli',
+      ...IDEA_FOUNDATION_FIELD_NAMES.map(fieldBlock),
+      '## Kapsam',
+      '### Kapsam içi',
+      bulletList(
+        concept?.confirmedFeatures,
+        '_Henüz karar verilmedi — kapsam içi özellikler kullanıcı tarafından belirlenmedi._'
+      ),
+      '### Kapsam dışı',
+      bulletList(
+        concept?.outOfScope,
+        '_Henüz karar verilmedi — sistem kullanıcının adına kapsam dışı karar VERMEZ._'
+      ),
+      '## Fikre eklenen kartlar',
+      '### Fikre kabul edilen kartlar',
+      bulletList(cardLines(view.acceptedCards), '_Kabul edilmiş kart yok._'),
+      '### Karar bekleyen kartlar',
+      [
+        'Aşağıdakiler fikre EKLENDİ ama karara bağlanMADI; uygulanacak kapsam sayılmazlar.',
+        bulletList(cardLines(view.pendingCards), '_Bekleyen kart yok._')
+      ].join('\n\n'),
+      '## Kullanıcının verdiği kararlar',
+      '### Yapılacaklar',
+      bulletList(decisionLines(view.included), '_Kayıtlı karar yok._'),
+      '### Yapılmayacaklar',
+      bulletList(decisionLines(view.excluded), '_Kayıtlı "yapılmayacak" kararı yok._'),
+      '## Açık sorular',
+      bulletList(concept?.openQuestions, '_Açık soru kaydedilmedi._')
+    ].join('\n\n')
+  }
+
   const traceabilityDocument = (project: ProjectDocumentV5) => [
     '# İzlenebilirlik Matrisi',
     '| Kaynak | İlişki | Hedef |',
@@ -305,6 +420,10 @@ ${project.decisions.length ? project.decisions.map(item => `- **${item.title}:**
     const source = resolveCanonicalRevision(project, revision)
     const depth = source.planningDepth.selected
     const documents: Record<string, string> = {
+      // Her derinlikte üretilir: fikir planın TEMELİDİR ve köken etiketleri bir
+      // güvenlik mekanizmasıdır -- dar derinlikte belge sayısı azaldıkça ajanın
+      // varsayımı gerçek sanma riski artar, azalmaz.
+      [IDEA_DOCUMENT_PATH]: ideaFoundationDocument(source),
       'plan/master-plan.md': exportCanonicalMarkdown(source),
       'documents/prd.md': prdMarkdown(source),
       'documents/tasks.md': taskDocument(source),
