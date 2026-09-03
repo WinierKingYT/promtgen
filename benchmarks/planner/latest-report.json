@@ -4,7 +4,7 @@
   "scenarioCount": 10,
   "passedCount": 10,
   "passRate": 1,
-  "generatedAt": "2026-07-29T17:11:27.927Z",
+  "generatedAt": "2026-09-03T11:22:40.857Z",
   "results": [
     {
       "scenarioId": "landing-page",
@@ -18,7 +18,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -38,7 +38,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -58,7 +58,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -78,7 +78,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -98,7 +98,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -118,7 +118,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -138,7 +138,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -158,7 +158,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -178,7 +178,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
@@ -198,7 +198,7 @@
         "mustTestCoverage": 1,
         "taskAcceptanceCoverage": 1,
         "scopeContradictions": 0,
-        "exportFiles": 11
+        "exportFiles": 12
       },
       "capabilityResults": {
         "canonical-planning": true,
