@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { stageRail } from '../../../src/v4/application/workspace-stages.js';
+import { migrationReviewNotices, stageRail } from '../../../src/v4/application/workspace-stages.js';
 import { normalizeConcern, normalizeConcernDecision } from '../../../src/v4/application/concerns.js';
 import { createProjectDocument } from '../../../src/v4/project-document.js';
 import type { Concern, ProjectDocumentV5 } from '../../../src/v4/contracts.js';
@@ -194,5 +194,34 @@ describe('Ray ne zaman görünür — çelişki yasağı', () => {
     document.sourceIdeaRevisionId = 'rev-1';
 
     assert.deepEqual(stageRail(document), []);
+  });
+});
+
+describe('Geçiş notları — sessiz "yapılmamış" görünümü yok', () => {
+  it('fikir asamasindaki projede migration uyarilari yuzeye cikar', () => {
+    const document = project();
+    document.metadata.migrationWarnings = ['Bu proje V2 modelinde ilerlemişti; onay adimlarini gozden gecirin.'];
+
+    assert.deepEqual(migrationReviewNotices(document), [
+      'Bu proje V2 modelinde ilerlemişti; onay adimlarini gozden gecirin.'
+    ]);
+  });
+
+  it('uyari yoksa liste bostur', () => {
+    assert.deepEqual(migrationReviewNotices(project()), []);
+  });
+
+  it('fikir onaylaninca not artik gosterilmez (metaveride kalsa bile)', () => {
+    const document = project({ idea: true, solution: true, finalized: true });
+    document.metadata.migrationWarnings = ['Eski bir gecis notu'];
+
+    assert.deepEqual(migrationReviewNotices(document), []);
+  });
+
+  it('metni olmayan girdiler elenir', () => {
+    const document = project();
+    document.metadata.migrationWarnings = ['  ', '', 'Gecerli not'] as unknown as string[];
+
+    assert.deepEqual(migrationReviewNotices(document), ['Gecerli not']);
   });
 });

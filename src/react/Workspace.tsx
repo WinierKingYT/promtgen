@@ -56,6 +56,7 @@ import { SolutionStagePanel } from './components/SolutionStagePanel.js';
 import { runSolutionDiscovery } from '../v4/application/solution-discovery-run.js';
 import { stageWorkAvailable } from '../v4/application/conversion-v2.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
+import { MigrationNotice } from './components/MigrationNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
 import {
   IdeaCoachTurn,
@@ -397,6 +398,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
         lockedViews={lockedViews}
       />
       <PlanAlignmentNotice project={project} onCommit={commit} onInspect={() => setView('plan')}/>
+      <MigrationNotice project={project}/>
       <StageRail project={project} selected={selectedStage} onSelect={setSelectedStage}/>
 
       {/* YERLEŞİM: merkez = keşif panosu (fikir), sağ = fikrin güncel hali,

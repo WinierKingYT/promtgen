@@ -144,3 +144,20 @@ function currentStageLines(project: ProjectDocumentV5, stage: ProjectStage): str
 function railApplies(project: ProjectDocumentV5): boolean {
   return stageWorkAvailable(project) || !legacyPlanUnlocked(project);
 }
+
+/**
+ * Migration sırasında bırakılan "gözden geçir" notları (`migrations.js` →
+ * `flagLegacyPlanProgress` ve `repairLegacyAcceptanceMetadata`).
+ *
+ * Yalnız proje hâlâ fikir aşamasındayken gösterilir: eski modelde ilerlemiş
+ * bir proje V3'e geçince onay uydurulmadan `idea`'ya düşer ve boş bir projeyle
+ * aynı görünürdü. Kullanıcı fikri onaylayıp aşama ilerleyince not
+ * kendiliğinden kaybolur — kayıt `metadata`'da tarihsel olarak kalır.
+ */
+export function migrationReviewNotices(project: ProjectDocumentV5): string[] {
+  if (currentStage(project) !== 'idea') return [];
+  const warnings = project.metadata?.migrationWarnings;
+  return Array.isArray(warnings)
+    ? warnings.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+}
