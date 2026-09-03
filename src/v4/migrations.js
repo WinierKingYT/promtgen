@@ -1,6 +1,7 @@
 import { createProjectDocument, validateProjectDocument } from './project-document.ts';
 import { assessPlanningDepth } from './planning-engine.ts';
 import { normalizeProjectDocument } from './canonical-entities.ts';
+import { legacyPlanUnlocked } from './application/project-stages.ts';
 
 const PHASE_MAP = {
     IDEA_CAPTURED: 'DISCOVERY', PROFILE_DRAFTED: 'DISCOVERY', PROJECT_PROFILED: 'DISCOVERY', DISCOVERY_IN_PROGRESS: 'DISCOVERY',
@@ -119,6 +120,7 @@ function finalizeMigration(candidate, original, migratedFrom) {
     project.schemaRevision = LATEST_SCHEMA_REVISION;
     delete project.suggestionBundles;
     repairLegacyAcceptanceMetadata(project);
+    flagLegacyPlanProgress(project);
     const validation = validateProjectDocument(project);
     if (!validation.valid) return failure(original, validation.errors.join('; '));
     return {
@@ -127,6 +129,25 @@ function finalizeMigration(candidate, original, migratedFrom) {
         backup: structuredClone(original),
         migratedFrom
     };
+}
+
+/**
+ * V2 akışında ilerlemiş ama V3 onay kapsayıcıları taslak kalan projeler için
+ * açıklayıcı bir not bırakır.
+ *
+ * Onay durumu DEĞİŞTİRİLMEZ: sistem kullanıcı adına "bu fikir onaylandı"
+ * demez (bkz. `canonical-entities` içindeki `legacy-unclassified` deseni).
+ * Yalnızca yeni onay adımlarının gözden geçirilmesi gerektiğini
+ * `metadata.migrationWarnings` üzerinden görünür kılar. "İlerlemiş mi?"
+ * sorusu `legacyPlanUnlocked` ile yanıtlanır; ikinci bir eşik tanımlanmaz.
+ */
+function flagLegacyPlanProgress(project) {
+    if (project.ideaDesign?.approval?.status === 'approved') return;
+    if (!legacyPlanUnlocked(project)) return;
+    const note = 'Bu proje V2 modelinde ilerlemişti (gereksinim, karar veya görev içeriyor). Fikir Tasarımı ve Teknik Çözüm Tasarımı onay adımları taslak durumda; ilerlemeden önce gözden geçirin.';
+    const warnings = project.metadata.migrationWarnings || [];
+    if (warnings.includes(note)) return;
+    project.metadata.migrationWarnings = [...warnings, note];
 }
 
 function repairLegacyAcceptanceMetadata(project) {

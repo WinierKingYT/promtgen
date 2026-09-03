@@ -32,6 +32,16 @@ assert.equal(v5Result.project.executionSessions[0].id, 'execution-legacy');
 assert.equal(v5Result.project.exports[0].id, 'export-legacy');
 assert.equal(v5Result.project.revisions[0].id, 'revision-legacy');
 
+// EP-08′ — Geçiş şeffaflığı: V2 akışında ilerlemiş (gereksinim + görev taşıyan)
+// bir proje V3 onay adımlarını gözden geçirmesi için uyarı taşır; ama sistem
+// kullanıcı adına onay UYDURMAZ, ideaDesign taslak kalır.
+assert.equal(v5Result.project.ideaDesign.approval.status, 'draft', 'Uyarı bırakılır ama onay uydurulmaz');
+assert.ok(
+  Array.isArray(v5Result.project.metadata.migrationWarnings)
+    && v5Result.project.metadata.migrationWarnings.some(warning => /V2 modelinde ilerlemişti/.test(warning)),
+  'İlerlemiş V2 projesi migration sonrası açıklayıcı uyarı taşır'
+);
+
 const passthroughV5 = tryMigrateOrPassthrough(v5Result.project);
 assert.equal(passthroughV5.migrated, false);
 assert.equal(passthroughV5.error, null);
@@ -51,6 +61,12 @@ const legacyV3 = { id: 'legacy-3', schemaVersion: 3, name: 'Eski V3', stepDepth:
 const passthroughLegacy = tryMigrateOrPassthrough(legacyV3);
 assert.equal(passthroughLegacy.migrated, true);
 assert.equal(passthroughLegacy.project.schemaVersion, 5);
+// EP-08′ negatif durum: hiç ilerlememiş (gereksinim/karar/görev yok) bir eski
+// proje gereksiz "gözden geçir" uyarısı taşımaz.
+assert.ok(
+  !(passthroughLegacy.project.metadata.migrationWarnings || []).some(warning => /V2 modelinde ilerlemişti/.test(warning)),
+  'Boş bir eski proje gereksiz geçiş uyarısı taşımaz'
+);
 
 const corruptV4 = createLegacyProjectStateV4({ idea: 'Bozuk proje' });
 corruptV4.tasks.push({ id: 'task-corrupt', title: 'Bozuk görev', requirementIds: ['missing-requirement'] });
