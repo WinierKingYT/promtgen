@@ -88,9 +88,26 @@ const humanEvaluations = validateHumanEvaluations(
 );
 const userSessions = await readJson<AnonymousUserSession[]>('user-sessions.json');
 const reportPath = path.join(root, 'latest-report.json');
-// Çıktılar çalışmaya göre ayrışır; v2'nin raporu v1'inkinin üzerine yazamaz.
+/**
+ * Markdown raporu hangi dosyaya yazılır?
+ *
+ * `comparison` ve `comparison-v2` sabit dosya adlarını korur; `check:comparison`
+ * ve `check:comparison-v2` bu iki ada bakıp başarılı olmalıdır. Bunların
+ * dışındaki her çalışma için dosya adı çalışma dizini adından türetilir; böylece
+ * üçüncü (ya da sonraki) bir çalışma, ikinci çalışmanın yayımlanmış raporunun
+ * üzerine sessizce yazamaz — daha önce tam da bu olmuştu. Çalışma adı zaten `/`,
+ * `\`, `..` ve sürücü harfi içeremeyecek şekilde denetlenir (bkz. study-import.ts);
+ * burada ayrıca yalnızca harf/rakam dışındaki karakterler alt çizgiye çevrilerek
+ * dosya adı sade ve öngörülebilir tutulur.
+ */
 const isDefaultStudy = studyDirectory === 'comparison';
-const markdownPath = path.resolve('docs', 'product', isDefaultStudy ? 'COMPARISON_REPORT.md' : 'COMPARISON_REPORT_V2.md');
+const knownMarkdownFileNames: Record<string, string> = {
+  comparison: 'COMPARISON_REPORT.md',
+  'comparison-v2': 'COMPARISON_REPORT_V2.md'
+};
+const sanitizedStudySuffix = studyDirectory.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+const markdownFileName = knownMarkdownFileNames[studyDirectory] ?? `COMPARISON_REPORT_${sanitizedStudySuffix}.md`;
+const markdownPath = path.resolve('docs', 'product', markdownFileName);
 const modulePath = path.resolve('src', 'v4', 'product', 'generated-comparison-evidence.ts');
 
 let generatedAt = new Date().toISOString();
