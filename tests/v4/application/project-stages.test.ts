@@ -69,6 +69,27 @@ describe('V3 aşama modeli', () => {
     assert.equal(currentStage(document), 'plan');
   });
 
+  it('DEVIR (handoff) plan finalize edilmeden acilmaz - iki onay yetmez', () => {
+    const document = project();
+    approve(document, 'ideaDesign');
+    approve(document, 'solutionDesign');
+
+    const handoff = stageGate(document, 'handoff');
+    assert.equal(handoff.open, false);
+    assert.equal(handoff.reason, 'Plan henüz finalize edilmedi.');
+    assert.equal(currentStage(document), 'plan');
+  });
+
+  it('plan finalize olunca DEVIR acilir', () => {
+    const document = project();
+    approve(document, 'ideaDesign');
+    approve(document, 'solutionDesign');
+    document.lifecycle.status = 'finalized';
+
+    assert.equal(stageGate(document, 'handoff').open, true);
+    assert.equal(currentStage(document), 'handoff');
+  });
+
   it('geri donus sessiz olmaz: yeniden acilan onay nedenini saklar', () => {
     const approval = {
       status: 'approved' as const,

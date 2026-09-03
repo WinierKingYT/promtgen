@@ -71,9 +71,10 @@ export interface StageGateResult {
 }
 
 /**
- * V3'ün iki değişmezi:
+ * V3'ün üç değişmezi:
  *   - Kritik fikir kararları çözülmeden Solution Design onaylanamaz.
  *   - Kritik teknik kararlar çözülmeden Plan finalleştirilemez.
+ *   - Plan finalize edilmeden Agent Devri (`handoff`) açılmaz.
  *
  * Kapı iki şeye birden bakar: aşamanın onayı ve **bloklayan concern'ler**.
  * Onay alınmış görünse bile çözülmemiş kritik bir karar varsa kapı kapalıdır
@@ -97,6 +98,14 @@ export function stageGate(project: ProjectDocumentV5, target: ProjectStage): Sta
   }
   if (project.solutionDesign?.approval?.status !== 'approved') {
     return { open: false, reason: 'Teknik çözüm tasarımı henüz onaylanmadı.' };
+  }
+  if (target === 'plan') return { open: true, reason: null };
+
+  // target === 'handoff': Agent Devri yalnızca plan finalize edildiğinde açılır.
+  // Yarım bir planı coding agent'a devretmek, onayın örttüğü boşluğu doğrudan
+  // koda taşırdı. Aynı koşul `currentStage` içinde de var.
+  if (project.lifecycle?.status !== 'finalized') {
+    return { open: false, reason: 'Plan henüz finalize edilmedi.' };
   }
   return { open: true, reason: null };
 }

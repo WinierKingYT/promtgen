@@ -197,7 +197,9 @@ describe('Golden Path — ham fikirden ajan devrine', () => {
     const rail = stageRail(project);
     assert.equal(rail.find(entry => entry.id === 'idea')?.state, 'done');
     assert.equal(rail.find(entry => entry.id === 'plan')?.state, 'current');
-    assert.equal(rail.find(entry => entry.id === 'handoff')?.lockReason, null);
+    // Plan açık ama finalize edilmedi: Agent Devri hâlâ kilitli, nedeni yazılı.
+    assert.equal(rail.find(entry => entry.id === 'handoff')?.state, 'locked');
+    assert.match(rail.find(entry => entry.id === 'handoff')?.lockReason || '', /Plan henüz finalize edilmedi/);
 
     // ---------- 9. Bir ay sonra: "stamina tüketimini kaldırmak istiyorum" ----------
     project.requirements = [{

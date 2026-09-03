@@ -12,7 +12,7 @@ const APPROVED = {
   reopenedReason: null
 };
 
-function project(options: { concerns?: Partial<Concern>[]; idea?: boolean; solution?: boolean; framed?: boolean } = {}): ProjectDocumentV5 {
+function project(options: { concerns?: Partial<Concern>[]; idea?: boolean; solution?: boolean; framed?: boolean; finalized?: boolean } = {}): ProjectDocumentV5 {
   const document = createProjectDocument({ idea: 'Unity’de at sistemi' }) as ProjectDocumentV5;
   if (options.framed !== false) {
     document.ideaDesign.framing = { kind: 'system', domain: 'game', environment: 'Unity', source: 'confirmed' };
@@ -23,6 +23,7 @@ function project(options: { concerns?: Partial<Concern>[]; idea?: boolean; solut
     .map((concern, index) => normalizeConcernDecision({ id: `cd-${index}`, concernId: concern.id, answer: 'Cevap' }, index));
   if (options.idea) document.ideaDesign.approval = { ...APPROVED };
   if (options.solution) document.solutionDesign.approval = { ...APPROVED };
+  if (options.finalized) document.lifecycle.status = 'finalized';
   return document;
 }
 
@@ -56,10 +57,19 @@ describe('Aşama rayı', () => {
     assert.equal(byId(rail, 'solution')?.state, 'current');
   });
 
-  it('iki onay da alininca plan asamasi acilir', () => {
+  it('iki onay da alininca plan acilir ama DEVIR plan finalize olana dek kilitli', () => {
     const rail = stageRail(project({ idea: true, solution: true }));
 
     assert.equal(byId(rail, 'plan')?.state, 'current');
+    // Agent Devri, yarim bir plani coding agent'a birakmasin diye kapali kalir.
+    assert.equal(byId(rail, 'handoff')?.state, 'locked');
+    assert.match(byId(rail, 'handoff')?.lockReason || '', /Plan henüz finalize edilmedi/);
+  });
+
+  it('plan finalize olunca DEVIR acilir', () => {
+    const rail = stageRail(project({ idea: true, solution: true, finalized: true }));
+
+    assert.equal(byId(rail, 'handoff')?.state, 'current');
     assert.equal(byId(rail, 'handoff')?.lockReason, null);
   });
 });
