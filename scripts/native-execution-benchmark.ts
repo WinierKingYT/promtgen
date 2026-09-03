@@ -36,11 +36,31 @@ function runCargoTests(): string {
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
     );
   } catch (error) {
+    // cargo PATH'te yoksa spawnSync ENOENT ile patlar; bu, testlerin
+    // KALMASINDAN farklı bir durumdur ve öyle raporlanmalıdır. Kanıt
+    // dosyaları bu durumda yazılmaz/güncellenmez; ölçemediğimiz şeyi
+    // geçti gibi göstermek yerine gate'i açıkça başarısız yaparız.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.error('Native yürütme benchmarkı ÖLÇÜLEMEDİ: cargo, PATH üzerinde bulunamadı.');
+      console.error(
+        "Çalıştırılacak manifest: src-tauri/Cargo.toml. Bu, bir senaryonun KALMASINDAN farklıdır;"
+      );
+      console.error('Rust araç zinciri kurulmadan bu gate ölçülemez. Kanıt dosyaları güncellenmedi.');
+      process.exit(1);
+    }
     // Testler kaldığında cargo sıfırdan farklı çıkar; çıktıyı yine de ayrıştır
     // ki hangi senaryonun düştüğü rapora yansısın.
     const shell = error as { stdout?: string; stderr?: string };
     const output = `${shell.stdout || ''}${shell.stderr || ''}`;
-    if (!output.trim()) throw error;
+    if (!output.trim()) {
+      // cargo çalıştı ama ne stdout ne stderr üretti; bu ENOENT'ten farklı,
+      // henüz açıklanmamış bir durumdur. Üstünü örtmeden fırlatırız.
+      console.error(
+        'Native yürütme benchmarkı: cargo çalıştı ancak beklenmeyen biçimde çıktı üretmedi ' +
+          '(ne stdout ne stderr). Aşağıdaki hata bu bilinmeyen durumu gösterir:'
+      );
+      throw error;
+    }
     return output;
   }
 }
