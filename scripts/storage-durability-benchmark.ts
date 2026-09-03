@@ -9,6 +9,22 @@ interface Assertion { label: string; passed: boolean }
 
 const project = (idea: string, name?: string) => createProjectDocument({ idea, name });
 
+/**
+ * `PlanRevision.snapshot` sözleşmede zorunludur: bir revision kaydı, o andaki
+ * dokümanın tam kopyasını taşır. Fikstürler bunu eksik bırakıp cast ile
+ * susturuyordu; burada gerçek anlık görüntü üretiliyor.
+ *
+ * Üretimdeki `createRevision` ile aynı biçim kullanılır (planning-engine.ts):
+ * klon alınır ve `revisions` boşaltılır — böylece geçmiş kendi içinde sonsuz
+ * yinelenmez. Her çağrı ayrı klon döndürür ki iki revision aynı nesneyi
+ * paylaşmasın.
+ */
+const snapshotOf = (source: ReturnType<typeof project>) => {
+  const snapshot = structuredClone(source);
+  snapshot.revisions = [];
+  return snapshot;
+};
+
 async function checkpointIntegrity(): Promise<Assertion[]> {
   const source = project('Yerel çalışan not alma uygulaması', 'Integrity');
   const checkpoint = createCheckpoint(source);
@@ -65,10 +81,20 @@ async function restorePreservesForwardHistory(): Promise<Assertion[]> {
   current.canonicalRevision = 3;
   current.documentRevision = 5;
   current.revisions = [
-    { id: 'rev-1', number: 1, createdAt: '2026-01-01T00:00:00.000Z', summary: 'ilk', acceptedSuggestionIds: [], affectedSections: [] },
-    { id: 'rev-2', number: 2, createdAt: '2026-01-02T00:00:00.000Z', summary: 'ikinci', acceptedSuggestionIds: [], affectedSections: [] }
-  ] as typeof current.revisions;
-  current.commandLog = [{ commandId: 'cmd-1', type: 'test', createdAt: '2026-01-01T00:00:00.000Z' }] as typeof current.commandLog;
+    { id: 'rev-1', number: 1, createdAt: '2026-01-01T00:00:00.000Z', summary: 'ilk', acceptedSuggestionIds: [], affectedSections: [], snapshot: snapshotOf(current) },
+    { id: 'rev-2', number: 2, createdAt: '2026-01-02T00:00:00.000Z', summary: 'ikinci', acceptedSuggestionIds: [], affectedSections: [], snapshot: snapshotOf(current) }
+  ];
+  // Komut günlüğü kaydının alan adı `commandType`tır; fikstür daha önce
+  // sözleşmede bulunmayan `type` alanını yazıp cast ile gizliyordu.
+  current.commandLog = [{
+    commandId: 'cmd-1',
+    commandType: 'test',
+    expectedDocumentRevision: 5,
+    committedDocumentRevision: 5,
+    expectedCanonicalRevision: 3,
+    committedCanonicalRevision: 3,
+    createdAt: '2026-01-01T00:00:00.000Z'
+  }];
 
   const older = structuredClone(current);
   older.canonicalRevision = 1;

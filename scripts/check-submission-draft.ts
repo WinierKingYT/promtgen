@@ -40,7 +40,7 @@ for (const draft of drafts) {
   const label = draft.blindId || '(kimliksiz)';
 
   // Yöntem sızıntısı en pahalı hata: körlük bozulunca çalışma geri alınamaz.
-  for (const key of Object.keys(draft as Record<string, unknown>)) {
+  for (const key of Object.keys(draft)) {
     if (/method|yontem|provider|arm|kol/i.test(key)) {
       problems.push(`${label}: "${key}" alanı yöntemi ele veriyor; kör gönderimde bulunamaz.`);
     }

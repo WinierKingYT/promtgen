@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 // export-only compatibility yüzeyleridir ve MODULE_STATUS.md gereği benchmark
 // import grafiğinde yer almamalıdır.
 import { createProvider } from '../src/v4/ai/provider-adapters.js';
+import { discoverySchema } from '../src/v4/ai/schemas/schemas.js';
 import { testProviderConnection } from '../src/v4/ai/provider-connection.js';
 import { generateDiscoveryBundle } from '../src/v4/application/idea-planning-api.js';
 import { analyzeIdea } from '../src/v4/planning-engine.js';
@@ -45,13 +46,30 @@ function stubFetch(handler: (url: string, options: Capture['options']) => unknow
 }
 
 const idea = 'Yerel çalışan kişisel proje planlama aracı yapmak istiyorum.';
-const cloudSettings = { providerId: 'openai', model: 'gpt-test', baseUrl: 'https://api.example/v1' };
+/**
+ * `ProviderSettings` beş alan ister; fikstür ikisini yazmıyordu. Eksik alanlar
+ * çalışma zamanında `undefined` kalıyordu ve tüketiciler `useAiWhenAvailable`i
+ * kesin `=== false` ile sınadığı için AI **açık** kabul ediliyor,
+ * `useLocalMemory` ise yalnız `&&` içinde okunduğu için `false` gibi
+ * davranıyordu. Aşağıdaki değerler bu fiili davranışın birebir karşılığıdır:
+ * ölçüm değişmez, yalnızca tip boşluğu kapanır.
+ */
+const cloudSettings = {
+  providerId: 'openai',
+  model: 'gpt-test',
+  baseUrl: 'https://api.example/v1',
+  useAiWhenAvailable: true,
+  useLocalMemory: false
+};
 
 // --- 1 -----------------------------------------------------------------------
 async function endpointPinning(): Promise<Assertion[]> {
   const captures = stubFetch(() => httpResponse({ choices: [{ message: { content: JSON.stringify(VALID_DISCOVERY) } }] }));
   const openai = createProvider('openai', { credential: 'k', model: 'gpt-test', baseUrl: 'https://attacker.example/v1' });
-  await openai.structured({ system: 's', context: {} });
+  // `schema` sözleşmede zorunludur; atlandığında adaptör zaten
+  // `discoverySchema`ya düşüyordu (provider-adapters.ts varsayılan parametresi).
+  // Açıkça geçmek aynı şemayı kullanır, davranış birebir aynıdır.
+  await openai.structured({ system: 's', context: {}, schema: discoverySchema });
   const nvidia = normalizeProviderSettings({ providerId: 'nvidia', model: 'm', baseUrl: 'https://attacker.example' });
   const openaiNormalized = normalizeProviderSettings({ providerId: 'openai', model: 'm', baseUrl: 'https://attacker.example' });
   return [
@@ -93,11 +111,11 @@ async function credentialIsolation(): Promise<Assertion[]> {
   const secret = 'sk-super-secret-credential-value';
   const openaiCaptures = stubFetch(() => httpResponse({ choices: [{ message: { content: JSON.stringify(VALID_DISCOVERY) } }] }));
   const openai = createProvider('openai', { credential: secret, model: 'gpt-test', baseUrl: 'https://api.example/v1' });
-  await openai.structured({ system: 's', context: { note: 'api_key=embedded-project-secret-value' } });
+  await openai.structured({ system: 's', context: { note: 'api_key=embedded-project-secret-value' }, schema: discoverySchema });
 
   const geminiCaptures = stubFetch(() => httpResponse({ candidates: [{ content: { parts: [{ text: JSON.stringify(VALID_DISCOVERY) }] } }] }));
   const gemini = createProvider('gemini', { credential: secret, model: 'gemini-test' });
-  await gemini.structured({ system: 's', context: {} });
+  await gemini.structured({ system: 's', context: {}, schema: discoverySchema });
 
   const all = [...openaiCaptures, ...geminiCaptures];
   return [
@@ -231,7 +249,14 @@ async function connectionValidatesModel(): Promise<Assertion[]> {
 async function offlineMakesNoNetworkCall(): Promise<Assertion[]> {
   const project = analyzeIdea(idea);
   const offlineCaptures = stubFetch(() => httpResponse({ choices: [{ message: { content: JSON.stringify(VALID_DISCOVERY) } }] }));
-  const offline = await generateDiscoveryBundle(project, { settings: { providerId: 'offline', model: 'promtgen-local', baseUrl: '' } });
+  // `useAiWhenAvailable: true` bilinçli seçimdir: offline sağlayıcının ağa
+  // çıkmadığını, AI **açıkken** kanıtlamak gerekir. Eksik alan zaten
+  // `undefined` kalıp "kapalı değil" sayıldığı için ölçülen yol değişmiyor;
+  // `false` yazmak testi bir alt satırdaki "AI kapalı" senaryosuyla
+  // özdeşleştirip anlamını yok ederdi.
+  const offline = await generateDiscoveryBundle(project, {
+    settings: { providerId: 'offline', model: 'promtgen-local', baseUrl: '', useAiWhenAvailable: true, useLocalMemory: false }
+  });
   const offlineCallCount = offlineCaptures.length;
 
   const disabledCaptures = stubFetch(() => httpResponse({ choices: [{ message: { content: JSON.stringify(VALID_DISCOVERY) } }] }));

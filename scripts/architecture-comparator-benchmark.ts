@@ -18,6 +18,29 @@ interface Assertion { label: string; passed: boolean }
 const ideaFor = (idea: string) => createProjectDocument({ idea });
 const lab = (idea: string) => generateLocalIdeaLabOutput(ideaFor(idea));
 
+type LabApproach = ReturnType<typeof lab>['approaches'][number];
+
+/**
+ * `metrics` ortak sözleşmede isteğe bağlıdır (src/v4/contracts.ts) çünkü AI
+ * üretimi yaklaşımlar onu atlayabilir. Bu benchmark ise yalnızca deterministik
+ * yerel üreticiyi ölçer ve orada `buildApproach` her yaklaşıma metrikleri
+ * **her zaman** yazar (src/v4/application/deterministic-idea-planning.ts).
+ *
+ * Yine de sessizce varsaymıyoruz: metrik yoksa ölçüm yüksek sesle durur.
+ * Metriksiz bir yaklaşımı atlamak, bu bölümün ölçtüğü dürüstlük iddiasını
+ * ("metrikler hesaplanmaz, beyan edilir") doğrulanmamış halde geçmiş
+ * gösterirdi — kanıt üreten bir betikte kabul edilemez.
+ */
+function requireMetrics(approach: LabApproach): NonNullable<LabApproach['metrics']> {
+  if (!approach.metrics) {
+    throw new Error(
+      `Ölçüm hatası: '${approach.id}' yaklaşımı metrik taşımıyor; ` +
+      'metriklerin hesaplanmadığı iddiası doğrulanamaz.'
+    );
+  }
+  return approach.metrics;
+}
+
 const DOMAIN_IDEAS = {
   game: 'S&box içinde çok oyunculu at yarışı oyunu ve fizik tabanlı sürüş yapmak istiyorum',
   web: 'Küçük ekipler için web tabanlı görev takip ve raporlama uygulaması yapmak istiyorum',
@@ -67,7 +90,10 @@ function domainAwareTitles(): Assertion[] {
 /** Yeteneğin en kritik dürüstlük iddiası burada ölçülür. */
 function metricsAreDeclaredAssumptions(): Assertion[] {
   const fingerprints = Object.values(DOMAIN_IDEAS).map(idea =>
-    lab(idea).approaches.map(a => `${a.metrics.effortScore}-${a.metrics.networkLoad}-${a.metrics.fpsImpact}-${a.metrics.maintainability}`).join(' / ')
+    lab(idea).approaches.map(a => {
+      const m = requireMetrics(a);
+      return `${m.effortScore}-${m.networkLoad}-${m.fpsImpact}-${m.maintainability}`;
+    }).join(' / ')
   );
   const allIdentical = new Set(fingerprints).size === 1;
   const web = lab(DOMAIN_IDEAS.web).approaches;
@@ -75,12 +101,12 @@ function metricsAreDeclaredAssumptions(): Assertion[] {
     // "Otomatik benchmark hesaplanmaz; değerler kullanıcı varsayımıdır" iddiası
     // ancak metrikler projeden türetilmiyorsa doğrudur. Ölçülen tam olarak budur.
     { label: 'Metrikler alandan bağımsız aynıdır (hesaplanmıyor)', passed: allIdentical },
-    { label: 'Sade yaklaşım en düşük eforu taşır', passed: web[0].metrics.effortScore === 1 },
-    { label: 'Modüler yaklaşım orta eforu taşır', passed: web[1].metrics.effortScore === 3 },
-    { label: 'Gelişmiş yaklaşım en yüksek eforu taşır', passed: web[2].metrics.effortScore === 5 },
+    { label: 'Sade yaklaşım en düşük eforu taşır', passed: requireMetrics(web[0]).effortScore === 1 },
+    { label: 'Modüler yaklaşım orta eforu taşır', passed: requireMetrics(web[1]).effortScore === 3 },
+    { label: 'Gelişmiş yaklaşım en yüksek eforu taşır', passed: requireMetrics(web[2]).effortScore === 5 },
     {
       label: 'Metrikler 1-5 aralığında kalır',
-      passed: web.every(a => Object.values(a.metrics).every(value => value >= 1 && value <= 5))
+      passed: web.every(a => Object.values(requireMetrics(a)).every(value => value >= 1 && value <= 5))
     }
   ];
 }
@@ -88,7 +114,7 @@ function metricsAreDeclaredAssumptions(): Assertion[] {
 function effortOrderingIsMonotonic(): Assertion[] {
   const approaches = lab(DOMAIN_IDEAS.web).approaches;
   const efforts = approaches.map(a => a.effort);
-  const scores = approaches.map(a => a.metrics.effortScore);
+  const scores = approaches.map(a => requireMetrics(a).effortScore);
   return [
     { label: 'Efor etiketleri low → medium → high', passed: efforts.join(',') === 'low,medium,high' },
     { label: 'Efor skorları artan sırada', passed: scores[0] < scores[1] && scores[1] < scores[2] },

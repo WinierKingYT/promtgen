@@ -27,7 +27,6 @@ interface StudyDefinition {
   masterPromptSha256: string;
   frozenAt: string;
   frozenDigest: string;
-  evaluationCriteria: string[];
   [key: string]: unknown;
 }
 
