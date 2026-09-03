@@ -7,7 +7,7 @@ export const PLANNER_BENCHMARK_EVIDENCE: {
 } = Object.freeze({
   "suiteId": "planner-core-v1",
   "reportPath": "benchmarks/planner/latest-report.json",
-  "generatedAt": "2026-07-29T17:11:27.927Z",
+  "generatedAt": "2026-09-03T11:24:39.306Z",
   "capabilities": {
     "canonical-planning": {
       "completed": 10,
