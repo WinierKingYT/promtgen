@@ -72,24 +72,54 @@ function titleKey(title: string): string {
 }
 
 /**
- * Gerekçe **gerçek** mi?
+ * Belgede gerçekten var olan gerekçe kimlikleri.
  *
  * Yalnız belgede var olan ve gerçekten karara bağlanmış fikir kayıtları sayılır.
  * Aksi hâlde model, var olmayan bir kimliğe atıf yaparak gerekçeyi uydurabilir
  * ve yasak kâğıt üstünde kalırdı.
+ *
+ * Hem sayma (`groundedEvidenceCount`) hem süzme (`groundEvidence`) bu tek
+ * kaynaktan beslenir: iki ayrı kopya, ikisinin ayrı ayrı kaymasına ve "kabul
+ * edilen ama kanıtı süzülmüş" gibi tutarsız sonuçlara yol açardı.
  */
-function groundedEvidenceCount(evidence: DecisionEvidence, project: ProjectDocumentV5): number {
-  const acceptedIdeaDecisions = new Set(
-    (project.decisions || [])
-      .filter(decision => decision.stage === 'idea' && decision.status === 'accepted')
-      .map(decision => decision.id)
-  );
-  const decidedConcerns = new Set(
-    (project.ideaDesign?.concerns || []).filter(isResolved).map(concern => concern.id)
-  );
+function groundedIdeaIds(project: ProjectDocumentV5): { decisions: Set<string>; concerns: Set<string> } {
+  return {
+    decisions: new Set(
+      (project.decisions || [])
+        .filter(decision => decision.stage === 'idea' && decision.status === 'accepted')
+        .map(decision => decision.id)
+    ),
+    concerns: new Set(
+      (project.ideaDesign?.concerns || []).filter(isResolved).map(concern => concern.id)
+    )
+  };
+}
 
-  return evidence.ideaDecisionIds.filter(id => acceptedIdeaDecisions.has(id)).length
-    + evidence.ideaConcernIds.filter(id => decidedConcerns.has(id)).length;
+/**
+ * Gerekçeyi **gerçeğe** süzer: belgede karşılığı olmayan kimlikler düşer.
+ *
+ * Belgeye yazılan her kimlik çözülebilmeli. "Bu aday şu fikir kararından
+ * türedi" diyip o kararı gösterememek, belgenin taşıdığı soyağacı iddiasını
+ * doğrulanamaz kılardı — okuyan da bunu fark edemezdi.
+ *
+ * Süzme **kabul kararını değiştirmez**: `admitCandidate` zaten yalnız gerçek
+ * kimlikleri sayıyordu, bu yüzden süzülmüş kanıtla da aynı sonucu verir.
+ * Değişen tek şey neyin SAKLANDIĞI.
+ *
+ * Saf: girdi mutasyona uğramaz, yeni bir kayıt döner.
+ */
+export function groundEvidence(evidence: DecisionEvidence, project: ProjectDocumentV5): DecisionEvidence {
+  const grounded = groundedIdeaIds(project);
+  return {
+    ideaDecisionIds: evidence.ideaDecisionIds.filter(id => grounded.decisions.has(id)),
+    ideaConcernIds: evidence.ideaConcernIds.filter(id => grounded.concerns.has(id))
+  };
+}
+
+/** Kaç gerekçe kimliği gerçekten belgede karşılık buluyor? */
+function groundedEvidenceCount(evidence: DecisionEvidence, project: ProjectDocumentV5): number {
+  const grounded = groundEvidence(evidence, project);
+  return grounded.ideaDecisionIds.length + grounded.ideaConcernIds.length;
 }
 
 export interface AdmissionResult {

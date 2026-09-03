@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   admitCandidate,
+  groundEvidence,
   normalizeTechnologyCandidate,
   promoteCandidate,
   rejectCandidate
@@ -262,5 +263,64 @@ describe('Aday normalleştirme', () => {
 
   it('nedensiz reddetme kabul edilmez', () => {
     assert.throws(() => rejectCandidate(candidate(), ''), /neden/i);
+  });
+});
+
+describe('Kanıt kimliklerini gerçeğe süzme', () => {
+  it('belgede karsiligi olmayan kimlikler DUSER', () => {
+    // Uydurulan kimlik belgeye yazılırsa, belge çözülemeyen bir soyağacı
+    // iddiası taşır: "şu fikir kararından türedi" der, o karar yoktur.
+    const grounded = groundEvidence(
+      { ideaDecisionIds: ['dec-cevrimdisi', 'dec-hayali'], ideaConcernIds: ['ic-hayali'] },
+      project()
+    );
+
+    assert.deepEqual(grounded, { ideaDecisionIds: ['dec-cevrimdisi'], ideaConcernIds: [] });
+  });
+
+  it('yalnizca KABUL EDILMIS fikir karari sayilir', () => {
+    const grounded = groundEvidence(
+      { ideaDecisionIds: ['dec-cevrimdisi'], ideaConcernIds: [] },
+      project([ideaDecision({ status: 'proposed' })])
+    );
+
+    assert.deepEqual(grounded.ideaDecisionIds, []);
+  });
+
+  it('yalnizca COZULMUS fikir konusu sayilir', () => {
+    const document = project();
+    document.ideaDesign.concerns = [
+      normalizeConcern({ id: 'ic-kayit', title: 'Kayıt', status: 'decided' }),
+      normalizeConcern({ id: 'ic-acik', title: 'Açık', status: 'open' })
+    ];
+
+    const grounded = groundEvidence({ ideaDecisionIds: [], ideaConcernIds: ['ic-kayit', 'ic-acik'] }, document);
+
+    assert.deepEqual(grounded.ideaConcernIds, ['ic-kayit']);
+  });
+
+  it('girdiyi MUTASYONA UGRATMAZ', () => {
+    const evidence = { ideaDecisionIds: ['dec-cevrimdisi', 'dec-hayali'], ideaConcernIds: ['ic-hayali'] };
+
+    groundEvidence(evidence, project());
+
+    assert.deepEqual(evidence, {
+      ideaDecisionIds: ['dec-cevrimdisi', 'dec-hayali'],
+      ideaConcernIds: ['ic-hayali']
+    });
+  });
+
+  it('suzme KABUL/RET kararini degistirmez - bir gercek kimlik yeter', () => {
+    const document = project();
+    const raw = { ideaDecisionIds: ['dec-hayali', 'dec-cevrimdisi', 'dec-uydurma'], ideaConcernIds: [] };
+
+    const before = admitCandidate(candidate({ reversibility: 'irreversible', evidence: raw }), document);
+    const after = admitCandidate(
+      candidate({ reversibility: 'irreversible', evidence: groundEvidence(raw, document) }),
+      document
+    );
+
+    assert.equal(before.admitted, true);
+    assert.equal(after.admitted, before.admitted);
   });
 });

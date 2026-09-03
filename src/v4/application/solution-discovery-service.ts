@@ -1,6 +1,6 @@
 import { normalizeConcern } from './concerns.js';
 import { stageGate } from './project-stages.js';
-import { admitCandidate, normalizeTechnologyCandidate } from './solution-design.js';
+import { admitCandidate, groundEvidence, normalizeTechnologyCandidate } from './solution-design.js';
 import type { SolutionDiscoveryOutput } from '../ai/schemas/schemas.js';
 import type { Concern, ProjectDocumentV5, TechnologyCandidate } from '../contracts.js';
 
@@ -31,6 +31,15 @@ export interface SolutionDiscoveryResult {
   candidates: TechnologyCandidate[];
   /** Gerekçelendirilemediği için elenen adaylar; sessiz düşüş olmaz. */
   refused: Array<{ candidate: TechnologyCandidate; reason: string }>;
+  /**
+   * Belgede karşılığı olmadığı için kanıttan süzülen kimlik sayısı.
+   *
+   * Aday elenmese bile süzme sessiz kalmaz: bu modülün "reddedilen sessizce
+   * kaybolmaz" kuralı, düşen gerekçe kimlikleri için de geçerli. Sayı aynı
+   * raporlama kanalında (bu sonuç kaydında) durur; kullanıcı arayüzüne bir
+   * bildirim eklenmez, çünkü bu bir veri bütünlüğü düzeltmesi.
+   */
+  ungroundedEvidenceIdCount: number;
   openQuestions: string[];
 }
 
@@ -77,8 +86,10 @@ export function applySolutionDiscovery(
   const candidates: TechnologyCandidate[] = [];
   const refused: SolutionDiscoveryResult['refused'] = [];
 
+  let ungroundedEvidenceIdCount = 0;
+
   for (const [index, item] of (output.candidates || []).entries()) {
-    const candidate = normalizeTechnologyCandidate({
+    const proposed = normalizeTechnologyCandidate({
       id: idFromTitle('candidate', item.title, index),
       concernId: concernIdByTitle.get(item.concernTitle) || '',
       title: item.title,
@@ -92,6 +103,20 @@ export function applySolutionDiscovery(
       }
     }, index);
 
+    // Kanıt belgeye girmeden önce gerçeğe süzülür. Süzme burada yapılıyor
+    // çünkü belgeye YENİ kanıt yazan yer burası ve proje elde. Aynı işi
+    // `normalizeTechnologyCandidate` içinde yapmak, o fonksiyonu belge
+    // bağlamına bağımlı kılar ve `canonical-entities` her belge
+    // normalleştirmesinde eski adayların kanıtını da yeniden budardı —
+    // saklanmış bir kayıt, okunduğu her seferde değişirdi.
+    const grounded = groundEvidence(proposed.evidence, project);
+    ungroundedEvidenceIdCount +=
+      (proposed.evidence.ideaDecisionIds.length - grounded.ideaDecisionIds.length)
+      + (proposed.evidence.ideaConcernIds.length - grounded.ideaConcernIds.length);
+    const candidate: TechnologyCandidate = { ...proposed, evidence: grounded };
+
+    // Süzme kabul/ret kararını değiştirmez: `admitCandidate` zaten yalnız
+    // gerçek kimlikleri sayıyordu.
     const admission = admitCandidate(candidate, project);
     if (admission.admitted) candidates.push(candidate);
     else refused.push({ candidate, reason: admission.reason });
@@ -101,6 +126,7 @@ export function applySolutionDiscovery(
     concerns,
     candidates,
     refused,
+    ungroundedEvidenceIdCount,
     openQuestions: output.openQuestions || []
   };
 }

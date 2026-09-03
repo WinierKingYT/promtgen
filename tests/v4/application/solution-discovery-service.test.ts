@@ -162,6 +162,107 @@ describe('Teknik keşif çıktısı → canonical model', () => {
     assert.equal(result.refused.length, 1);
   });
 
+  it('geri donulebilir aday KABUL EDILIR ama uydurma kimlik BELGEYE YAZILMAZ', () => {
+    // Ucuz bir seçeneği konuşmak keşfin kendisidir; ama gerekçesi uydurmaysa
+    // belge çözülemeyen bir soyağacı iddiası taşıyamaz.
+    const result = applySolutionDiscovery(output({
+      candidates: [{
+        concernTitle: 'Yerel veri deposu',
+        title: 'JSON dosyası',
+        category: 'veritabanı',
+        rationale: 'Basit.',
+        tradeoffs: [],
+        reversibility: 'reversible',
+        derivedFromIdeaDecisionIds: ['dec-hayali', 'dec-uydurma'],
+        derivedFromIdeaConcernIds: ['ic-hayali']
+      }]
+    }), approvedProject());
+
+    assert.equal(result.candidates.length, 1);
+    assert.deepEqual(result.candidates[0].evidence, { ideaDecisionIds: [], ideaConcernIds: [] });
+    assert.deepEqual(result.refused, []);
+  });
+
+  it('geri donulebilir adayda GERCEK kimlik kalir, uydurmalar duser', () => {
+    const result = applySolutionDiscovery(output({
+      candidates: [{
+        concernTitle: 'Yerel veri deposu',
+        title: 'IndexedDB',
+        category: 'veritabanı',
+        rationale: 'Tarayıcıda çevrimdışı.',
+        tradeoffs: [],
+        reversibility: 'reversible',
+        derivedFromIdeaDecisionIds: ['dec-hayali', 'dec-cevrimdisi', 'dec-uydurma'],
+        derivedFromIdeaConcernIds: []
+      }]
+    }), approvedProject());
+
+    assert.equal(result.candidates.length, 1);
+    assert.deepEqual(result.candidates[0].evidence, {
+      ideaDecisionIds: ['dec-cevrimdisi'],
+      ideaConcernIds: []
+    });
+  });
+
+  it('geri donulemez aday BIR gercek kimlikle kabul edilmeye devam eder', () => {
+    // Süzme yalnız neyin saklandığını değiştirir; kimin kabul edildiğini değil.
+    const result = applySolutionDiscovery(output({
+      candidates: [{
+        concernTitle: 'Yerel veri deposu',
+        title: 'SQLite',
+        category: 'veritabanı',
+        rationale: 'Çevrimdışı kararının gereği.',
+        tradeoffs: [],
+        reversibility: 'irreversible',
+        derivedFromIdeaDecisionIds: ['dec-hayali', 'dec-cevrimdisi', 'dec-uydurma'],
+        derivedFromIdeaConcernIds: []
+      }]
+    }), approvedProject());
+
+    assert.deepEqual(result.refused, []);
+    assert.equal(result.candidates.length, 1);
+    assert.deepEqual(result.candidates[0].evidence, {
+      ideaDecisionIds: ['dec-cevrimdisi'],
+      ideaConcernIds: []
+    });
+  });
+
+  it('geri donulemez aday YALNIZ uydurma kimlikle REDDEDILMEYE devam eder', () => {
+    const result = applySolutionDiscovery(output({
+      candidates: [{
+        concernTitle: 'Yerel veri deposu',
+        title: 'PostgreSQL',
+        category: 'veritabanı',
+        rationale: 'Yaygın.',
+        tradeoffs: [],
+        reversibility: 'irreversible',
+        derivedFromIdeaDecisionIds: ['dec-hayali'],
+        derivedFromIdeaConcernIds: ['ic-hayali']
+      }]
+    }), approvedProject());
+
+    assert.deepEqual(result.candidates, []);
+    assert.equal(result.refused.length, 1);
+    assert.match(result.refused[0].reason, /hangi fikir kararından/i);
+  });
+
+  it('suzulen kimlik sayisi IZLENEBILIR - sessiz dusus olmaz', () => {
+    const result = applySolutionDiscovery(output({
+      candidates: [{
+        concernTitle: 'Yerel veri deposu',
+        title: 'IndexedDB',
+        category: 'veritabanı',
+        rationale: 'Tarayıcıda çevrimdışı.',
+        tradeoffs: [],
+        reversibility: 'reversible',
+        derivedFromIdeaDecisionIds: ['dec-hayali', 'dec-cevrimdisi'],
+        derivedFromIdeaConcernIds: ['ic-hayali']
+      }]
+    }), approvedProject());
+
+    assert.equal(result.ungroundedEvidenceIdCount, 2);
+  });
+
   it('onemsiz konu, ayni etkideki kritik konunun onune gecmez', () => {
     const result = applySolutionDiscovery(output({
       technicalConcerns: [
