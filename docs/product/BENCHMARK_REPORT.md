@@ -3,7 +3,7 @@
 Bu rapor `benchmarks/planner/scenarios.json` senaryolarının gerçek canonical model, task compiler, readiness ve exporter üretim zincirinde çalıştırılmasıyla üretilir.
 
 - Suite: `planner-core-v1`
-- Son çalışma: 2026-09-03T11:22:40.857Z
+- Son çalışma: 2026-09-03T11:24:39.306Z
 - Sonuç: 10/10
 - Başarı oranı: %100
 - Kapsam: deterministic ürün sözleşmesi benchmark'ı; gerçek kullanıcı sonucu değildir.
