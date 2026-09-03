@@ -133,10 +133,25 @@ test.describe('PromtGen idea studio production workflow', () => {
     await solutionPanel.getByRole('button', { name: 'Teknik tasarımı onayla' }).click();
     await expect(solutionPanel).toContainText('Plan üretilebilir');
 
-    // Ray artık plan aşamasını gösteriyor ve hiçbir aşama kilitli değil.
+    // Ray artık plan aşamasını gösteriyor. Agent Devri ise BİLEREK kilitli:
+    // `project-stages.ts` üçüncü değişmezi gereği plan finalize edilmeden
+    // devir açılmaz. Bu yüzden "hiçbir aşama kilitli değil" demek yerine
+    // HANGİ aşamanın kilitli olduğunu adlandırıyoruz — yarın yanlış bir
+    // aşama kilitlenirse iddia düşsün.
     const rail = page.getByRole('navigation', { name: 'Proje aşamaları' });
-    await expect(rail.locator('.pg-stage.is-locked')).toHaveCount(0);
-    await expect(rail.locator('.pg-stage').nth(2)).toHaveClass(/is-current/);
+    const stages = rail.locator('.pg-stage');
+    await expect(stages).toHaveCount(4); // fikir · çözüm · plan · devir
+    await expect(stages.nth(2)).toHaveClass(/is-current/);
+
+    // Fikir, çözüm ve plan açık; kilit YALNIZCA devirde.
+    await expect(stages.nth(0)).not.toHaveClass(/is-locked/);
+    await expect(stages.nth(1)).not.toHaveClass(/is-locked/);
+    await expect(stages.nth(2)).not.toHaveClass(/is-locked/);
+    await expect(stages.nth(3)).toHaveClass(/is-locked/);
+    await expect(rail.locator('.pg-stage.is-locked')).toHaveCount(1);
+
+    // Kilit sessiz değil: nedeni kullanıcıya yazılı olarak görünür.
+    await expect(stages.nth(3)).toContainText('Plan henüz finalize edilmedi');
   });
 
   test('saglayici yokken teknik kesif SAHTE sonuc uretmez', async ({ page }) => {
