@@ -155,6 +155,48 @@ describe('Blind comparison benchmark and anonymous user evidence', () => {
     assert.equal(COMPARISON_EVIDENCE.publicationEligible, false);
     assert.equal(COMPARISON_EVIDENCE.userParticipantsByCapability['canonical-planning'] || 0, 0);
   });
+
+  // Ret nedenleri ayrı ayrı adlandırılır. Daha önce dört farklı neden tek bir
+  // "geçersiz veya yineleniyor" mesajını paylaşıyordu; kolaylaştırıcı dosyayı
+  // taşıması mı, veriyi atması mı, yoksa hiçbir şey yapmaması mı gerektiğini
+  // mesajdan çıkaramıyordu. Bu testler mesajın nedeni adlandırmasını kilitler.
+  it('her ret nedeni kendi mesajını ve oturum kimliğini söyler', () => {
+    assert.throws(
+      () => validateAnonymousUserSessions([{ ...userSession, schemaVersion: 1 } as unknown as AnonymousUserSession]),
+      /anon-001.*şema sürümü 2 olmalı, gelen 1/s
+    );
+    assert.throws(
+      () => validateAnonymousUserSessions([{ ...userSession, consent: false }]),
+      /anon-001.*açık onay \(consent\)/s
+    );
+    assert.throws(
+      () => validateAnonymousUserSessions([{ ...userSession, anonymousSessionId: '' }]),
+      /anonymousSessionId zorunludur/
+    );
+    assert.throws(
+      () => validateAnonymousUserSessions([userSession, { ...userSession }]),
+      /anon-001.*zaten içe aktarılmış, kayıt yineleniyor/s
+    );
+  });
+
+  it('geçersiz metrik, hangi alan ve hangi değer olduğunu söyler', () => {
+    assert.throws(
+      () => validateAnonymousUserSessions([{ ...userSession, manualEditCount: -1 }]),
+      /anon-001.*manualEditCount.*gelen -1/s
+    );
+    assert.throws(
+      () => validateAnonymousUserSessions([{ ...userSession, planningDurationSeconds: -5 }]),
+      /anon-001.*planningDurationSeconds.*gelen -5/s
+    );
+    assert.throws(
+      () => validateAnonymousUserSessions([{ ...userSession, wouldUsePlan: 'evet' } as unknown as AnonymousUserSession]),
+      /anon-001.*wouldUsePlan boolean olmalı, gelen tür string/s
+    );
+    assert.throws(
+      () => validateAnonymousUserSessions([{ ...userSession, satisfaction: 6 }]),
+      /anon-001.*satisfaction 1-5 aralığında.*gelen 6/s
+    );
+  });
 });
 
 describe('Kör değerlendirme doğrulaması', () => {

@@ -335,15 +335,44 @@ export function validateAnonymousUserSessions(sessions: AnonymousUserSession[]):
   const ids = new Set<string>();
   return sessions.map(session => {
     if (Object.keys(session).some(key => !allowed.has(key))) throw new Error('Kullanıcı evidence kaydı izin verilmeyen alan içeriyor.');
-    if (session.schemaVersion !== 2 || session.consent !== true || !session.anonymousSessionId || ids.has(session.anonymousSessionId)) {
-      throw new Error('Anonim kullanıcı evidence kaydı geçersiz veya yineleniyor.');
+    // Dört ret nedeni ayrı ayrı bildirilir çünkü çareleri farklıdır: dosyayı
+    // yeni şemaya taşımak / veriyi hiç kullanmamak / kaydı geri çevirmek /
+    // hiçbir şey yapmamak (zaten içe aktarılmış). Tek bir "geçersiz veya
+    // yineleniyor" mesajı kolaylaştırıcıyı yanlış çareye yönlendirirdi.
+    // Kimlik mesaja yazılır ki hangi katılımcının dosyası olduğu izlenebilsin.
+    const sessionLabel = session.anonymousSessionId || '(kimliksiz)';
+    if (session.schemaVersion !== 2) {
+      throw new Error(`Anonim kullanıcı evidence kaydı "${sessionLabel}": şema sürümü 2 olmalı, gelen ${String(session.schemaVersion)}. Dosyayı güncel şemaya taşıyın.`);
     }
-    const durations = [session.setupDurationSeconds, session.planningDurationSeconds, session.endToEndDurationSeconds];
-    if (!Number.isInteger(session.manualEditCount) || session.manualEditCount < 0 ||
-        durations.some(value => !Number.isFinite(value) || value < 0) ||
-        typeof session.wouldUsePlan !== 'boolean' ||
-        !Number.isInteger(session.satisfaction) || session.satisfaction < 1 || session.satisfaction > 5) {
-      throw new Error('Anonim kullanıcı evidence metrikleri geçersiz.');
+    if (session.consent !== true) {
+      throw new Error(`Anonim kullanıcı evidence kaydı "${sessionLabel}": açık onay (consent) yok veya true değil. Bu veri kullanılamaz; kayıt içe aktarılmadan silinmelidir.`);
+    }
+    if (!session.anonymousSessionId) {
+      throw new Error('Anonim kullanıcı evidence kaydı: anonymousSessionId zorunludur. Kimliksiz kayıt yinelenme denetiminden geçirilemez; kayıt geri çevrildi.');
+    }
+    if (ids.has(session.anonymousSessionId)) {
+      throw new Error(`Anonim kullanıcı evidence kaydı "${sessionLabel}": bu kimlik zaten içe aktarılmış, kayıt yineleniyor. Veri kaybı yok; yinelenen kaydı girdiden çıkarmak yeterli.`);
+    }
+    // Metrik alanları da alan alan bildirilir: hangi alanın hangi değerle
+    // sınırı aştığı yazılmazsa kolaylaştırıcı beş alanı tek tek elle arar.
+    if (!Number.isInteger(session.manualEditCount) || session.manualEditCount < 0) {
+      throw new Error(`Anonim kullanıcı evidence kaydı "${sessionLabel}": manualEditCount negatif olmayan bir tam sayı olmalı, gelen ${String(session.manualEditCount)}.`);
+    }
+    const durations = [
+      ['setupDurationSeconds', session.setupDurationSeconds],
+      ['planningDurationSeconds', session.planningDurationSeconds],
+      ['endToEndDurationSeconds', session.endToEndDurationSeconds]
+    ] as const;
+    for (const [field, value] of durations) {
+      if (!Number.isFinite(value) || value < 0) {
+        throw new Error(`Anonim kullanıcı evidence kaydı "${sessionLabel}": ${field} negatif olmayan sonlu bir sayı olmalı, gelen ${String(value)}.`);
+      }
+    }
+    if (typeof session.wouldUsePlan !== 'boolean') {
+      throw new Error(`Anonim kullanıcı evidence kaydı "${sessionLabel}": wouldUsePlan boolean olmalı, gelen tür ${typeof session.wouldUsePlan}.`);
+    }
+    if (!Number.isInteger(session.satisfaction) || session.satisfaction < 1 || session.satisfaction > 5) {
+      throw new Error(`Anonim kullanıcı evidence kaydı "${sessionLabel}": satisfaction 1-5 aralığında bir tam sayı olmalı, gelen ${String(session.satisfaction)}.`);
     }
     // Uçtan uca süre parçalarından kısa olamaz. Transkripsiyon hatasını
     // yakalar; parçaların toplamına eşit olması ŞART DEĞİL — aralarda mola

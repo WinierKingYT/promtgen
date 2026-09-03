@@ -79,6 +79,18 @@ const temporaryPath = `${sessionsPath}.tmp`;
 await writeFile(temporaryPath, `${JSON.stringify(result.sessions, null, 2)}\n`, 'utf8');
 await rename(temporaryPath, sessionsPath);
 await writeFile(path.join(root, 'user-study-report.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
+
+/**
+ * Katılımcılar yetenek yetenek listelenir.
+ *
+ * Terfi yetenek başına kapılıdır: 3 yeteneğe dağılmış 5 katılımcı hiçbir
+ * yeteneği terfi ettirmez. Yalnız toplam sayıyı yazan bir rapor, kapının
+ * neden hâlâ kapalı olduğunu gizlerdi.
+ */
+const capabilityLines = Object.entries(summary.participantsByCapability)
+  .map(([capabilityId, count]) => `- ${capabilityId}: ${count} katılımcı`)
+  .join('\n') || '- (henüz katılımcı yok)';
+
 await writeFile(path.resolve('docs', 'product', 'USER_STUDY_REPORT.md'), `# Anonim Kullanıcı Çalışması
 
 Bu rapor yalnız açık onayla cihazdan dışa aktarılan, izin verilen metrik alanlarını içeren yerel oturum dosyalarından üretilir. Telemetri veya kişisel veri toplamaz.
@@ -88,8 +100,19 @@ Bu rapor yalnız açık onayla cihazdan dışa aktarılan, izin verilen metrik a
 - İlk export oranı: %${Math.round(summary.firstExportRate * 100)}
 - Küçük düzenlemeyle MVP kabulü: %${Math.round(summary.minorEditMvpAcceptanceRate * 100)}
 - Ortalama memnuniyet: ${summary.averageSatisfaction || '—'}/5
-- Ortalama süre: ${summary.averageDurationSeconds} saniye
+- Ortalama kurulum süresi: ${summary.averageSetupSeconds} saniye
+- Ortalama planlama süresi: ${summary.averagePlanningSeconds} saniye
+- Ortalama uçtan uca süre: ${summary.averageEndToEndSeconds} saniye
+- Planı kullanmayı sürdürme niyeti: %${Math.round(summary.wouldUsePlanRate * 100)}
 - Ortalama manuel düzenleme: ${summary.averageManualEditCount}
+
+Süre üç parça hâlinde tutulur; tek bir ortalama, kolların eşitsiz başlangıç koşullarını gizlerdi.
+
+## Yeteneğe göre katılımcı
+
+${capabilityLines}
+
+Terfi yetenek başına kapılıdır: toplam katılımcı sayısı tek başına hiçbir yeteneği terfi ettirmez.
 
 Bu sayılar örneklem ve çalışma tasarımı yeterli olmadan ürün üstünlüğü kanıtı sayılmaz.
 `, 'utf8');
