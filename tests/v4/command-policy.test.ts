@@ -35,7 +35,7 @@ const aiCard: ExpansionCard = {
   kind: 'feature',
   effort: 'low',
   impact: 'high',
-  mvpHint: 'mvp-adayı',
+  deliveryHorizon: 'core',
   origin: 'ai'
 };
 

@@ -694,7 +694,7 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
             {shownCards.map(card => <article key={card.id} className="pg-expansion-card">
               <h4>{card.title}</h4>
               <p>{card.description}</p>
-              {/* Efor/etki/MVP etiketi kart YÜZÜNDE durmuyor. Üçü de modelin
+              {/* Efor/etki/teslim sırası kart YÜZÜNDE durmuyor. Üçü de modelin
                   TAHMİNİ ve yüzde durduklarında ölçülmüş bir sonuç gibi
                   okunuyorlardı; ayrıca ikisi (efor/etki) plan düşüncesidir ve
                   kullanıcı planı bilerek arkaya attı. Silinmediler: şemada
@@ -705,7 +705,7 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
                 {card.origin === 'ai' ? <div className="pg-expansion-card-guesses">
                   <span>{card.effort === 'low' ? 'Az efor' : card.effort === 'medium' ? 'Orta efor' : 'Yüksek efor'}</span>
                   <span>{card.impact === 'high' ? 'Yüksek etki' : card.impact === 'medium' ? 'Orta etki' : 'Düşük etki'}</span>
-                  <span>{card.mvpHint === 'mvp-adayı' ? 'İlk sürüm adayı' : 'Sonraya bırakılabilir'}</span>
+                  <span>{card.deliveryHorizon === 'core' ? 'Çekirdek kapsam' : 'Sonraya bırakılabilir'}</span>
                   <small>Bunlar modelin tahmini; ölçülmüş bir sonuç değil.</small>
                 </div> : <p className="is-unassessed">Başlangıç önerisi · efor ve etki değerlendirilmedi.</p>}
               </details>

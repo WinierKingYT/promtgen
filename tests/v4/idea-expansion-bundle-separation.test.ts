@@ -21,7 +21,7 @@ const card = (overrides: Partial<ExpansionCard> = {}): ExpansionCard => ({
   kind: 'feature',
   effort: 'low',
   impact: 'high',
-  mvpHint: 'mvp-adayı',
+  deliveryHorizon: 'core',
   origin: 'ai',
   ...overrides
 });

@@ -296,9 +296,9 @@ describe('arka plan üretimi eleme boru hattından geçer', () => {
       async structured({ schema }: { schema: { parse(value: unknown): unknown } }) {
         return schema.parse({
           cards: [
-            { id: '1', title: 'Verinin nerede durduğunu göster', description: 'Kullanıcı verisinin yerini görebilsin.', kind: 'feature', effort: 'low', impact: 'high', mvpHint: 'mvp-adayı' },
-            { id: '2', title: 'Verinin nerede durduğunu göster', description: 'Kullanıcı verisinin yerini görebilsin.', kind: 'feature', effort: 'low', impact: 'high', mvpHint: 'mvp-adayı' },
-            { id: '3', title: 'Tek tıkla dışa aktarma sun', description: 'Dışa aktarma tek adımda olsun.', kind: 'feature', effort: 'medium', impact: 'high', mvpHint: 'mvp-adayı' }
+            { id: '1', title: 'Verinin nerede durduğunu göster', description: 'Kullanıcı verisinin yerini görebilsin.', kind: 'feature', effort: 'low', impact: 'high', deliveryHorizon: 'core' },
+            { id: '2', title: 'Verinin nerede durduğunu göster', description: 'Kullanıcı verisinin yerini görebilsin.', kind: 'feature', effort: 'low', impact: 'high', deliveryHorizon: 'core' },
+            { id: '3', title: 'Tek tıkla dışa aktarma sun', description: 'Dışa aktarma tek adımda olsun.', kind: 'feature', effort: 'medium', impact: 'high', deliveryHorizon: 'core' }
           ]
         });
       }

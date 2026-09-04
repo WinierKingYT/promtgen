@@ -23,7 +23,7 @@ const AI_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'low',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   }
 ];
 
@@ -101,7 +101,7 @@ test.describe('Otomatik öneri (Aşama B)', () => {
       kind: 'feature',
       effort: 'medium',
       impact: 'high',
-      mvpHint: 'mvp-adayı'
+      deliveryHorizon: 'core'
     },
     {
       id: 'auto-card-2',
@@ -110,7 +110,7 @@ test.describe('Otomatik öneri (Aşama B)', () => {
       kind: 'feature',
       effort: 'medium',
       impact: 'medium',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     },
     {
       id: 'auto-card-3',
@@ -119,7 +119,7 @@ test.describe('Otomatik öneri (Aşama B)', () => {
       kind: 'decision',
       effort: 'low',
       impact: 'medium',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     }
   ];
 

@@ -70,15 +70,18 @@ function normalizeAvoidTitles(input: IdeaExpansionInput): string[] {
  * de bir SÖZDÜR, garanti değil; mekanik denetim
  * `application/expansion-card-tone.ts`tedir ve emir kipli kartı TEK TEK eler.
  *
- * ŞEMAYA DOKUNULMADI: effort/impact/mvpHint istenmeye devam eder. Bunların
- * kart yüzünden kaldırılması AYRI bir iştir (arayüz aşaması); şemayı
- * değiştirmek `task-compiler` gibi okuyanları kırardı.
+ * ŞEMA ALANLARI DURUYOR: effort/impact/deliveryHorizon istenmeye devam eder.
+ * Bunların kart yüzünden kaldırılması AYRI bir iştir (arayüz aşaması).
+ * `deliveryHorizon` V3-04a'da `mvpHint`ten yeniden adlandırıldı; alan hiçbir
+ * yere kaydedilmediği ve dört dosya dışında onu okuyan üretim kodu olmadığı
+ * için (`task-compiler` dahil) değişiklik şema, istem, arayüz ve testlerle
+ * sınırlı kaldı.
  */
 export const ideaExpansionTask = {
   id: 'idea-expansion',
-  promptVersion: '1.6.0',
+  promptVersion: '2.0.0',
   schemaId: IDEA_EXPANSION_SCHEMA_ID,
-  schemaVersion: 1,
+  schemaVersion: 2,
   schema: ideaExpansionSchema,
   outputFields: ['cards'] as const,
   timeoutMs: 30_000,
@@ -114,10 +117,11 @@ description'da emir kipi kullanma: "oluşturun", "ekleyin", "belirleyin", "imple
 KÖTÜ örnek: {"title":"Dayanıklılık sistemi oluşturma","description":"At için bir dayanıklılık sistemi oluşturun."}
 İYİ örnek: {"title":"Eyer ve envanter","description":"Atın üzerinde taşınan eşyalar için ayrı bir çanta bulunur."}
 KÖTÜ örnek: {"title":"Yorulma mekanizması implemente etme","description":"Yorulma mekanizması implemente edin."}
-Her kartta mvpHint zorunludur ve yalnız "mvp-adayı" veya "sonraya" olabilir; boş bırakma.
-Bu bir sıralama etiketidir, plana verilmiş bağlayıcı bir söz değildir.
+Her kartta deliveryHorizon zorunludur ve yalnız "core" veya "later" olabilir; boş bırakma.
+"core" bu şeyin fikrin ŞU ANKİ çekirdek kapsamına ait göründüğü, "later" ise beklemesinin sorun olmadığı anlamına gelir.
+Bu yalnız bir sıralama görüşüdür: fikri sabit bir kapsam süzgecinden geçirmez ve plana verilmiş bağlayıcı bir söz değildir.
 Türkçe yanıt ver. Yalnız şu JSON biçimini döndür:
-{"cards":[{"id":"...","title":"...","description":"...","kind":"feature|decision|risk|question|architecture","effort":"low|medium|high","impact":"low|medium|high","mvpHint":"mvp-adayı|sonraya"}]}`;
+{"cards":[{"id":"...","title":"...","description":"...","kind":"feature|decision|risk|question|architecture","effort":"low|medium|high","impact":"low|medium|high","deliveryHorizon":"core|later"}]}`;
   },
   buildContext(project: ProjectDocumentV5, input: IdeaExpansionInput = {}) {
     // Temelin YALNIZ zeminli alanları DAHİL: kartlar kullanıcının GERÇEKTEN

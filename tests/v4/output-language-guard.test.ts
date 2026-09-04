@@ -126,7 +126,7 @@ const cleanExpansionOutput = {
     kind: 'feature',
     effort: 'medium',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   }))
 };
 
@@ -138,7 +138,7 @@ const deviantExpansionOutput = {
     kind: 'feature',
     effort: 'medium',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   }))
 };
 

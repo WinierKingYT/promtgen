@@ -13,7 +13,8 @@ import type { IdeaExpansionOutput } from '../ai/schemas/schemas.js';
 /**
  * Kartın nereden geldiği kartın kendisinde taşınır; tüketici tahmin etmez.
  * `user`: kullanıcının panoya serbest metinle kendi yazdığı öneri — bir model
- * değerlendirmesi değildir, `local-seed` gibi effort/impact/mvpHint taşımaz.
+ * değerlendirmesi değildir, `local-seed` gibi effort/impact/deliveryHorizon
+ * taşımaz.
  */
 export type ExpansionCardOrigin = 'ai' | 'local-seed' | 'user';
 
@@ -23,13 +24,13 @@ export interface ExpansionCard {
   description: string;
   kind: string;
   /**
-   * Efor, etki ve MVP etiketi bir değerlendirmedir: yalnız AI kartlarında
+   * Efor, etki ve teslim sırası bir değerlendirmedir: yalnız AI kartlarında
    * bulunur. Başlangıç kartlarında bu alanlar yoktur, uydurulmuş nötr
    * değerlerle doldurulmaz.
    */
   effort?: string;
   impact?: string;
-  mvpHint?: string;
+  deliveryHorizon?: string;
   origin: ExpansionCardOrigin;
 }
 
@@ -295,9 +296,9 @@ const USER_CARD_ID_PREFIX = 'user.';
 /**
  * Kullanıcının panoya serbest metinle eklediği öneriden kart üretir.
  *
- * AI kartlarındaki gibi bir DEĞERLENDİRME (effort/impact/mvpHint) taşımaz:
- * kullanıcı bu konuda hiçbir yargı vermedi, uydurmak yerine alanlar hiç
- * yazılmaz — tıpkı `seedCards`'ın yaptığı gibi.
+ * AI kartlarındaki gibi bir DEĞERLENDİRME (effort/impact/deliveryHorizon)
+ * taşımaz: kullanıcı bu konuda hiçbir yargı vermedi, uydurmak yerine alanlar
+ * hiç yazılmaz — tıpkı `seedCards`'ın yaptığı gibi.
  *
  * Boş veya yalnız boşluktan oluşan girişte `null` döner; çağıran (board) bunu
  * sessizce reddeder, bildirim spamlamaz.

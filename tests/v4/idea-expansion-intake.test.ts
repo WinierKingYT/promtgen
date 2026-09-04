@@ -16,7 +16,7 @@ const card: ExpansionCard = {
   kind: 'feature',
   effort: 'low',
   impact: 'high',
-  mvpHint: 'mvp-adayı',
+  deliveryHorizon: 'core',
   origin: 'ai'
 };
 
@@ -254,7 +254,7 @@ describe('keşif kartının başlangıç durumu', () => {
 
 /**
  * Kart hangi plan bölümünü etkiler? Sabit `['scope']` her kartı yalnız bir
- * kapsam maddesi yapıyordu: kabul edilen bir "MVP adayı" özellik kartı hiçbir
+ * kapsam maddesi yapıyordu: kabul edilen bir çekirdek kapsam özellik kartı hiçbir
  * zaman gereksinim olmuyordu ve fikir→plan dönüşümü gereksinimleri
  * `confirmedFeatures`'tan ürettiği için orada da yakalanmıyordu.
  */

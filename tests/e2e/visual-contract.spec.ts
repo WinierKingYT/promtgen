@@ -33,7 +33,7 @@ const CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'low',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   },
   {
     id: 'vc-2',
@@ -42,7 +42,7 @@ const CARDS: StubbedExpansionCard[] = [
     kind: 'decision',
     effort: 'medium',
     impact: 'medium',
-    mvpHint: 'sonraya'
+    deliveryHorizon: 'later'
   },
   {
     id: 'vc-3',
@@ -51,7 +51,7 @@ const CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'medium',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   }
 ];
 

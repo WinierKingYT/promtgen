@@ -35,7 +35,7 @@ const AI_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'low',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   },
   {
     id: 'ai-card-2',
@@ -44,7 +44,7 @@ const AI_CARDS: StubbedExpansionCard[] = [
     kind: 'decision',
     effort: 'medium',
     impact: 'medium',
-    mvpHint: 'sonraya'
+    deliveryHorizon: 'later'
   },
   {
     id: 'ai-card-3',
@@ -53,7 +53,7 @@ const AI_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'medium',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   }
 ];
 

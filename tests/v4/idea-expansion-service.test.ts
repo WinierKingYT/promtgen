@@ -63,7 +63,7 @@ function groundedProject(targetUser: string): ProjectDocumentV5 {
 
 const card = (title: string) => ({
   id: `card-${title}`, title, description: `${title} açıklaması`,
-  kind: 'feature', effort: 'low', impact: 'high', mvpHint: 'mvp-adayı'
+  kind: 'feature', effort: 'low', impact: 'high', deliveryHorizon: 'core'
 });
 
 /** Şemadan geçen bir yanıt döndüren sahte sağlayıcı. */
@@ -119,7 +119,7 @@ describe('generateExpansionCards', () => {
     for (const item of result.cards) {
       assert.equal(item.effort, undefined, 'değerlendirilmemiş efor uydurulmamalı');
       assert.equal(item.impact, undefined, 'değerlendirilmemiş etki uydurulmamalı');
-      assert.equal(item.mvpHint, undefined, 'değerlendirilmemiş MVP etiketi uydurulmamalı');
+      assert.equal(item.deliveryHorizon, undefined, 'değerlendirilmemiş teslim sırası uydurulmamalı');
     }
   });
 
@@ -250,7 +250,7 @@ describe('karara bağlanmış kartlar panoda tekrar gösterilmez', () => {
 
 /**
  * Kullanıcının panoya serbest metinle eklediği öneri kartı. AI kartlarının
- * aksine bir değerlendirme (effort/impact/mvpHint) taşımaz; kullanıcı burada
+ * aksine bir değerlendirme (effort/impact/deliveryHorizon) taşımaz; kullanıcı burada
  * hiçbir yargı vermedi.
  */
 describe('createUserExpansionCard', () => {
@@ -275,11 +275,11 @@ describe('createUserExpansionCard', () => {
     assert.equal(createUserExpansionCard('   '), null);
   });
 
-  it('değerlendirme alanları (effort/impact/mvpHint) hiç yazılmaz, uydurulmaz', () => {
+  it('değerlendirme alanları (effort/impact/deliveryHorizon) hiç yazılmaz, uydurulmaz', () => {
     const card = createUserExpansionCard('Bir öneri');
     assert.equal(card?.effort, undefined);
     assert.equal(card?.impact, undefined);
-    assert.equal(card?.mvpHint, undefined);
+    assert.equal(card?.deliveryHorizon, undefined);
   });
 
   it('aşırı uzun girişi makul bir uzunlukta kırpar', () => {
@@ -327,7 +327,7 @@ describe('aynı partideki tekrar kartları elenir', () => {
 
   const horseCard = (title: string, description: string) => ({
     id: `card-${title}`, title, description,
-    kind: 'feature', effort: 'low', impact: 'high', mvpHint: 'mvp-adayı'
+    kind: 'feature', effort: 'low', impact: 'high', deliveryHorizon: 'core'
   });
 
   const duplicateBatch = [
@@ -412,7 +412,7 @@ describe('tekrar elendikten sonra tamamlama turu', () => {
 
   const anyCard = (title: string, description: string) => ({
     id: `card-${title}`, title, description,
-    kind: 'feature', effort: 'low', impact: 'high', mvpHint: 'mvp-adayı'
+    kind: 'feature', effort: 'low', impact: 'high', deliveryHorizon: 'core'
   });
 
   /**
@@ -603,7 +603,7 @@ describe('emir kipiyle yazılmış kartların elenmesi', () => {
 
   const toneCard = (title: string, description: string) => ({
     id: `card-${title}`, title, description,
-    kind: 'feature', effort: 'low', impact: 'high', mvpHint: 'mvp-adayı'
+    kind: 'feature', effort: 'low', impact: 'high', deliveryHorizon: 'core'
   });
 
   /** Birbirinden sözlüksel olarak ayrı meşru kartlar; eleme onlara dokunmamalı. */

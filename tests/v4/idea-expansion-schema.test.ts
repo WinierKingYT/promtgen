@@ -13,7 +13,7 @@ const card = (title: string, overrides: Record<string, unknown> = {}) => ({
   kind: 'feature',
   effort: 'low',
   impact: 'high',
-  mvpHint: 'mvp-adayı',
+  deliveryHorizon: 'core',
   ...overrides
 });
 
@@ -31,7 +31,7 @@ describe('ideaExpansionSchema', () => {
   });
 
   it('kurtarılan kartı değiştirmez', () => {
-    const saglam = card('Sağlam', { kind: 'risk', impact: 'medium', mvpHint: 'sonraya' });
+    const saglam = card('Sağlam', { kind: 'risk', impact: 'medium', deliveryHorizon: 'later' });
     const parsed = ideaExpansionSchema.parse({
       cards: [saglam, card('B'), card('C'), card('Bozuk', { kind: 'yok' })]
     });
@@ -40,7 +40,7 @@ describe('ideaExpansionSchema', () => {
 
   it('geçerli kart sayısı alt sınırın altına düşerse reddeder', () => {
     assert.throws(() => ideaExpansionSchema.parse({
-      cards: [card('A'), card('B'), card('Bozuk', { mvpHint: 'belki' })]
+      cards: [card('A'), card('B'), card('Bozuk', { deliveryHorizon: 'belki' })]
     }));
   });
 

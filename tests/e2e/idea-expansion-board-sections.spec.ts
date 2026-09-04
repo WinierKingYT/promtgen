@@ -37,7 +37,7 @@ const AI_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'low',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   },
   {
     id: 'ai-card-2',
@@ -46,7 +46,7 @@ const AI_CARDS: StubbedExpansionCard[] = [
     kind: 'decision',
     effort: 'medium',
     impact: 'medium',
-    mvpHint: 'sonraya'
+    deliveryHorizon: 'later'
   },
   {
     id: 'ai-card-3',
@@ -55,7 +55,7 @@ const AI_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'medium',
     impact: 'high',
-    mvpHint: 'mvp-adayı'
+    deliveryHorizon: 'core'
   }
 ];
 
@@ -78,7 +78,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'feature',
       effort: 'high',
       impact: 'high',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     },
     {
       id: 'akis-2',
@@ -87,7 +87,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'feature',
       effort: 'medium',
       impact: 'high',
-      mvpHint: 'mvp-adayı'
+      deliveryHorizon: 'core'
     },
     {
       id: 'akis-3',
@@ -96,7 +96,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'feature',
       effort: 'medium',
       impact: 'medium',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     }
   ],
   [SIXTH_SECTION]: [
@@ -107,7 +107,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'feature',
       effort: 'low',
       impact: 'medium',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     },
     {
       id: 'buyume-2',
@@ -116,7 +116,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'feature',
       effort: 'low',
       impact: 'low',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     },
     {
       id: 'buyume-3',
@@ -125,7 +125,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'decision',
       effort: 'medium',
       impact: 'low',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     }
   ],
   [BEYOND_LIMIT_SECTION]: [
@@ -136,7 +136,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'decision',
       effort: 'low',
       impact: 'high',
-      mvpHint: 'mvp-adayı'
+      deliveryHorizon: 'core'
     },
     {
       id: 'kapsam-2',
@@ -145,7 +145,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'decision',
       effort: 'high',
       impact: 'medium',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     },
     {
       id: 'kapsam-3',
@@ -154,7 +154,7 @@ const CARDS_BY_SECTION: Record<string, StubbedExpansionCard[]> = {
       kind: 'decision',
       effort: 'low',
       impact: 'medium',
-      mvpHint: 'sonraya'
+      deliveryHorizon: 'later'
     }
   ]
 };
@@ -225,7 +225,7 @@ test.describe('Keşif panosu: hazır olan her başlık aynı anda görünür', (
 });
 
 test.describe('Kart yüzü: yalnız başlık, tek cümle ve eylem', () => {
-  test('efor/etki/MVP tahmini kart yüzünde görünmez, ayrıntı açılınca erişilebilir olur', async ({ page }) => {
+  test('efor/etki/teslim sırası tahmini kart yüzünde görünmez, ayrıntı açılınca erişilebilir olur', async ({ page }) => {
     await stubExpansionProvider(page, AI_CARDS);
     await page.goto('/');
     await startIdea(page);
@@ -239,14 +239,14 @@ test.describe('Kart yüzü: yalnız başlık, tek cümle ve eylem', () => {
     await expect(card.getByRole('button', { name: 'Fikre ekle' })).toBeVisible();
 
     // Modelin TAHMİNİ olan üç rozet yüzde değil: kapalı ayrıntının içinde.
-    for (const guess of ['Az efor', 'Yüksek etki', 'İlk sürüm adayı']) {
+    for (const guess of ['Az efor', 'Yüksek etki', 'Çekirdek kapsam']) {
       await expect(card.getByText(guess, { exact: true })).toBeHidden();
     }
 
     // Silinmediler: ayrıntı açılınca hepsi okunabilir ve tahmin oldukları
     // açıkça yazılı.
     await card.getByText('Modelin tahmini', { exact: true }).click();
-    for (const guess of ['Az efor', 'Yüksek etki', 'İlk sürüm adayı']) {
+    for (const guess of ['Az efor', 'Yüksek etki', 'Çekirdek kapsam']) {
       await expect(card.getByText(guess, { exact: true })).toBeVisible();
     }
     await expect(card).toContainText('ölçülmüş bir sonuç değil');

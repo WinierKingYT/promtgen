@@ -179,7 +179,16 @@ export const expansionCardSchema = z.object({
   kind: z.enum(['feature', 'decision', 'risk', 'question', 'architecture']),
   effort: z.enum(['low', 'medium', 'high']),
   impact: z.enum(['low', 'medium', 'high']),
-  mvpHint: z.enum(['mvp-adayı', 'sonraya'])
+  /**
+   * Teslim sırası hakkında modelin görüşü: "core" bu şeyin fikrin ŞU ANKİ
+   * çekirdek kapsamına ait göründüğü, "later" beklemesinin sorun olmadığı
+   * anlamına gelir. Eski adı `mvpHint`, eski değerleri `mvp-adayı|sonraya`
+   * idi; her fikri alanından bağımsız olarak MVP terimleriyle değerlendirmeye
+   * zorluyordu. Değerler İngilizce çünkü karttaki diğer bütün numaralandırmalar
+   * (`kind`, `effort`, `impact`) İngilizce. Alan gösterim amaçlıdır:
+   * hiçbir yere kaydedilmez ve hiçbir dallanmayı sürmez.
+   */
+  deliveryHorizon: z.enum(['core', 'later'])
 }).strict();
 
 /**

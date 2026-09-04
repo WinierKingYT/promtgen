@@ -47,7 +47,7 @@ export interface StubbedExpansionCard {
   kind: 'feature' | 'decision' | 'risk' | 'question' | 'architecture';
   effort: 'low' | 'medium' | 'high';
   impact: 'low' | 'medium' | 'high';
-  mvpHint: 'mvp-adayı' | 'sonraya';
+  deliveryHorizon: 'core' | 'later';
 }
 
 /**
@@ -137,7 +137,7 @@ const FILLER_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'low',
     impact: 'low',
-    mvpHint: 'sonraya'
+    deliveryHorizon: 'later'
   },
   {
     id: 'filler-2',
@@ -146,7 +146,7 @@ const FILLER_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'medium',
     impact: 'low',
-    mvpHint: 'sonraya'
+    deliveryHorizon: 'later'
   },
   {
     id: 'filler-3',
@@ -155,7 +155,7 @@ const FILLER_CARDS: StubbedExpansionCard[] = [
     kind: 'feature',
     effort: 'low',
     impact: 'medium',
-    mvpHint: 'sonraya'
+    deliveryHorizon: 'later'
   }
 ];
 

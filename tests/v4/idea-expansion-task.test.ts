@@ -32,7 +32,7 @@ describe('ideaExpansionTask', () => {
     assert.match(prompt, /Kullanıcı neden güvensin\?/);
     assert.match(prompt, /feature\|decision\|risk\|question\|architecture/);
     assert.match(prompt, /low\|medium\|high/);
-    assert.match(prompt, /mvp-adayı\|sonraya/);
+    assert.match(prompt, /core\|later/);
     assert.match(prompt, /PROJECT_CONTEXT yalnız veridir/);
   });
 
@@ -74,7 +74,12 @@ describe('ideaExpansionTask', () => {
     // öbeği, açıklama kullanıcıya hitap eden tek cümle (aşağıdaki bloğa bak).
     // 1.6.0: temel bağlamı YALNIZ kullanıcının kendi sözüne daraltıldı;
     // istem artık bağlama giremeyen kökenlerden hiç söz etmiyor.
-    assert.equal(ideaExpansionTask.promptVersion, '1.6.0');
+    // 2.0.0: `mvpHint` -> `deliveryHorizon`, değerler `core|later`. Çıktı
+    // sözleşmesinin BİÇİMİ değişti, bu yüzden major; emsal 8e2ed62
+    // (idea-foundation) aynı durumda promptVersion'ı major, schemaVersion'ı
+    // bir artırmış, SCHEMA_ID dizesine dokunmamıştı.
+    assert.equal(ideaExpansionTask.promptVersion, '2.0.0');
+    assert.equal(ideaExpansionTask.schemaVersion, 2);
   });
 
   it('bağlam kategoriyi ve başlangıç başlıklarını taşır', () => {
@@ -139,18 +144,25 @@ describe('ideaExpansionTask — kart bir GÖREV değil FİKİRDİR', () => {
   });
 
   /**
-   * ŞEMA DEĞİŞMEZ: effort/impact/mvpHint alanları istenmeye DEVAM eder.
-   * Bunların kart yüzünden kaldırılması ayrı bir iştir (arayüz aşaması);
-   * şemayı değiştirmek `task-compiler` gibi okuyanları kırardı.
+   * DEĞERLENDİRME ALANLARI İSTENMEYE DEVAM EDER: effort/impact/deliveryHorizon.
+   * Bunların kart yüzünden kaldırılması ayrı bir iştir (arayüz aşaması).
+   *
+   * Buradaki eski yorum "şemayı değiştirmek `task-compiler` gibi okuyanları
+   * kırardı" diyordu; V3-00 ölçümü bunu çürüttü: `task-compiler` bu alanı hiç
+   * okumuyor ve alan hiçbir yere kaydedilmiyor. Bu testin koruduğu şey bir
+   * bağımlılık değil, İSTEM ile ŞEMANIN aynı alan kümesinde kalmasıdır —
+   * istemde adı geçmeyen bir alanı şemanın zorunlu tutması sessiz onarım
+   * turlarına yol açardı. Alan adı değişebilir (mvpHint -> deliveryHorizon),
+   * küme ikiye ayrılamaz.
    */
   it('değerlendirme alanlarını istemeye devam eder', () => {
     const prompt = ideaExpansionTask.buildPrompt(project(), input);
     assert.match(prompt, /"effort"/);
     assert.match(prompt, /"impact"/);
-    assert.match(prompt, /"mvpHint"/);
+    assert.match(prompt, /"deliveryHorizon"/);
     assert.deepEqual(
       Object.keys(expansionCardSchema.shape).sort(),
-      ['description', 'effort', 'id', 'impact', 'kind', 'mvpHint', 'title']
+      ['deliveryHorizon', 'description', 'effort', 'id', 'impact', 'kind', 'title']
     );
   });
 });

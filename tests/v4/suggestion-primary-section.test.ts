@@ -146,7 +146,7 @@ describe('birincil bölüm ayrımı mevcut davranışı bozmaz', () => {
       kind: 'decision',
       effort: 'low',
       impact: 'high',
-      mvpHint: 'mvp-adayı',
+      deliveryHorizon: 'core',
       origin: 'ai'
     };
     const base = analyzeIdea('Şehir içi bisiklet rotası öneren bir mobil uygulama') as ProjectDocumentV5;
