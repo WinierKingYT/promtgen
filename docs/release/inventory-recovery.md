@@ -69,7 +69,7 @@ Sorun filtre boşluğuysa (senaryo 1 ve 3), önce politikayı düzeltin:
 
 - Yeni bir hassas ad kalıbı için `PROJECT_ANALYSIS_POLICY.sensitiveNames`
 - Yeni bir üretilmiş klasör için `PROJECT_ANALYSIS_POLICY.ignoredDirectories`
-- Yeni bir sır biçimi için `SECRET_PATTERNS` ([secret-detector.js](../../src/security/secret-detector.js))
+- Yeni bir sır biçimi için `SECRET_PATTERNS` ([secret-detector.js](../../src/v4/security/secret-detector.js))
 
 Ardından boşluğu yakalayan bir senaryoyu
 [project-inventory-benchmark.ts](../../scripts/project-inventory-benchmark.ts) içine ekleyin;

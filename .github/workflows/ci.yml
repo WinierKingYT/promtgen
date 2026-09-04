@@ -71,10 +71,22 @@ jobs:
       - run: npm ci
       - run: npx tsx scripts/check-duplicate-modules.ts
 
+  legacy-boundary:
+    name: Check Legacy Compatibility Boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:legacy-boundary
+
   build:
     name: Build (Vite + PWA)
     runs-on: ubuntu-latest
-    needs: [typecheck, lint, test-unit, test-security, duplicate-modules]
+    needs: [typecheck, lint, test-unit, test-security, duplicate-modules, legacy-boundary]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

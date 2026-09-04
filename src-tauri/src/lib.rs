@@ -108,7 +108,7 @@ fn package_signals(path: &Path, frameworks: &mut HashSet<String>, scripts: &mut 
 ///
 /// Kalıplar web üretim sahipleriyle birebir aynıdır:
 ///   injection -> src/v4/security/context-isolation.ts (INJECTION_SIGNALS)
-///   secret    -> src/security/secret-detector.js      (SECRET_PATTERNS)
+///   secret    -> src/v4/security/secret-detector.js   (SECRET_PATTERNS)
 ///
 /// İki çalışma zamanı olduğu için iki uygulama zorunludur; eşdeğerlikleri
 /// aşağıdaki testlerde web benchmarkıyla ortak kurumsal metinler üzerinden

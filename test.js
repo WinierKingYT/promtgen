@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { scanForSecrets } from './src/security/secret-detector.js';
+import { scanForSecrets } from './src/v4/security/secret-detector.js';
 import { getInitialCanonicalState, applyStatePatch, validateCanonicalState, validateProjectData, syncAIResponseToCanonicalState } from './src/state/project-state.js';
 import { WORKFLOW_STAGES } from './src/workflow/stages.js';
 import { checkWorkflowTransition } from './src/workflow/transitions.js';

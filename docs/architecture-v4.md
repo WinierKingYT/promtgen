@@ -34,3 +34,5 @@
 ## Geçiş yaklaşımı
 
 React/V4 parity tamamlandığı için eski UI/state/export yolu production import graph’ından çıkarılmıştır ve `runtime-boundary.test.js` bu sınırı fail-closed doğrular. Legacy V2/V3 domain ve test paketi yalnız migration/veri uyumluluğu ile regresyon kanıtı olarak tutulur; production entry tarafından yüklenmez.
+
+Bu sınır artık düzyazı değil, kapıdır: `npm run check:legacy-boundary` (`scripts/check-legacy-boundary.ts`) `src/v4/**` ve `src/react/**` içindeki her importu gerçek hedefine çözer ve bu iki kökün dışına çıkan her göreli importu düşürür. Kural dizin listesiyle değil kökle yazıldığı için yeni eklenen bir eski dizin de kendiliğinden yakalanır. `runtime-boundary.test.js` bunu tamamlar ama yerine geçmez: o, `src/react/main.tsx` üzerinden erişilen grafiği beş sabit önek listesine karşı denetler; kapı ise erişilebilirlikten bağımsız olarak **her** üretim dosyasına bakar.

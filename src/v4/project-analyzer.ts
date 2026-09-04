@@ -1,4 +1,4 @@
-import { scanForSecrets } from '../security/secret-detector.js';
+import { scanForSecrets } from './security/secret-detector.js';
 // Injection tespitinin tek üretim sahibi context-isolation'dır. Bu dosya
 // eskiden kendi zayıf kalıp kopyasını taşıyordu (5 kalıp, normalizasyon yok);
 // kanonik dedektör 8 kalıp, NFKC ve Türkçe diakritik katlaması uygular.
