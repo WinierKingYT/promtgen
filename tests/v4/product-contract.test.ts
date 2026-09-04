@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { PRODUCT_CONTRACT } from '../../src/v4/product/product-contract.js';
-import { renderProductDocuments } from '../../src/v4/product/product-documentation.js';
+import { renderProductDocuments, renderRepoRootDocuments } from '../../src/v4/product/product-documentation.js';
+import { PROJECT_STAGES, STAGE_NAMES } from '../../src/v4/application/project-stages.js';
+import { PRODUCTION_ROOTS } from '../../src/v4/source-boundaries.js';
 
 describe('Focused Planner product contract', () => {
   it('has one primary user, one bounded promise, and an explicit Planner/Labs split', () => {
@@ -85,6 +87,57 @@ describe('İki farklı "unsupported"', () => {
   });
 });
 
+describe('Kök ajan dosyaları', () => {
+  const rootDocuments = renderRepoRootDocuments();
+  const normalize = (content: string) => `${content.replace(/\r\n/g, '\n').trimEnd()}\n`;
+
+  it('AGENTS.md ve CLAUDE.md depo kokunde ve uretici ile ayni', () => {
+    // Kapı (`check:product-docs`) bunu zaten zorluyor; test aynı şeyi ikinci
+    // kez söylüyor çünkü `docs/product/` için de öyle yapılmış. Kapı CI'da,
+    // test geliştiricinin makinesinde düşer.
+    assert.deepEqual(Object.keys(rootDocuments).sort(), ['AGENTS.md', 'CLAUDE.md']);
+    for (const [fileName, expected] of Object.entries(rootDocuments)) {
+      const filePath = path.resolve(fileName);
+      assert.ok(existsSync(filePath), `${fileName} exists`);
+      assert.equal(normalize(readFileSync(filePath, 'utf8')), normalize(expected), `${fileName} matches`);
+    }
+  });
+
+  it('her ikisi de canonical yasam dongusunu TEK kaynaktan yazar', () => {
+    // Aşama adları elle yazılsaydı beşinci bir aşama eklendiğinde bu dosyalar
+    // sessizce eskirdi. Test, döngünün `PROJECT_STAGES` sırasını takip
+    // ettiğini doğrular.
+    for (const [fileName, content] of Object.entries(rootDocuments)) {
+      let cursor = -1;
+      for (const stage of PROJECT_STAGES) {
+        const index = content.indexOf(`${STAGE_NAMES[stage]} (\`${stage}\`)`);
+        assert.ok(index > cursor, `${fileName}: ${stage} canonical sırada değil`);
+        cursor = index;
+      }
+    }
+  });
+
+  it('yasak modeli ilan etmez ama MVP kuralini yazar', () => {
+    // DOC-06'nın dersi: üretilmiş olmak yetmiyor. `MVP_SCOPE.md` üretiliyor ve
+    // kapı yeşil, yine de "MVP içi ve kapsam dışı alanları onayla" diyor.
+    for (const [fileName, content] of Object.entries(rootDocuments)) {
+      assert.doesNotMatch(content, /Fikir → MVP → Plan|MVP Kapsamı/i, fileName);
+      assert.ok(content.includes(PRODUCT_CONTRACT.mvpRule), `${fileName}: MVP kuralı sözleşmeden gelmiyor`);
+      for (const identity of PRODUCT_CONTRACT.mistakenIdentities) {
+        assert.ok(content.includes(identity), `${fileName}: "${identity}" eksik`);
+      }
+    }
+  });
+
+  it('uretim koklerini kopyalamaz, sinir modulunden okur', () => {
+    for (const [fileName, content] of Object.entries(rootDocuments)) {
+      for (const root of PRODUCTION_ROOTS) {
+        assert.ok(content.includes(`\`${root}\``), `${fileName}: ${root} yazılmamış`);
+      }
+    }
+  });
+});
+
 describe('Sözleşme, çalışan ürünü anlatır', () => {
   it('vaat IKI ONAYI da icerir - V3 yapisinin tanimlayici ozelligi', () => {
     // Eski vaat "MVP sınırlarını seç ve planını dışa aktar" diyordu; teknik
@@ -103,6 +156,25 @@ describe('Sözleşme, çalışan ürünü anlatır', () => {
       PRODUCT_CONTRACT.userProblems.some(problem => /teknik karar/i.test(problem)),
       'teknik kararların gömülmesi bir kullanıcı problemi olarak sayılmıyor'
     );
+  });
+
+  it('yapmayacaklari ile olmadiklari AYRI listelerde durur', () => {
+    // `nonGoals` ürünün yapmayacağı işleri sayar; `mistakenIdentities` okuyanın
+    // yanlış varsaydığı kimlikleri. Tek listede toplanırsa ayrım kaybolur ve
+    // "sunmayacağız" ile "değiliz" aynı cümle gibi okunur.
+    assert.ok(PRODUCT_CONTRACT.nonGoals.some(goal => /Bulut senkronizasyonu/.test(goal)));
+    assert.ok(PRODUCT_CONTRACT.mistakenIdentities.length >= 5);
+    for (const identity of PRODUCT_CONTRACT.mistakenIdentities) {
+      assert.ok(!PRODUCT_CONTRACT.nonGoals.includes(identity), identity);
+      assert.match(identity, /değildir/);
+    }
+  });
+
+  it('MVP kurali sozlesmede TEK cumle olarak yasar', () => {
+    // Kural bugüne kadar yalnız `docs/LEGACY_MODEL_INVENTORY.md` içinde düzyazı
+    // olarak duruyordu; alıntılayan her yer kendi kelimelerini yazardı.
+    assert.match(PRODUCT_CONTRACT.mvpRule, /MVP kavramı yasak değildir/);
+    assert.match(PRODUCT_CONTRACT.mvpRule, /evrensel yaşam döngüsü/);
   });
 
   it('kimlik ve surum V3 ile hizali', () => {

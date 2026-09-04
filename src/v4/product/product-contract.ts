@@ -47,6 +47,25 @@ export interface ProductContract {
   coreExports: string[];
   supportedProjects: SupportedProjectType[];
   nonGoals: string[];
+  /**
+   * Ürünün **olmadığı** şeyler — `nonGoals` ile karıştırılmamalı.
+   *
+   * `nonGoals` ürünün *yapmayacağı işleri* sayar ("Bulut senkronizasyonu …
+   * sunmak"). Buradaki liste ise okuyanın yanlışlıkla *varsaydığı kimlikleri*
+   * sayar: PromtGen'i bir prompt üreteci ya da otonom kodlama ajanı sanmak
+   * bir hedef sapması değil, kimlik hatasıdır. İkisi tek listede toplansaydı
+   * ayrım kaybolur ve "yapmayacağız" ile "değiliz" aynı cümle gibi okunurdu.
+   */
+  mistakenIdentities: string[];
+  /**
+   * V3'ün MVP kuralı. Tek cümle, tek yer.
+   *
+   * Bu kural bütün V3 çalışmasının dayanağıdır ve şimdiye kadar yalnız
+   * `docs/LEGACY_MODEL_INVENTORY.md` içinde düzyazı olarak duruyordu. Düzyazı
+   * kaynak değildir: alıntılayan her yer kendi kelimeleriyle yazar ve bir süre
+   * sonra iki farklı kural olur.
+   */
+  mvpRule: string;
   codePolicy: string[];
   maturityPolicies: Record<Exclude<SupportLevel, 'unsupported'>, MaturityPolicy>;
   successMetrics: Array<{ id: string; target: string; evidenceRequired: boolean }>;
@@ -103,6 +122,14 @@ export const PRODUCT_CONTRACT = Object.freeze({
     'Bulut senkronizasyonu, hesap veya çok kullanıcılı işbirliği sunmak.',
     'Antivirüs, SAST, hukuki, finansal veya klinik doğrulama sağlamak.'
   ],
+  mistakenIdentities: [
+    'PromtGen bir prompt üreteci değildir; çıktısı istem metni değil, onaylanmış proje tasarımıdır.',
+    'PromtGen bir prompt pazarı veya hazır istem kütüphanesi değildir.',
+    'PromtGen bir MVP anketi değildir; kullanıcıya sabit bir kapsam formu doldurtmaz.',
+    'PromtGen otonom bir kodlama ajanı değildir; kodu kendisi yazıp yürütmez.',
+    'PromtGen bir Fikir → MVP → Görevler hattı değildir; o model V3 ile birlikte bırakıldı.'
+  ],
+  mvpRule: 'MVP kavramı yasak değildir: bir projenin kendi kapsamını “MVP” diye adlandırması meşrudur. Yasak olan, MVP’nin PromtGen’in evrensel yaşam döngüsü aşaması olmasıdır.',
   codePolicy: [
     'PromtGen’in varsayılan çıktısı kod değil; onaylanmış plan, görev sözleşmesi ve doğrulama kanıtıdır.',
     'Plan–kod uyumluluk kontrolü salt okunurdur ve kaynak dosyaları değiştirmez.',

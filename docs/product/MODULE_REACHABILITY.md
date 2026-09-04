@@ -3,8 +3,8 @@
 `src/v4/application` katmanındaki dışa aktarımların üretim kodundan gerçekten
 çağrılıp çağrılmadığı. `npm run check:reachability` bunu zorlar.
 
-- Toplam dışa aktarım: **203**
-- Üretimden erişilebilir: **170**
+- Toplam dışa aktarım: **204**
+- Üretimden erişilebilir: **171**
 - Yalnız kendi modülünde kullanılan: **18**
 - Üretimde hiç çağrılmayan: **15**
 

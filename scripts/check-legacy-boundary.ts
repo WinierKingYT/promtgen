@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { BOUNDARY_RULE, PRODUCTION_ROOTS as PRODUCTION_ROOT_PATHS, SOURCE_ROOT } from '../src/v4/source-boundaries.js';
 
 /**
  * Uyumluluk sınırı kapısı — üretim kodu eski katmana bağımlı olamaz.
@@ -44,11 +45,15 @@ import process from 'node:process';
 
 const REPO_ROOT = path.resolve('.');
 
-/** Üretim kökleri. `src/` altındaki diğer on iki dizin uyumluluk katmanıdır. */
-const PRODUCTION_ROOTS = [
-  path.resolve('src', 'v4'),
-  path.resolve('src', 'react')
-];
+/**
+ * Üretim kökleri — liste burada TANIMLANMAZ, `src/v4/source-boundaries.ts`
+ * dosyasından okunur. Aynı liste kök `AGENTS.md` / `CLAUDE.md` üretiminde de
+ * kullanılıyor; kopyalamak, birini değiştirip diğerini unutmanın yoluydu
+ * (`16abc11` bu bedeli bir kez ödedi).
+ *
+ * `SOURCE_ROOT` altındaki üretim kökü olmayan her dizin uyumluluk katmanıdır.
+ */
+const PRODUCTION_ROOTS = PRODUCTION_ROOT_PATHS.map(root => path.resolve(root));
 
 /**
  * Uzantı filtresi YOK — dizinin tamamı taranır.
@@ -208,9 +213,9 @@ if (violations.length) {
     console.error(`    '${violation.specifier}'  ->  ${relative(violation.resolved)}\n`);
   }
   console.error(
-    'Kural: src/v4/** ve src/react/** üretimdir; src/ altındaki diğer dizinler\n'
-    + 'uyumluluk katmanıdır. İzin verilen yön tek taraflıdır — uyumluluktan\n'
-    + 'üretime GÖÇ EDİLİR, üretim uyumluluğa BAĞIMLI OLAMAZ.\n\n'
+    `Kural: ${PRODUCTION_ROOT_PATHS.map(root => `${root}/**`).join(' ve ')} üretimdir; `
+    + `${SOURCE_ROOT}/ altındaki diğer dizinler uyumluluk katmanıdır.\n`
+    + `${BOUNDARY_RULE}\n\n`
     + 'Çözüm importu muaf tutmak değil, modülü üretim köküne taşımaktır.'
   );
   process.exit(1);

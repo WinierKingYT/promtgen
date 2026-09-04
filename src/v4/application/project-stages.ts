@@ -19,6 +19,22 @@ import type {
 
 export const PROJECT_STAGES: readonly ProjectStage[] = ['idea', 'solution', 'plan', 'handoff'] as const;
 
+/**
+ * Aşamaların tam adları — düzyazının kullandığı biçim.
+ *
+ * `workspace-stages.ts` içindeki `LABELS` bunun kopyası değildir: orası ekrana
+ * sığan kısa ray etiketleridir (`FİKİR · ÇÖZÜM · PLAN · DEVİR`), burası
+ * belgelerin ve dışa aktarılan metinlerin yazdığı canonical addır. İkisi de
+ * `Record<ProjectStage, string>` olduğu için beşinci bir aşama eklendiğinde
+ * ikisi birden derlemeyi düşürür; unutulacak bir taraf kalmaz.
+ */
+export const STAGE_NAMES: Readonly<Record<ProjectStage, string>> = {
+  idea: 'Fikir Tasarımı',
+  solution: 'Çözüm Tasarımı',
+  plan: 'Uygulama Planı',
+  handoff: 'Agent Devri'
+};
+
 export const STAGE_STATUSES: readonly StageStatus[] = ['draft', 'discovery', 'review', 'approved'] as const;
 
 /** Boş bir onay kaydı; yeni belgelerin ve göç edenlerin başlangıcı. */
