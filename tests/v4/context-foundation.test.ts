@@ -6,6 +6,11 @@ import type { FoundationContext, FoundationContextField } from '../../src/v4/ai/
 import { ideaExpansionTask } from '../../src/v4/ai/tasks/idea-expansion.js';
 import { ideaAxesTask } from '../../src/v4/ai/tasks/idea-axes.js';
 import { ideaFoundationTask } from '../../src/v4/ai/tasks/idea-foundation.js';
+import { discoveryTask } from '../../src/v4/ai/tasks/discovery.js';
+import { ideaLabTask } from '../../src/v4/ai/tasks/idea-lab.js';
+import { solutionDiscoveryTask } from '../../src/v4/ai/tasks/solution-discovery.js';
+import { buildPlanningContext } from '../../src/v4/ai/context/planning-context.js';
+import { PROJECT_STAGES, currentStage } from '../../src/v4/application/project-stages.js';
 import type { ConceptSummary, IdeaFoundationGrounding, ProjectDocumentV5 } from '../../src/v4/contracts.js';
 
 const IDEA = 'unityde bir at sistemi yapmak istiyorum multiplayer olucak';
@@ -246,11 +251,12 @@ describe('gorev baglamlari', () => {
   it('idea-foundation temeli girdi olarak ALMAZ (kendi ciktisi dongu olurdu)', () => {
     const context = ideaFoundationTask.buildContext(project()) as Record<string, unknown>;
     assert.equal(context.foundation, undefined, 'temeli KURAN gorev kendi ciktisini girdi alamaz');
-    // Bu görevin bağlamı bu değişiklikten HİÇ etkilenmez: anahtar kümesi
-    // aynen kalır.
+    // Bu görevin bağlamı TEMEL değişikliğinden HİÇ etkilenmemişti. Kümedeki
+    // tek fark V3-01a'dan gelir: eski dokuz değerli `phase` yerini canonical
+    // `stage` aldı (aşağıdaki "canonical aşama sözlüğü" bloğu).
     assert.deepEqual(Object.keys(context).sort(), [
       'acceptedDecisions', 'acceptedRequirements', 'contextBudget', 'ideaDiscussion',
-      'identity', 'importedContextReport', 'importedProjectFacts', 'phase'
+      'identity', 'importedContextReport', 'importedProjectFacts', 'stage'
     ]);
   });
 
@@ -274,5 +280,84 @@ describe('gorev baglamlari', () => {
       `temel baglami daraltildiginda yukselen surum geri dusmemeli: ${ideaExpansionTask.promptVersion}`
     );
     assert.equal(ideaAxesTask.promptVersion, '1.2.0');
+  });
+});
+
+/**
+ * Eski dokuz değerli `PlanningPhase`. Bağlamda BU değerlerden hiçbiri
+ * görünmemeli: bunlar `docs/LEGACY_MODEL_INVENTORY.md` §2'nin "eski" ilan
+ * ettiği sözlüktür ve ürünün her AI isteği bir zamanlar modele tam da bunu
+ * öğretiyordu.
+ */
+const LEGACY_PLANNING_PHASES = [
+  'IDEA_EXPANSION', 'DISCOVERY', 'IDEA_LAB', 'CONCEPT_CONFIRMATION',
+  'SHAPING', 'DESIGN', 'PLANNING', 'REVIEW', 'READY'
+] as const;
+
+/**
+ * Belgede eski faz DURUYOR (kaldırmak bu paketin işi değil), ama modele
+ * gitmiyor. Fikstür bunu bilerek en uçtan kurar: `activePhase = 'READY'`
+ * iken canonical aşama hâlâ `idea`dır, çünkü fikir tasarımı onaylanmadı.
+ * İki sözlüğün GERÇEKTEN farklı şey söylediği yer burasıdır; testin fikstürü
+ * ikisinin çakıştığı kolay bir noktada dursa değişmezi kanıtlamazdı.
+ */
+function projectWithLegacyPhase(): ProjectDocumentV5 {
+  const project = baseProject();
+  project.lifecycle.activePhase = 'READY';
+  return project;
+}
+
+function legacyPhasesIn(context: unknown): string[] {
+  const json = JSON.stringify(context);
+  return LEGACY_PLANNING_PHASES.filter(phase => json.includes(`"${phase}"`));
+}
+
+describe('AI baglami canonical asama sozlugunu tasir', () => {
+  it('buildBudgetedContext canonical asamayi gonderir, eski fazi GONDERMEZ', () => {
+    const project = projectWithLegacyPhase();
+    const context = buildBudgetedContext(project, 4000).contextData;
+
+    assert.equal(context.stage, currentStage(project));
+    assert.ok(PROJECT_STAGES.includes(context.stage as never), `asama canonical kumede degil: ${String(context.stage)}`);
+    assert.equal(context.phase, undefined, 'iki rakip sozluk birlikte gonderilmez');
+    assert.deepEqual(legacyPhasesIn(context), []);
+  });
+
+  it('buildPlanningContext canonical asamayi gonderir, eski fazi GONDERMEZ', () => {
+    const project = projectWithLegacyPhase();
+    const context = buildPlanningContext(project) as Record<string, unknown>;
+
+    assert.equal(context.stage, currentStage(project));
+    assert.ok(PROJECT_STAGES.includes(context.stage as never));
+    assert.equal(context.phase, undefined);
+    assert.deepEqual(legacyPhasesIn(context), []);
+  });
+
+  it('ortak baglami kuran HER gorev canonical asama gorur', () => {
+    const project = projectWithLegacyPhase();
+    const tasks = [
+      ['discovery', discoveryTask.buildContext(project)],
+      ['idea-axes', ideaAxesTask.buildContext(project)],
+      ['idea-expansion', ideaExpansionTask.buildContext(project, {})],
+      ['idea-foundation', ideaFoundationTask.buildContext(project)],
+      ['idea-lab', ideaLabTask.buildContext(project)],
+      ['solution-discovery', solutionDiscoveryTask.buildContext(project)]
+    ] as const;
+
+    for (const [id, context] of tasks) {
+      const record = context as Record<string, unknown>;
+      assert.equal(record.stage, currentStage(project), `${id} canonical asamayi tasimali`);
+      assert.equal(record.phase, undefined, `${id} eski faz anahtarini hala tasiyor`);
+      assert.deepEqual(legacyPhasesIn(context), [], `${id} baglaminda eski faz degeri sizdi`);
+    }
+  });
+
+  it('eski faz BELGEDE durmayi surdurur -- degisen yalnizca modele soylenendir', () => {
+    // Kaldırma/yeniden adlandırma bu paketin kapsamı DIŞINDA; `PlanningPhase`
+    // hâlâ yazılıyor ve okunuyor (bkz. idea-guide-service.ts). Bu iddia,
+    // bağlamı temizlemenin belgeyi de temizlediği yanılgısını engeller.
+    const project = projectWithLegacyPhase();
+    assert.equal(project.lifecycle.activePhase, 'READY');
+    assert.equal(currentStage(project), 'idea');
   });
 });

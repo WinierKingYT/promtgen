@@ -1,4 +1,5 @@
 import type { ProjectDocumentV5 } from '../../contracts.js';
+import { currentStage } from '../../application/project-stages.js';
 import {
   projectInventoryContext,
   wrapUntrustedProjectContext,
@@ -14,7 +15,9 @@ export function buildPlanningContext(project: ProjectDocumentV5, sectionId: stri
       summary: project.identity.summary,
       depth: project.planningDepth.selected
     },
-    phase: project.lifecycle.activePhase,
+    // Canonical aşama; dokuz değerli eski `PlanningPhase` değil.
+    // Anahtar seçiminin gerekçesi tek yerde, context-builder.ts'te durur.
+    stage: currentStage(project),
     acceptedDecisions: project.decisions.filter(item => item.status === 'accepted'),
     openQuestions: project.openQuestions,
     rejectedSuggestions: project.dismissedSuggestionFingerprints,

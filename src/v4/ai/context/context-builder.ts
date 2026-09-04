@@ -6,6 +6,7 @@ import type {
 } from '../../contracts.js';
 import { IDEA_FOUNDATION_FIELD_NAMES } from '../../contracts.js';
 import { buildIdeaDiscussionContext } from '../../application/idea-discussion-service.js';
+import { currentStage } from '../../application/project-stages.js';
 
 export interface BudgetedContextResult {
   contextData: Record<string, unknown>;
@@ -172,7 +173,28 @@ export function buildBudgetedContext(
 
   const contextData: Record<string, unknown> = {
     identity,
-    phase: project.lifecycle.activePhase,
+    /**
+     * Modele CANONICAL aşama gider: dört değerli `ProjectStage`
+     * (`idea|solution|plan|handoff`), dokuz değerli eski `PlanningPhase`
+     * DEĞİL. Ürünün kendi model belgesi (docs/LEGACY_MODEL_INVENTORY.md §2)
+     * `ProjectStage`i canonical ilan ederken, ürünün her AI isteği modele
+     * eski sözlüğü öğretiyordu.
+     *
+     * Anahtar `stage`, bilerek `phase` DEĞİL: aynı anahtarı sessizce başka
+     * bir sözlükle doldurmak, bağlamı okuyan herkesin (model dahil) yanlış
+     * değer kümesini varsaymasına yol açardı. Ad, tipin adıyla
+     * (`ProjectStage`) ve üreticisiyle (`currentStage`) aynı kelimeyi kullanır.
+     *
+     * İkisi BİRLİKTE gönderilmez: modele aynı şey için iki rakip sözlük
+     * vermek, tek bir yanlış sözlükten kötüdür. Dokuz değerin ince ayrımı
+     * burada taşıyıcı da değil -- fikir çalışmasının nereye geldiğini bağlam
+     * zaten `ideaDiscussion`, `foundation`, `acceptedDecisions` ve
+     * `acceptedRequirements` ile daha zengin anlatır.
+     *
+     * Eski faz alanının KENDİSİ kaldırılmadı; belgede yaşamayı sürdürür
+     * (bkz. contracts.ts). Burada değişen tek şey MODELE NE SÖYLENDİĞİDİR.
+     */
+    stage: currentStage(project),
     acceptedDecisions,
     acceptedRequirements,
     ideaDiscussion: buildIdeaDiscussionContext(project)
