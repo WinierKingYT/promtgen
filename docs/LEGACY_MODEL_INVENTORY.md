@@ -223,6 +223,39 @@ veriyle sahiplenmesi gerekir.
 
 \* PRESERVE_LEGACY ama INV-V3-01 kararı bekliyor.
 
+### 4.1 V3-04c ölçümü — üretilen içerik ve yazma yolları
+
+Faz 0'ın araması bu satırları HİÇ görmedi (sebep §8'de). Hepsi V3-04c
+sırasında ölçülerek eklendi; sınıfı `V3-04c` olanlar o pakette düzeltildi.
+Satır numaraları **düzeltme öncesi** hâli gösterir (ölçüldüğü an).
+
+| ID | Dosya | Sınıf | Risk | Not |
+|---|---|---|---|---|
+| APP-20 | `idea-plan-conversion-service.ts:83` | MIGRATE → V3-04c | **yüksek** | Fikir→plan dönüşümünde kullanıcının planına YAZILAN sabit `target` metni. Canlı yol: `Workspace.tsx:375` → `applyIdeaPlanConversion`, `IdeaOutcomeBar.tsx:31` → `previewIdeaPlanConversion` |
+| APP-21 | `deterministic-idea-planning.ts:154,155,157` | MIGRATE → V3-04c | **yüksek** | Sağlayıcı bağlı DEĞİLKEN sorulan fallback keşif soruları — ilk çalıştırma yolu. Bir oyun projesine MVP sorusu buradan geliyordu |
+| APP-22 | `deterministic-idea-planning.ts:212,218,230` | MIGRATE → V3-04c | orta | Mimari yaklaşım ADLARI. `scripts/architecture-comparator-benchmark.ts::domainAwareTitles()` bunları ölçer ama **tam metni sabitlemez**; sabitlediği şey dört alanın AYRIŞMASI ve determinizm |
+| APP-23 | `deterministic-idea-planning.ts:272,273,297` | MIGRATE → V3-04c | orta | `ideaNotes`, `candidateDecisions` ve `CONCEPT_PROFILES.general.question` |
+| APP-24 | `change-impact-service.ts:453` + `planning-engine.ts:727` | MIGRATE → V3-04c | **yüksek** | Aynı satırın (`sections.scope.content` ilk satırı) **iki ayrı yazıcısı**. Yalnız biri düzeltilseydi belgenin aynı bölümü hangi yolun koştuğuna göre iki farklı etiket taşırdı |
+| APP-25 | `idea-document-revision-service.ts:25,26,30` + `discovery-answer-service.ts:65,66,69` | MIGRATE | orta | `mvpTarget`/`confirmedFeatures`/`outOfScope` üçlüsünün **iki kopya etiket kümesi daha**. V3-04c'de DOKUNULMADI: APP-11/APP-15 ile aynı üçlü, tek pakette birlikte gitmeli |
+| APP-26 | `planning-engine.ts:295,317,319` | MIGRATE | orta | `analyzeIdea` önerilerinin üretilen metni ("MVP sınırını çiz", "MVP teslim süresini kısaltır") — her alanda gösterilir. V3-04c'de DOKUNULMADI |
+
+**APP-12 düzeltmesi.** Satır `idea-state-view.ts` diyor; ölçüldü, orada etiket
+yok. `'MVP sınırı'` etiketi `src/react/features/idea-studio/IdeaStateView.tsx:13`
+içindedir (`.ts` dosyası veriyi taşır, `.tsx` etiketi). V3-04c ikisini de
+`'Hedeflenen kapsam'`a getirdi (`canonical-document-export.ts:34` ile birlikte).
+
+**V3-04c'nin bulduğu davranışsal kilit.** `tests/e2e/guided-workflow.spec.ts:384`
+`/MVP.nin çözeceği tek kritik sorun/i` diye iddia ediyordu — yani APP-21'deki
+fallback sorusunun ÜSTÜNE yazılmış bir regresyon kilidi. V3-03'teki
+`planning-engine.test.js:61` ile aynı desen: yasaklanan çerçeve kendi testini
+edinmişti. Silinmedi, yeni metne yeniden hedeflendi.
+
+**Kanıt kapıları kıpırdamadı.** `check:architecture-comparator-benchmark`,
+`check:discovery-benchmark` ve `check:stage-design-benchmark` işlenmiş kanıtı
+yeniden üretmeden geçti: karşılaştırıcı raporu senaryo sayılarını ve
+başlıklarını yazar, yaklaşım adlarını değil; keşif raporundaki MVP satırları
+`idea-discussion-service.ts`'ten gelir, `DISCOVERY_QUESTIONS`'tan değil.
+
 ---
 
 ## 5. Envanter — Uyumluluk katmanı
@@ -327,6 +360,16 @@ kapısı yürürlükteyken sonraki paketler yanlışlıkla yeni bağımlılık e
   ayrıca bakılmalı.
 - **Fiziksel silme adayı listelenmedi.** Bilinçli: silme V3-10'dur ve beş
   koşulu vardır.
+- **Üretilen Türkçe içerikte çıplak `MVP` kelimesi hiç aranmadı.** Faz 0'ın
+  taraması eski yaşam döngüsü SABİTLERİNİ (`MVP_DEFINED`, `mvpHint`,
+  `mvpScope`, `ConceptSummary` alan adları) hedefledi. Bu yüzden envanter
+  alan adlarını ve etiketleri yakaladı ama ürünün kullanıcının belgesine
+  YAZDIĞI ve kullanıcıya SORDUĞU cümleleri kaçırdı — §4.1'deki yedi satır.
+  Kaçanlar yakalananlardan daha görünürdü: biri sağlayıcısız ilk çalıştırma
+  yolunun soru metni, biri plana yazılan kabul kriteri. **Yöntem dersi:**
+  sabit adı aramak bir modelin kodda nerede yaşadığını bulur; o modelin
+  ürünün AĞZINDAN çıkıp çıkmadığını bulmak için kelimenin kendisi, üretilen
+  metinde aranmalıdır.
 
 ## Yöntem notu
 

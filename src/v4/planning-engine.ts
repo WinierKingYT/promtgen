@@ -722,9 +722,9 @@ export function confirmConceptSummary(project: ProjectDocumentV5): ProjectDocume
         next.sections.scope.items = [...new Set([...next.sections.scope.items, ...summary.confirmedFeatures])];
         // Boş alan YAZILMAZ. Aşama modelindeki belgede `mvpTarget` yok (V3 o
         // soruyu sormuyor) ve satır koşulsuz yazıldığında plana
-        // "MVP hedefi: undefined" düşüyordu.
+        // "Hedeflenen kapsam: undefined" düşüyordu.
         next.sections.scope.content = [
-            summary.mvpTarget ? `MVP hedefi: ${summary.mvpTarget}` : '',
+            summary.mvpTarget ? `Hedeflenen kapsam: ${summary.mvpTarget}` : '',
             summary.outOfScope.length
                 ? `Kapsam dışı:\n${summary.outOfScope.map(item => `- ${item}`).join('\n')}`
                 : ''

@@ -450,7 +450,7 @@ function applyIdeaAlignmentImpact(
   ].join('\n\n')
   next.sections.scope.items = [...nextSummary.confirmedFeatures]
   next.sections.scope.content = [
-    `MVP hedefi: ${nextSummary.mvpTarget}`,
+    `Hedeflenen kapsam: ${nextSummary.mvpTarget}`,
     `Kapsam dışı:\n${nextSummary.outOfScope.map(item => `- ${item}`).join('\n')}`
   ].join('\n\n')
   next.sections.architecture.items = [...nextSummary.technicalApproaches]

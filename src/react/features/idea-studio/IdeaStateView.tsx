@@ -10,7 +10,7 @@ const FOUNDATION_FIELD_LABELS: Record<IdeaFoundationDisplayField, string> = {
   problemStatement: 'Problem',
   targetUser: 'Kullanıcı',
   desiredOutcome: 'Beklenen sonuç',
-  mvpTarget: 'MVP sınırı'
+  mvpTarget: 'Hedeflenen kapsam'
 };
 
 /**

@@ -80,7 +80,7 @@ function buildConversionCandidate(project: ProjectDocumentV5): ProjectDocumentV5
       title: summary.mvpTarget,
       description: summary.desiredOutcome,
       metric: 'Kullanıcı onaylı ilk sürüm akışının tamamlanması',
-      target: 'MVP kapsamındaki kabul kriterlerinin karşılanması',
+      target: 'Onaylanan kapsamın kabul kriterlerinin karşılanması',
       priority: 'must',
       status: 'accepted'
     }));

@@ -381,7 +381,7 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect.poll(() => page.locator('.pg-message').count()).toBeGreaterThan(previousMessages);
     await expect(page.locator('.pg-coach-focus')).toHaveCount(1);
     await expect(page.locator('.pg-coach-actions button')).toHaveCount(2);
-    await expect(page.locator('.pg-focused-question b')).toHaveText(/MVP.nin çözeceği tek kritik sorun/i);
+    await expect(page.locator('.pg-focused-question b')).toHaveText(/İlk çalışan sürümün çözeceği tek kritik sorun/i);
   });
 
   test('one explicit choice can be committed while lower-priority proposals are deferred', async ({ page }) => {

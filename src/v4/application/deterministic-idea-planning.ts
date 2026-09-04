@@ -149,12 +149,22 @@ export function mapDiscoveryOutput(
   };
 }
 
+/**
+ * Sağlayıcı bağlı değilken kullanıcıya SORULAN üç soru. İlk çalıştırma yolu
+ * budur: Ollama/Gemini/NVIDIA/OpenAI kurulmamış bir kullanıcı fikrini önce
+ * burada anlatır.
+ *
+ * Sorular bu yüzden alan-nötr olmalıdır. Bir oyun projesine “MVP’n ne?” diye
+ * sormak yasak olan şeydir: MVP kavramı değil, MVP’nin HER fikre uygulanan
+ * evrensel çerçeve olması. Aynı soru alanın kendi diliyle sorulur --
+ * “ilk çalışan sürüm”, “ilk sürüm kapsamı”, “tek parça yapı”.
+ */
 const DISCOVERY_QUESTIONS: Record<ProjectDomain, [string, string, string]> = {
   game: ['Tek oyunculu prototip mi, sunucu yetkili çok oyunculu yapı mı?', 'Arcade fizik mi, simülasyon mu?', 'Mod desteği planlanıyor mu?'],
-  web: ['Yetkilendirme ve veri gizliliği nasıl kurulacak?', 'Monolitik MVP mi, API-first modüler yapı mı?', 'Öncelikli performans hedefi nedir?'],
-  mobile: ['Offline-first çalışma gerekli mi?', 'Cihaz içi veri ve arka plan senkronizasyonu gerekli mi?', 'Bildirim ve cihaz izinleri MVP içinde mi?'],
+  web: ['Yetkilendirme ve veri gizliliği nasıl kurulacak?', 'Tek parça (monolitik) yapı mı, API-first modüler yapı mı?', 'Öncelikli performans hedefi nedir?'],
+  mobile: ['Offline-first çalışma gerekli mi?', 'Cihaz içi veri ve arka plan senkronizasyonu gerekli mi?', 'Bildirim ve cihaz izinleri ilk sürüm kapsamında mı?'],
   ai: ['Bulut modeli mi, yerel model mi kullanılacak?', 'Kaynaklı RAG hafızası gerekli mi?', 'Şema doğrulama ve fallback zorunlu mu?'],
-  general: ['MVP’nin çözeceği tek kritik sorun nedir?', 'Yerel veri mi, bulut senkronizasyonu mu öncelikli?', 'Gelecekteki genişleme için hangi sınırlar konmalı?']
+  general: ['İlk çalışan sürümün çözeceği tek kritik sorun nedir?', 'Yerel veri mi, bulut senkronizasyonu mu öncelikli?', 'Gelecekteki genişleme için hangi sınırlar konmalı?']
 };
 
 export function createDiscoveryFallback(
@@ -209,13 +219,13 @@ const APPROACH_PROFILES: Record<ProjectDomain, ApproachProfile> = {
     risks: ['Ağ senkronizasyon gecikmesi', 'Fizik ve animasyonun FPS etkisi']
   },
   web: {
-    simple: ['Sade Monolitik Web MVP', 'Tek dağıtım biriminde hızlı ürün doğrulama.', 'Sade Web MVP'],
+    simple: ['Sade Monolitik Web Sürümü', 'Tek dağıtım biriminde hızlı ürün doğrulama.', 'Sade Web Sürümü'],
     modular: ['Modüler API-First Web Mimarisi', 'Arayüz, iş mantığı ve veri katmanını sözleşmelerle ayırır.', 'Modüler API-First'],
     advanced: ['Dağıtık Servis Mimarisi', 'Bağımsız ölçeklenen servisler ve event tabanlı akış.', 'Dağıtık Servisler'],
     risks: ['Veritabanı darboğazı', 'Yetkilendirme açığı']
   },
   mobile: {
-    simple: ['Çevrimiçi Mobil MVP', 'Uzak API’ye bağlı sade mobil istemci.', 'Online Mobil MVP'],
+    simple: ['Çevrimiçi Mobil İstemci', 'Uzak API’ye bağlı sade mobil istemci.', 'Çevrimiçi Mobil'],
     modular: ['Local-First Mobil Mimarisi', 'Cihaz içi veri ve kontrollü arka plan senkronizasyonu.', 'Local-First Mobil'],
     advanced: ['Gelişmiş Cihaz İçi Orkestrasyon', 'Şifreleme, arka plan görevleri ve bildirim motoru.', 'Cihaz İçi Orkestrasyon'],
     risks: ['Senkronizasyon çakışması', 'İşletim sistemi arka plan kısıtları']
@@ -227,7 +237,7 @@ const APPROACH_PROFILES: Record<ProjectDomain, ApproachProfile> = {
     risks: ['Yanıt formatı değişikliği', 'Token veya donanım maliyeti']
   },
   general: {
-    simple: ['Odaklı ve Sade MVP', 'Çekirdek kullanıcı değerini en az bileşenle doğrular.', 'Odaklı MVP'],
+    simple: ['Odaklı ve Sade İlk Sürüm', 'Çekirdek kullanıcı değerini en az bileşenle doğrular.', 'Odaklı İlk Sürüm'],
     modular: ['Modüler ve Katmanlı Mimari', 'İş mantığı, veri ve arayüzü sürdürülebilir sınırlarla ayırır.', 'Modüler Yapı'],
     advanced: ['Yüksek Ölçekli Sistem', 'Büyük yükler için dağıtık bileşenler ve izleme.', 'Yüksek Ölçek'],
     risks: ['Kapsam kayması', 'Erken karmaşıklaştırma']
@@ -269,8 +279,8 @@ export function generateLocalIdeaLabOutput(project: ProjectDocumentV5): IdeaLabO
       buildApproach('approach-modular', profile.modular, 'medium', true, [3, 2, 2, 5]),
       buildApproach('approach-advanced', profile.advanced, 'high', false, [5, 4, 4, 2])
     ],
-    ideaNotes: ['Çekirdek kullanıcı değeri', 'MVP kapsam sınırları', 'Sürdürülebilirlik kısıtları'],
-    candidateDecisions: ['Önerilen modüler yaklaşım', 'İkincil özelliklerin MVP dışında tutulması'],
+    ideaNotes: ['Çekirdek kullanıcı değeri', 'Kapsam sınırları', 'Sürdürülebilirlik kısıtları'],
+    candidateDecisions: ['Önerilen modüler yaklaşım', 'İkincil özelliklerin kapsam dışında tutulması'],
     candidateRisks: profile.risks
   };
 }
@@ -294,7 +304,7 @@ const CONCEPT_PROFILES: Record<ProjectDomain, ConceptProfile> = {
   web: { question: 'Yetkilendirme ve oturum modeli nasıl kurulacak?', risk: 'Veritabanı darboğazı' },
   mobile: { question: 'Offline veri çakışmaları nasıl çözülecek?', risk: 'Çevrimdışı veri çakışması' },
   ai: { question: 'Model fallback ve maliyet kontrolü nasıl yapılacak?', risk: 'Model yanıt uyumsuzluğu' },
-  general: { question: 'MVP’nin en kritik özelliği nedir?', risk: 'Kapsam kayması' }
+  general: { question: 'İlk çalışan sürümün en kritik özelliği nedir?', risk: 'Kapsam kayması' }
 };
 
 export function generateConceptSummaryProject(

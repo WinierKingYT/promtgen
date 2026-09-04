@@ -129,7 +129,7 @@ describe('fikir aşaması belgesi', () => {
 
   it('köken kaydı OLMAYAN alan fikirden gelmiş gibi SUNULMAZ', () => {
     const markdown = ideaDocument(withConcept());
-    for (const heading of ['Özet', 'Problem', 'Hedef kullanıcı', 'Bugünkü alternatif', 'İstenen sonuç', 'MVP hedefi']) {
+    for (const heading of ['Özet', 'Problem', 'Hedef kullanıcı', 'Bugünkü alternatif', 'İstenen sonuç', 'Hedeflenen kapsam']) {
       const body = section(markdown, heading);
       assert.match(body, /KÖKEN BELİRSİZ/, `${heading} kökensiz olmasına rağmen işaretlenmemiş`);
       assert.doesNotMatch(body, /FİKİRDEN/, `${heading} kökensizken fikirden gelmiş gibi sunulmuş`);
