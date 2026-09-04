@@ -865,6 +865,18 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-v
 .pg-stage-open:hover { text-decoration:underline; }
 .pg-stage.is-selected { outline:2px solid var(--pg-accent);outline-offset:-1px; }
 
+/* Mimari karşılaştırma şablonu — panelin karar akışından GÖRSEL olarak da
+   ayrılır. Ayrım kasıtlı: burası karar verilen yer değil, hazır bir şablonun
+   okunduğu yer (bkz. SolutionStagePanel.tsx ArchitectureTemplateSection). */
+.pg-stage-template { display:grid;gap:8px;margin-top:4px;padding-top:12px;border-top:1px dashed var(--pg-border); }
+.pg-stage-template-list { list-style:none;margin:0;padding:0;display:grid;gap:8px; }
+.pg-stage-template-list li { display:grid;gap:3px;border:1px solid var(--pg-border);border-radius:var(--pg-radius);padding:8px 10px;color:var(--pg-text);font-size:12px; }
+.pg-stage-template-list small { color:var(--pg-muted);font-size:11px;line-height:1.45; }
+.pg-stage-template-default { justify-self:start;border-radius:var(--pg-radius-sm);padding:1px 6px;background:var(--pg-surface-soft);color:var(--pg-muted);font-size:10px; }
+.pg-stage-template-detail summary { color:var(--pg-muted);font-size:11px;cursor:pointer; }
+.pg-stage-template-metrics { display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:5px;color:var(--pg-muted);font-size:11px; }
+.pg-stage-template-metrics small { flex:1 1 100%; }
+
 /* Ollama model ipucu — kurulu modeller ve uyarılar. */
 .provider-model-hint { display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:-4px; }
 .provider-model-hint small { flex:1 1 100%;color:var(--pg-muted);font-size:10px;line-height:1.4; }

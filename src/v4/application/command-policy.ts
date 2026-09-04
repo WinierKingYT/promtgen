@@ -27,7 +27,13 @@ export const DOCUMENT_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   // `RunSolutionDiscovery` tam olarak `AddDiscoveryTurn`'ün teknik karşılığı:
   // ikisi de öneri üretir, ikisi de karar üretmez. Farklı sınıflandırmak aynı
   // eylemi iki farklı şey saymak olurdu.
-  'RunSolutionDiscovery', 'ConfirmProjectFraming',
+  //
+  // `GenerateArchitectureComparison` aynı sınıfın en zayıf üyesi: bir ŞABLON
+  // yazar (`ideaLabSession.approaches`), üstelik proje verisinden türetilmeyen
+  // bir şablon (bkz. capability-registry.ts `architecture-comparator-template`).
+  // Canonical revision'ı ilerletmesi, hiç okunmamış hazır bir metnin planı
+  // değiştirdiğini iddia etmek olurdu.
+  'RunSolutionDiscovery', 'GenerateArchitectureComparison', 'ConfirmProjectFraming',
   'DeferConcern', 'DismissConcern', 'DeclineTechnologyCandidate'
 ]);
 

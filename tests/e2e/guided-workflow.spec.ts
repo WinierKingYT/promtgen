@@ -169,6 +169,30 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(solutionPanel).toContainText('Henüz teknik konu çıkarılmadı');
   });
 
+  test('mimari karsilastirma SABLON oldugunu soyleyerek cozum asamasinda sunulur', async ({ page }) => {
+    // Bu şablon eskiden proje oluşturulur oluşturulmaz koşuyordu: 50 karakterden
+    // uzun her fikir, daha hiçbir şey konuşulmadan bir mimari matrisiyle
+    // karşılanıyordu. Artık kullanıcı fikrini onayladıktan SONRA, isterse
+    // çalıştırıyor — ve ne olduğu yanında yazılı.
+    await seedProject(page, buildStageFixture());
+    await page.reload();
+    await page.getByRole('button', { name: /At sistemi/ }).first().click();
+
+    const template = page.getByRole('region', { name: 'Mimari karşılaştırma şablonu' });
+    await expect(template).toContainText('şablondur');
+    await expect(template).toContainText('senin fikrinden hesaplanmaz');
+
+    await template.getByRole('button', { name: 'Şablonu getir' }).click();
+    await expect(template.getByRole('button', { name: 'Şablonu yenile' })).toBeVisible();
+
+    // Puanlar kart yüzünde durmaz: bir tık uzaktalar ve ne oldukları
+    // yanlarında yazılı — keşif panosundaki "modelin tahmini" emsalinin aynısı.
+    const scores = template.getByText('Şablon puanları').first();
+    await expect(scores).toBeVisible();
+    await scores.click();
+    await expect(template).toContainText('ölçülmedi ve senin projenden türetilmedi');
+  });
+
   test('ADR: secilmeyen alternatifin NEDEN olmadigi sorulur ve kaydedilir', async ({ page }) => {
     // "PostgreSQL'i değerlendirdik" demek, neden seçilmediğini söylemeden bir
     // karar kaydı oluşturmaz.

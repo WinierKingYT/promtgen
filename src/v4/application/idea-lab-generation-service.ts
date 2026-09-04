@@ -7,6 +7,7 @@ import type { ProviderSettings } from '../provider-settings.js';
 import type { IdeaLabOutput } from '../ai/schemas/schemas.js';
 import { getTaskDefinition } from '../ai/registry.js';
 import { runRegisteredAITask } from '../ai/runtime.js';
+import { currentStage } from './project-stages.js';
 
 const ideaLabTask = getTaskDefinition('idea-lab');
 
@@ -60,7 +61,16 @@ function applyIdeaLabOutput(
     candidateRisks: output.candidateRisks,
     provenance
   };
-  next.lifecycle.activePhase = 'IDEA_LAB';
+  // Faz YALNIZ belge hâlâ fikir aşamasındayken ilerletilir.
+  //
+  // Karşılaştırıcı artık çözüm aşamasından da çalıştırılabiliyor. Orada
+  // `IDEA_LAB` yazmak, belgeyi fikir aşamasına geri düşmüş gibi anlatırdı:
+  // `activePhase` AI bağlamına (ai/context/planning-context.ts) ve dışa
+  // aktarılan canonical belgeye (canonical-export-core.ts) akıyor. Aşama rayı
+  // onaylardan hesaplandığı için (`currentStage`) ekranda görünmez, sessizce
+  // yanlış olurdu — "birbirine bağlantısız iki aşama modeli" hatasının tam
+  // kendisi (bkz. contracts.ts:5-16).
+  if (currentStage(next) === 'idea') next.lifecycle.activePhase = 'IDEA_LAB';
   return next;
 }
 

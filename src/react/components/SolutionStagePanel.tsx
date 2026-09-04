@@ -11,7 +11,7 @@ import {
   declineCandidate,
   deferConcern
 } from '../../v4/application/stage-commands.js';
-import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import type { DesignApproach, ProjectDocumentV5 } from '../../v4/contracts.js';
 import type { StageCommandResult } from '../../v4/application/stage-commands.js';
 
 /**
@@ -35,11 +35,13 @@ export function answerLooksLikeExclusion(answer: string): boolean {
   return splitClauses(answer).some(clause => OUT_OF_SCOPE_PATTERN.test(clause.toLocaleLowerCase('tr-TR')));
 }
 
-export function SolutionStagePanel({ project, running, onCommand, onDiscover }: {
+export function SolutionStagePanel({ project, running, comparing, onCommand, onDiscover, onCompareArchitectures }: {
   project: ProjectDocumentV5;
   running: boolean;
+  comparing: boolean;
   onCommand: (result: StageCommandResult, commandType: string) => void;
   onDiscover: () => void;
+  onCompareArchitectures: () => void;
 }) {
   const [statement, setStatement] = useState('');
   const [rationale, setRationale] = useState('');
@@ -251,5 +253,97 @@ export function SolutionStagePanel({ project, running, onCommand, onDiscover }: 
         </div>
       </>
     )}
+
+    <ArchitectureTemplateSection project={project} running={comparing} onRun={onCompareArchitectures}/>
   </aside>;
+}
+
+const METRIC_LABELS: ReadonlyArray<readonly [keyof NonNullable<DesignApproach['metrics']>, string]> = [
+  ['effortScore', 'Efor'],
+  ['networkLoad', 'Ağ yükü'],
+  ['fpsImpact', 'Kare hızı etkisi'],
+  ['maintainability', 'Sürdürülebilirlik']
+];
+
+/**
+ * Mimari Karşılaştırma Şablonu — çözüm aşamasındaki İKİNCİ eylem.
+ *
+ * **Neden burada.** Bu şablon eskiden proje oluşturulur oluşturulmaz koşuyordu
+ * ve kullanıcının fikrine verilen ilk esaslı yanıt oluyordu; gerekçesiyle
+ * birlikte kaldırıldı (bkz. v4/application/project-creation-service.ts).
+ * Yeri burası: kullanıcı fikrini onaylamış ve "bunu nasıl kuracağız?" diye
+ * sormuş oluyor.
+ *
+ * **Neden bu kadar çok uyarı metni.** Çünkü bu bir ANALİZ DEĞİL. Ürünün kendi
+ * yetenek kayıt defteri (`architecture-comparator-template`,
+ * v4/capability-registry.ts) üç sınırı beyan ediyor: metrikler otomatik
+ * hesaplanmaz, proje verisinden türetilmez, "önerilen" işareti sabit bir
+ * varsayılandır. Ekrandaki metin bu beyanla aynı şeyi söylemek ZORUNDA;
+ * söylemezse ürün kendi kayıt defterine yalan söylemiş olur.
+ *
+ * **Etiketleme emsali** keşif panosundan alındı: tahmini sayılar bir
+ * `<details>` arkasında durur ve ne oldukları yanlarında yazılıdır
+ * (IdeaExpansionBoard.tsx — "Bunlar modelin tahmini; ölçülmüş bir sonuç
+ * değil"). Aynı sebep burada daha da güçlü: oradaki sayılar en azından
+ * modelin o karta bakıp verdiği tahminlerdi, buradakiler alan şablonundan
+ * geliyor.
+ *
+ * Şablon hiçbir şeyi karara bağlamaz: `solutionDesign` adaylarına, kararlarına
+ * ve onayına dokunmaz. Ne göreceğini kullanıcı okur, kararı yukarıdaki
+ * "Karar olarak kaydet" akışında kendisi verir.
+ */
+function ArchitectureTemplateSection({ project, running, onRun }: {
+  project: ProjectDocumentV5;
+  running: boolean;
+  onRun: () => void;
+}) {
+  const approaches = project.ideaLabSession?.approaches || [];
+
+  return <section className="pg-stage-template" aria-label="Mimari karşılaştırma şablonu">
+    <h3 className="pg-stage-subhead">Mimari karşılaştırma şablonu</h3>
+    <p className="pg-stage-hint">
+      Bu bir <b>şablondur</b>, projenin analizi değildir. Üç yaklaşım ve puanları
+      alan türüne göre hazır gelir; senin fikrinden hesaplanmaz. Karar vermek için
+      değil, <b>neyi tartışacağını</b> görmek için.
+    </p>
+
+    {approaches.length === 0 ? (
+      <div className="pg-stage-actions">
+        <button type="button" onClick={onRun} disabled={running}>
+          {running ? <LoaderCircle className="spin" size={15}/> : <Sparkles size={15}/>} Şablonu getir
+        </button>
+      </div>
+    ) : (
+      <>
+        <ul className="pg-stage-template-list">
+          {approaches.map(approach => (
+            <li key={approach.id}>
+              <b>{approach.title}</b>
+              {approach.recommended && <span className="pg-stage-template-default">şablon varsayılanı</span>}
+              <small>{approach.description}</small>
+              {approach.metrics && (
+                <details className="pg-stage-template-detail">
+                  <summary>Şablon puanları</summary>
+                  <div className="pg-stage-template-metrics">
+                    {METRIC_LABELS.map(([field, label]) => (
+                      <span key={field}>{label}: {approach.metrics?.[field]}/5</span>
+                    ))}
+                    <small>
+                      Bu puanlar ölçülmedi ve senin projenden türetilmedi; alan şablonunun
+                      sabit başlangıç değerleridir.
+                    </small>
+                  </div>
+                </details>
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="pg-stage-actions">
+          <button type="button" onClick={onRun} disabled={running}>
+            {running ? <LoaderCircle className="spin" size={15}/> : <Sparkles size={15}/>} Şablonu yenile
+          </button>
+        </div>
+      </>
+    )}
+  </section>;
 }

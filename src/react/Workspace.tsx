@@ -22,6 +22,7 @@ import {
 } from '../v4/planning-engine.js';
 import { resolveIdeaRecordsForBundle } from '../v4/application/idea-discussion-service.js';
 import {
+  generateIdeaLabBundle,
   generateImpactAnalysis,
   runConversationalDiscoveryTurn
 } from '../v4/application/idea-planning-api.js';
@@ -117,6 +118,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   //   veri karışmasına yol açar. `taskCompilation` (bkz. applyTaskPlan) ve
   //   `finalizationBlockers` bunun doğrulanmış örnekleri; `selectedStage`,
   //   `discoveryAnswerDraft`, `messageDraft`, `generating`, `solutionRunning`,
+  //   `comparatorRunning`,
   //   `changeImpactMode` ve proje geçmişi diyaloğu (`historyOpen`) aynı
   //   sınıfa giriyor. YENİ proje-kapsamlı state eklenirse buraya (ve aşağıdaki
   //   sıfırlama efektine) eklenmesi gerekir — derleyici bunu hatırlatmaz.
@@ -134,6 +136,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
 
   const [view, setView] = useState<IdeaStudioView>('develop');
   const [solutionRunning, setSolutionRunning] = useState(false);
+  const [comparatorRunning, setComparatorRunning] = useState(false);
   // Kullanıcı tamamlanmış bir aşamaya dönebilir; seçim yoksa bulunulan aşama.
   const [selectedStage, setSelectedStage] = useState<ProjectStage | null>(null);
   const [sectionDraft, setSectionDraft] = useState('');
@@ -150,6 +153,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   useEffect(() => {
     setView('develop');
     setSolutionRunning(false);
+    setComparatorRunning(false);
     setSelectedStage(null);
     setMessageDraft('');
     setGenerating(false);
@@ -256,6 +260,37 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       else await persistCandidate(result.project, result.notice, 'RunSolutionDiscovery');
     } finally {
       setSolutionRunning(false);
+    }
+  };
+
+  /**
+   * Mimari Karşılaştırma Şablonu — eskiden proje oluşturulurken kendiliğinden
+   * koşuyordu (bkz. project-creation-service.ts'teki gerekçe), şimdi
+   * kullanıcının çözüm aşamasında elle istediği bir eylem.
+   *
+   * `runSolutionDiscovery`den farkı bilerek korunuyor: keşif turunda sağlayıcı
+   * yoksa yerel yedek YOKTUR ve hata gizlenmez; karşılaştırıcı ise şablon
+   * olduğunu zaten beyan ettiği için çevrimdışı da anlamlıdır — yerel kural
+   * motoru aynı şablonu üretir ve panel bunun şablon olduğunu yazar.
+   */
+  const runArchitectureComparator = async () => {
+    setComparatorRunning(true);
+    try {
+      const credential = await credentialVault.get(providerSettings.providerId) || '';
+      const result = await generateIdeaLabBundle(project, {
+        settings: providerSettings,
+        credential,
+        ideaText: project.identity.originalIdea
+      });
+      await persistCandidate(
+        result.project,
+        result.usedFallback
+          ? 'Mimari karşılaştırma şablonu yerel kural motoruyla hazırlandı.'
+          : 'Mimari karşılaştırma şablonu hazırlandı.',
+        'GenerateArchitectureComparison'
+      );
+    } finally {
+      setComparatorRunning(false);
     }
   };
 
@@ -417,10 +452,12 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           <SolutionStagePanel
             project={project}
             running={solutionRunning}
+            comparing={comparatorRunning}
             onCommand={(result, commandType) => {
               void persistCandidate(result.project, result.notice || undefined, commandType);
             }}
             onDiscover={() => void discoverSolution()}
+            onCompareArchitectures={() => void runArchitectureComparator()}
           />
         )}
         {stagePanelVisible && shownStage === 'idea' && (

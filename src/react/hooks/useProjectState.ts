@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { analyzeIdea } from '../../v4/planning-engine.js';
 import { createPlatformRepository } from '../../v4/tauri-storage.js';
-import { generateIdeaLabBundle } from '../../v4/application/idea-planning-api.js';
 import { applyIdeaFoundationDraft, generateIdeaFoundation } from '../../v4/application/idea-foundation-service.js';
 import { hasSavedProviderSettings, loadProviderSettings } from '../../v4/provider-settings.js';
 import { detectFirstRunProviderSettings } from '../../v4/application/first-run-provider-detection.js';
@@ -121,14 +120,10 @@ export function useProjectState() {
     } catch {
       // Fikir temeli oluşturulamasa da proje açılmaya devam eder.
     }
-    const prepared = await prepareInitialProject({
-      project,
-      generateIdeaLab: candidate => generateIdeaLabBundle(candidate, {
-        settings: providerSettings,
-        credential,
-        ideaText: idea,
-      })
-    });
+    // Proje oluşturma artık mimari üretmez. Mimari karşılaştırma şablonu
+    // çözüm aşamasına taşındı (Workspace.tsx → SolutionStagePanel); burada
+    // yalnız ilk revizyon kaydedilir.
+    const prepared = prepareInitialProject({ project });
     await persist(prepared.project);
   };
 

@@ -4,10 +4,14 @@ import { generateExpansionDimensions } from '../../src/v4/ai-discovery.js';
 import { acceptRequirementDraft, createRequirementDraftsFromConcept } from '../../src/v4/application/requirement-quality-service.ts';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../../src/v4/task-compiler.js';
 
-// --- Idea Expansion path (short idea < 50 chars) ---
+// --- Fikir genişletme yolu ---
+// Fikir metninin UZUNLUĞU artık faz seçmez. Eskiden 50 karakterin altındaki
+// her fikir `IDEA_EXPANSION` ile doğuyordu; ölçüt kullanıcının klavyede ne
+// kadar yazdığıydı, fikrin olgunluğu değil. Genişletme turu kaldırılmadı --
+// hâlâ çalışır ve turun SONUNDA `DISCOVERY`ye geçer; burada ölçülen o.
 const shortProject = analyzeIdea('web sitesi yap');
-assert.equal(shortProject.lifecycle.activePhase, 'IDEA_EXPANSION', 'Kısa fikir IDEA_EXPANSION fazını başlatmalı');
-assert.equal(shortProject.proposalStore.bundles.length, 0, 'IDEA_EXPANSION fazında henüz öneri üretilmemeli');
+assert.equal(shortProject.lifecycle.activePhase, 'DISCOVERY', 'Kısa fikir de DISCOVERY ile başlamalı; uzunluk faz seçmez');
+assert.ok(shortProject.proposalStore.bundles.length > 0, 'Her yeni proje yerel öneri paketiyle başlar');
 const dims = generateExpansionDimensions('web sitesi yap');
 assert.equal(dims.length, 5, '5 boyut üretilmeli');
 const expanded = applyIdeaExpansion(shortProject, { answers: { problem: 'Müşterilere kolay erişim', user: 'KOBİler' }, dimensions: dims });

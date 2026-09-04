@@ -152,20 +152,38 @@ export function analyzeIdea(idea: string, options: AnalyzeIdeaOptions = {}): Pro
         planningDepth,
         profile: options.profile || inferProfile(idea, options.importedContext || [])
     });
-    // Very short/vague idea (< 50 chars) -> route to Idea Amplifier before Discovery
-    const isShortIdea = String(idea || '').trim().length < 50;
-    if (isShortIdea) {
-        project.lifecycle.activePhase = PLANNING_PHASES.IDEA_EXPANSION;
-    } else {
-        // Deliberately no eager conceptSummary here: createInitialConceptInterpretation()
-        // fabricates full-length "meaningful" text for every field from just the raw idea
-        // text, which made buildIdeaCoachState() treat the idea as fully clarified before
-        // a real conversation happened (activeStep jumped straight to 'approval' on
-        // project creation). ensureIdeaCoachWorkspace() seeds it empty on first use instead,
-        // same as the short-idea path. proposeNextOptions() only reads identity/sections,
-        // not conceptSummary, so the suggestion bundle is unaffected.
-        project.proposalStore.bundles.push(proposeNextOptions(project));
-    }
+    // FİKİR UZUNLUĞU ARTIK AKIŞI ÇATALLAMAZ.
+    //
+    // Burada 50 karakterlik bir eşik vardı: altındaki her fikir
+    // `IDEA_EXPANSION` fazına yazılıyor, üstündeki her fikir `DISCOVERY`de
+    // kalıyordu. `prepareInitialProject` ikinci yolda Fikir Laboratuvarı'nı
+    // çalıştırdığı için sonuç şuydu: 32 karakterlik "At yarışı oyunu yapmak
+    // istiyorum" kart panosuna, 54 karakterlik "S&box'ta çok oyunculu at
+    // yarışı oyunu yapmak istiyorum" ise doğrudan bir mimari alternatif
+    // matrisine düşüyordu. İki sebeple kaldırıldı:
+    //   1. Metin uzunluğu fikrin olgunluğunun ölçüsü değildir; kullanıcının
+    //      klavyede ne kadar yazdığının ölçüsüdür.
+    //   2. Sonuç V3'ün kendi sırasına aykırıydı (fikir → çözüm → plan →
+    //      devir): problem henüz konuşulmamışken teknoloji öneriliyordu.
+    //
+    // Başlangıç fazı artık TEK yerde belirlenir: `createProjectDocument`
+    // (project-document.ts) her yeni belgeyi `DISCOVERY` ile doğurur.
+    // `IDEA_EXPANSION` bilerek seçilmedi: o faz, kullanıcının bir genişletme
+    // turuna GERÇEKTEN girdiğini iddia eder ve `applyIdeaExpansion` turun
+    // SONUNDA `DISCOVERY`ye geçer — başlangıç durumu yapmak o geçişi ters
+    // çevirirdi. Aşama rayı iki fazdan da etkilenmez; `PHASE_TO_STAGE`
+    // (application/project-stages.ts) ikisini de `idea` aşamasına eşler.
+    // Genişletme kart panosu da faza bağlı değildir: `IdeaExpansionColumn`
+    // her projede koşulsuz render edilir (react/Workspace.tsx).
+    //
+    // Deliberately no eager conceptSummary here: createInitialConceptInterpretation()
+    // fabricates full-length "meaningful" text for every field from just the raw idea
+    // text, which made buildIdeaCoachState() treat the idea as fully clarified before
+    // a real conversation happened (activeStep jumped straight to 'approval' on
+    // project creation). ensureIdeaCoachWorkspace() seeds it empty on first use instead.
+    // proposeNextOptions() only reads identity/sections, not conceptSummary, so the
+    // suggestion bundle is unaffected.
+    project.proposalStore.bundles.push(proposeNextOptions(project));
     return recalculateReadiness(project);
 }
 
