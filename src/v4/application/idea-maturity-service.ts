@@ -31,9 +31,12 @@ export function assessIdeaMaturity(project: ProjectDocumentV5): IdeaMaturityAsse
     { points: 15, passed: meaningful(summary.targetUser, /doğrulanmalı|kesin persona|belirsiz/), missing: 'Birincil kullanıcı' },
     { points: 20, passed: meaningful(summary.problemStatement, /doğrulanmalı|ana problem|belirsiz/), missing: 'Ana problem' },
     { points: 10, passed: meaningful(summary.desiredOutcome, /doğrulanmalı|beklenen sonuç|belirsiz/), missing: 'Beklenen sonuç' },
-    { points: 15, passed: summary.confirmedFeatures.length > 0, missing: 'MVP içi kapsam' },
-    { points: 10, passed: summary.outOfScope.length > 0, missing: 'MVP dışı kapsam' },
-    { points: 10, passed: meaningful(summary.mvpTarget, /doğrulanmalı|mvp hedefi|belirsiz/), missing: 'MVP hedefi' },
+    { points: 15, passed: summary.confirmedFeatures.length > 0, missing: 'Kapsam içi liste' },
+    { points: 10, passed: summary.outOfScope.length > 0, missing: 'Kapsam dışı liste' },
+    // `mvpTarget` alan adı ve aşağıdaki yer tutucu deseni V3-04b'ye aittir:
+    // desen, kaydedilmiş belgelerdeki gerçek yer tutucu metni arar; değiştirmek
+    // yeniden adlandırma değil, ölçülen davranışın değişmesi olurdu.
+    { points: 10, passed: meaningful(summary.mvpTarget, /doğrulanmalı|mvp hedefi|belirsiz/), missing: 'Hedeflenen kapsam' },
     { points: 10, passed: summary.openQuestions.length === 0, missing: 'Açık sorular' },
     { points: 10, passed: summary.userConfirmed, missing: 'Kullanıcı onayı' }
   ];
@@ -65,7 +68,7 @@ export function assessIdeaMaturity(project: ProjectDocumentV5): IdeaMaturityAsse
     score,
     recommended: 'plan',
     label: 'Detaylı planla',
-    reason: 'Hedef kullanıcı, problem ve MVP sınırları onaylı; canonical plan için hazır.',
+    reason: 'Hedef kullanıcı, problem ve kapsam sınırları onaylı; canonical plan için hazır.',
     missing
   };
 }

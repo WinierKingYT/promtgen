@@ -149,17 +149,17 @@ describe('boşaltma hazırlık kapılarını ZAYIFLATMAZ', () => {
     return found;
   }
 
-  it('userConfirmed=false iken mvp-in ve mvp-out kapıları HÂLÂ geçmez', () => {
+  it('userConfirmed=false iken scope-in ve scope-out kapıları HÂLÂ geçmez', () => {
     const document = project('Unityde çok oyunculu at sistemi');
     document.ideaLabSession = {
       ...(document.ideaLabSession || { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [] }),
       conceptSummary: createInitialConceptInterpretation(document)
     };
 
-    assert.equal(gate(document, 'complete.mvp-in').status, 'blocked');
-    assert.equal(gate(document, 'complete.mvp-out').status, 'blocked');
-    assert.equal(gate(document, 'complete.mvp-in').blocking, true);
-    assert.equal(gate(document, 'complete.mvp-out').blocking, true);
+    assert.equal(gate(document, 'complete.scope-in').status, 'blocked');
+    assert.equal(gate(document, 'complete.scope-out').status, 'blocked');
+    assert.equal(gate(document, 'complete.scope-in').blocking, true);
+    assert.equal(gate(document, 'complete.scope-out').blocking, true);
   });
 
   it('sabit dolgu kapıları zaten geçiremiyordu: onay verilse bile boş liste geçmez', () => {
@@ -169,8 +169,8 @@ describe('boşaltma hazırlık kapılarını ZAYIFLATMAZ', () => {
       conceptSummary: { ...createInitialConceptInterpretation(document), userConfirmed: true }
     };
 
-    assert.equal(gate(document, 'complete.mvp-in').status, 'blocked');
-    assert.equal(gate(document, 'complete.mvp-out').status, 'blocked');
+    assert.equal(gate(document, 'complete.scope-in').status, 'blocked');
+    assert.equal(gate(document, 'complete.scope-out').status, 'blocked');
   });
 
   it('kullanıcı gerçekten doldurup onayladığında kapılar geçer', () => {
@@ -185,7 +185,7 @@ describe('boşaltma hazırlık kapılarını ZAYIFLATMAZ', () => {
       }
     };
 
-    assert.equal(gate(document, 'complete.mvp-in').status, 'passed');
-    assert.equal(gate(document, 'complete.mvp-out').status, 'passed');
+    assert.equal(gate(document, 'complete.scope-in').status, 'passed');
+    assert.equal(gate(document, 'complete.scope-out').status, 'passed');
   });
 });

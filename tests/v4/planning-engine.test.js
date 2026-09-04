@@ -57,8 +57,8 @@ assert.equal(project.sections.testing.status, 'stale', 'Upstream değişiklik do
 
 for (const [id, section] of Object.entries(project.sections)) if (section.required && !section.content && !section.items.length) project = updatePlanSection(project, id, { content: `${section.title} içeriği` });
 const blockedFinalize = finalizePlan(project);
-assert.equal(blockedFinalize.success, false, 'Yorum ve MVP kapsamı onaylanmadan plan finalleştirilememeli');
-assert.ok(blockedFinalize.blockers.some(blocker => blocker.includes('MVP')));
+assert.equal(blockedFinalize.success, false, 'Yorum ve kapsam sınırı onaylanmadan plan finalleştirilememeli');
+assert.ok(blockedFinalize.blockers.some(blocker => blocker.includes('Kapsam içinde yer alan özellikler onaylanmalı.')));
 project.ideaLabSession.conceptSummary = {
     summary: 'Local çalışan, SQLite tabanlı, CLI destekli küçük bir görev takip ve proje yönetimi uygulaması.',
     targetUser: 'Bireysel geliştiriciler ve küçük ekipler',
