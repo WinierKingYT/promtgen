@@ -378,3 +378,75 @@ ikisi düzeltildi: `mvpHint`'in kalıcı olmadığı (planın risk varsayımın�
 çürüttü) ve `task-compiler`'ın onu okumadığı (hem bayat bir kod yorumunu hem
 de ona dayanan bir ajan çürütmesini düzeltti). Bu belgede bir iddia varsa,
 ya doğrudan ölçülmüştür ya da ölçüm yöntemi yazılıdır.
+
+---
+
+## 9. V3-10 — Fiziksel silme hazırlık değerlendirmesi
+
+**Ölçüm tarihi:** 2026-09-08 · **Commit:** `8d2007b`
+**Sonuç: HAZIR DEĞİL.** Beş koşuldan **ikisi** sağlanıyor.
+
+Bu bölüm silme yapmaz. Planın kendi tablosu bu paketi *"deletion readiness"*
+diye adlandırıyor; çıktısı da budur.
+
+### Koşul denetimi
+
+| # | Koşul | Durum | Dayanak |
+|---|---|---|---|
+| 1 | Üretim giriş noktalarında sıfır legacy import | **SAĞLANDI** | `check:legacy-boundary`: 200 dosya, 599 kenar, 0 ihlal — üstelik artık kapı |
+| 2 | Eski davranışların V4 parity karşılığı var | **SAĞLANMADI** | Üç modülün karşılığı yok: COMPAT-02, COMPAT-04, COMPAT-09 |
+| 3 | Göç gidiş-dönüşü çalışıyor | **SAĞLANDI** | `migrations.js` yalnız `src/v4`'ten import ediyor; `v4-v5-migration.test.js` dört kalıcı konumu sabitliyor |
+| 4 | Eski testlerin V4 eşdeğeri var | **SAĞLANMADI** | 21 uyumluluk test dosyası; koşul 2'deki davranışların V4 testi yok çünkü V4 uygulaması yok |
+| 5 | En az bir sürüm boyunca sıfır kullanım | **SAĞLANMADI** | Hiç sürüm çıkmadı; gözlem penceresi yok |
+
+### Yapısal bulgu — öksüz modül yok
+
+Silinebilecek tek tek ölü dosya aramak sonuç vermez. Uyumluluk katmanı
+**birbirine bağlı bir ağdır**. Ölçüldü: `state/project-state-v3.js` tek
+başına dört uyumluluk kaynağı (`application/patch-transaction.js`,
+`core/state/state-engine.js`, `core/v3-application-service.js`,
+`state/state-migrations.js`) ve altı uyumluluk testi tarafından import
+ediliyor.
+
+Yani ya katman **bütün olarak** gider, ya hiçbiri. Aradaki her seçim, kalanı
+kırık bırakır.
+
+### Karşılığı olmayan üç davranış
+
+Koşul 2'yi bloklayan bunlar:
+
+- **COMPAT-02** `workflow/phases.js` — 10 durumlu `UNIVERSAL_PHASES`.
+  Doğrudan karşılığı yok; kavramsal olarak `PlanningPhase → ProjectStage`
+  zincirine devredildi ama birebir eşlenmedi.
+- **COMPAT-04** `workflow/transitions.js` — geçiş tablosu modeli. V3'ün
+  kapısı (`stageGate`) yapısal olarak farklı: tablo değil, concern ve onay
+  denetimi. Drop-in karşılık değil.
+- **COMPAT-09** `discovery/discovery-engine.js` — boşluk tespiti. V3 concern
+  tabanlı çalışıyor; aynı işi yapan bir V4 modülü yok.
+
+### Tek gerçekten izole aday — yine de silinmedi
+
+`experiments/legacy-web-prototype/` kendi `index.html`'iyle duruyor ve
+`src/` içinden hiçbir referans almıyor. Teknik olarak silinebilir.
+
+Silinmedi çünkü: `docs/architecture/MODULE_STATUS.md:33` onu bilerek
+`archive` olarak işaretlemiş, ve `tests/v4/product-contract.test.ts:39-40`
+varlığını sabitliyor. Testin niyeti *"aktif çalışma alanında olmasın"* —
+silmek niyeti fazlasıyla karşılar ama repo'nun bilinçli olarak sakladığı
+tarihsel malzemeyi yok eder. Envanterin kendi kuralı burada da geçerli:
+tarihsel kanıt yeniden yazılmaz, silinmez.
+
+### V3-10'u ne açar
+
+Sırayla, ve üçü de gerçek iş:
+
+1. Koşul 2 için üç davranışın V4 karşılığını yaz — ya da her biri için
+   "bu davranış bilerek taşınmadı" kararını gerekçesiyle kaydet.
+2. Koşul 4 için o davranışların V4 testlerini yaz; uyumluluk testleri ancak
+   o zaman kapsamsız kalmaz.
+3. Koşul 5 için bir gözlem penceresi tanımla. "Bir sürüm" bu proje için
+   anlamsız — yayın yok. Yerine ölçülebilir bir ölçüt konmalı, örneğin
+   *"ürün gerçek bir fikirle uçtan uca N kez koşuldu ve uyumluluk katmanına
+   hiç düşmedi"*.
+
+Üçü bitmeden silme, kanıtı olmayan bir iddiadır.
