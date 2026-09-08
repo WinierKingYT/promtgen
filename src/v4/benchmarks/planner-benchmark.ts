@@ -111,7 +111,7 @@ function buildScenarioProject(scenario: PlannerBenchmarkScenario): ProjectDocume
   const objectiveId = `${scenario.id}-objective`;
   project.objectives = [normalizeObjective({
     id: objectiveId,
-    title: `${scenario.title} MVP sonucunu doğrula`,
+    title: `${scenario.title} ilk sürüm sonucunu doğrula`,
     description: scenario.desiredOutcome,
     metric: 'Kabul kriteri başarı oranı',
     target: '%100 Must gereksinim doğrulaması',
@@ -126,8 +126,8 @@ function buildScenarioProject(scenario: PlannerBenchmarkScenario): ProjectDocume
   }, index));
   project.decisions = [normalizeDecision({
     id: `${scenario.id}-decision`,
-    title: 'MVP kapsamını sabitle',
-    decision: `${scenario.inScope.join(', ')} MVP kapsamında uygulanacak.`,
+    title: 'İlk sürüm kapsamını sabitle',
+    decision: `${scenario.inScope.join(', ')} ilk sürüm kapsamında uygulanacak.`,
     rationale: 'İlk sürümün ölçülebilir ve uygulanabilir kalması için.',
     alternatives: ['Tüm özellikleri ilk sürüme almak'],
     consequences: ['Kapsam dışı özellikler sonraki revizyonlara bırakılır.'],
@@ -144,7 +144,7 @@ function buildScenarioProject(scenario: PlannerBenchmarkScenario): ProjectDocume
   project.risks = [normalizeRisk({
     id: riskId,
     title: 'Kapsam sapması',
-    description: 'MVP dışında bırakılan özellikler görevlere geri sızabilir.',
+    description: 'Kapsam dışında bırakılan özellikler görevlere geri sızabilir.',
     probability: 'medium',
     impact: 'high',
     mitigation: 'Her görev canonical kapsam ve gereksinim bağlantısıyla doğrulanır.',

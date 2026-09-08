@@ -71,7 +71,9 @@
  * V3-09 sonrası üretim toplamı **51** / **23** (DOC-06 düzeltmesi).
  * V3-05 sonrası **37** / **17**; V3-04b-1 sonrası **18** / **11**.
  * V3-04b-2 sonrası yine **18** / **11** -- alan adı göçü sayıyı hareket
- * ettirmedi (gerekçe yukarıda).
+ * ettirmedi (gerekçe yukarıda). V3-06 sonrası **12** / **9**: kalan dokuz
+ * satırın dokuzu da `—` sahiplidir, yani üretim defterinde bir pakete
+ * yazılmış temizlik borcu kalmadı.
  */
 
 /** Cırcır tablosundaki tek satır. */
@@ -121,21 +123,30 @@ export const TIER2_RATCHET: readonly ProductModelRatchetEntry[] = [
   //    sıfırlandığı için defterden düştü; kalan tek geçiş borç değildir ve
   //    aşağıdaki gerekçe bölümüne taşındı. Toplam 15 → 0.
 
-  // ── V3-06 · Benchmark hizalama. Envanter §7 ve BENCH-01/02: bu metinler
-  //    latest-report.json · BENCHMARK_REPORT.md · generated-benchmark-evidence.ts
-  //    üçlüsüne akar ve ATOMİK gitmek zorundadır. Toplam 6.
-  {
-    file: 'src/v4/benchmarks/planner-benchmark.ts',
-    count: 4,
-    owner: 'V3-06',
-    note: 'BENCH-01/02 dahil senaryo görev ve karar başlıkları; işlenmiş kanıta akar.'
-  },
-  {
-    file: 'src/v4/benchmarks/discovery-benchmark.ts',
-    count: 2,
-    owner: 'V3-06',
-    note: 'Keşif benchmark uyarısı ve referans doğrulama hatası.'
-  },
+  // ── V3-06 · Benchmark hizalama. KAPANDI — ve envanterin risk tahminini
+  //    çürüterek. §7 ile BENCH-01/02 bu altı geçişi "yüksek risk — işlenmiş
+  //    kanıt" diye işaretliyor, latest-report.json · BENCHMARK_REPORT.md ·
+  //    generated-benchmark-evidence.ts üçlüsünün ATOMİK gitmesini bekliyordu.
+  //    Ölçüm başka çıktı. Altı geçişin dördü planlayıcı benchmark'ının her
+  //    senaryoya sentezlediği hedef başlığı, karar başlığı, karar gövdesi ve
+  //    risk açıklamasıydı; ikisi keşif benchmark'ının ürettiği kapsam uyarısı
+  //    ile senaryo doğrulama hatasıydı. Hiçbiri commit'li kanıta ulaşmıyor:
+  //    rapor şeması senaryo kimliği, başlık, alan, verdict, metrikler ve
+  //    yetenek sayıları taşır — üretilen hedef/karar/risk gövdesi taşımaz.
+  //    Uyarı yalnız `failures` dizisine girer, sekiz senaryonun sekizi de
+  //    geçtiği için o dizi her sonuçta boştur; doğrulama hatası ise ancak
+  //    geçersiz senaryoda fırlar, geçen koşuda hiç. Altı metin alan-nötr
+  //    karşılıklarıyla değiştirildi, bütün benchmark kapıları koştu ve tek bir
+  //    commit'li kanıt dosyası kıpırdamadı — yani üretim hiç gerekmedi.
+  //    Toplam 6 → 0.
+  //
+  //    Raporlarda kalan iki geçiş bu paketin borcu DEĞİLDİR ve bilerek
+  //    dokunulmadı: ikisi de `benchmarks/*/scenarios.json` içindeki senaryo
+  //    ADIdır. Biri kendi kapsamını öyle adlandıran kurgusal bir projedir —
+  //    sözleşmenin `mvpRule` ile açıkça meşru saydığı durum. Diğeri
+  //    kullanıcının ilk sürüm ile sonraki kapsamı karıştırmasını ÖLÇEN
+  //    adversarial senaryonun adıdır; adı değiştirmek testin neyi ölçtüğünü
+  //    yanlış anlatırdı. İkisinin de satırı belge cırcırındadır.
 
   // ── `—` · Eski modelin NEDEN bırakıldığını anlatan gerekçe metinleri.
   //    Temizlik borcu değildir; sayılır ki yerlerine yenisi sızmasın. Toplam 12.

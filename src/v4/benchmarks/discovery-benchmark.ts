@@ -180,7 +180,7 @@ export function runDiscoveryBenchmarkScenario(
     ...(!metrics.autoConfirmed ? [] : ['Sistem yorumu kullanıcı onayı olmadan kesinleştirildi.']),
     ...(metrics.prematureTechnicalDecisions === 0 ? [] : ['Kullanıcı seçimi olmadan teknik yaklaşım kesinleştirildi.']),
     ...(metrics.agreementReadyAfterUserCorrection ? [] : ['Simüle edilen kullanıcı düzeltmesi onay kapısını açmadı.']),
-    ...(metrics.canonicalScopeCoverage === 1 ? [] : ['Onaylanan MVP kapsamı canonical scope alanına kayıpsız taşınmadı.']),
+    ...(metrics.canonicalScopeCoverage === 1 ? [] : ['Onaylanan ilk sürüm kapsamı canonical scope alanına kayıpsız taşınmadı.']),
     ...(metrics.outOfScopeCoverage === 1 ? [] : ['Onaylanan kapsam dışı maddeler canonical planda korunmadı.'])
   ];
 
@@ -206,7 +206,7 @@ export function runDiscoveryBenchmark(
       throw new Error(`Geçersiz veya yinelenen discovery senaryosu: ${scenario.id || '(kimlik yok)'}`);
     }
     if (!scenario.expectedConcerns.length || !scenario.reference.confirmedFeatures.length || !scenario.reference.outOfScope.length) {
-      throw new Error(`${scenario.id}: benchmark referansı kritik sinyal, MVP içi ve kapsam dışı veri taşımalı.`);
+      throw new Error(`${scenario.id}: benchmark referansı kritik sinyal, kapsam içi ve kapsam dışı veri taşımalı.`);
     }
     ids.add(scenario.id);
   }
