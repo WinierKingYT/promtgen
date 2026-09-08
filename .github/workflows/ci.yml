@@ -95,10 +95,22 @@ jobs:
       - run: npm ci
       - run: npm run check:product-model
 
+  lifecycle-vocabulary:
+    name: Check Lifecycle Vocabulary (INV-V3-01)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:lifecycle-vocabulary
+
   build:
     name: Build (Vite + PWA)
     runs-on: ubuntu-latest
-    needs: [typecheck, lint, test-unit, test-security, duplicate-modules, legacy-boundary, product-model]
+    needs: [typecheck, lint, test-unit, test-security, duplicate-modules, legacy-boundary, product-model, lifecycle-vocabulary]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

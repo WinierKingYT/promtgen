@@ -151,6 +151,12 @@ tanımlayamayacak"* diyor. Bugün tanımlanmış ve çalışan bir tane zaten va
 Invariant yazılmadan önce `PlanningPhase`'in kaderine karar verilmelidir:
 köprü olarak kalacak mı, yoksa kapatılacak mı?
 
+> **ÇÖZÜLDÜ — V3-11, 2026-09-08.** Yukarıdaki soru açık bırakılmıştı; cevabı
+> **köprü olarak kalır, ama DONDURULUR**. Gerekçesi ve üç ölçümü §10'dadır.
+> Karar artık düzyazı değil: `npm run check:lifecycle-vocabulary` uyguluyor.
+> Bu paragraf tarihsel kayıt olarak duruyor, silinmiyor — soru gerçekten
+> açıktı ve ne zaman kapandığı görünmelidir.
+
 ### Emsal — bu bir kez yapıldı
 
 `16abc11` commit'i zaten kopya aşama sabitlerini tek kaynağa indirdi:
@@ -450,3 +456,98 @@ Sırayla, ve üçü de gerçek iş:
    hiç düşmedi"*.
 
 Üçü bitmeden silme, kanıtı olmayan bir iddiadır.
+
+---
+
+## 10. V3-11 — INV-V3-01 kararı: `PlanningPhase` DONDURULDU
+
+**Ölçüm tarihi:** 2026-09-08 · **Commit:** `193b22d`
+**Karar: köprü kalır, dondurulur.** §2'nin açık bıraktığı soru budur.
+
+Değişmezin tam metni:
+
+> PromtGen'in tam olarak dört ürün aşaması vardır: `idea`, `solution`,
+> `plan`, `handoff`. Bir aşamanın kendi içinde alt durumları olabilir.
+> **Beşinci bir üst düzey yaşam döngüsü sözlüğü olamaz.** `PlanningPhase`
+> göç dönemi köprüsü olarak dondurulmuştur: değer kazanamaz, yeni yazıcı
+> kazanamaz.
+
+### Kararı taşıyan üç ölçüm
+
+**Ö1 — Bu kodun ürettiği belgeler için enum hiçbir iş yapmıyor.**
+Üretimdeki tek karar noktası `application/idea-guide-service.ts:84`:
+`status === 'finalized' || activePhase === 'READY'`. `finalizePlan`
+(`planning-engine.ts:557-558`) ikisini **birlikte** set eder; yani bu kodun
+ürettiği her belge için ikinci koşul gereksizdir.
+
+**Ö2 — Ama göç eden belgeler için gereksiz değil.** `migrations.js:48-50`
+`READY_FOR_EXPORT → 'READY'` eşlemesini yaparken `status` alanını `active`
+bırakır; yalnız `EXPORTED` ayrıca `finalized` yazar. O ikinci koşul bilinçli
+bir göç uyumluluğudur. Silinseydi diskteki eski bir proje "tamamlanmamış"
+görünürdü. Enum'un tek canlı işi budur ve bu iş **eski içe aktarmalara**
+hizmet eder.
+
+**Ö3 — `SuggestionBundle.phase` yazılıyor, hiç okunmuyor.** Dört yerde
+`lifecycle.activePhase` değerinden damgalanır — `planning-engine.ts:385`,
+`application/idea-expansion-intake.ts:40`,
+`application/plan-code-alignment.ts:367`,
+`application/deterministic-idea-planning.ts:137` — ve `src/v4` ile
+`src/react` içinde **sıfır okuyucusu** vardır. Tek `.phase` okuması
+`migrations.js:49`'dur ve o, `SuggestionBundle` değil, ham eski kayıt
+şeklidir.
+
+### Neden silme değil
+
+Enum'u kaldırmak, tek canlı kararı eski içe aktarmalara hizmet eden bir alanı
+emekli etmek için **diskteki her belgeye veri göçü** demekti. Dondurmak
+bedava ve değişmezi uygulanabilir kılıyor. `16abc11`'in dersi burada da
+geçerli: bir hijyen taraması sırasında sessizce davranış değiştirmek,
+düzeltmeye çalıştığı sorundan kötüdür.
+
+Aynı gerekçeyle `SuggestionBundle.phase` de **silinmedi**: kalıcı bir alandır,
+diskteki her `proposalStore` paketi onu taşır. Bunun yerine bildirimine
+ölçüm tarihli bir not yazıldı (`contracts.ts`), ki bir sonraki okuyan onu
+canlı bir karar alanı sanmasın.
+
+### Kapı ne uyguluyor
+
+`scripts/check-lifecycle-vocabulary.ts` (`npm run check:lifecycle-vocabulary`,
+`verify` ve CI içinde):
+
+| # | Kural | Ölçülen taban |
+|---|---|---|
+| 1 | `PROJECT_STAGES` tam olarak dört üye, sırası sabit; `ProjectStage` tipi sabitle aynı şeyi söyler | 4 üye |
+| 2 | `PlanningPhase` değerleri dondu — sayı ve değerlerin kendisi | 9 değer |
+| 3 | `lifecycle.activePhase` yazıcı kümesi dondu | 8 dosya / 13 konum |
+
+Üç fail-loud koruma: dosya sayısı eşiği (201 ölçüldü, eşik 160), yazıcı
+kanaryası (sıfır isabet = TARAMA BOZUK, "temiz" değil) ve bildirim kanaryası
+(üç bildirim de bulunmak zorunda).
+
+### §2'nin yazıcı listesi eksikti — düzeltme
+
+§2 dört yazma konumu sayıyordu. Ölçüm (2026-09-08) **8 dosyada 13 konum**
+buldu. Fark:
+
+- `contracts.ts` — alanın kendi bildirimi (yazıcı değil, şeklin kendisi;
+  ikinci bir bildirim beşinci sözlüğün doğduğu andır, o yüzden listede).
+- `project-document.ts:163` — `createProjectDocument` tohumu (`DISCOVERY`).
+- `application/canonical-export-core.ts:47` — dışa aktarılan belgeye kopya.
+- `planning-engine.ts` — §2'nin bildiği bir konum değil, **altı** konum:
+  `214`, `492`, `558`, `570`, `669`, `782`.
+
+Kayda geçen bir başka olgu: `domain/services/project-creation.ts:68` bir
+yazıcıdır ama **üretimde çağıranı yoktur** — `routeIdea` ve
+`createCanonicalProjectInstance` yalnız `tests/v4/**` içinden çağrılır. Kapı
+listesinden sessizce düşürülmedi; ölü olduğu *kayıtlı* kalsın diye gerekçesiyle
+duruyor.
+
+### Kararı ne yeniden açar
+
+- Ö2'nin dayanağı düşerse: `migrations.js` artık `status` alanını `active`
+  bırakmıyorsa `idea-guide-service.ts:84`'ün ikinci koşulu gerçekten
+  gereksizleşir ve enum kapatılabilir.
+- Bir sürüm çıkıp gözlem penceresi oluşursa (§9, koşul 5), göç edecek eski
+  belge kalmadığı gösterilebilirse silme maliyeti düşer.
+
+İkisi de bugün doğru değil. O yüzden karar dondurmadır, silme değil.

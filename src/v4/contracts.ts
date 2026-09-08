@@ -849,6 +849,25 @@ export interface SuggestionItem {
 export interface SuggestionBundle {
   id: string
   title: string
+  /**
+   * **Bugün YALNIZ YAZILIR, hiç okunmaz** (ölçüldü 2026-09-08, `193b22d`).
+   *
+   * Dört yerde `lifecycle.activePhase` değerinden damgalanır —
+   * `planning-engine.ts:385`, `application/idea-expansion-intake.ts:40`,
+   * `application/plan-code-alignment.ts:367`,
+   * `application/deterministic-idea-planning.ts:137` — ve `src/v4` ile
+   * `src/react` içinde tek bir okuyucusu yoktur. Yani hiçbir davranışı
+   * sürmüyor; bir sonraki okuyan onu canlı bir karar alanı sanmasın.
+   *
+   * **Silinmedi, çünkü kalıcı bir alandır.** Diskteki her `proposalStore`
+   * paketi bu alanı taşır; kaldırmak kendi başına bir veri göçüdür. Aynı
+   * gerekçeyle `PlanningPhase` de silinmedi, donduruldu (INV-V3-01,
+   * `scripts/check-lifecycle-vocabulary.ts`).
+   *
+   * Bir gün gerçekten bir okuyucu gerekirse doğru soru "bu alan ne
+   * söylüyor" değil, "aşama bilgisi canonical `ProjectStage` modelinden
+   * okunabilir mi" olmalıdır (`application/project-stages.ts`).
+   */
   phase: PlanningPhase
   status: 'open' | 'resolved'
   decisionComplete?: boolean
