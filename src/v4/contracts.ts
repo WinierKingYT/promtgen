@@ -267,7 +267,7 @@ export interface DesignApproach {
 }
 
 /** Foundation'ın altı düzyazı alanı -- `ideaFoundationSchema`teki alan sırasıyla birebir. */
-export const IDEA_FOUNDATION_FIELD_NAMES = ['summary', 'problemStatement', 'targetUser', 'currentAlternative', 'desiredOutcome', 'mvpTarget'] as const
+export const IDEA_FOUNDATION_FIELD_NAMES = ['summary', 'problemStatement', 'targetUser', 'currentAlternative', 'desiredOutcome', 'firstReleaseTarget'] as const
 export type IdeaFoundationFieldName = typeof IDEA_FOUNDATION_FIELD_NAMES[number]
 
 /**
@@ -306,7 +306,18 @@ export interface ConceptSummary {
   technicalApproaches: string[]
   openQuestions: string[]
   knownRisks: string[]
-  mvpTarget: string
+  /**
+   * İlk çalışan sürümün TEK doğrulanabilir sonucu. Adı V3-04b-2'ye kadar
+   * `mvpTarget`ti; alan adının kendisi her fikre -- alanından bağımsız
+   * olarak -- bırakılan çerçeveyi beyan ettiriyordu ve yasak olan tam olarak
+   * budur (bkz. kök `CLAUDE.md`). Kavram değişmedi, dayatma kalktı.
+   *
+   * Alan KAYDEDİLİR ve üç yerde durur: burada, `IdeaDocumentRevision.snapshot`
+   * içinde ve `PlanRevision.snapshot`taki tam proje kopyasında. Eski anahtarı
+   * taşıyan belgeler `canonical-entities.ts` içindeki
+   * `migrateFirstReleaseTarget` ile yüklenirken göç eder.
+   */
+  firstReleaseTarget: string
   userConfirmed: boolean
   confirmedAt?: string
   /**
@@ -326,7 +337,7 @@ export interface ConceptSummary {
 export type IdeaDocumentSnapshot = Pick<
   ConceptSummary,
   'summary' | 'targetUser' | 'problemStatement' | 'currentAlternative' | 'desiredOutcome' |
-  'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'openQuestions' | 'knownRisks' | 'mvpTarget'
+  'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'openQuestions' | 'knownRisks' | 'firstReleaseTarget'
 >
 
 export interface IdeaDocumentRevision {

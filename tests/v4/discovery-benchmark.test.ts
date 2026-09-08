@@ -29,7 +29,7 @@ function scenario(overrides: Partial<DiscoveryBenchmarkScenario> = {}): Discover
       desiredOutcome: 'Sıradaki görevin görünür olması',
       confirmedFeatures: ['Görev oluşturma', 'Görev tamamlama'],
       outOfScope: ['Ekip paylaşımı'],
-      mvpTarget: 'Tek kullanıcılı görev takip akışı'
+      firstReleaseTarget: 'Tek kullanıcılı görev takip akışı'
     },
     thresholds: {
       minimumConcernRecall: 1,

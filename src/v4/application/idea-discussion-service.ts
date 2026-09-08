@@ -15,7 +15,7 @@ const VALID_MODES = new Set<IdeaDiscussionMode>(['explore', 'challenge', 'compar
 const VALID_STATUSES = new Set<IdeaRecordStatus>(['pending', 'accepted', 'deferred', 'rejected']);
 const MAX_RECORD_TEXT = 600;
 const MAX_DETAIL_TEXT = 2400;
-const INTERPRETATION_FIELDS = ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'mvpTarget'] as const;
+const INTERPRETATION_FIELDS = ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'firstReleaseTarget'] as const;
 
 export type DiscoveryConcernId =
   | 'target-user'
@@ -476,7 +476,7 @@ export function buildIdeaDiscussionContext(project: ProjectDocumentV5) {
 
 export function updateConceptAgreement(
   project: ProjectDocumentV5,
-  changes: Partial<Pick<ConceptSummary, 'summary' | 'targetUser' | 'problemStatement' | 'currentAlternative' | 'desiredOutcome' | 'interpretationConfidence' | 'confidenceRationale' | 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'mvpTarget'>>
+  changes: Partial<Pick<ConceptSummary, 'summary' | 'targetUser' | 'problemStatement' | 'currentAlternative' | 'desiredOutcome' | 'interpretationConfidence' | 'confidenceRationale' | 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'firstReleaseTarget'>>
 ): ProjectDocumentV5 {
   const next = ensureState(project);
   const summary = next.ideaLabSession?.conceptSummary;
@@ -492,7 +492,7 @@ export function updateConceptAgreement(
   if (changes.interpretationConfidence !== undefined) {
     summary.interpretationConfidence = Math.max(0, Math.min(100, Math.round(Number(changes.interpretationConfidence) || 0)));
   }
-  if (changes.mvpTarget !== undefined) summary.mvpTarget = bounded(changes.mvpTarget, MAX_RECORD_TEXT);
+  if (changes.firstReleaseTarget !== undefined) summary.firstReleaseTarget = bounded(changes.firstReleaseTarget, MAX_RECORD_TEXT);
   for (const key of ['confidenceRationale', 'confirmedFeatures', 'outOfScope', 'technicalApproaches', 'knownRisks', 'openQuestions'] as const) {
     if (changes[key] !== undefined) summary[key] = normalizeList(changes[key]);
   }
@@ -548,7 +548,7 @@ export function createInitialConceptInterpretation(project: ProjectDocumentV5): 
       'Kapsamın kullanıcı doğrulaması olmadan genişlemesi',
       ...signalAnalysis.concerns.filter(concern => concern.severity === 'high').map(concern => concern.evidence)
     ],
-    mvpTarget: `${idea.slice(0, 120)} fikrinin tek birincil kullanıcı akışını tamamlayan doğrulanabilir ilk sürümü`,
+    firstReleaseTarget: `${idea.slice(0, 120)} fikrinin tek birincil kullanıcı akışını tamamlayan doğrulanabilir ilk sürümü`,
     userConfirmed: false
   };
 }

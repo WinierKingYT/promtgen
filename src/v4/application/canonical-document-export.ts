@@ -26,10 +26,11 @@ export const DEFAULT_DOCUMENT_ADAPTERS = Object.freeze([
 export const IDEA_DOCUMENT_PATH = 'idea/idea-foundation.md'
 
 /**
- * BAŞLIK, alan adı değildir. `mvpTarget` alan adı kaydedilmiş belgelerde ve
- * `IdeaDocumentRevision` anlık görüntülerinde duruyor; yeniden adlandırılması
- * veri göçüdür ve V3-04b paketine aittir. Buradaki başlık ise belgeye YAZILAN
- * metindir ve okuyan kişiye alanın ne olduğunu söyler: hedeflenen kapsam.
+ * BAŞLIK, alan adı değildir. Alan adı V3-04b-2'de `firstReleaseTarget` oldu ve
+ * göçü `canonical-entities.ts` içindeki `migrateFirstReleaseTarget` yürütür.
+ * Buradaki başlık ise belgeye YAZILAN metindir ve okuyan kişiye alanın ne
+ * olduğunu söyler: hedeflenen kapsam. İkisi bağımsızdır -- başlık, alan adı
+ * değişmeden de değişebilir.
  */
 const IDEA_FIELD_TITLES: Record<IdeaFoundationFieldName, string> = {
   summary: 'Özet',
@@ -37,7 +38,7 @@ const IDEA_FIELD_TITLES: Record<IdeaFoundationFieldName, string> = {
   targetUser: 'Hedef kullanıcı',
   currentAlternative: 'Bugünkü alternatif',
   desiredOutcome: 'İstenen sonuç',
-  mvpTarget: 'Hedeflenen kapsam'
+  firstReleaseTarget: 'Hedeflenen kapsam'
 }
 
 /**

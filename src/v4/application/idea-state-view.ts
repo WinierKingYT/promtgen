@@ -9,7 +9,7 @@ import { isExpansionBundle } from './proposal-bundle-selectors.js';
  */
 export type IdeaFoundationDisplayField = Exclude<IdeaFoundationFieldName, 'currentAlternative'>;
 
-const DISPLAY_FIELDS: readonly IdeaFoundationDisplayField[] = ['summary', 'problemStatement', 'targetUser', 'desiredOutcome', 'mvpTarget'];
+const DISPLAY_FIELDS: readonly IdeaFoundationDisplayField[] = ['summary', 'problemStatement', 'targetUser', 'desiredOutcome', 'firstReleaseTarget'];
 
 /**
  * Tek bir foundation alanının EKRANA taşınan hâli: metin + kaynağı.
@@ -52,7 +52,7 @@ export interface IdeaStateFoundationView {
   problemStatement: string;
   targetUser: string;
   desiredOutcome: string;
-  mvpTarget: string;
+  firstReleaseTarget: string;
   /**
    * Yukarıdaki beş alanın HER BİRİ için kaynağı ve (varsa) bilinmeme
    * gerekçesi. Metin alanları geriye dönük uyumluluk için AYNEN kalır;
@@ -138,8 +138,8 @@ function buildFoundation(project: ProjectDocumentV5): IdeaStateFoundationView {
   const problemStatement = trimmed(concept?.problemStatement);
   const targetUser = trimmed(concept?.targetUser);
   const desiredOutcome = trimmed(concept?.desiredOutcome);
-  const mvpTarget = trimmed(concept?.mvpTarget);
-  const values: Record<IdeaFoundationDisplayField, string> = { summary, problemStatement, targetUser, desiredOutcome, mvpTarget };
+  const firstReleaseTarget = trimmed(concept?.firstReleaseTarget);
+  const values: Record<IdeaFoundationDisplayField, string> = { summary, problemStatement, targetUser, desiredOutcome, firstReleaseTarget };
   const grounding = concept?.foundationGrounding;
   const fields = Object.fromEntries(
     DISPLAY_FIELDS.map(field => [field, describeFoundationField(values[field], grounding?.[field])])
@@ -151,7 +151,7 @@ function buildFoundation(project: ProjectDocumentV5): IdeaStateFoundationView {
   // `userConfirmed` alanı yoksa (eski/kısmi belge) taslak sayılır — bir onayı
   // hiç var olmayan bir alandan varsaymak yanlış tarafa hata yapardı.
   const isUnreviewedDraft = Boolean(session?.conceptSummaryProvenance) && concept?.userConfirmed !== true;
-  return { hasContent, isUnreviewedDraft, summary, problemStatement, targetUser, desiredOutcome, mvpTarget, fields };
+  return { hasContent, isUnreviewedDraft, summary, problemStatement, targetUser, desiredOutcome, firstReleaseTarget, fields };
 }
 
 function toCardView(item: SuggestionItem): IdeaStateCardView {

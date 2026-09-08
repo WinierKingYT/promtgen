@@ -22,7 +22,7 @@ export interface DiscoveryBenchmarkReference {
   desiredOutcome: string;
   confirmedFeatures: string[];
   outOfScope: string[];
-  mvpTarget: string;
+  firstReleaseTarget: string;
 }
 
 export interface DiscoveryBenchmarkScenario {
@@ -88,7 +88,7 @@ const CORRECTION_FIELDS = [
   'desiredOutcome',
   'confirmedFeatures',
   'outOfScope',
-  'mvpTarget'
+  'firstReleaseTarget'
 ] as const;
 
 function normalize(value: unknown): string {

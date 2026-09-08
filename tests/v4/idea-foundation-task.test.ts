@@ -54,6 +54,18 @@ describe('ideaFoundationTask', () => {
     assert.match(prompt, /Kabul edilemez olan tek şey/);
   });
 
+  it('istem sürümü çıktı sözleşmesiyle birlikte yükseltilmiş olmalı', () => {
+    // 2.0.0 / şema 2 (8e2ed62): her alan düz metin yerine
+    // {source,text|reason} ayrık birleşimi oldu.
+    // 3.0.0 / şema 3 (V3-04b-2): `mvpTarget` -> `firstReleaseTarget`. Modelden
+    // İSTENEN JSON anahtarı değişti; eski sürüme göre üretilmiş bir yanıt artık
+    // `.strict()` şemadan geçmez, yani kırıcı bir sözleşme değişikliğidir.
+    // SCHEMA_ID her iki seferde de dokunulmadan bırakıldı: görev aynı görev.
+    assert.equal(ideaFoundationTask.promptVersion, '3.0.0');
+    assert.equal(ideaFoundationTask.schemaVersion, 3);
+    assert.equal(ideaFoundationTask.schemaId, 'idea-foundation-v1');
+  });
+
   it('outputFields şema alanlarıyla birebir eşleşir', () => {
     assert.deepEqual([...ideaFoundationTask.outputFields].sort(), Object.keys(ideaFoundationTask.schema.shape).sort());
   });

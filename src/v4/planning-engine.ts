@@ -720,11 +720,11 @@ export function confirmConceptSummary(project: ProjectDocumentV5): ProjectDocume
     }
     if (summary.confirmedFeatures && next.sections.scope) {
         next.sections.scope.items = [...new Set([...next.sections.scope.items, ...summary.confirmedFeatures])];
-        // Boş alan YAZILMAZ. Aşama modelindeki belgede `mvpTarget` yok (V3 o
-        // soruyu sormuyor) ve satır koşulsuz yazıldığında plana
+        // Boş alan YAZILMAZ. Aşama modelindeki belgede `firstReleaseTarget`
+        // yok (V3 o soruyu sormuyor) ve satır koşulsuz yazıldığında plana
         // "Hedeflenen kapsam: undefined" düşüyordu.
         next.sections.scope.content = [
-            summary.mvpTarget ? `Hedeflenen kapsam: ${summary.mvpTarget}` : '',
+            summary.firstReleaseTarget ? `Hedeflenen kapsam: ${summary.firstReleaseTarget}` : '',
             summary.outOfScope.length
                 ? `Kapsam dışı:\n${summary.outOfScope.map(item => `- ${item}`).join('\n')}`
                 : ''

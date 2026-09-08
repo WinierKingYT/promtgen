@@ -27,11 +27,16 @@ import { isolateImportedProjectContext } from '../../security/context-isolation.
  */
 export const ideaFoundationTask = {
   id: 'idea-foundation',
-  promptVersion: '2.0.0',
+  // V3-04b-2: `mvpTarget` alanı `firstReleaseTarget` oldu. Modelden İSTENEN
+  // JSON anahtarı değiştiği için bu, uyumlu bir düzeltme değil KIRICI bir
+  // sözleşme değişikliğidir: eski bir istem sürümüne göre yanıt üreten bir
+  // önbellek/kayıt artık şemadan geçmez. Emsal `8e2ed62`: promptVersion major,
+  // schemaVersion bir artar, `SCHEMA_ID` DEĞİŞMEZ (görevin kimliği aynı).
+  promptVersion: '3.0.0',
   schemaId: IDEA_FOUNDATION_SCHEMA_ID,
-  schemaVersion: 2,
+  schemaVersion: 3,
   schema: ideaFoundationSchema,
-  outputFields: ['summary', 'problemStatement', 'targetUser', 'currentAlternative', 'desiredOutcome', 'mvpTarget'] as const,
+  outputFields: ['summary', 'problemStatement', 'targetUser', 'currentAlternative', 'desiredOutcome', 'firstReleaseTarget'] as const,
   timeoutMs: 30_000,
   maxRepairAttempts: 2,
   guardsOutputLanguage: true,
@@ -55,9 +60,9 @@ problemStatement: Kullanıcının bugün somut olarak yaşadığı problem veya 
 targetUser: Bu ürünü ilk ve en sık kullanacak tek birincil kullanıcı kim?
 currentAlternative: Bu problem bugün nasıl çözülüyor (manuel yöntem, başka bir araç, hiç çözülmüyor)?
 desiredOutcome: Ürün kullanıldığında somut olarak ne değişecek?
-mvpTarget: İlk sürümün tek doğrulanabilir hedefi ne olmalı?
+firstReleaseTarget: İlk sürümün tek doğrulanabilir hedefi ne olmalı?
 Türkçe yanıt ver. Yalnız şu JSON biçimini döndür (her alan {"source":"idea","text":"..."} veya {"source":"assumption","text":"..."} veya {"source":"unknown","reason":"..."} olur):
-{"summary":{"source":"...","text":"..."},"problemStatement":{"source":"...","text":"..."},"targetUser":{"source":"...","text":"..."},"currentAlternative":{"source":"...","text":"..."},"desiredOutcome":{"source":"...","text":"..."},"mvpTarget":{"source":"...","text":"..."}}`;
+{"summary":{"source":"...","text":"..."},"problemStatement":{"source":"...","text":"..."},"targetUser":{"source":"...","text":"..."},"currentAlternative":{"source":"...","text":"..."},"desiredOutcome":{"source":"...","text":"..."},"firstReleaseTarget":{"source":"...","text":"..."}}`;
   },
   buildContext(project: ProjectDocumentV5) {
     // Temel bağlama BİLEREK EKLENMEZ (`includeFoundation` geçilmez): temeli

@@ -284,7 +284,7 @@ export const ideaFoundationSchema = z.object({
   targetUser: ideaFoundationFieldSchema(600),
   currentAlternative: ideaFoundationFieldSchema(2400),
   desiredOutcome: ideaFoundationFieldSchema(2400),
-  mvpTarget: ideaFoundationFieldSchema(600)
+  firstReleaseTarget: ideaFoundationFieldSchema(600)
 }).strict();
 
 export type IdeaFoundationOutput = z.infer<typeof ideaFoundationSchema>;

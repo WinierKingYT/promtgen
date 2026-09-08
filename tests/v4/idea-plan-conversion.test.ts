@@ -24,7 +24,7 @@ function convertibleProject() {
       problemStatement: 'Kapsam, karar ve görev sürekliliğinin dağınık kalması.',
       currentAlternative: 'Genel amaçlı sohbetler ve elle tutulan notlar.',
       desiredOutcome: 'Kullanıcı uygulanabilir bir ilk sürüm planına ulaşır.',
-      mvpTarget: 'Bir fikri onaylanmış MVP kapsamına ve görev taslaklarına dönüştürmek.',
+      firstReleaseTarget: 'Bir fikri onaylanmış MVP kapsamına ve görev taslaklarına dönüştürmek.',
       confirmedFeatures: ['Fikir belgesi', 'MVP kapsamı'],
       outOfScope: ['Bulut senkronizasyonu'],
       knownRisks: ['Kapsamın gereksiz büyümesi'],
@@ -44,7 +44,7 @@ describe('Idea to canonical plan conversion', () => {
     assert.equal(preview.canConvert, true);
     assert.equal(preview.objectiveCount, 1);
     assert.equal(preview.requirementTitles.length, 2);
-    assert.equal(preview.objective, project.ideaLabSession?.conceptSummary?.mvpTarget);
+    assert.equal(preview.objective, project.ideaLabSession?.conceptSummary?.firstReleaseTarget);
     assert.deepEqual(project, before);
   });
 

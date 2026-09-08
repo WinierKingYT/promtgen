@@ -72,7 +72,7 @@ project.ideaLabSession.conceptSummary = {
     technicalApproaches: ['SQLite', 'CLI'],
     openQuestions: [],
     knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
-    mvpTarget: 'Görev oluşturma ve proje durumu takibini tamamlayan ilk sürüm',
+    firstReleaseTarget: 'Görev oluşturma ve proje durumu takibini tamamlayan ilk sürüm',
     userConfirmed: false
 };
 project = confirmConceptSummary(project);

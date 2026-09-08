@@ -30,7 +30,7 @@ describe('Idea guide and local evidence projection', () => {
         technicalApproaches: [],
         openQuestions: ['Çevrimdışı yedek gerekli mi?'],
         knownRisks: ['Kapsamın büyümesi'],
-        mvpTarget: 'Tek kullanıcılı yerel sürüm',
+        firstReleaseTarget: 'Tek kullanıcılı yerel sürüm',
         userConfirmed: false
       }
     };

@@ -28,9 +28,16 @@
  * Bu yüzden çıplak `MVP` kelimesi Kademe 1 gibi sert yasaklanamaz. Bugün üretim
  * kökünde ölçülen 54 geçiş 23 dosyaya yayılıdır; hepsini yasaklamak ya derlemeyi
  * düşürürdü ya da 23 girişli bir muafiyet listesi doğururdu — ve o liste bir
- * çöp tenekesine dönüşürdü. Cırcır üçüncü yolu seçer: yön garantisi. Kalan
- * temizlik paketleri (V3-04b-2, V3-06) sayıyı düşürür; kapı
+ * çöp tenekesine dönüşürdü. Cırcır üçüncü yolu seçer: yön garantisi. Kapı
  * yalnız yönün tersine dönmediğini kanıtlar.
+ *
+ * Bir temizlik paketinin defteri düşürmesi GARANTİ DEĞİLDİR ve V3-04b-2 bunun
+ * ölçülmüş örneğidir: paket `ConceptSummary.mvpTarget` alanını
+ * `firstReleaseTarget` yaptı, ama tek bir satırı bile düşürmedi. Sebep
+ * mekaniktir — kapı `MVP` arar ve büyük/küçük harfe duyarlıdır;
+ * `mvpTarget` tanımlayıcısı hiçbir zaman bu kalıba girmiyordu. Yani defterdeki
+ * 18 geçişin hiçbiri o alan adına ait değildi. Ders: "paket X sayıyı düşürecek"
+ * bir tahmindir, ölçüm değildir; bu dosyada tahmin yazılmaz.
  *
  * ## `owner` ne demek
  *
@@ -63,6 +70,8 @@
  * Ölçüm: 2026-09-05 · `ec0f525` · toplam **54** geçiş / **23** dosya.
  * V3-09 sonrası üretim toplamı **51** / **23** (DOC-06 düzeltmesi).
  * V3-05 sonrası **37** / **17**; V3-04b-1 sonrası **18** / **11**.
+ * V3-04b-2 sonrası yine **18** / **11** -- alan adı göçü sayıyı hareket
+ * ettirmedi (gerekçe yukarıda).
  */
 
 /** Cırcır tablosundaki tek satır. */
@@ -94,7 +103,15 @@ export const TIER2_RATCHET: readonly ProductModelRatchetEntry[] = [
   //    (2) `discovery-answer-service.ts`'teki etiket tablosu serbest metin
   //    yönlendirmesini SÜRMÜYOR — eşleştiriciler kendi kalıplarını taşır, yani
   //    etiket değişikliği davranış değişikliği değildir. Alan adlarının kendisi
-  //    V3-04b-2'ye kalır: o gerçek bir veri göçüdür. Toplam 19 → 0.
+  //    V3-04b-2'ye kaldı: o gerçek bir veri göçüdür. Toplam 19 → 0.
+
+  // ── V3-04b-2 · Alan ADININ kendisi. KAPANDI, ama defterde iz bırakmadan.
+  //    `ConceptSummary.mvpTarget` → `firstReleaseTarget`; alan üç yerde
+  //    kaydediliyordu (canlı özet, fikir sürümü anlık görüntüsü ve plan
+  //    sürümünün taşıdığı tam proje kopyası) ve göç
+  //    `canonical-entities.ts`teki `migrateFirstReleaseTarget` ile yürüyor.
+  //    Defterde satırı YOKTUR ve olamaz: sayılan kalıp büyük harfli `MVP`dir,
+  //    `mvpTarget` ona hiç girmiyordu. Toplam 18 → 18.
 
   // ── V3-05 · Kullanıcıya görünen terminoloji. KAPANDI.
   //    Yedi dosyadaki 15 geçişin 14'ü kullanıcıya sorulan soru, üretilen plan

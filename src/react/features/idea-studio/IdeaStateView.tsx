@@ -3,14 +3,14 @@ import { TriangleAlert } from 'lucide-react';
 import type { ProjectDocumentV5 } from '../../../v4/contracts.js';
 import { buildIdeaStateView, type IdeaFoundationDisplayField, type IdeaStateFoundationFieldView } from '../../../v4/application/idea-state-view.js';
 
-const FOUNDATION_FIELD_ORDER: readonly IdeaFoundationDisplayField[] = ['summary', 'problemStatement', 'targetUser', 'desiredOutcome', 'mvpTarget'];
+const FOUNDATION_FIELD_ORDER: readonly IdeaFoundationDisplayField[] = ['summary', 'problemStatement', 'targetUser', 'desiredOutcome', 'firstReleaseTarget'];
 
 const FOUNDATION_FIELD_LABELS: Record<IdeaFoundationDisplayField, string> = {
   summary: 'Özet',
   problemStatement: 'Problem',
   targetUser: 'Kullanıcı',
   desiredOutcome: 'Beklenen sonuç',
-  mvpTarget: 'Hedeflenen kapsam'
+  firstReleaseTarget: 'Hedeflenen kapsam'
 };
 
 /**

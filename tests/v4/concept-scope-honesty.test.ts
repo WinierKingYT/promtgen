@@ -54,7 +54,7 @@ describe('konsept yorumu kullanıcı adına kapsam kararı uydurmaz', () => {
     assert.ok(Array.isArray(summary.confirmedFeatures));
     assert.equal(summary.userConfirmed, false);
     // Uydurma OLMAYAN alanlar etkilenmez.
-    assert.ok(summary.mvpTarget.length > 0);
+    assert.ok(summary.firstReleaseTarget.length > 0);
     assert.ok(summary.openQuestions.length > 0);
     assert.ok(summary.knownRisks.length > 0);
   });

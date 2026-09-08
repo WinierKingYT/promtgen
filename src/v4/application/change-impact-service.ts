@@ -450,7 +450,7 @@ function applyIdeaAlignmentImpact(
   ].join('\n\n')
   next.sections.scope.items = [...nextSummary.confirmedFeatures]
   next.sections.scope.content = [
-    `Hedeflenen kapsam: ${nextSummary.mvpTarget}`,
+    `Hedeflenen kapsam: ${nextSummary.firstReleaseTarget}`,
     `Kapsam dışı:\n${nextSummary.outOfScope.map(item => `- ${item}`).join('\n')}`
   ].join('\n\n')
   next.sections.architecture.items = [...nextSummary.technicalApproaches]
@@ -458,7 +458,7 @@ function applyIdeaAlignmentImpact(
 
   const acceptedObjective = next.objectives.find(item => item.status === 'accepted')
   if (acceptedObjective) {
-    acceptedObjective.title = nextSummary.mvpTarget
+    acceptedObjective.title = nextSummary.firstReleaseTarget
     acceptedObjective.description = nextSummary.desiredOutcome
   }
   next.requirements = next.requirements.filter(requirement =>

@@ -33,10 +33,12 @@ export function assessIdeaMaturity(project: ProjectDocumentV5): IdeaMaturityAsse
     { points: 10, passed: meaningful(summary.desiredOutcome, /doğrulanmalı|beklenen sonuç|belirsiz/), missing: 'Beklenen sonuç' },
     { points: 15, passed: summary.confirmedFeatures.length > 0, missing: 'Kapsam içi liste' },
     { points: 10, passed: summary.outOfScope.length > 0, missing: 'Kapsam dışı liste' },
-    // `mvpTarget` alan adı ve aşağıdaki yer tutucu deseni V3-04b'ye aittir:
-    // desen, kaydedilmiş belgelerdeki gerçek yer tutucu metni arar; değiştirmek
-    // yeniden adlandırma değil, ölçülen davranışın değişmesi olurdu.
-    { points: 10, passed: meaningful(summary.mvpTarget, /doğrulanmalı|mvp hedefi|belirsiz/), missing: 'Hedeflenen kapsam' },
+    // Alan adı V3-04b-2'de göç etti; aşağıdaki yer tutucu DESENİ bilerek
+    // dokunulmadan bırakıldı. Desen, kaydedilmiş belgelerdeki gerçek yer
+    // tutucu metni ("mvp hedefi") arar -- o metin diskte duruyor ve alan adı
+    // göçü onu yeniden yazmaz. Deseni değiştirmek yeniden adlandırma değil,
+    // ölçülen davranışın değişmesi olurdu.
+    { points: 10, passed: meaningful(summary.firstReleaseTarget, /doğrulanmalı|mvp hedefi|belirsiz/), missing: 'Hedeflenen kapsam' },
     { points: 10, passed: summary.openQuestions.length === 0, missing: 'Açık sorular' },
     { points: 10, passed: summary.userConfirmed, missing: 'Kullanıcı onayı' }
   ];

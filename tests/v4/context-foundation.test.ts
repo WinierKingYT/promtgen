@@ -42,7 +42,7 @@ function concept(partial: Partial<ConceptSummary> = {}): ConceptSummary {
     technicalApproaches: [],
     openQuestions: [],
     knownRisks: [],
-    mvpTarget: 'Iki oyuncunun ayni ati senkron gormesi.',
+    firstReleaseTarget: 'Iki oyuncunun ayni ati senkron gormesi.',
     userConfirmed: false,
     ...partial
   };
@@ -69,7 +69,7 @@ const FULL_GROUNDING: IdeaFoundationGrounding = {
   targetUser: { source: 'assumption' },
   currentAlternative: { source: 'unknown', reason: 'Fikirde bugunku cozumden hic soz edilmiyor.' },
   desiredOutcome: { source: 'fallback' },
-  mvpTarget: { source: 'idea' }
+  firstReleaseTarget: { source: 'idea' }
 };
 
 function foundationOf(project: ProjectDocumentV5, maxTokens = 4000): FoundationContext | undefined {
@@ -86,7 +86,7 @@ describe('buildBudgetedContext - baglama YALNIZ zeminli temel girer', () => {
     const foundation = foundationOf(withConcept(concept({ foundationGrounding: FULL_GROUNDING })));
     assert.ok(foundation, 'foundation baglamda olmali');
     assert.equal(field(foundation, 'summary')?.text, 'Unity uzerinde cok oyunculu bir at sistemi.');
-    assert.equal(field(foundation, 'mvpTarget')?.text, 'Iki oyuncunun ayni ati senkron gormesi.');
+    assert.equal(field(foundation, 'firstReleaseTarget')?.text, 'Iki oyuncunun ayni ati senkron gormesi.');
     assert.equal(field(foundation, 'summary')?.source, 'idea');
     assert.equal(field(foundation, 'summary')?.grounded, true);
   });
@@ -119,7 +119,7 @@ describe('buildBudgetedContext - baglama YALNIZ zeminli temel girer', () => {
   it('baglamda YALNIZ idea kokenli alanlar bulunur', () => {
     const foundation = foundationOf(withConcept(concept({ foundationGrounding: FULL_GROUNDING })));
     assert.ok(foundation);
-    assert.deepEqual(foundation.fields.map(entry => entry.field), ['summary', 'mvpTarget']);
+    assert.deepEqual(foundation.fields.map(entry => entry.field), ['summary', 'firstReleaseTarget']);
     for (const entry of foundation.fields) {
       assert.equal(entry.source, 'idea');
       assert.equal(entry.grounded, true);
@@ -138,14 +138,14 @@ describe('buildBudgetedContext - baglama YALNIZ zeminli temel girer', () => {
     const grounding: IdeaFoundationGrounding = {
       ...FULL_GROUNDING,
       summary: { source: 'assumption' },
-      mvpTarget: { source: 'assumption' }
+      firstReleaseTarget: { source: 'assumption' }
     };
     assert.equal(foundationOf(withConcept(concept({ foundationGrounding: grounding }))), undefined);
   });
 
   it('idea kokenli olsa da BOS metin girmez', () => {
-    const grounding: IdeaFoundationGrounding = { summary: { source: 'idea' }, mvpTarget: { source: 'idea' } };
-    const empty = concept({ summary: '   ', mvpTarget: '', foundationGrounding: grounding });
+    const grounding: IdeaFoundationGrounding = { summary: { source: 'idea' }, firstReleaseTarget: { source: 'idea' } };
+    const empty = concept({ summary: '   ', firstReleaseTarget: '', foundationGrounding: grounding });
     assert.equal(foundationOf(withConcept(empty)), undefined);
   });
 
@@ -160,7 +160,7 @@ describe('buildBudgetedContext - baglama YALNIZ zeminli temel girer', () => {
   it('SAFLIK: dar butcede kirpma bile kaynak belgeyi mutasyona ugratmaz', () => {
     const project = withConcept(concept({
       summary: 'S'.repeat(600),
-      mvpTarget: 'M'.repeat(600),
+      firstReleaseTarget: 'M'.repeat(600),
       foundationGrounding: FULL_GROUNDING
     }));
     const before = JSON.stringify(project);
@@ -174,7 +174,7 @@ describe('buildBudgetedContext - baglama YALNIZ zeminli temel girer', () => {
     assert.equal(foundationOf(baseProject()), undefined);
     const empty = concept({
       summary: '', targetUser: '', problemStatement: '',
-      currentAlternative: '', desiredOutcome: '', mvpTarget: '',
+      currentAlternative: '', desiredOutcome: '', firstReleaseTarget: '',
       foundationGrounding: FULL_GROUNDING
     });
     assert.equal(foundationOf(withConcept(empty)), undefined);
@@ -193,7 +193,7 @@ describe('buildBudgetedContext - temel butce kirpmasi', () => {
     targetUser: 'T'.repeat(400),
     currentAlternative: '',
     desiredOutcome: 'D'.repeat(400),
-    mvpTarget: 'M'.repeat(400),
+    firstReleaseTarget: 'M'.repeat(400),
     foundationGrounding: FULL_GROUNDING
   });
 
@@ -236,7 +236,7 @@ describe('gorev baglamlari', () => {
     const context = ideaExpansionTask.buildContext(project(), {}) as Record<string, unknown>;
     const foundation = context.foundation as FoundationContext | undefined;
     assert.ok(foundation, 'idea-expansion temeli gormeli');
-    assert.deepEqual(foundation.fields.map(entry => entry.field), ['summary', 'mvpTarget']);
+    assert.deepEqual(foundation.fields.map(entry => entry.field), ['summary', 'firstReleaseTarget']);
     assert.doesNotMatch(JSON.stringify(context), /rehine/i);
   });
 
@@ -244,7 +244,7 @@ describe('gorev baglamlari', () => {
     const context = ideaAxesTask.buildContext(project()) as Record<string, unknown>;
     const foundation = context.foundation as FoundationContext | undefined;
     assert.ok(foundation, 'idea-axes temeli gormeli');
-    assert.deepEqual(foundation.fields.map(entry => entry.field), ['summary', 'mvpTarget']);
+    assert.deepEqual(foundation.fields.map(entry => entry.field), ['summary', 'firstReleaseTarget']);
     assert.doesNotMatch(JSON.stringify(context), /rehine/i);
   });
 

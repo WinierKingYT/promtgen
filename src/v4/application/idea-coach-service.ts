@@ -54,7 +54,7 @@ function emptyConceptSummary(): ConceptSummary {
     technicalApproaches: [],
     openQuestions: [],
     knownRisks: [],
-    mvpTarget: '',
+    firstReleaseTarget: '',
     userConfirmed: false
   };
 }
@@ -263,7 +263,7 @@ export function buildIdeaCoachState(project: ProjectDocumentV5): IdeaCoachState 
   const userReady = meaningful(summary?.targetUser, 8);
   const alternativeReady = meaningful(summary?.currentAlternative, 12);
   const outcomeReady = meaningful(summary?.desiredOutcome || project.identity.desiredOutcome, 12);
-  const mvpReady = meaningful(summary?.mvpTarget, 12)
+  const mvpReady = meaningful(summary?.firstReleaseTarget, 12)
     && Boolean(summary?.confirmedFeatures?.length)
     && Boolean(summary?.outOfScope?.length);
   const risksReady = Boolean(summary?.knownRisks?.length);
@@ -297,7 +297,7 @@ export function buildIdeaCoachState(project: ProjectDocumentV5): IdeaCoachState 
     field('problem', 'Temel problem', text(summary?.problemStatement), statusFor({ exists: problemReady, confirmed, contradicted: contradiction.problem }), isFoundationDraft),
     field('user', 'Hedef kullanıcı', text(summary?.targetUser), statusFor({ exists: userReady, confirmed, contradicted: contradiction.user }), isFoundationDraft),
     field('value', 'Ana değer', text(summary?.desiredOutcome || project.identity.desiredOutcome), statusFor({ exists: alternativeReady && outcomeReady, confirmed, contradicted: contradiction.value }), isFoundationDraft),
-    field('mvp', 'İlk sürüm hipotezi', text(summary?.mvpTarget), statusFor({ exists: mvpReady, confirmed, contradicted: contradiction.mvp }), isFoundationDraft),
+    field('mvp', 'İlk sürüm hipotezi', text(summary?.firstReleaseTarget), statusFor({ exists: mvpReady, confirmed, contradicted: contradiction.mvp }), isFoundationDraft),
     field('risks', 'Kritik risk', text(summary?.knownRisks?.[0]), statusFor({ exists: risksReady, confirmed, contradicted: contradiction.risks, optional: true }), isFoundationDraft)
   ];
 

@@ -16,7 +16,7 @@ const FIELD_SECTIONS: Record<keyof IdeaDocumentSnapshot, string[]> = {
   technicalApproaches: ['decisions', 'architecture', 'tasks', 'testing'],
   openQuestions: ['vision', 'scope', 'requirements', 'decisions'],
   knownRisks: ['risks', 'tasks', 'testing'],
-  mvpTarget: ['objectives', 'scope', 'requirements', 'tasks']
+  firstReleaseTarget: ['objectives', 'scope', 'requirements', 'tasks']
 };
 
 const CANONICAL_BREAKING_FIELDS = new Set<keyof IdeaDocumentSnapshot>([
@@ -25,7 +25,7 @@ const CANONICAL_BREAKING_FIELDS = new Set<keyof IdeaDocumentSnapshot>([
   'desiredOutcome',
   'confirmedFeatures',
   'outOfScope',
-  'mvpTarget'
+  'firstReleaseTarget'
 ]);
 
 export function emptyPlanAlignment(reason = 'Canonical plan henüz fikir belgesinden üretilmedi.'): PlanAlignment {

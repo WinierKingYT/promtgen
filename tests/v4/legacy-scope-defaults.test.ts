@@ -96,7 +96,7 @@ function ideaProject(outOfScope: string[], confirmedFeatures: string[]): Project
     problemStatement: 'At mekaniği yok.',
     currentAlternative: 'Elle yazılmış prototip.',
     desiredOutcome: 'Çalışan at sistemi.',
-    mvpTarget: 'Tek at, tek sahne.',
+    firstReleaseTarget: 'Tek at, tek sahne.',
     confirmedFeatures,
     outOfScope,
     openQuestions: [],

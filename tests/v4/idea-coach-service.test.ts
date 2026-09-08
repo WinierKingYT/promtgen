@@ -112,7 +112,7 @@ test('idea coach shows claims as confirmed only after explicit summary approval'
   summary.targetUser = 'AI kodlama araçlarıyla çalışan bireysel geliştiriciler';
   summary.currentAlternative = 'Serbest biçimli sohbet ve birbirinden kopuk Markdown dosyaları';
   summary.desiredOutcome = 'Kullanıcı onaylı, izlenebilir ve uygulanabilir bir proje planı';
-  summary.mvpTarget = 'Bir fikri onaylı MVP kapsamına ve bağlantılı görevlere dönüştürmek';
+  summary.firstReleaseTarget = 'Bir fikri onaylı MVP kapsamına ve bağlantılı görevlere dönüştürmek';
   summary.confirmedFeatures = ['Fikir geliştirme', 'MVP kapsamı'];
   summary.outOfScope = ['Otomatik kod yazma'];
   summary.knownRisks = ['Kural tabanlı çıkarımın bağlamı yanlış yorumlaması'];

@@ -10,7 +10,7 @@ export type DiscoveryConceptField =
   | 'outOfScope'
   | 'technicalApproaches'
   | 'knownRisks'
-  | 'mvpTarget'
+  | 'firstReleaseTarget'
   | 'openQuestions';
 
 export type DiscoveryAnswerPatchStatus = 'pending' | 'accepted' | 'edited' | 'deferred' | 'rejected';
@@ -77,7 +77,7 @@ const FIELD_META: Record<DiscoveryConceptField, { label: string; kind: 'text' | 
   outOfScope: { label: 'Kapsam dışında', kind: 'list' },
   technicalApproaches: { label: 'Teknik yaklaşım', kind: 'list' },
   knownRisks: { label: 'Bilinen riskler', kind: 'list' },
-  mvpTarget: { label: 'İlk sürüm hedefi', kind: 'text' },
+  firstReleaseTarget: { label: 'İlk sürüm hedefi', kind: 'text' },
   openQuestions: { label: 'Açık kritik sorular', kind: 'list' }
 };
 
@@ -123,7 +123,7 @@ function inferQuestionFields(question: string): DiscoveryConceptField[] {
   add('confirmedFeatures', /mvp.*iç|ilk sürümde.*özellik|hangi özellik|kapsama al|must have/);
   add('technicalApproaches', /teknoloji|teknik yaklaşım|mimari|hangi araç|ne kullan|tech stack/);
   add('knownRisks', /risk|hassas veri|güvenlik|başarısız|security/);
-  add('mvpTarget', /mvp|ilk sürüm|ilk doğrulan|en küçük sürüm|first release/);
+  add('firstReleaseTarget', /mvp|ilk sürüm|ilk doğrulan|en küçük sürüm|first release/);
   return fields;
 }
 
@@ -136,7 +136,7 @@ const LABEL_PATTERNS: Array<[DiscoveryConceptField, RegExp]> = [
   ['desiredOutcome', /^(?:beklenen sonuç|ana sonuç|sonuç|desired outcome|outcome)\s*:/i],
   ['technicalApproaches', /^(?:teknik yaklaşım|teknoloji|mimari|tech stack|technology)\s*:/i],
   ['knownRisks', /^(?:bilinen riskler?|riskler?|risk|security)\s*:/i],
-  ['mvpTarget', /^(?:mvp hedefi|ilk sürüm hedefi|mvp|first release)\s*:/i]
+  ['firstReleaseTarget', /^(?:mvp hedefi|ilk sürüm hedefi|mvp|first release)\s*:/i]
 ];
 
 /**
@@ -203,7 +203,7 @@ function ruleSignalFields(clause: string): DiscoveryConceptField[] {
     add('technicalApproaches', /react|vue|angular|next\.?js|typescript|python|tauri|electron|flutter|postgres|sqlite|redis|kafka|mikroservis|microservice|server.?auth|local.?first/);
   }
   add('knownRisks', /risk|tehlike|güvenlik|hassas veri|gecikme|belirsizlik|security|privacy|failure/);
-  add('mvpTarget', /mvp hedef|ilk sürümün hedef|ilk doğrulan|first release goal/);
+  add('firstReleaseTarget', /mvp hedef|ilk sürümün hedef|ilk doğrulan|first release goal/);
   return fields;
 }
 

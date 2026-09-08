@@ -8,7 +8,7 @@
     "targetUser": "Ürününü tanıtmak isteyen bireysel geliştirici",
     "problem": "Ürünün değeri ve kullanıcı eylemi tek bir sayfada açık anlatılamıyor.",
     "desiredOutcome": "Ziyaretçi ürün değerini anlayıp iletişim eylemini tamamlar.",
-    "mvpTarget": "Tek sayfalık erişilebilir tanıtım ve iletişim akışı",
+    "firstReleaseTarget": "Tek sayfalık erişilebilir tanıtım ve iletişim akışı",
     "inScope": ["Değer önerisi", "İletişim formu", "Mobil uyum"],
     "outOfScope": ["Üyelik sistemi", "Ödeme altyapısı"],
     "requirements": [
@@ -26,7 +26,7 @@
     "targetUser": "Küçük işletme operasyon çalışanı",
     "problem": "Operasyon kayıtları dağınık tablolarda güncel tutulamıyor.",
     "desiredOutcome": "Yetkili kullanıcı kayıtları tek panelden güvenle yönetir.",
-    "mvpTarget": "Rol kontrollü listeleme, düzenleme ve denetim kaydı",
+    "firstReleaseTarget": "Rol kontrollü listeleme, düzenleme ve denetim kaydı",
     "inScope": ["Rol bazlı erişim", "Kayıt listeleme", "Değişiklik geçmişi"],
     "outOfScope": ["Mobil uygulama", "Gelişmiş analitik"],
     "requirements": [
@@ -44,7 +44,7 @@
     "targetUser": "API tüketen uygulama geliştiricisi",
     "problem": "Kaynak işlemleri için tutarlı ve belgelenmiş bir servis sözleşmesi yok.",
     "desiredOutcome": "İstemciler kaynak işlemlerini öngörülebilir yanıtlarla tamamlar.",
-    "mvpTarget": "Sürümlü CRUD uçları ve standart hata sözleşmesi",
+    "firstReleaseTarget": "Sürümlü CRUD uçları ve standart hata sözleşmesi",
     "inScope": ["CRUD uçları", "Girdi doğrulama", "API dokümantasyonu"],
     "outOfScope": ["GraphQL", "Gerçek zamanlı abonelik"],
     "requirements": [
@@ -62,7 +62,7 @@
     "targetUser": "Birden fazla müşteriyle çalışan bağımsız profesyonel",
     "problem": "Proje teslimleri ve müşteri durumu farklı araçlara dağılıyor.",
     "desiredOutcome": "Kullanıcı aktif işleri ve yaklaşan teslimleri tek görünümden yönetir.",
-    "mvpTarget": "Müşteri, proje ve teslim tarihi yönetimi",
+    "firstReleaseTarget": "Müşteri, proje ve teslim tarihi yönetimi",
     "inScope": ["Müşteri kaydı", "Proje takibi", "Teslim tarihi görünümü"],
     "outOfScope": ["Faturalama", "Takım sohbeti"],
     "requirements": [
@@ -80,7 +80,7 @@
     "targetUser": "Doğrudan satışa başlayan küçük üretici",
     "problem": "Ürünler çevrimiçi sergilenemiyor ve sipariş talepleri düzenli toplanamıyor.",
     "desiredOutcome": "Müşteri ürünü bulup doğrulanmış sipariş talebi oluşturur.",
-    "mvpTarget": "Ürün kataloğu, ürün detayı ve sipariş talebi",
+    "firstReleaseTarget": "Ürün kataloğu, ürün detayı ve sipariş talebi",
     "inScope": ["Ürün kataloğu", "Ürün detayı", "Sipariş talebi"],
     "outOfScope": ["Çevrimiçi ödeme", "Marketplace"],
     "requirements": [
@@ -98,7 +98,7 @@
     "targetUser": "Düzenli CSV verisi hazırlayan operasyon çalışanı",
     "problem": "Hatalı satırlar manuel kontrol edildiği için veri aktarımı gecikiyor.",
     "desiredOutcome": "Kullanıcı dosya hatalarını görüp temiz çıktıyı güvenle üretir.",
-    "mvpTarget": "Yerel CSV doğrulama, hata raporu ve temiz çıktı",
+    "firstReleaseTarget": "Yerel CSV doğrulama, hata raporu ve temiz çıktı",
     "inScope": ["CSV yükleme", "Satır doğrulama", "Hata raporu"],
     "outOfScope": ["Bulut depolama", "Excel makro desteği"],
     "requirements": [
@@ -116,7 +116,7 @@
     "targetUser": "Çok sayıda görevi sınıflandıran mevcut uygulama kullanıcısı",
     "problem": "Kullanıcı belirli bağlamdaki görevleri hızlıca ayıramıyor.",
     "desiredOutcome": "Görevler etiketlenir ve seçilen etikete göre güvenle filtrelenir.",
-    "mvpTarget": "Geriye uyumlu etiket ekleme ve filtreleme",
+    "firstReleaseTarget": "Geriye uyumlu etiket ekleme ve filtreleme",
     "inScope": ["Etiket ekleme", "Etiket filtresi", "Eski veri uyumluluğu"],
     "outOfScope": ["Etiket paylaşımı", "Otomatik etiketleme"],
     "requirements": [
@@ -134,7 +134,7 @@
     "targetUser": "İçerik yayınlayan küçük ekip üyesi",
     "problem": "İçerik işlemlerinde yetki sınırları ve sorumluluk kayıtları belirsiz.",
     "desiredOutcome": "Her rol yalnız izinli işlemleri yapar ve kritik denemeler izlenir.",
-    "mvpTarget": "İki rol, izin matrisi ve güvenlik olay kaydı",
+    "firstReleaseTarget": "İki rol, izin matrisi ve güvenlik olay kaydı",
     "inScope": ["Yönetici rolü", "Editör rolü", "Yetki kontrolü"],
     "outOfScope": ["Kurumsal SSO", "Özel rol tasarımcısı"],
     "requirements": [
@@ -152,7 +152,7 @@
     "targetUser": "İnternet bağlantısından bağımsız not tutan bireysel kullanıcı",
     "problem": "Bulut bağlantısı olmadığında notlara güvenilir biçimde erişilemiyor.",
     "desiredOutcome": "Kullanıcı çevrimdışı not oluşturur, arar ve yeniden açar.",
-    "mvpTarget": "Çevrimdışı not oluşturma, arama ve kalıcı kayıt",
+    "firstReleaseTarget": "Çevrimdışı not oluşturma, arama ve kalıcı kayıt",
     "inScope": ["Not oluşturma", "Yerel arama", "Kalıcı depolama"],
     "outOfScope": ["Bulut senkronizasyonu", "Ortak düzenleme"],
     "requirements": [
@@ -170,7 +170,7 @@
     "targetUser": "Uzun teknik dokümanlarla çalışan bireysel geliştirici",
     "problem": "Özetleme sırasında hangi içeriğin sağlayıcıya gönderildiği anlaşılamıyor.",
     "desiredOutcome": "Kullanıcı filtrelenmiş bağlamı görüp onayladıktan sonra taslak özet alır.",
-    "mvpTarget": "Bağlam seçimi, payload önizleme ve kullanıcı onaylı özet",
+    "firstReleaseTarget": "Bağlam seçimi, payload önizleme ve kullanıcı onaylı özet",
     "inScope": ["Doküman seçimi", "Payload önizleme", "Özet taslağı"],
     "outOfScope": ["Otomatik yayınlama", "Model eğitimi"],
     "requirements": [

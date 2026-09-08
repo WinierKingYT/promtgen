@@ -33,7 +33,7 @@ function ideaProject() {
     desiredOutcome: 'Net ve geliştirilebilir bir fikir belgesi.',
     confirmedFeatures: ['Fikir belgesi'],
     outOfScope: ['Bulut senkronizasyonu'],
-    mvpTarget: 'Fikri net bir MVP sınırına dönüştürmek.',
+    firstReleaseTarget: 'Fikri net bir MVP sınırına dönüştürmek.',
     openQuestions: [],
     userConfirmed: false
   };
@@ -78,7 +78,7 @@ describe('Living idea document revision history', () => {
   it('restores an old idea as a new document revision without overwriting canonical plan', () => {
     const original = ensureIdeaDocumentRevision(ideaProject());
     const changed = updateIdeaDocumentWithRevision(original, {
-      mvpTarget: 'İkinci ve daha geniş MVP hedefi.'
+      firstReleaseTarget: 'İkinci ve daha geniş MVP hedefi.'
     });
     changed.canonicalRevision = 4;
     changed.objectives.push({
@@ -95,7 +95,7 @@ describe('Living idea document revision history', () => {
     const result = restoreIdeaDocumentRevision(changed, changed.ideaDocumentRevisions[0].id);
     assert.equal(result.success, true);
     if (!result.success) return;
-    assert.equal(result.project.ideaLabSession!.conceptSummary!.mvpTarget, original.ideaLabSession!.conceptSummary!.mvpTarget);
+    assert.equal(result.project.ideaLabSession!.conceptSummary!.firstReleaseTarget, original.ideaLabSession!.conceptSummary!.firstReleaseTarget);
     assert.equal(result.project.ideaDocumentRevisions.at(-1)!.source, 'restore');
     assert.equal(result.project.ideaDocumentRevisions.at(-1)!.restoredFromRevision, 1);
     assert.equal(result.project.canonicalRevision, 4);
@@ -159,7 +159,7 @@ describe('Living idea document revision history', () => {
     assert.equal(converted.success, true);
     if (!converted.success) return;
     const changed = updateIdeaDocumentWithRevision(converted.project, {
-      mvpTarget: 'Takım kullanımını da kapsayan daha geniş hedef'
+      firstReleaseTarget: 'Takım kullanımını da kapsayan daha geniş hedef'
     });
     const legacy = structuredClone(changed) as Partial<typeof changed> & { schemaRevision: number };
     legacy.schemaRevision = 3;
@@ -172,7 +172,7 @@ describe('Living idea document revision history', () => {
     assert.equal(normalized.ideaDocumentRevisions.length, changed.ideaDocumentRevisions.length);
     assert.equal(normalized.sourceIdeaRevisionId, converted.project.ideaDocumentRevisions.at(-1)?.id);
     assert.equal(normalized.planAlignment.status, 'stale');
-    assert.deepEqual(normalized.planAlignment.changedFields, ['mvpTarget']);
+    assert.deepEqual(normalized.planAlignment.changedFields, ['firstReleaseTarget']);
     assert.equal(validateProjectDocument(normalized).valid, true);
   });
 
@@ -211,7 +211,7 @@ describe('Living idea document revision history', () => {
     assert.equal(converted.success, true);
     if (!converted.success) return;
     const changed = updateIdeaDocumentWithRevision(converted.project, {
-      mvpTarget: 'Yeni MVP hedefi'
+      firstReleaseTarget: 'Yeni MVP hedefi'
     });
     const deferred = deferPlanAlignment(changed);
     assert.equal(deferred.documentRevision, changed.documentRevision + 1);

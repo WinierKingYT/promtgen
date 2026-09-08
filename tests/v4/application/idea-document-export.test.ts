@@ -31,7 +31,7 @@ const CONCEPT: ConceptSummary = {
   technicalApproaches: [],
   openQuestions: ['Raporlar hangi motordan gelecek?'],
   knownRisks: [],
-  mvpTarget: 'Tek oyun için rapor akışı',
+  firstReleaseTarget: 'Tek oyun için rapor akışı',
   userConfirmed: false
 };
 
@@ -46,7 +46,7 @@ const GROUNDING: IdeaFoundationGrounding = {
   targetUser: { source: 'assumption' },
   currentAlternative: { source: 'unknown', reason: 'fikir metni mevcut çözümden hiç söz etmiyor' },
   desiredOutcome: { source: 'fallback' },
-  mvpTarget: { source: 'assumption' }
+  firstReleaseTarget: { source: 'assumption' }
 };
 
 function withConcept(overrides: Partial<ConceptSummary> = {}, grounding?: IdeaFoundationGrounding): ProjectDocumentV5 {

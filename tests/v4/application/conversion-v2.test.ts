@@ -262,7 +262,7 @@ describe('Kapsam kararları plana ulaşır', () => {
         problemStatement: 'İnternetsiz ortamda envanter güncellenemiyor.',
         currentAlternative: 'Kâğıt form',
         desiredOutcome: 'Çevrimdışı kayıt ve sonradan senkronizasyon',
-        mvpTarget: 'Tek cihazda çevrimdışı kayıt',
+        firstReleaseTarget: 'Tek cihazda çevrimdışı kayıt',
         confirmedFeatures: ['Çevrimdışı kayıt'],
         outOfScope: ['Çok kullanıcılı düzenleme'],
         technicalApproaches: [],

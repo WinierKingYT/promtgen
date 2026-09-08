@@ -28,7 +28,7 @@ export interface PlannerBenchmarkScenario {
   targetUser: string;
   problem: string;
   desiredOutcome: string;
-  mvpTarget: string;
+  firstReleaseTarget: string;
   inScope: string[];
   outOfScope: string[];
   requirements: PlannerBenchmarkRequirement[];
@@ -103,7 +103,7 @@ function buildScenarioProject(scenario: PlannerBenchmarkScenario): ProjectDocume
     outOfScope: scenario.outOfScope,
     technicalApproaches: [],
     knownRisks: ['Kapsamın kullanıcı onayı olmadan genişlemesi'],
-    mvpTarget: scenario.mvpTarget,
+    firstReleaseTarget: scenario.firstReleaseTarget,
     openQuestions: [],
     userConfirmed: true
   };
@@ -167,7 +167,7 @@ function buildScenarioProject(scenario: PlannerBenchmarkScenario): ProjectDocume
       const section = project.sections[sectionId];
       if (section && (section.status === 'stale' || (!section.content && !section.items.length))) {
         project = updatePlanSection(project, sectionId, {
-          content: `${section.title}: ${scenario.mvpTarget}. Kaynak benchmark senaryosu ${scenario.id}.`
+          content: `${section.title}: ${scenario.firstReleaseTarget}. Kaynak benchmark senaryosu ${scenario.id}.`
         }) as ProjectDocumentV5;
       }
     }

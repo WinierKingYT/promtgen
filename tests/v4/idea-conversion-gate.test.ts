@@ -139,7 +139,7 @@ describe('Bundle kapanışı kullanıcının kabulünü korur', () => {
         problemStatement: 'Toplantıda alınan kararlar dağınık notlarda kayboluyor.',
         currentAlternative: 'Notlar elle yazılıp paylaşılıyor, takibi yapılmıyor.',
         desiredOutcome: 'Her toplantı sonunda kararlar ve sahipleri net listelenir.',
-        mvpTarget: 'Tek ekipte, bir toplantının kararlarını çıkarıp paylaşmak.',
+        firstReleaseTarget: 'Tek ekipte, bir toplantının kararlarını çıkarıp paylaşmak.',
         confirmedFeatures: ['Toplantı notu yükleme', 'Karar çıkarma'],
         outOfScope: ['Takvim entegrasyonu'],
         technicalApproaches: [],

@@ -353,7 +353,7 @@ export function generateConceptSummaryProject(
       technicalApproaches: [approachDescription],
       openQuestions: initial.openQuestions.length ? initial.openQuestions : [profile.question],
       knownRisks: [...new Set([...initial.knownRisks, ...(selectedApproach?.risks || [profile.risk])])],
-      mvpTarget: initial.mvpTarget || `"${rawIdea.slice(0, 40)}" için temel fonksiyonel prototip`,
+      firstReleaseTarget: initial.firstReleaseTarget || `"${rawIdea.slice(0, 40)}" için temel fonksiyonel prototip`,
       userConfirmed: false
     }
   };

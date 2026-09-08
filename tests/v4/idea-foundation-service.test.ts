@@ -27,7 +27,7 @@ const GOOD_OUTPUT = {
   targetUser: { source: 'idea', text: 'Unity ile çok oyunculu at/binicilik mekaniği geliştiren oyun geliştiricisi' },
   currentAlternative: { source: 'unknown', reason: 'Fikir metninde bugünkü çözüm yöntemi hiç belirtilmemiş.' },
   desiredOutcome: { source: 'assumption', text: 'Birden fazla oyuncu aynı sunucuda senkronize biçimde at sürebilir' },
-  mvpTarget: { source: 'idea', text: 'Tek bir sahnede iki istemcinin senkronize at hareketini doğrulayan prototip' }
+  firstReleaseTarget: { source: 'idea', text: 'Tek bir sahnede iki istemcinin senkronize at hareketini doğrulayan prototip' }
 };
 
 const foundationProvider = (output: Record<string, unknown>) => ({
@@ -72,7 +72,7 @@ describe('generateIdeaFoundation', () => {
     assert.equal(result.summary.targetUser, GOOD_OUTPUT.targetUser.text);
     assert.equal(result.summary.currentAlternative, '', 'fikrin yanıtlamadığı alan boş bırakılır, dolgu metinle DOLDURULMAZ');
     assert.equal(result.summary.desiredOutcome, GOOD_OUTPUT.desiredOutcome.text);
-    assert.equal(result.summary.mvpTarget, GOOD_OUTPUT.mvpTarget.text);
+    assert.equal(result.summary.firstReleaseTarget, GOOD_OUTPUT.firstReleaseTarget.text);
     assert.equal(result.summary.userConfirmed, false);
   });
 
@@ -81,7 +81,7 @@ describe('generateIdeaFoundation', () => {
     const grounding = result.summary.foundationGrounding;
     assert.equal(grounding?.summary.source, 'idea');
     assert.equal(grounding?.targetUser.source, 'idea');
-    assert.equal(grounding?.mvpTarget.source, 'idea');
+    assert.equal(grounding?.firstReleaseTarget.source, 'idea');
     assert.equal(grounding?.problemStatement.source, 'assumption');
     assert.equal(grounding?.desiredOutcome.source, 'assumption');
   });
@@ -115,7 +115,7 @@ describe('generateIdeaFoundation', () => {
     assert.equal(result.summary.summary, GOOD_OUTPUT.summary.text, 'temiz alan etkilenmemeli');
     assert.equal(result.summary.currentAlternative, '', 'temiz (unknown) alan etkilenmemeli');
     assert.equal(result.summary.desiredOutcome, GOOD_OUTPUT.desiredOutcome.text, 'temiz alan etkilenmemeli');
-    assert.equal(result.summary.mvpTarget, GOOD_OUTPUT.mvpTarget.text, 'temiz alan etkilenmemeli');
+    assert.equal(result.summary.firstReleaseTarget, GOOD_OUTPUT.firstReleaseTarget.text, 'temiz alan etkilenmemeli');
   });
 
   it('zehirli hint aynı şekilde tek alanı düşürür (hedef kullanıcı örneği)', async () => {
@@ -180,7 +180,7 @@ describe('generateIdeaFoundation -- doğrulanmayan idea iddiasını düşürme',
     const grounding = (await generateIdeaFoundation(project(), { settings: aiSettings, provider: foundationProvider(output) })).summary.foundationGrounding;
 
     assert.equal(grounding?.targetUser.source, 'idea', 'fikirle bağdaşan idea alanı korunur');
-    assert.equal(grounding?.mvpTarget.source, 'idea', 'fikirle bağdaşan idea alanı korunur');
+    assert.equal(grounding?.firstReleaseTarget.source, 'idea', 'fikirle bağdaşan idea alanı korunur');
   });
 
   it('YÜKSELTME YOKTUR: assumption ve unknown alanlarına hiç dokunulmaz', async () => {
@@ -206,10 +206,10 @@ describe('generateIdeaFoundation -- doğrulanmayan idea iddiasını düşürme',
   });
 
   it('Türkçe çekim haksız düşürme yapmaz: fikirdeki "at", metindeki "atların" ile eşleşir', async () => {
-    const output = { ...GOOD_OUTPUT, mvpTarget: { source: 'idea', text: 'Atların senkronize hareketini iki istemcide doğrulamak' } };
+    const output = { ...GOOD_OUTPUT, firstReleaseTarget: { source: 'idea', text: 'Atların senkronize hareketini iki istemcide doğrulamak' } };
     const grounding = (await generateIdeaFoundation(project(), { settings: aiSettings, provider: foundationProvider(output) })).summary.foundationGrounding;
 
-    assert.equal(grounding?.mvpTarget.source, 'idea', 'çekim eki düşürme sebebi olamaz');
+    assert.equal(grounding?.firstReleaseTarget.source, 'idea', 'çekim eki düşürme sebebi olamaz');
   });
 
   it('düşürme kararı sağlayıcı çıktısını mutasyona uğratmaz', async () => {

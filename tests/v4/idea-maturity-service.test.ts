@@ -19,7 +19,7 @@ describe('idea maturity recommendation', () => {
       desiredOutcome: 'Onaylanmış ve izlenebilir proje planı.',
       confirmedFeatures: ['Fikir belgesi'],
       outOfScope: ['Bulut senkronizasyonu'],
-      mvpTarget: 'Fikri onaylı MVP sınırına dönüştürmek.',
+      firstReleaseTarget: 'Fikri onaylı MVP sınırına dönüştürmek.',
       openQuestions: [],
       userConfirmed: false
     });
@@ -36,7 +36,7 @@ describe('idea maturity recommendation', () => {
       desiredOutcome: 'Onaylanmış ve izlenebilir proje planı.',
       confirmedFeatures: ['Fikir belgesi'],
       outOfScope: ['Bulut senkronizasyonu'],
-      mvpTarget: 'Fikri onaylı MVP sınırına dönüştürmek.',
+      firstReleaseTarget: 'Fikri onaylı MVP sınırına dönüştürmek.',
       openQuestions: [],
       userConfirmed: true
     });

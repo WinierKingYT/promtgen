@@ -406,13 +406,14 @@ export function calculateReadiness(project: ProjectDocumentV5): {
   const checks: ReadinessCheck[] = [
     check({ id: 'complete.concept', dimension: 'completeness', label: 'Hedef kullanıcı ve problem onaylı', passed: Boolean(summary?.userConfirmed && clean(summary.targetUser) && clean(summary.problemStatement)), points: 20, failure: 'Hedef kullanıcı, problem ve sistem yorumu kullanıcı tarafından onaylanmalı.', blocking: true, sectionId: 'vision', actionLabel: 'Ürün yorumunu netleştir' }),
     // Kapsam kapıları `ConceptSummary.confirmedFeatures` / `outOfScope` /
-    // `mvpTarget` alanlarını okur. Alan adları kaydedilmiş belgelerde ve
-    // `IdeaDocumentRevision` anlık görüntülerinde duruyor; yeniden adlandırılmaları
-    // veri göçü gerektirir ve V3-04b paketine aittir. Buradaki kimlikler ve
-    // metinler okunan alanı değil, doğrulanan koşulu adlandırır.
+    // `firstReleaseTarget` alanlarını okur. Buradaki kimlikler ve metinler
+    // okunan alanı değil, DOĞRULANAN KOŞULU adlandırır; bu yüzden V3-04b-2'nin
+    // alan adı göçü onlara dokunmadı ve kayıtlı readiness kimlikleri
+    // (`complete.scope-in` / `complete.scope-out` / `complete.outcome`)
+    // olduğu gibi kaldı.
     check({ id: 'complete.scope-in', dimension: 'completeness', label: 'Kapsam içi liste tanımlı', passed: Boolean(summary?.userConfirmed && summary.confirmedFeatures.length), points: 20, failure: 'Kapsam içinde yer alan özellikler onaylanmalı.', blocking: true, sectionId: 'scope', actionLabel: 'Kapsam içini belirle' }),
     check({ id: 'complete.scope-out', dimension: 'completeness', label: 'Kapsam dışı liste tanımlı', passed: Boolean(summary?.userConfirmed && summary.outOfScope.length), points: 15, failure: 'Kapsam dışı liste onaylanmalı.', blocking: true, sectionId: 'scope', actionLabel: 'Kapsam dışını belirle' }),
-    check({ id: 'complete.outcome', dimension: 'completeness', label: 'Beklenen sonuç tanımlı', passed: Boolean(clean(summary?.desiredOutcome) && clean(summary?.mvpTarget)), points: 15, failure: 'Beklenen ürün sonucu ve hedeflenen kapsam netleştirilmeli.', warning: true, sectionId: 'vision', actionLabel: 'Başarı sonucunu netleştir' }),
+    check({ id: 'complete.outcome', dimension: 'completeness', label: 'Beklenen sonuç tanımlı', passed: Boolean(clean(summary?.desiredOutcome) && clean(summary?.firstReleaseTarget)), points: 15, failure: 'Beklenen ürün sonucu ve hedeflenen kapsam netleştirilmeli.', warning: true, sectionId: 'vision', actionLabel: 'Başarı sonucunu netleştir' }),
     check({ id: 'complete.questions', dimension: 'completeness', label: 'Kritik açık soru yok', passed: openCriticalQuestions.length === 0, points: 15, failure: `${openCriticalQuestions.length} kritik soru cevap bekliyor.`, blocking: true, sectionId: 'scope', actionLabel: 'Kritik soruları kapat', evidence: { satisfied: 0, total: openCriticalQuestions.length } }),
     check({ id: 'complete.sections', dimension: 'completeness', label: 'Zorunlu plan bölümleri dolu', passed: emptyRequired.length === 0, points: 15, failure: `${emptyRequired.map(item => item.title).join(', ')} bölümü boş.`, blocking: true, entityIds: emptyRequired.map(item => item.id), sectionId: emptyRequired[0]?.id, actionLabel: 'Eksik plan bölümünü tamamla', partialCredit: ratio(requiredSections.length - emptyRequired.length, requiredSections.length, 1), evidence: { satisfied: requiredSections.length - emptyRequired.length, total: requiredSections.length } }),
 

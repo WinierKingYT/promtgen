@@ -21,7 +21,7 @@ const CONCEPT: ConceptSummary = {
   technicalApproaches: [],
   openQuestions: [],
   knownRisks: [],
-  mvpTarget: 'Tek şehir için rota önerisi',
+  firstReleaseTarget: 'Tek şehir için rota önerisi',
   userConfirmed: false
 };
 
@@ -89,7 +89,7 @@ describe('buildIdeaStateView', () => {
     assert.equal(view.foundation.hasContent, true);
     assert.equal(view.foundation.isUnreviewedDraft, false);
     assert.equal(view.foundation.summary, CONCEPT.summary);
-    assert.equal(view.foundation.mvpTarget, CONCEPT.mvpTarget);
+    assert.equal(view.foundation.firstReleaseTarget, CONCEPT.firstReleaseTarget);
   });
 
   it('provenance set ve onaylanmamışsa taslak olarak işaretler', () => {
@@ -354,7 +354,7 @@ describe('buildIdeaStateView', () => {
           targetUser: { source: 'idea' },
           currentAlternative: { source: 'unknown', reason: 'Fikirde bugünkü çözüm yöntemi belirtilmemiş.' },
           desiredOutcome: { source: 'assumption' },
-          mvpTarget: { source: 'idea' }
+          firstReleaseTarget: { source: 'idea' }
         }
       }
     };
@@ -363,7 +363,7 @@ describe('buildIdeaStateView', () => {
     assert.equal(view.foundation.fields.problemStatement.source, 'assumption');
     assert.equal(view.foundation.fields.targetUser.source, 'idea');
     assert.equal(view.foundation.fields.desiredOutcome.source, 'assumption');
-    assert.equal(view.foundation.fields.mvpTarget.source, 'idea');
+    assert.equal(view.foundation.fields.firstReleaseTarget.source, 'idea');
   });
 
   it('foundationGrounding yoksa (eski belge) hiçbir alan idea-grounded İDDİA EDİLMEZ', () => {
@@ -387,7 +387,7 @@ describe('buildIdeaStateView', () => {
           targetUser: { source: 'idea' },
           currentAlternative: { source: 'idea' },
           desiredOutcome: { source: 'idea' },
-          mvpTarget: { source: 'idea' }
+          firstReleaseTarget: { source: 'idea' }
         }
       }
     };
@@ -407,7 +407,7 @@ describe('buildIdeaStateView', () => {
         targetUser: '',
         currentAlternative: '',
         desiredOutcome: '',
-        mvpTarget: '',
+        firstReleaseTarget: '',
         userConfirmed: false,
         foundationGrounding: {
           summary: { source: 'unknown', reason: 'Fikir çok kısa, özet çıkarılamadı.' },
@@ -415,7 +415,7 @@ describe('buildIdeaStateView', () => {
           targetUser: { source: 'unknown', reason: 'Hedef kullanıcı belirtilmemiş.' },
           currentAlternative: { source: 'unknown', reason: 'Belirtilmemiş.' },
           desiredOutcome: { source: 'unknown', reason: 'Belirtilmemiş.' },
-          mvpTarget: { source: 'unknown', reason: 'Belirtilmemiş.' }
+          firstReleaseTarget: { source: 'unknown', reason: 'Belirtilmemiş.' }
         }
       }
     };

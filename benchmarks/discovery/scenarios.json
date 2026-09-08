@@ -16,7 +16,7 @@
       "desiredOutcome": "Kritik stok eşiği aşıldığında restoran sahibinin aynı gün uyarı alması",
       "confirmedFeatures": ["Stok kalemi kaydı", "Kritik eşik uyarısı", "Günlük kayıp özeti"],
       "outOfScope": ["Otomatik satın alma", "Müşteri öneri motoru"],
-      "mvpTarget": "Tek restoranın kritik stoklarını web arayüzünden izleyebildiği ilk sürüm"
+      "firstReleaseTarget": "Tek restoranın kritik stoklarını web arayüzünden izleyebildiği ilk sürüm"
     },
     "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 75 }
   },
@@ -37,7 +37,7 @@
       "desiredOutcome": "Kullanıcının güncel görevini ve sıradaki işi tek ekranda görmesi",
       "confirmedFeatures": ["Görev oluşturma", "Öncelik belirleme", "Tamamlandı işaretleme"],
       "outOfScope": ["Ekip paylaşımı", "Rol yönetimi", "Gerçek zamanlı işbirliği"],
-      "mvpTarget": "Tek kullanıcılı yerel görev takip akışı"
+      "firstReleaseTarget": "Tek kullanıcılı yerel görev takip akışı"
     },
     "thresholds": { "minimumConcernRecall": 0.66, "maximumInterpretationConfidence": 65 }
   },
@@ -58,7 +58,7 @@
       "desiredOutcome": "Saniyede 100 istekte yüzde 99,9 erişilebilirliğin ölçülmesi",
       "confirmedFeatures": ["REST endpoint", "Hata bütçesi ölçümü", "Sağlık kontrolü"],
       "outOfScope": ["Milyonlarca anlık istek", "Sıfır maliyet garantisi"],
-      "mvpTarget": "Ölçülebilir performans ve erişilebilirlik hedefli tek servis"
+      "firstReleaseTarget": "Ölçülebilir performans ve erişilebilirlik hedefli tek servis"
     },
     "thresholds": { "minimumConcernRecall": 0.66, "maximumInterpretationConfidence": 65 }
   },
@@ -79,7 +79,7 @@
       "desiredOutcome": "Güncel mahalle duyurularının tek yerde bulunması",
       "confirmedFeatures": ["Duyuru yayınlama", "Duyuru listeleme", "Süre dolumu"],
       "outOfScope": ["Mikroservis ayrıştırması", "Gerçek zamanlı mesajlaşma"],
-      "mvpTarget": "Tek mahalle için temel web duyuru akışı"
+      "firstReleaseTarget": "Tek mahalle için temel web duyuru akışı"
     },
     "thresholds": { "minimumConcernRecall": 0.66, "maximumInterpretationConfidence": 70 }
   },
@@ -100,7 +100,7 @@
       "desiredOutcome": "Hastanın kendi notlarını randevu öncesi düzenli görmesi",
       "confirmedFeatures": ["Yerel semptom notu", "Tarih kaydı", "Kullanıcı kontrollü silme"],
       "outOfScope": ["Klinik öneri", "Kimlik ve konum toplama", "Doktora otomatik veri gönderme"],
-      "mvpTarget": "Veriyi cihazdan çıkarmayan kişisel randevu hazırlık akışı"
+      "firstReleaseTarget": "Veriyi cihazdan çıkarmayan kişisel randevu hazırlık akışı"
     },
     "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 75 }
   },
@@ -121,7 +121,7 @@
       "desiredOutcome": "Çalışanın çevrimdışı kaydı saklayıp bağlantıda göndermesi",
       "confirmedFeatures": ["PWA kayıt formu", "Yerel taslak", "Tek yönlü senkronizasyon"],
       "outOfScope": ["Yerel mobil uygulama", "Masaüstü uygulaması", "Çift yönlü çakışma çözümü"],
-      "mvpTarget": "Web PWA üzerinde çevrimdışı tek kayıt akışı"
+      "firstReleaseTarget": "Web PWA üzerinde çevrimdışı tek kayıt akışı"
     },
     "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 65 }
   },
@@ -142,7 +142,7 @@
       "desiredOutcome": "Müşterinin ürün görüp sipariş talebi bırakması",
       "confirmedFeatures": ["Ürün listesi", "Ürün detayı", "Sipariş talebi"],
       "outOfScope": ["Global marketplace", "Gelişmiş analitik", "Kurumsal raporlama"],
-      "mvpTarget": "Tek mağazalı sipariş talebi akışı"
+      "firstReleaseTarget": "Tek mağazalı sipariş talebi akışı"
     },
     "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 65 }
   },
@@ -163,7 +163,7 @@
       "desiredOutcome": "İlgili doküman özetinin hassas içerik gönderilmeden bulunması",
       "confirmedFeatures": ["Yerel dosya seçimi", "Yerel özet", "Gönderim önizlemesi"],
       "outOfScope": ["Kontrolsüz tam dosya yükleme", "Otomatik kod değiştirme"],
-      "mvpTarget": "Tek klasörde yerel doküman özetleme akışı"
+      "firstReleaseTarget": "Tek klasörde yerel doküman özetleme akışı"
     },
     "thresholds": { "minimumConcernRecall": 1, "maximumInterpretationConfidence": 75 }
   }

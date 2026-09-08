@@ -69,6 +69,14 @@ export function migrateLegacyToV5(input) {
     };
     project.modules = structuredClone(source.modules || project.modules);
     project.readiness = structuredClone(source.readiness || project.readiness);
+    // Körlemesine klonlanır ve bu BİLEREK böyledir: alan adı eşlemesi burada
+    // DEĞİL, `normalizeProjectDocument` içindedir (`migrateFirstReleaseTarget`).
+    // Sebep ölçülmüştür -- bugün diskte duran belge zaten 5.7'dir ve
+    // `tryMigrateOrPassthrough` onu bu fonksiyona hiç uğratmadan passthrough
+    // dalına sokar. Eşleme burada dursaydı en yaygın okuma yolunu kaçırırdı.
+    // Her iki dal da `normalizeProjectDocument`ten geçer; eşlemenin tek evi
+    // orasıdır. Aynısı aşağıdaki `revisions` (ARRAY_FIELDS) klonu için de
+    // geçerlidir: plan sürümü anlık görüntüleri de orada göç eder.
     project.ideaLabSession = structuredClone(source.ideaLabSession || project.ideaLabSession);
     project.ideaDiscussion = structuredClone(source.ideaDiscussion || project.ideaDiscussion);
     if (source.ideaExpansionSession) project.ideaExpansionSession = structuredClone(source.ideaExpansionSession);

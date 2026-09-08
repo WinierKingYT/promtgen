@@ -37,7 +37,7 @@ function groundedProject(targetUser: string): ProjectDocumentV5 {
     technicalApproaches: [],
     openQuestions: [],
     knownRisks: [],
-    mvpTarget: '',
+    firstReleaseTarget: '',
     userConfirmed: false,
     foundationGrounding: {
       summary: { source: 'assumption' },
@@ -45,7 +45,7 @@ function groundedProject(targetUser: string): ProjectDocumentV5 {
       targetUser: { source: 'idea' },
       currentAlternative: { source: 'unknown', reason: 'Fikirde geçmiyor.' },
       desiredOutcome: { source: 'assumption' },
-      mvpTarget: { source: 'assumption' }
+      firstReleaseTarget: { source: 'assumption' }
     }
   };
   target.ideaLabSession = {

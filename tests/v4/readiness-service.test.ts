@@ -22,7 +22,7 @@ function readyProject(): ProjectDocumentV5 {
     technicalApproaches: [],
     openQuestions: [],
     knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
-    mvpTarget: 'Görev oluşturma, kabul kriteri ekleme ve test bağlantısı kurma akışını tamamlayan ilk sürüm',
+    firstReleaseTarget: 'Görev oluşturma, kabul kriteri ekleme ve test bağlantısı kurma akışını tamamlayan ilk sürüm',
     userConfirmed: false
   };
   project = confirmConceptSummary(project);

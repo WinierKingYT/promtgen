@@ -322,10 +322,10 @@ function validateIdeaDocumentRevisions(doc: Loose, errors: string[]): void {
         // yalnız plana dönüştürülmüş sürümler için anlamlıdır.
         const snapshot = toRecord(revision?.snapshot);
         const summary = snapshot?.summary;
-        const mvpTarget = snapshot?.mvpTarget;
-        if (typeof summary !== 'string' || typeof mvpTarget !== 'string') {
+        const firstReleaseTarget = snapshot?.firstReleaseTarget;
+        if (typeof summary !== 'string' || typeof firstReleaseTarget !== 'string') {
             errors.push(`Fikir belgesi sürüm anlık görüntüsü geçersiz: ${revision?.id || 'boş'}`);
-        } else if (revision?.status === 'converted' && (!summary.trim() || !mvpTarget.trim())) {
+        } else if (revision?.status === 'converted' && (!summary.trim() || !firstReleaseTarget.trim())) {
             errors.push(`Fikir belgesi sürüm içeriği eksik: ${revision?.id || 'boş'}`);
         }
         if (revision && revision.status === 'converted' && !isIntegerValue(revision.convertedCanonicalRevision)) {
@@ -395,7 +395,7 @@ function validateConceptSummary(doc: Loose, errors: string[]): void {
     // bilgiyi dürüstçe temsil eder; sistem bu alanları kendiliğinden
     // dolduramayacağı için (bkz. analyzeIdea) doluluk şartı ancak onay
     // anında anlamlıdır.
-    for (const field of ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'mvpTarget'] as const) {
+    for (const field of ['summary', 'targetUser', 'problemStatement', 'currentAlternative', 'desiredOutcome', 'firstReleaseTarget'] as const) {
         const fieldValue = conceptSummary[field];
         if (typeof fieldValue !== 'string') errors.push(`Konsept yorum alanı geçersiz: ${field}`);
         else if (conceptSummary.userConfirmed && !fieldValue.trim()) errors.push(`Konsept yorum alanı eksik: ${field}`);

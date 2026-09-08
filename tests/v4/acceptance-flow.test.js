@@ -34,7 +34,7 @@ project.ideaLabSession.conceptSummary = {
     technicalApproaches: [],
     openQuestions: [],
     knownRisks: ['Kapsamın kullanıcı doğrulaması olmadan genişlemesi'],
-    mvpTarget: 'Alışkanlık ekleme ve ilerleme görünümünü tamamlayan ilk sürüm',
+    firstReleaseTarget: 'Alışkanlık ekleme ve ilerleme görünümünü tamamlayan ilk sürüm',
     userConfirmed: false
 };
 project = confirmConceptSummary(project);

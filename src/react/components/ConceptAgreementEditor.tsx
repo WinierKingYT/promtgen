@@ -8,7 +8,7 @@ import { findRemovedScopeDefaults } from '../../v4/application/legacy-scope-defa
 type EditableAgreement = Pick<
   ConceptSummary,
   'summary' | 'targetUser' | 'problemStatement' | 'currentAlternative' | 'desiredOutcome' |
-  'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'mvpTarget'
+  'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'firstReleaseTarget'
 >;
 
 function toDraft(summary: ConceptSummary) {
@@ -18,7 +18,7 @@ function toDraft(summary: ConceptSummary) {
     problemStatement: summary.problemStatement,
     currentAlternative: summary.currentAlternative,
     desiredOutcome: summary.desiredOutcome,
-    mvpTarget: summary.mvpTarget,
+    firstReleaseTarget: summary.firstReleaseTarget,
     confirmedFeatures: summary.confirmedFeatures.join('\n'),
     outOfScope: summary.outOfScope.join('\n'),
     technicalApproaches: summary.technicalApproaches.join('\n'),
@@ -52,7 +52,7 @@ export function ConceptAgreementEditor({ project, onCommit }: {
     draft.problemStatement,
     draft.currentAlternative,
     draft.desiredOutcome,
-    draft.mvpTarget
+    draft.firstReleaseTarget
   ];
   const valid = requiredText.every(value => value.trim())
     && lines(draft.confirmedFeatures).length > 0
@@ -66,7 +66,7 @@ export function ConceptAgreementEditor({ project, onCommit }: {
       problemStatement: draft.problemStatement,
       currentAlternative: draft.currentAlternative,
       desiredOutcome: draft.desiredOutcome,
-      mvpTarget: draft.mvpTarget,
+      firstReleaseTarget: draft.firstReleaseTarget,
       confirmedFeatures: lines(draft.confirmedFeatures),
       outOfScope: lines(draft.outOfScope),
       technicalApproaches: lines(draft.technicalApproaches),
@@ -140,7 +140,7 @@ export function ConceptAgreementEditor({ project, onCommit }: {
       <label>Ana problem<small>Kullanıcının bugün yaşadığı somut sorun</small><textarea aria-invalid={!draft.problemStatement.trim()} value={draft.problemStatement} onChange={event => setDraft({ ...draft, problemStatement: event.target.value })}/></label>
       <label>Bugünkü çözüm<small>Bu problem şu anda nasıl çözülüyor?</small><textarea aria-invalid={!draft.currentAlternative.trim()} value={draft.currentAlternative} onChange={event => setDraft({ ...draft, currentAlternative: event.target.value })}/></label>
       <label>Beklenen ana sonuç<small>Ürün kullanıldığında ne değişecek?</small><textarea aria-invalid={!draft.desiredOutcome.trim()} value={draft.desiredOutcome} onChange={event => setDraft({ ...draft, desiredOutcome: event.target.value })}/></label>
-      <label>İlk sürüm hedefi<small>İlk sürümün tek doğrulanabilir sonucu</small><textarea aria-invalid={!draft.mvpTarget.trim()} value={draft.mvpTarget} onChange={event => setDraft({ ...draft, mvpTarget: event.target.value })}/></label>
+      <label>İlk sürüm hedefi<small>İlk sürümün tek doğrulanabilir sonucu</small><textarea aria-invalid={!draft.firstReleaseTarget.trim()} value={draft.firstReleaseTarget} onChange={event => setDraft({ ...draft, firstReleaseTarget: event.target.value })}/></label>
     </div>
     <div className="agreement-grid">
       {listField('confirmedFeatures', 'Kapsam içinde', 'En az bir madde · her satıra bir özellik')}

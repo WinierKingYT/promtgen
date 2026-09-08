@@ -77,7 +77,7 @@ function buildConversionCandidate(project: ProjectDocumentV5): ProjectDocumentV5
   if (!next.objectives.some(item => item.status === 'accepted')) {
     next.objectives.push(normalizeObjective({
       id: objectiveId(next),
-      title: summary.mvpTarget,
+      title: summary.firstReleaseTarget,
       description: summary.desiredOutcome,
       metric: 'Kullanıcı onaylı ilk sürüm akışının tamamlanması',
       target: 'Onaylanan kapsamın kabul kriterlerinin karşılanması',
@@ -109,7 +109,7 @@ export function previewIdeaPlanConversion(project: ProjectDocumentV5): IdeaPlanC
     canConvert: !alreadyConverted && blockers.length === 0,
     alreadyConverted,
     blockers,
-    objective: summary?.mvpTarget || '',
+    objective: summary?.firstReleaseTarget || '',
     objectiveCount: candidate ? Math.max(0, candidate.objectives.length - project.objectives.length) : 0,
     requirementTitles: candidate
       ? candidate.requirements.filter(item => !existingRequirementIds.has(item.id)).map(item => item.title)

@@ -589,6 +589,65 @@ export function normalizeImplementationEvidencePackage(value: Partial<Implementa
 }
 
 /**
+ * V3-04b-2 -- `ConceptSummary.mvpTarget` → `firstReleaseTarget` ALAN GÖÇÜ.
+ *
+ * Neden bir göç gerekiyor: bu alan kullanıcının diskindeki belgede YAZILIDIR.
+ * Yalnız arayüzü yeniden adlandırmak, kayıtlı belgeyi okuyan her yerde
+ * `undefined` üretirdi -- kullanıcı kendi geçmişinde boşalmış bir alan
+ * görürdü. Kayıp sessiz olurdu: hiçbir tip hatası, hiçbir test düşmezdi.
+ *
+ * Neden ÜÇ yer: alan tek bir yerde durmuyor.
+ *   1. `ideaLabSession.conceptSummary` -- belgenin canlı hâli.
+ *   2. `ideaDocumentRevisions[].snapshot` -- fikir belgesinin her sürümü.
+ *   3. `revisions[].snapshot` -- plan sürümü, `Omit<ProjectDocumentV5,'revisions'>`
+ *      yani KENDİ `ideaLabSession` ve `ideaDocumentRevisions`ını taşıyan tam
+ *      bir proje kopyası. Bu yüzden (1) ve (2) o kopyanın içinde TEKRAR aranır.
+ * Yalnız (1)'i düzelten bir göç, kullanıcının sürüm geçmişini boşaltırdı.
+ *
+ * Neden BURADA, `migrations.js` içinde değil: bugün diskte duran belge zaten
+ * `schemaVersion 5 / schemaRevision 7`dir. `tryMigrateOrPassthrough` onu
+ * "geçiş gerekmiyor" dalına sokar ve `migrateLegacyToV5` hiç çalışmaz. O
+ * dal da dahil BÜTÜN okuma yolları `normalizeProjectDocument`ten geçer;
+ * göç tek yerde durabilsin diye buraya konuldu. Aynı sebeple `schemaRevision`
+ * yükseltilmedi: yükseltme, göçü zaten koşan bir yolu ikinci kez kapılamak
+ * olurdu (V3 aşama kapsayıcılarında verilen "eklemeli, yüklenirken bedava
+ * göç" kararının aynısı).
+ *
+ * Eşleme YALNIZ tek yönlüdür ve idempotenttir: yeni ad zaten yazılıysa eski
+ * anahtar onu EZMEZ, yalnız silinir. Eski anahtar her durumda silinir --
+ * bırakılırsa `{...source}` yayılımıyla geri kopyalanır ve defterde
+ * yaşamaya devam ederdi.
+ */
+function migrateFirstReleaseTargetKey(holder: unknown): void {
+    if (!holder || typeof holder !== 'object') return;
+    const record = holder as Record<string, unknown>;
+    if (!('mvpTarget' in record)) return;
+    if (record.firstReleaseTarget === undefined) record.firstReleaseTarget = record.mvpTarget;
+    delete record.mvpTarget;
+}
+
+/** Bir proje gövdesindeki (1) canlı özet ve (2) fikir sürüm anlık görüntüleri. */
+function migrateFirstReleaseTargetInDocument(document: unknown): void {
+    if (!document || typeof document !== 'object') return;
+    const record = document as { ideaLabSession?: { conceptSummary?: unknown }; ideaDocumentRevisions?: unknown };
+    migrateFirstReleaseTargetKey(record.ideaLabSession?.conceptSummary);
+    if (!Array.isArray(record.ideaDocumentRevisions)) return;
+    for (const revision of record.ideaDocumentRevisions) {
+        migrateFirstReleaseTargetKey((revision as { snapshot?: unknown } | null)?.snapshot);
+    }
+}
+
+/** Belgenin kendisi + (3) her plan sürümünün içindeki tam proje kopyası. */
+function migrateFirstReleaseTarget(project: unknown): void {
+    migrateFirstReleaseTargetInDocument(project);
+    const revisions = (project as { revisions?: unknown }).revisions;
+    if (!Array.isArray(revisions)) return;
+    for (const revision of revisions) {
+        migrateFirstReleaseTargetInDocument((revision as { snapshot?: unknown } | null)?.snapshot);
+    }
+}
+
+/**
  * `normalizeProjectDocument` yalnız BİR belge sürümünün göç edeceğini
  * varsaymaz: canonical belge V2 şemasının `revision` alanını V5'in
  * `documentRevision`/`canonicalRevision` ikilisine göç ederken siler
@@ -608,6 +667,9 @@ export function normalizeProjectDocument(project: unknown): ProjectDocumentV5 {
     // yerde yapılır; aşağıdaki ~250 satır artık gerçek arayüze karşı
     // denetlenir.
     const next: ProjectDraft = structuredClone(project) as ProjectDraft;
+    // Alan adı göçü, normalizasyonun GERİ KALANINDAN ÖNCE koşar: aşağıdaki
+    // her okuyucu yeni adı bekler (bkz. `migrateFirstReleaseTarget`).
+    migrateFirstReleaseTarget(next);
     const sourceSchemaRevision = Math.max(1, Number(next.schemaRevision || 1));
     next.schemaVersion = 5;
     next.schemaRevision = 7;
@@ -754,7 +816,7 @@ export function normalizeProjectDocument(project: unknown): ProjectDocumentV5 {
             technicalApproaches: list(revision?.snapshot?.technicalApproaches),
             openQuestions: list(revision?.snapshot?.openQuestions),
             knownRisks: list(revision?.snapshot?.knownRisks),
-            mvpTarget: text(revision?.snapshot?.mvpTarget)
+            firstReleaseTarget: text(revision?.snapshot?.firstReleaseTarget)
         }
     })) : [];
     const convertedIdeaRevision = [...next.ideaDocumentRevisions].reverse()
@@ -858,7 +920,7 @@ export function normalizeProjectDocument(project: unknown): ProjectDocumentV5 {
                 ...(needsReconfirmation ? ['Yeni hedef kullanıcı ve problem alanları migration sonrası doğrulanmalı.'] : [])
             ],
             knownRisks: list(source.knownRisks),
-            mvpTarget: text(source.mvpTarget),
+            firstReleaseTarget: text(source.firstReleaseTarget),
             userConfirmed: needsReconfirmation ? false : Boolean(source.userConfirmed),
             ...(needsReconfirmation ? { confirmedAt: undefined } : {})
         };

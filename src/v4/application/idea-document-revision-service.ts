@@ -13,7 +13,7 @@ import {
 type EditableIdeaDocument = Pick<
   ConceptSummary,
   'summary' | 'targetUser' | 'problemStatement' | 'currentAlternative' | 'desiredOutcome' |
-  'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'mvpTarget'
+  'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'firstReleaseTarget'
 >;
 
 const FIELD_LABELS: Record<keyof IdeaDocumentSnapshot, string> = {
@@ -27,7 +27,7 @@ const FIELD_LABELS: Record<keyof IdeaDocumentSnapshot, string> = {
   technicalApproaches: 'Teknik yaklaşım',
   openQuestions: 'Açık sorular',
   knownRisks: 'Bilinen riskler',
-  mvpTarget: 'İlk sürüm hedefi'
+  firstReleaseTarget: 'İlk sürüm hedefi'
 };
 
 function id() {
@@ -50,7 +50,7 @@ export function snapshotIdeaDocument(project: ProjectDocumentV5): IdeaDocumentSn
     technicalApproaches: [...summary.technicalApproaches],
     openQuestions: [...summary.openQuestions],
     knownRisks: [...summary.knownRisks],
-    mvpTarget: summary.mvpTarget
+    firstReleaseTarget: summary.firstReleaseTarget
   };
 }
 

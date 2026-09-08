@@ -9,7 +9,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     targetUser: { source: 'idea', text: 'Unity geliştiricisi' },
     currentAlternative: { source: 'unknown', reason: 'Fikirde bugünkü çözüm yöntemi belirtilmemiş.' },
     desiredOutcome: { source: 'assumption', text: 'Oyuncular senkronize at sürebilir.' },
-    mvpTarget: { source: 'idea', text: 'Tek sahnede iki oyunculu prototip.' },
+    firstReleaseTarget: { source: 'idea', text: 'Tek sahnede iki oyunculu prototip.' },
     ...overrides
   };
 }

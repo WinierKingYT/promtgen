@@ -80,7 +80,7 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
       technicalApproaches: ['Sunucu otoriteli hareket'],
       knownRisks: [],
       openQuestions: [],
-      mvpTarget: 'Tek at ile güvenilir sürüş',
+      firstReleaseTarget: 'Tek at ile güvenilir sürüş',
       userConfirmed: false
     };
 
@@ -140,7 +140,7 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
       technicalApproaches: [],
       knownRisks: [],
       openQuestions: [],
-      mvpTarget: 'İlk MVP',
+      firstReleaseTarget: 'İlk MVP',
       userConfirmed: false
     };
     const updated = updateConceptAgreement(project, {
@@ -149,7 +149,7 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
       problemStatement: 'Dağınık fikirler uygulama sırasında kapsam sapmasına dönüşüyor.',
       currentAlternative: 'Genel amaçlı sohbet ve metin belgeleri',
       desiredOutcome: 'Onaylı ve izlenebilir bir uygulama planı',
-      mvpTarget: 'Yerel kayıtlı çalışan MVP',
+      firstReleaseTarget: 'Yerel kayıtlı çalışan MVP',
       confirmedFeatures: ['Fikir tartışması', 'Fikir tartışması', 'Canonical plan'],
       outOfScope: ['Bulut senkronizasyonu'],
       technicalApproaches: ['IndexedDB'],
@@ -160,7 +160,7 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
     assert.equal(updated.ideaLabSession.conceptSummary?.summary, 'Düzenlenmiş özet');
     assert.equal(updated.ideaLabSession.conceptSummary?.targetUser, 'AI kodlama aracı kullanan bireysel geliştirici');
     assert.deepEqual(updated.ideaLabSession.conceptSummary?.confirmedFeatures, ['Fikir tartışması', 'Canonical plan']);
-    assert.equal(updated.ideaLabSession.conceptSummary?.mvpTarget, 'Yerel kayıtlı çalışan MVP');
+    assert.equal(updated.ideaLabSession.conceptSummary?.firstReleaseTarget, 'Yerel kayıtlı çalışan MVP');
   });
 
   it('boş bir konsept özetinde tek alanı doldurmak diğer alanlar boş kalsa da başarılı olur', () => {
@@ -235,7 +235,7 @@ describe('fikir tartışması ve mutabakat kapısı', () => {
       technicalApproaches: ['Sunucu otoriteli hareket'],
       knownRisks: [],
       openQuestions: [],
-      mvpTarget: 'Tek at ile güvenilir sürüş',
+      firstReleaseTarget: 'Tek at ile güvenilir sürüş',
       userConfirmed: false
     };
 

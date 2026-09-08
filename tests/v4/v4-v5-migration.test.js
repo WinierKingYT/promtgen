@@ -104,7 +104,7 @@ revisionTwoConcept.ideaLabSession.conceptSummary = {
   technicalApproaches: ['IndexedDB'],
   knownRisks: ['Tarayıcı kotası'],
   openQuestions: [],
-  mvpTarget: 'Yerel çalışan plan',
+  firstReleaseTarget: 'Yerel çalışan plan',
   userConfirmed: true,
   confirmedAt: '2026-07-27T10:00:00.000Z'
 };
@@ -135,5 +135,119 @@ assert.equal(isLegacyProjectStateV4(null), false, 'null V4 olarak tanınmaz');
 assert.equal(isLegacyProjectStateV4(undefined), false, 'undefined V4 olarak tanınmaz');
 assert.equal(isLegacyProjectStateV4('schemaVersion: 4'), false, 'Nesne olmayan bir değer V4 olarak tanınmaz');
 assert.equal(isLegacyProjectStateV4({ schemaVersion: 4 }), true, 'Yalnızca schemaVersion alanı kontrol edilir; şeklin geri kalanı doğrulanmaz');
+
+// ── V3-04b-2 · `mvpTarget` → `firstReleaseTarget` alan adı göçü.
+//
+// Bu alan ÜÇ yerde kaydedilir ve yalnız birini düzelten bir göç, kullanıcının
+// kendi geçmişini sessizce boşaltırdı: kayıp ne tip hatası ne test düşürürdü,
+// yalnız ekranda boşalmış bir alan olurdu. Test bu yüzden üç konumu da AYRI
+// tanınabilir değerlerle kurar ve göçten sonra belgeyi özyinelemeli tarayıp
+// hiçbir yerde eski anahtarın kalmadığını kanıtlar.
+//
+// Fikstür bilerek 5.7'dir: bugün diskte duran belge budur ve
+// `tryMigrateOrPassthrough` onu `migrateLegacyToV5`e hiç uğratmadan
+// passthrough dalına sokar. Göç `normalizeProjectDocument` içinde durduğu için
+// o dal da kapsanır -- eşleme yalnız `migrations.js` içinde olsaydı en yaygın
+// okuma yolu kaçardı.
+const LEGACY_LIVE_TARGET = 'Canlı özet: tek depoda sayım akışını bitiren ilk sürüm';
+const LEGACY_IDEA_REVISION_TARGET = 'Fikir sürümü anlık görüntüsündeki ilk sürüm hedefi';
+const LEGACY_PLAN_LIVE_TARGET = 'Plan sürümü kopyasındaki canlı ilk sürüm hedefi';
+const LEGACY_PLAN_IDEA_TARGET = 'Plan sürümü kopyasındaki fikir sürümü hedefi';
+
+const legacyConceptSummary = target => ({
+    summary: 'Depo sayım aracı',
+    targetUser: 'Tek depo sorumlusu',
+    problemStatement: 'Sayım kâğıt üzerinde yapılıyor.',
+    currentAlternative: 'Excel tablosu',
+    desiredOutcome: 'Sayım hatası düşüyor.',
+    interpretationConfidence: 60,
+    confidenceRationale: ['Göç testi için elle kurulan fikstür.'],
+    confirmedFeatures: ['Sayım başlat'],
+    outOfScope: ['Bulut senkronizasyonu'],
+    technicalApproaches: [],
+    openQuestions: [],
+    knownRisks: [],
+    mvpTarget: target,
+    userConfirmed: true,
+    confirmedAt: '2026-08-01T10:00:00.000Z'
+});
+
+const legacyIdeaRevision = target => ({
+    id: 'idea-rev-1', number: 1, documentRevision: 1, canonicalRevision: 1,
+    createdAt: '2026-08-01T10:00:00.000Z', summary: 'İlk fikir sürümü',
+    source: 'initial', status: 'draft',
+    convertedCanonicalRevision: null, restoredFromRevision: null,
+    snapshot: {
+        summary: 'Depo sayım aracı', targetUser: 'Tek depo sorumlusu',
+        problemStatement: 'Sayım kâğıt üzerinde yapılıyor.', currentAlternative: 'Excel tablosu',
+        desiredOutcome: 'Sayım hatası düşüyor.', confirmedFeatures: ['Sayım başlat'],
+        outOfScope: ['Bulut senkronizasyonu'], technicalApproaches: [], openQuestions: [], knownRisks: [],
+        mvpTarget: target
+    }
+});
+
+/** Belgede eski anahtarın kaldığı her yolu döndürür; boş dizi = temiz göç. */
+function findLegacyTargetKeys(value, trail = '$', hits = []) {
+    if (!value || typeof value !== 'object') return hits;
+    if (!Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, 'mvpTarget')) hits.push(trail);
+    for (const [key, child] of Object.entries(value)) findLegacyTargetKeys(child, `${trail}.${key}`, hits);
+    return hits;
+}
+
+const legacyTargetProject = createProjectDocument({ idea: 'Depo sayım aracı alan göçü testi' });
+legacyTargetProject.ideaLabSession.conceptSummary = legacyConceptSummary(LEGACY_LIVE_TARGET);
+legacyTargetProject.ideaDocumentRevisions = [legacyIdeaRevision(LEGACY_IDEA_REVISION_TARGET)];
+// `PlanRevision.snapshot` bir `Omit<ProjectDocumentV5,'revisions'>`tir: kendi
+// `ideaLabSession` ve `ideaDocumentRevisions`ını taşıyan TAM bir proje kopyası.
+// Üçüncü konum burasıdır ve yalnız üst seviyeyi düzelten bir göç onu kaçırır.
+const legacyPlanSnapshot = structuredClone(legacyTargetProject);
+delete legacyPlanSnapshot.revisions;
+legacyPlanSnapshot.ideaLabSession.conceptSummary = legacyConceptSummary(LEGACY_PLAN_LIVE_TARGET);
+legacyPlanSnapshot.ideaDocumentRevisions = [legacyIdeaRevision(LEGACY_PLAN_IDEA_TARGET)];
+legacyTargetProject.revisions = [{
+    id: 'plan-rev-1', number: 1, createdAt: '2026-08-02T10:00:00.000Z',
+    summary: 'İlk plan sürümü', acceptedSuggestionIds: [], affectedSections: ['scope'],
+    snapshot: legacyPlanSnapshot
+}];
+
+assert.equal(legacyTargetProject.schemaRevision, LATEST_SCHEMA_REVISION, 'Fikstür güncel sürümde olmalı; göç passthrough dalında sınanıyor');
+assert.equal(findLegacyTargetKeys(legacyTargetProject).length, 4, 'Fikstür eski anahtarı dört konumda taşımalı');
+
+const migratedTarget = tryMigrateOrPassthrough(legacyTargetProject);
+assert.equal(migratedTarget.error, null);
+assert.equal(migratedTarget.project.ideaLabSession.conceptSummary.firstReleaseTarget, LEGACY_LIVE_TARGET, 'Canlı özet göç etti');
+assert.equal(migratedTarget.project.ideaDocumentRevisions[0].snapshot.firstReleaseTarget, LEGACY_IDEA_REVISION_TARGET, 'Fikir sürümü anlık görüntüsü göç etti');
+assert.equal(migratedTarget.project.revisions[0].snapshot.ideaLabSession.conceptSummary.firstReleaseTarget, LEGACY_PLAN_LIVE_TARGET, 'Plan sürümü kopyasındaki canlı özet göç etti');
+assert.equal(migratedTarget.project.revisions[0].snapshot.ideaDocumentRevisions[0].snapshot.firstReleaseTarget, LEGACY_PLAN_IDEA_TARGET, 'Plan sürümü kopyasındaki fikir sürümü göç etti');
+assert.deepEqual(findLegacyTargetKeys(migratedTarget.project), [], 'Göçten sonra belgede hiçbir yerde eski anahtar kalmamalı');
+
+// İkinci geçiş değerleri bozmaz: göç idempotenttir.
+const migratedTargetTwice = tryMigrateOrPassthrough(migratedTarget.project);
+assert.equal(migratedTargetTwice.project.ideaLabSession.conceptSummary.firstReleaseTarget, LEGACY_LIVE_TARGET);
+assert.deepEqual(findLegacyTargetKeys(migratedTargetTwice.project), []);
+
+// Yeni ad zaten yazılıysa eski anahtar onu EZMEZ; yalnız düşürülür.
+const bothKeysProject = createProjectDocument({ idea: 'Alan adı çakışması testi' });
+bothKeysProject.ideaLabSession.conceptSummary = legacyConceptSummary('Eski anahtarın değeri');
+bothKeysProject.ideaLabSession.conceptSummary.firstReleaseTarget = 'Yeni anahtarın değeri';
+const bothKeysMigrated = tryMigrateOrPassthrough(bothKeysProject);
+assert.equal(bothKeysMigrated.project.ideaLabSession.conceptSummary.firstReleaseTarget, 'Yeni anahtarın değeri');
+assert.deepEqual(findLegacyTargetKeys(bothKeysMigrated.project), []);
+
+// Eski şema dalı da aynı eşlemeyi görmeli: `migrateLegacyToV5` `ideaLabSession`ı
+// körlemesine klonlar, eşleme `normalizeProjectDocument` içinde durur.
+const legacySchemaProject = {
+    id: 'legacy-target', schemaVersion: 3, name: 'Eski kayıt', stepDepth: 5,
+    workflowStage: 'DISCOVERY', draftDescription: 'Depo sayım aracı', tasks: [],
+    ideaLabSession: { status: 'active', approaches: [], ideaNotes: [], candidateDecisions: [], candidateRisks: [], conceptSummary: legacyConceptSummary(LEGACY_LIVE_TARGET) },
+    ideaDocumentRevisions: [legacyIdeaRevision(LEGACY_IDEA_REVISION_TARGET)]
+};
+const legacySchemaMigrated = tryMigrateOrPassthrough(legacySchemaProject);
+assert.equal(legacySchemaMigrated.migrated, true);
+assert.equal(legacySchemaMigrated.project.ideaLabSession.conceptSummary.firstReleaseTarget, LEGACY_LIVE_TARGET);
+assert.equal(legacySchemaMigrated.project.ideaDocumentRevisions[0].snapshot.firstReleaseTarget, LEGACY_IDEA_REVISION_TARGET);
+assert.deepEqual(findLegacyTargetKeys(legacySchemaMigrated.project), []);
+
+console.log('✓ mvpTarget → firstReleaseTarget migrates at all three persisted locations');
 
 console.log('✓ lossless V4→V5 migration, passthrough and rollback');
