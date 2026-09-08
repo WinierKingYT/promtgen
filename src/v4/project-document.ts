@@ -412,7 +412,7 @@ function validateConceptSummary(doc: Loose, errors: string[]): void {
         const confirmedFeatures = toArray(conceptSummary.confirmedFeatures);
         const outOfScope = toArray(conceptSummary.outOfScope);
         if (openQuestions.length || !confirmedFeatures.length || !outOfScope.length) {
-            errors.push('Onaylanmış konseptte açık soru bulunamaz; MVP içi ve kapsam dışı listeler boş olamaz.');
+            errors.push('Onaylanmış konseptte açık soru bulunamaz; kapsam içi ve kapsam dışı listeler boş olamaz.');
         }
     }
 }

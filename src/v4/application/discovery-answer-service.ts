@@ -57,16 +57,27 @@ type DraftOptions = {
   now?: () => string;
 };
 
+/**
+ * Yalnız GÖRÜNEN etiketler — yönlendirme mantığı değil.
+ *
+ * Serbest metnin hangi alana yazılacağına karar veren üç eşleştiricinin üçü de
+ * (`inferQuestionFields`, `LABEL_PATTERNS`, `ruleSignalFields`) kendi bağımsız
+ * kalıplarını taşır ve bu tablodan hiçbir şey okumaz. Buradaki `label` üç yerde
+ * kullanılır, üçü de metindir: yamanın başlığı, gerekçe cümlesi ve düzenlenen
+ * değer boş kaldığında dönen hata. Bir etiketi değiştirmek bu yüzden kullanıcının
+ * cümlesinin nereye gideceğini değiştirmez — kullanıcının yazabileceği önekler
+ * eşleştiricilerde ayrıca tanımlıdır ve onlara dokunulmadı.
+ */
 const FIELD_META: Record<DiscoveryConceptField, { label: string; kind: 'text' | 'list' }> = {
   targetUser: { label: 'Birincil kullanıcı', kind: 'text' },
   problemStatement: { label: 'Ana problem', kind: 'text' },
   currentAlternative: { label: 'Bugünkü çözüm', kind: 'text' },
   desiredOutcome: { label: 'Beklenen ana sonuç', kind: 'text' },
-  confirmedFeatures: { label: 'MVP içinde', kind: 'list' },
-  outOfScope: { label: 'MVP dışında', kind: 'list' },
+  confirmedFeatures: { label: 'Kapsam içinde', kind: 'list' },
+  outOfScope: { label: 'Kapsam dışında', kind: 'list' },
   technicalApproaches: { label: 'Teknik yaklaşım', kind: 'list' },
   knownRisks: { label: 'Bilinen riskler', kind: 'list' },
-  mvpTarget: { label: 'MVP hedefi', kind: 'text' },
+  mvpTarget: { label: 'İlk sürüm hedefi', kind: 'text' },
   openQuestions: { label: 'Açık kritik sorular', kind: 'list' }
 };
 

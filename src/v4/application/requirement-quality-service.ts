@@ -96,7 +96,7 @@ export function evaluateRequirementQuality(project: ProjectDocumentV5): Requirem
   const mustWithoutTest = mustItems.filter(requirement => requirement.testCaseIds.length === 0);
   const issues = [
     ...(accepted.length ? [] : ['En az bir gereksinim kullanıcı tarafından kabul edilmeli.']),
-    ...(mustItems.length ? [] : ['MVP için en az bir Must gereksinimi kullanıcı tarafından kabul edilmeli.']),
+    ...(mustItems.length ? [] : ['İlk sürüm için en az bir Must gereksinimi kullanıcı tarafından kabul edilmeli.']),
     ...invalidAccepted.map(requirement => `${requirement.title}: ${requirement.reasons.join(' ')}`),
     ...mustWithoutTask.map(requirement => `${requirement.title}: Must gereksinimi bir göreve bağlı değil.`),
     ...mustWithoutTest.map(requirement => `${requirement.title}: Must gereksinimi bir doğrulama senaryosuna bağlı değil.`)
@@ -117,7 +117,7 @@ export function evaluateRequirementQuality(project: ProjectDocumentV5): Requirem
 
 export function createRequirementDraftsFromConcept(project: ProjectDocumentV5): ProjectDocumentV5 {
   const summary = project.ideaLabSession?.conceptSummary;
-  if (!summary?.userConfirmed) throw new Error('Önce sistem yorumu ve MVP kapsamı kullanıcı tarafından onaylanmalı.');
+  if (!summary?.userConfirmed) throw new Error('Önce sistem yorumu ve kapsam sınırları kullanıcı tarafından onaylanmalı.');
   const next = structuredClone(project);
   const existingStatements = new Set(next.requirements.map(item => clean(item.statement).toLocaleLowerCase('tr-TR')));
   const sourceObjectiveIds = next.objectives.filter(item => item.status === 'accepted').slice(0, 1).map(item => item.id);

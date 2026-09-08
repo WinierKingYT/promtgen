@@ -81,11 +81,21 @@ export function ensureIdeaCoachWorkspace(project: ProjectDocumentV5): ProjectDoc
 const PLACEHOLDER_PATTERN = /^(herkes|insanlar|kullanıcılar|işler zor|daha iyi olsun|bir uygulama|belirsiz|bilinmiyor|doğrulanmalı)$/i;
 const CONTRADICTION_PATTERN = /çeliş|tutarsız|conflict|contradict/i;
 
+/**
+ * Yalnız EKRANDA görünen adım adları. Adım KİMLİKLERİ (`IdeaCoachStepId`)
+ * burada değişmez ve bu ölçülerek karara bağlandı: `discovery-generation-service.ts`
+ * her turda aktif adımın kimliğini `messages[].nextQuestionStep` alanına yazar,
+ * alan `contracts.ts`'te belgenin parçasıdır ve `migrations.js`'in
+ * `ARRAY_FIELDS` listesindeki `messages` ile diske taşınır. Aşağıdaki
+ * `turnFieldsFor()` o kaydedilmiş kimliği bugünkü kimlikle karşılaştırır;
+ * kimliği yeniden adlandırmak diskteki eski projelerde o turda üretilmiş soruyu
+ * ve önerileri sessizce düşürürdü. Etiket serbesttir, kimlik kayıt sözleşmesidir.
+ */
 const STEP_LABELS: Record<IdeaCoachStepId, string> = {
   problem: 'Problem',
   user: 'Kullanıcı',
   value: 'Değer',
-  mvp: 'MVP',
+  mvp: 'İlk sürüm',
   risks: 'Riskler',
   approval: 'Onay'
 };
@@ -199,7 +209,7 @@ function derivedQuestion(step: IdeaCoachStepId, project: ProjectDocumentV5): str
   }
   if (step === 'mvp') return 'İlk sürüm tek bir varsayımı kanıtlayacak olsa bu ne olurdu; özellikle neleri dışarıda bırakırdın?';
   if (step === 'risks') return 'Bu fikri geçersiz kılabilecek en kritik varsayım veya risk nedir?';
-  return 'Konuşmadan çıkardığımız problem, kullanıcı, değer ve MVP tanımı fikrini doğru yansıtıyor mu?';
+  return 'Konuşmadan çıkardığımız problem, kullanıcı, değer ve ilk sürüm tanımı fikrini doğru yansıtıyor mu?';
 }
 
 function questionFor(step: IdeaCoachStepId, project: ProjectDocumentV5): string {
@@ -231,7 +241,7 @@ function actionsFor(step: IdeaCoachStepId): IdeaCoachAction[] {
       { id: 'value-measure', title: 'Ölçülebilir sonucu belirle', reason: '“Daha iyi” gibi belirsiz vaatleri test edilebilir yapar.', prompt: 'Bu fikrin kullanıcıya sağlayacağı sonucu ölçülebilir ve gözlemlenebilir hale getirmeme yardım et.' }
     ],
     mvp: [
-      { id: 'mvp-hypothesis', title: 'Tek MVP hipotezi seç', reason: 'İlk sürümün hangi riski test edeceğini belirler.', prompt: 'Bu fikir için ilk sürümde test edilmesi gereken tek ana hipotezi ve en küçük deneyimi öner.' },
+      { id: 'mvp-hypothesis', title: 'İlk sürüm hipotezini seç', reason: 'İlk sürümün hangi riski test edeceğini belirler.', prompt: 'Bu fikir için ilk sürümde test edilmesi gereken tek ana hipotezi ve en küçük deneyimi öner.' },
       { id: 'mvp-cut', title: 'Kapsam dışını belirle', reason: 'İlk sürümün büyümesini engeller.', prompt: 'Ana değeri bozmadan ilk sürümden çıkarabileceğimiz şeyleri ve nedenlerini öner.' }
     ],
     risks: [
@@ -240,7 +250,7 @@ function actionsFor(step: IdeaCoachStepId): IdeaCoachAction[] {
     ],
     approval: [
       { id: 'approval-challenge', title: 'Özeti eleştir', reason: 'Onaydan önce zayıf ve çelişkili noktaları bulur.', prompt: 'Fikir özetimi eleştirel biçimde incele; yalnız en önemli iki belirsizliği göster.' },
-      { id: 'approval-simplify', title: 'Tek cümlede sınayalım', reason: 'Ürün fikrinin anlaşılır olup olmadığını test eder.', prompt: 'Fikrimi hedef kullanıcı, problem, değer ve MVP hipotezini içeren tek bir cümlede yeniden anlat.' }
+      { id: 'approval-simplify', title: 'Tek cümlede sınayalım', reason: 'Ürün fikrinin anlaşılır olup olmadığını test eder.', prompt: 'Fikrimi hedef kullanıcı, problem, değer ve ilk sürüm hipotezini içeren tek bir cümlede yeniden anlat.' }
     ]
   };
   return actions[step].slice(0, 3);
@@ -287,7 +297,7 @@ export function buildIdeaCoachState(project: ProjectDocumentV5): IdeaCoachState 
     field('problem', 'Temel problem', text(summary?.problemStatement), statusFor({ exists: problemReady, confirmed, contradicted: contradiction.problem }), isFoundationDraft),
     field('user', 'Hedef kullanıcı', text(summary?.targetUser), statusFor({ exists: userReady, confirmed, contradicted: contradiction.user }), isFoundationDraft),
     field('value', 'Ana değer', text(summary?.desiredOutcome || project.identity.desiredOutcome), statusFor({ exists: alternativeReady && outcomeReady, confirmed, contradicted: contradiction.value }), isFoundationDraft),
-    field('mvp', 'MVP hipotezi', text(summary?.mvpTarget), statusFor({ exists: mvpReady, confirmed, contradicted: contradiction.mvp }), isFoundationDraft),
+    field('mvp', 'İlk sürüm hipotezi', text(summary?.mvpTarget), statusFor({ exists: mvpReady, confirmed, contradicted: contradiction.mvp }), isFoundationDraft),
     field('risks', 'Kritik risk', text(summary?.knownRisks?.[0]), statusFor({ exists: risksReady, confirmed, contradicted: contradiction.risks, optional: true }), isFoundationDraft)
   ];
 

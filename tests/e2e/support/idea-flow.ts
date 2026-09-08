@@ -65,11 +65,11 @@ export async function completeConceptAgreement(page: Page) {
   await page.getByLabel('Ana problem').fill('Fikirler kapsamı netleşmeden doğrudan koda dönüşüyor.');
   await page.getByLabel('Bugünkü çözüm').fill('Dağınık notlar ve sohbet geçmişi.');
   await page.getByLabel('Beklenen ana sonuç').fill('Kodlamadan önce onaylanmış bir MVP kapsamı.');
-  await page.getByLabel('MVP hedefi').fill('Bir fikri onaylı MVP kapsamına dönüştürmek.');
-  await page.getByLabel('MVP içinde').fill('Fikir sohbeti\nMVP kapsam onayı');
-  await page.getByLabel('MVP dışında').fill('Bulut senkronizasyonu');
+  await page.getByLabel('İlk sürüm hedefi').fill('Bir fikri onaylı MVP kapsamına dönüştürmek.');
+  await page.getByLabel('Kapsam içinde').fill('Fikir sohbeti\nMVP kapsam onayı');
+  await page.getByLabel('Kapsam dışında').fill('Bulut senkronizasyonu');
   await page.getByLabel('Açık kritik sorular').fill('');
-  await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+  await page.getByRole('button', { name: 'Yorumu ve kapsam sınırlarını kaydet' }).click();
 }
 
 /**

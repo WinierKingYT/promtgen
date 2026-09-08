@@ -29,7 +29,7 @@
  * kökünde ölçülen 54 geçiş 23 dosyaya yayılıdır; hepsini yasaklamak ya derlemeyi
  * düşürürdü ya da 23 girişli bir muafiyet listesi doğururdu — ve o liste bir
  * çöp tenekesine dönüşürdü. Cırcır üçüncü yolu seçer: yön garantisi. Kalan
- * temizlik paketleri (V3-04b, V3-05, V3-06, V3-09/DOC-06) sayıyı düşürür; kapı
+ * temizlik paketleri (V3-04b-2, V3-06) sayıyı düşürür; kapı
  * yalnız yönün tersine dönmediğini kanıtlar.
  *
  * ## `owner` ne demek
@@ -62,6 +62,7 @@
  *
  * Ölçüm: 2026-09-05 · `ec0f525` · toplam **54** geçiş / **23** dosya.
  * V3-09 sonrası üretim toplamı **51** / **23** (DOC-06 düzeltmesi).
+ * V3-05 sonrası **37** / **17**; V3-04b-1 sonrası **18** / **11**.
  */
 
 /** Cırcır tablosundaki tek satır. */
@@ -81,44 +82,19 @@ export interface ProductModelRatchetEntry {
  * kadar borç taşıyor" sorusunu tablodan doğrudan cevaplayabilsin diye.
  */
 export const TIER2_RATCHET: readonly ProductModelRatchetEntry[] = [
-  // ── V3-04b · `ConceptSummary` üçlüsü (mvpTarget · confirmedFeatures · outOfScope)
-  //    Envanter §1.3: kaydedilir, kapıyı bloklar, dokuz dosya okur. Toplam 19.
-  {
-    file: 'src/react/components/ConceptAgreementEditor.tsx',
-    count: 5,
-    owner: 'V3-04b',
-    note: 'Üçlünün arayüzü: "MVP hedefi", "MVP içinde", "MVP dışında" etiketleri ve kaydet düğmesi.'
-  },
-  {
-    file: 'src/v4/application/idea-coach-service.ts',
-    count: 5,
-    owner: 'V3-04b',
-    note: '`mvp` alan kimliği, `summary?.mvpTarget` okuması ve "Tek MVP hipotezi seç" önerisi.'
-  },
-  {
-    file: 'src/v4/application/discovery-answer-service.ts',
-    count: 3,
-    owner: 'V3-04b',
-    note: 'Serbest metni hangi alana yazacağına karar veren alan etiketleri (envanter §1.3: canlı karar mantığı).'
-  },
-  {
-    file: 'src/v4/application/idea-document-revision-service.ts',
-    count: 3,
-    owner: 'V3-04b',
-    note: 'Revizyon anlık görüntüsünde aynı üç alan etiketi.'
-  },
-  {
-    file: 'src/v4/application/requirement-quality-service.ts',
-    count: 2,
-    owner: 'V3-04b',
-    note: 'Gereksinim kapısının kullanıcıya döndürdüğü iki hata metni.'
-  },
-  {
-    file: 'src/v4/project-document.ts',
-    count: 1,
-    owner: 'V3-04b',
-    note: 'Konsept doğrulama hatası: "MVP içi ve kapsam dışı listeler boş olamaz."'
-  },
+  // ── V3-04b-1 · `ConceptSummary` üçlüsünün KULLANICIYA GÖRÜNEN metni. KAPANDI.
+  //    Envanter §1.3 üç alanı işaret ediyordu; ölçüm bunların yalnız birinin
+  //    (`mvpTarget`) alan ADINDA bırakılan çerçeveyi taşıdığını gösterdi. Kalan
+  //    borcun tamamı ekran metniydi: form etiketleri, rehber adım adları, revizyon
+  //    farkı etiketleri, iki doğrulama hatası ve kaydet düğmesi. Altı dosyadaki 19
+  //    geçiş alan-nötr karşılıklarıyla değiştirildi; hiçbir alan adı, kayıt biçimi
+  //    veya yönlendirme kalıbı değişmedi. İki karar ölçülerek verildi ve gerekçeleri
+  //    dosyalarının içinde durur: (1) `idea-coach-service.ts`'teki adım KİMLİĞİ
+  //    dokunulmadı — `messages[].nextQuestionStep` üzerinden diske yazılıyor;
+  //    (2) `discovery-answer-service.ts`'teki etiket tablosu serbest metin
+  //    yönlendirmesini SÜRMÜYOR — eşleştiriciler kendi kalıplarını taşır, yani
+  //    etiket değişikliği davranış değişikliği değildir. Alan adlarının kendisi
+  //    V3-04b-2'ye kalır: o gerçek bir veri göçüdür. Toplam 19 → 0.
 
   // ── V3-05 · Kullanıcıya görünen terminoloji. KAPANDI.
   //    Yedi dosyadaki 15 geçişin 14'ü kullanıcıya sorulan soru, üretilen plan

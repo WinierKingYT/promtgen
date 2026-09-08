@@ -581,7 +581,7 @@ test.describe('PromtGen idea studio production workflow', () => {
     const summary = page.getByLabel('Sistem yorumu');
     const original = await summary.inputValue();
     await summary.fill('Düzenlenmiş fikir belgesi özeti.');
-    await page.getByRole('button', { name: 'Yorumu ve MVP sınırlarını kaydet' }).click();
+    await page.getByRole('button', { name: 'Yorumu ve kapsam sınırlarını kaydet' }).click();
     await expect.poll(versionCount).toBe(beforeEdit + 1);
 
     await history.locator('summary').click();

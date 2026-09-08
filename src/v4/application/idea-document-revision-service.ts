@@ -22,12 +22,12 @@ const FIELD_LABELS: Record<keyof IdeaDocumentSnapshot, string> = {
   problemStatement: 'Ana problem',
   currentAlternative: 'Bugünkü çözüm',
   desiredOutcome: 'Beklenen sonuç',
-  confirmedFeatures: 'MVP içinde',
-  outOfScope: 'MVP dışında',
+  confirmedFeatures: 'Kapsam içinde',
+  outOfScope: 'Kapsam dışında',
   technicalApproaches: 'Teknik yaklaşım',
   openQuestions: 'Açık sorular',
   knownRisks: 'Bilinen riskler',
-  mvpTarget: 'MVP hedefi'
+  mvpTarget: 'İlk sürüm hedefi'
 };
 
 function id() {
