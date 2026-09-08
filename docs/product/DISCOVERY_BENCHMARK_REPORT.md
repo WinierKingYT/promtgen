@@ -7,7 +7,7 @@ Akış:
 `ham fikir → discovery sinyalleri → sistem yorumu ve kritik sorular → simüle kullanıcı düzeltmesi → açık onay → canonical vizyon ve kapsam`
 
 - Suite: `guided-discovery-v1`
-- Son çalışma: 2026-07-28T21:06:12.703Z
+- Son çalışma: 2026-09-08T17:18:57.849Z
 - Sonuç: 8/8
 - Başarı oranı: %100
 - Kritik sinyal yakalama: %96

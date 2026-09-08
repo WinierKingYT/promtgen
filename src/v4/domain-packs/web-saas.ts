@@ -250,7 +250,7 @@ export function assessWebSaasPack(project: ProjectDocumentV5): {
       passed: Boolean(project.ideaLabSession?.conceptSummary?.userConfirmed && project.ideaLabSession.conceptSummary.confirmedFeatures.length),
       blocking: true,
       sectionId: 'scope',
-      message: 'Birincil kullanıcının başlangıçtan sonuca ana akışı MVP kapsamında onaylanmalı.',
+      message: 'Birincil kullanıcının başlangıçtan sonuca ana akışı onaylanan kapsamda yer almalı.',
       entityIds: []
     },
     {

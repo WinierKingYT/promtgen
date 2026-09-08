@@ -76,7 +76,7 @@ export function analyzeDiscoverySignals(project: ProjectDocumentV5): DiscoverySi
       id: 'scope-conflict',
       severity: 'high',
       evidence: 'Birbiriyle çelişebilecek kullanım veya veri sınırları aynı fikirde birlikte geçiyor.',
-      question: 'Çelişen kullanım ya da veri sınırlarından hangisi MVP için zorunlu; hangisi kapsam dışında kalacak?'
+      question: 'Çelişen kullanım ya da veri sınırlarından hangisi ilk çalışan sürüm için zorunlu; hangisi kapsam dışında kalacak?'
     });
   }
   const technologySignals = (text.match(/react|next\.?js|vue|angular|svelte|tauri|electron|flutter|postgres|mongodb|redis|kafka|microservice|mikroservis/g) || []).length;
@@ -106,7 +106,7 @@ export function analyzeDiscoverySignals(project: ProjectDocumentV5): DiscoverySi
       id: 'premature-tech',
       severity: 'medium',
       evidence: 'İhtiyaç ve kapsam doğrulanmadan teknoloji veya mimari tercihi belirtilmiş.',
-      question: 'Belirtilen teknoloji zorunlu bir kısıt mı, yoksa problem ve MVP netleşince karşılaştırılabilecek bir tercih mi?'
+      question: 'Belirtilen teknoloji zorunlu bir kısıt mı, yoksa problem ve kapsam netleşince karşılaştırılabilecek bir tercih mi?'
     });
   }
   if (/sağlık|health|hasta|klinik|ödeme|payment|kart|finans|banka|kimlik|biyometr|kişisel veri|çocuk|konum/.test(text)) {
@@ -122,7 +122,7 @@ export function analyzeDiscoverySignals(project: ProjectDocumentV5): DiscoverySi
       id: 'multi-platform',
       severity: 'high',
       evidence: `Birden fazla platform hedefi bulundu: ${platforms.join(', ')}.`,
-      question: 'MVP için birincil platform hangisi; diğer platformlar hangi doğrulamadan sonra kapsama alınacak?'
+      question: 'İlk çalışan sürüm için birincil platform hangisi; diğer platformlar hangi doğrulamadan sonra kapsama alınacak?'
     });
   }
   if (
@@ -132,8 +132,8 @@ export function analyzeDiscoverySignals(project: ProjectDocumentV5): DiscoverySi
     add({
       id: 'mvp-future-mix',
       severity: 'high',
-      evidence: 'MVP hedefleri ile sonraki sürüm özellikleri aynı fikir içinde karışmış.',
-      question: 'Hangi maddeler MVP içinde kalacak, hangi maddeler açıkça sonraki sürüme veya kapsam dışına taşınacak?'
+      evidence: 'İlk sürüm hedefleri ile sonraki sürüm özellikleri aynı fikir içinde karışmış.',
+      question: 'Hangi maddeler ilk sürümde kalacak, hangi maddeler açıkça sonraki sürüme veya kapsam dışına taşınacak?'
     });
   }
 

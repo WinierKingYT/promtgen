@@ -36,7 +36,7 @@ export function buildIdeaGuide(project: ProjectDocumentV5): IdeaGuide {
       ...questions,
       ...(concept?.openQuestions || []),
       'Hedef kullanıcıyla problemi doğrula.',
-      'MVP içi ve kapsam dışı özellikleri kesinleştir.',
+      'Kapsam içi ve kapsam dışı özellikleri kesinleştir.',
       'İlk çalışan dilimi ve başarı ölçütünü belirle.'
     ], 'Bir sonraki en küçük doğrulama adımını seç.')
   };

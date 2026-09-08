@@ -120,50 +120,13 @@ export const TIER2_RATCHET: readonly ProductModelRatchetEntry[] = [
     note: 'Konsept doğrulama hatası: "MVP içi ve kapsam dışı listeler boş olamaz."'
   },
 
-  // ── V3-05 · Kullanıcıya görünen terminoloji. Envanter §7: risk düşük-orta,
-  //    metinlerin çoğu testte iddia edilmiyor. Toplam 15.
-  {
-    file: 'src/v4/application/idea-discussion-service.ts',
-    count: 6,
-    owner: 'V3-05',
-    note: 'Kullanıcıya sorulan altı çelişki/boşluk sorusunun metni.'
-  },
-  {
-    file: 'src/v4/planning-engine.ts',
-    count: 3,
-    owner: 'V3-05',
-    note: 'Üretilen planlama seçeneklerinin başlığı ve artı listeleri.'
-  },
-  {
-    file: 'src/react/Workspace.tsx',
-    count: 2,
-    owner: 'V3-05',
-    note: 'Envanter DOC-08: kullanıcıya görünen "MVP sınırı" / "MVP kapsamı" metni.'
-  },
-  {
-    file: 'src/v4/application/idea-guide-service.ts',
-    count: 1,
-    owner: 'V3-05',
-    note: 'Rehber adımı: "MVP içi ve kapsam dışı özellikleri kesinleştir."'
-  },
-  {
-    file: 'src/v4/domain-packs/game.ts',
-    count: 1,
-    owner: 'V3-05',
-    note: 'Oyun paketinin kapsam onayı mesajı.'
-  },
-  {
-    file: 'src/v4/domain-packs/web-saas.ts',
-    count: 1,
-    owner: 'V3-05',
-    note: 'Web/SaaS paketinin kapsam onayı mesajı.'
-  },
-  {
-    file: 'src/v4/idea-expansion/categories.ts',
-    count: 1,
-    owner: 'V3-05',
-    note: 'Kategori ipucu: "Neyi çıkarırsan MVP hâlâ ayakta kalır?"'
-  },
+  // ── V3-05 · Kullanıcıya görünen terminoloji. KAPANDI.
+  //    Yedi dosyadaki 15 geçişin 14'ü kullanıcıya sorulan soru, üretilen plan
+  //    seçeneği, rehber adımı, alan paketi kontrol mesajı ve arayüz metniydi;
+  //    hepsi alan-nötr karşılıklarıyla değiştirildi. Hiçbir soru, kontrol ya da
+  //    seçenek silinmedi — yalnız çerçeveyi dayatan kelime bırakıldı. Altı dosya
+  //    sıfırlandığı için defterden düştü; kalan tek geçiş borç değildir ve
+  //    aşağıdaki gerekçe bölümüne taşındı. Toplam 15 → 0.
 
   // ── V3-06 · Benchmark hizalama. Envanter §7 ve BENCH-01/02: bu metinler
   //    latest-report.json · BENCHMARK_REPORT.md · generated-benchmark-evidence.ts
@@ -182,7 +145,7 @@ export const TIER2_RATCHET: readonly ProductModelRatchetEntry[] = [
   },
 
   // ── `—` · Eski modelin NEDEN bırakıldığını anlatan gerekçe metinleri.
-  //    Temizlik borcu değildir; sayılır ki yerlerine yenisi sızmasın. Toplam 11.
+  //    Temizlik borcu değildir; sayılır ki yerlerine yenisi sızmasın. Toplam 12.
   {
     // V3-09'a kadar burada 5 geçiş vardı ve üçü `MVP_SCOPE.md` üreticisinin
     // kendi gömülü metniydi — envanterin DOC-06 dediği kör nokta. Belge
@@ -192,6 +155,12 @@ export const TIER2_RATCHET: readonly ProductModelRatchetEntry[] = [
     count: 2,
     owner: '—',
     note: 'DOC-06 kapandı. Kalan ikisi: `mvpRule` alanına yapılan atıf ve kök belgelerin neden üretildiğini anlatan tarihçe.'
+  },
+  {
+    file: 'src/v4/application/idea-discussion-service.ts',
+    count: 1,
+    owner: '—',
+    note: 'V3-05 sonrası kalan tek geçiş: sabit keşif sırasının neden bırakıldığını anlatan yorum.'
   },
   {
     file: 'src/v4/application/deterministic-idea-planning.ts',

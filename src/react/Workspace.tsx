@@ -564,7 +564,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       </main>}
 
       {view === 'guide' && <main id="pg-primary-content" className="pg-document-workspace" tabIndex={-1}>
-        <header className="pg-document-title"><span>ORTAK ANLAYIŞ</span><h1>Ortak anlayışımızı kontrol et</h1><p>Konuşmadan çıkardığımız kullanıcıyı, problemi, değeri ve MVP sınırını düzeltip onayla.</p></header>
+        <header className="pg-document-title"><span>ORTAK ANLAYIŞ</span><h1>Ortak anlayışımızı kontrol et</h1><p>Konuşmadan çıkardığımız kullanıcıyı, problemi, değeri ve kapsam sınırını düzeltip onayla.</p></header>
         <IdeaUnderstandingSummary project={project} coach={coach}/>
         <IdeaGuidePanel project={project} onCommit={commit} onConvert={convertIdeaToPlan} onOpenPlan={() => setView('plan')}/>
       </main>}
@@ -575,7 +575,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
               <header>
                 <span>PLANA GEÇİŞ</span>
                 <h1>Önce fikrin sınırlarını onayla</h1>
-                <p>Plan; yalnız onayladığın kullanıcı, problem, MVP kapsamı ve kararlar üzerinden oluşturulur. Onayı Ortak Anlayış aşamasında verirsin.</p>
+                <p>Plan; yalnız onayladığın kullanıcı, problem, kapsam ve kararlar üzerinden oluşturulur. Onayı Ortak Anlayış aşamasında verirsin.</p>
               </header>
               <button type="button" className="is-primary" onClick={() => setView('guide')}>Ortak Anlayış'a git <ArrowRight size={16}/></button>
             </div>

@@ -4,7 +4,7 @@
   "scenarioCount": 8,
   "passedCount": 8,
   "passRate": 1,
-  "generatedAt": "2026-07-28T21:06:12.703Z",
+  "generatedAt": "2026-09-08T17:18:57.849Z",
   "results": [
     {
       "scenarioId": "restaurant-ai-ambiguous",
@@ -43,7 +43,7 @@
       ],
       "questions": [
         "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
-        "Çelişen kullanım ya da veri sınırlarından hangisi MVP için zorunlu; hangisi kapsam dışında kalacak?"
+        "Çelişen kullanım ya da veri sınırlarından hangisi ilk çalışan sürüm için zorunlu; hangisi kapsam dışında kalacak?"
       ],
       "metrics": {
         "concernRecall": 0.6666666666666666,
@@ -101,7 +101,7 @@
       "questions": [
         "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
         "Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?",
-        "Belirtilen teknoloji zorunlu bir kısıt mı, yoksa problem ve MVP netleşince karşılaştırılabilecek bir tercih mi?"
+        "Belirtilen teknoloji zorunlu bir kısıt mı, yoksa problem ve kapsam netleşince karşılaştırılabilecek bir tercih mi?"
       ],
       "metrics": {
         "concernRecall": 1,
@@ -155,7 +155,7 @@
       "questions": [
         "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
         "Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?",
-        "MVP için birincil platform hangisi; diğer platformlar hangi doğrulamadan sonra kapsama alınacak?"
+        "İlk çalışan sürüm için birincil platform hangisi; diğer platformlar hangi doğrulamadan sonra kapsama alınacak?"
       ],
       "metrics": {
         "concernRecall": 1,
@@ -184,7 +184,7 @@
       "questions": [
         "Bu ürünü ilk sürümde düzenli kullanacak tek birincil kullanıcı kim ve bugün bu işi nasıl yapıyor?",
         "Bu geniş fikirde ilk sürümün kanıtlayacağı tek kullanıcı sonucu ve en fazla üç çekirdek özellik ne olmalı?",
-        "Hangi maddeler MVP içinde kalacak, hangi maddeler açıkça sonraki sürüme veya kapsam dışına taşınacak?"
+        "Hangi maddeler ilk sürümde kalacak, hangi maddeler açıkça sonraki sürüme veya kapsam dışına taşınacak?"
       ],
       "metrics": {
         "concernRecall": 1,
@@ -209,7 +209,7 @@
         "scope-conflict"
       ],
       "questions": [
-        "Çelişen kullanım ya da veri sınırlarından hangisi MVP için zorunlu; hangisi kapsam dışında kalacak?"
+        "Çelişen kullanım ya da veri sınırlarından hangisi ilk çalışan sürüm için zorunlu; hangisi kapsam dışında kalacak?"
       ],
       "metrics": {
         "concernRecall": 1,

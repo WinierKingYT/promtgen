@@ -298,7 +298,7 @@ export function assessGamePack(project: ProjectDocumentV5): {
       passed: Boolean(project.ideaLabSession?.conceptSummary?.userConfirmed && project.ideaLabSession.conceptSummary.confirmedFeatures.length),
       blocking: true,
       sectionId: 'scope',
-      message: 'Oyuncunun saniye saniye tekrarladığı ana fiil MVP kapsamında onaylanmalı.',
+      message: 'Oyuncunun saniye saniye tekrarladığı ana fiil onaylanan kapsamda yer almalı.',
       entityIds: []
     },
     {

@@ -292,7 +292,7 @@ export function proposeNextOptions(project: ProjectDocumentV5, options: { direct
             kind: 'feature',
             title: `Çekirdek kullanıcı akışını tanımla ("${ideaText.slice(0, 25)}")`,
             description: `Kullanıcının başlangıçtan hedef sonuca kadar izleyeceği ana akışı kapsamın merkezi yap.`,
-            pros: ['MVP sınırını netleştirir', 'Görev üretimini kolaylaştırır'],
+            pros: ['Kapsam sınırını netleştirir', 'Görev üretimini kolaylaştırır'],
             cons: ['İstisna akışları sonraya bırakır'],
             effort: 'low', impact: 'high',
             affectedSections: ['vision', 'scope', 'requirements'],
@@ -314,9 +314,9 @@ export function proposeNextOptions(project: ProjectDocumentV5, options: { direct
         ...(emptySectionIds.includes('scope') ? [
             suggestion({
                 kind: 'feature',
-                title: `"${ideaText.slice(0, 30)}" için MVP sınırını çiz`,
+                title: `"${ideaText.slice(0, 30)}" için kapsam sınırını çiz`,
                 description: `İlk sürümde yer alacak temel işlevleri ve kapsam dışı bırakılacak özellikleri netleştir.`,
-                pros: ['Aşırı planlamayı önler', 'MVP teslim süresini kısaltır'],
+                pros: ['Aşırı planlamayı önler', 'İlk teslim süresini kısaltır'],
                 cons: ['İkincil istekleri sonraya bırakır'],
                 effort: 'low', impact: 'high',
                 affectedSections: ['scope', 'objectives'],

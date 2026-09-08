@@ -64,7 +64,7 @@ const CORE: ExpansionCategory[] = [
   {
     id: 'narrow',
     label: 'Kapsamı daralt',
-    hint: 'Neyi çıkarırsan MVP hâlâ ayakta kalır?',
+    hint: 'Neyi çıkarırsan ürün hâlâ ayakta kalır?',
     seedTitles: ['İkincil kullanıcı grubunu ilk sürümden çıkar', 'Otomasyonu elle yapılan adıma indir']
   }
 ];
