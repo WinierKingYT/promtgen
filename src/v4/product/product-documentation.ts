@@ -33,6 +33,11 @@ function renderCapabilityEvidence(): string {
   return `${title('Yetenek Kanıtları')}Bu belge doğrudan \`src/v4/capability-registry.ts\` kaynağından üretilir. Elle “stable” ilanı yapılamaz; her yetenek makinece denetlenen terfi kapısını geçmelidir. Statik belge geçmiş kanıt commit'ini gösterir; güncel commit eşleşmesi yalnız CI tarafından üretilen \`release-evidence.json\` ile doğrulanır.\n\nTerfi kapısı iki boyuttan oluşur. **Yetenek kanıtı** boyutu (test, senaryo, kullanıcı, kurtarma) bu belgede raporlanır. **Sürüm bağlamı** boyutu (kanıt commit'inin güncel build ile eşleşmesi) burada raporlanamaz, çünkü statik belge üretiminin commit bağlamı yoktur. Bu nedenle aşağıdaki tabloda “Kanıt tam” yazması **Stable ilanı değildir**: hiçbir yetenek CI dışında Stable'a terfi edemez.\n\n## Stable terfi kapısı\n\n- En az bir üretim entegrasyon, browser E2E veya native E2E kanıtı.\n- Desteklenen her platform için otomatik kanıt.\n- En az 5 benchmark senaryosu ve en az %90 başarı oranı.\n- Sıfır açık kritik kusur.\n- Belgelenmiş kurtarma veya geri alma yolu.\n- En az 5 gerçek kullanıcı katılımcısı.\n- Doğrulanan commit ile güncel build/CI commit'inin eşleşmesi. _(yalnız CI; bu belgede doğrulanmaz)_\n\n## Kanıt tablosu\n\nSon sütun yalnız yetenek kanıtı boyutunu gösterir; sürüm bağlamı boyutu dahil değildir.\n\n| Yetenek | İlan | Otomatik kanıt | Senaryo | Kullanıcı | Kurtarma | Son commit | Yetenek kanıt kapısı |\n|---|---|---|---|---:|---|---|---|\n${rows}\n\n## Açık terfi engelleri\n\nBunlar kanıt üretilerek kapatılabilen engellerdir. Hepsi kapansa bile Stable ilanı için CI'ın sürüm bağlamı doğrulaması gerekir.\n\n${blockers || 'Açık yetenek kanıtı engeli yok. Stable ilanı yine de CI sürüm bağlamı doğrulamasına bağlıdır.'}\n\n## Proje desteği özeti\n\n${supportOrder.map(level => `- **${level}:** ${PRODUCT_CONTRACT.supportedProjects.filter(item => item.support === level).length} proje türü`).join('\n')}\n\nBenchmark ve kullanıcı sayıları kaynaklarıyla kaydedilmeden sonuç başarısı iddia edilmez.\n`;
 }
 
+/** `Fikir Tasarımı (idea) → …` — sıra da adlar da tek kaynaktan gelir. */
+const lifecycleLine = PROJECT_STAGES.map(stage => `${STAGE_NAMES[stage]} (\`${stage}\`)`).join(' → ');
+
+const productionRootList = PRODUCTION_ROOTS.map(root => `\`${root}\``).join(' · ');
+
 export function renderProductDocuments(): Record<string, string> {
   const supportedRows = PRODUCT_CONTRACT.supportedProjects
     .map(item => `| ${item.label} | ${item.support} | ${item.limitations.join(' ') || '—'} |`)
@@ -47,7 +52,20 @@ export function renderProductDocuments(): Record<string, string> {
     'PRODUCT_VISION.md': `${title('PromtGen Ürün Vizyonu')}> ${PRODUCT_CONTRACT.positioning['tr-TR']}\n\n## Ana vaat\n\n${PRODUCT_CONTRACT.promise['tr-TR']}\n\n## Ürün odağı\n\nPromtGen’in ana ürünü Planner’dır. Labs özellikleri çekirdek planlama akışını destekler ancak ürünün ana vaadi olarak sunulmaz.\n`,
     'TARGET_USER.md': `${title('Hedef Kullanıcı')}## Birincil kullanıcı\n\n${PRODUCT_CONTRACT.primaryUser['tr-TR']}\n\n## Çözülen problemler\n\n${bullets(PRODUCT_CONTRACT.userProblems)}\n`,
     'PRODUCT_CONTRACT.md': `${title('Ürün Sözleşmesi')}Sözleşme kimliği: \`${PRODUCT_CONTRACT.id}\` · sürüm: \`${PRODUCT_CONTRACT.version}\`\n\n## Çekirdek navigasyon\n\n${bullets(PRODUCT_CONTRACT.coreNavigation)}\n\n## Kod üretimi sınırı\n\n${bullets(PRODUCT_CONTRACT.codePolicy)}\n\n## Labs\n\n${bullets(PRODUCT_CONTRACT.labsNavigation)}\n\n## Olgunluk kuralları\n\n${policies}\n`,
-    'MVP_SCOPE.md': `${title('MVP Kapsamı')}## MVP’nin tek işi\n\nBir proje fikrini kullanıcı onaylı, izlenebilir ve AI kodlama aracına uygulanabilir bir proje planına dönüştürmek.\n\n## Çekirdek çıktılar\n\n${bullets(PRODUCT_CONTRACT.coreExports)}\n\n## Çekirdek akış\n\n1. Fikri anlat.\n2. Sistem yorumunu düzelt veya onayla.\n3. Hedef kullanıcıyı, problemi ve ana sonucu kesinleştir.\n4. MVP içi ve kapsam dışı alanları onayla.\n5. Gereksinimleri, kararları, riskleri ve görevleri onayla.\n6. Tutarlılık kapısını geç ve proje paketini dışa aktar.\n`,
+    // DOC-06 — belgenin adı da metni de sözleşmeden gelir.
+    //
+    // Eskiden burada `MVP_SCOPE.md` vardı: başlığı, "tek işi" cümlesi ve
+    // akışın dördüncü adımı hiçbir sözleşme alanından türetilmiyor, doğrudan
+    // bu satıra gömülü duruyordu. `check:product-docs` belgenin ÜRETİCİYLE
+    // eşleştiğini doğrular; üreticinin SÖZLEŞMEYLE eşleştiğini hiç
+    // doğrulamadı. Kapı yeşil kalırken belge bırakılan modeli ilan ediyordu
+    // (envanter §3, DOC-06). Dosya adı da aynı iddianın parçasıydı.
+    //
+    // Şimdi her satırın sahibi var: tek iş `promise`, akış `PROJECT_STAGES`,
+    // çıktılar `coreExports`. Kalan başlıklar yapısaldır — `PRODUCT_VISION.md`
+    // ile `TARGET_USER.md` içindekiler gibi — ve hiçbir ürün modeli iddia
+    // etmez.
+    'CORE_SCOPE.md': `${title('Çekirdek Kapsam')}## PromtGen’in tek işi\n\n${PRODUCT_CONTRACT.promise['tr-TR']}\n\n## Çekirdek akış\n\n${lifecycleLine}\n\n## Çekirdek çıktılar\n\n${bullets(PRODUCT_CONTRACT.coreExports)}\n`,
     'SUPPORTED_PROJECTS.md': `${title('Desteklenen Projeler')}Bu tablo ürün sözleşmesinden üretilir. “Unsupported” alanlarda PromtGen uzmanlık veya üretime hazırlık iddiasında bulunmaz.\n\n| Proje türü | Destek | Sınırlamalar |\n|---|---|---|\n${supportedRows}\n`,
     'NON_GOALS.md': `${title('Kapsam Dışı Ürün Hedefleri')}${bullets(PRODUCT_CONTRACT.nonGoals)}\n\n## Kontrollü istisna\n\nKod üretimi ana ürün değildir. Yalnız kullanıcı açıkça isterse, onaylanmış TaskContract kapsamı içinde ve Labs üzerinden ikincil bir araç olarak kullanılabilir.\n`,
     'SUCCESS_METRICS.md': `${title('Başarı Metrikleri')}Bu hedefler yalnız ölçüm kanıtı bulunduğunda karşılanmış sayılır.\n\n${PRODUCT_CONTRACT.successMetrics.map(metric => `- **${metric.id}:** ${metric.target}${metric.evidenceRequired ? ' _(kanıt zorunlu)_' : ''}`).join('\n')}\n\n9/10 seviyesi karşılaştırmalı benchmark ve gerçek kullanıcı sonuçları olmadan ilan edilemez. 10/10 seviyesi bağımsız doğrulama ve çalışan bir alan paketi ekosistemi gerektirir.\n`,
@@ -55,20 +73,16 @@ export function renderProductDocuments(): Record<string, string> {
   };
 }
 
-/** `Fikir Tasarımı (idea) → …` — sıra da adlar da tek kaynaktan gelir. */
-const lifecycleLine = PROJECT_STAGES.map(stage => `${STAGE_NAMES[stage]} (\`${stage}\`)`).join(' → ');
-
-const productionRootList = PRODUCTION_ROOTS.map(root => `\`${root}\``).join(' · ');
-
 /**
  * İki kök dosyanın paylaştığı gerçek bloğu.
  *
  * Buradaki her cümlenin bir sahibi var ve hiçbiri bu dosyada yazılmadı:
  * kimlik `PRODUCT_CONTRACT`, yaşam döngüsü `PROJECT_STAGES`, MVP kuralı
  * `PRODUCT_CONTRACT.mvpRule`, sınır ise `source-boundaries.ts`. DOC-06'nın
- * dersi tam olarak budur: `MVP_SCOPE.md` üretiliyor ve kapı yeşil, ama metni
- * üreticinin kaynağına gömülü olduğu için yasaklanan modeli ilan edebiliyor.
- * Üretmek tek başına yetmez; sözleşmenin modeli veriyle sahiplenmesi gerekir.
+ * dersi tam olarak budur: eski `MVP_SCOPE.md` üretiliyordu ve kapı yeşildi, ama
+ * metni üreticinin kaynağına gömülü olduğu için yasaklanan modeli ilan
+ * edebiliyordu. Üretmek tek başına yetmez; sözleşmenin modeli veriyle
+ * sahiplenmesi gerekir.
  */
 function repoTruthBlock(): string {
   return `## PromtGen nedir
@@ -104,10 +118,12 @@ const generatedNotice = (fileName: string) => `<!-- ÜRETİLMİŞ DOSYA — elle
  *
  * **Neden üretiliyor.** Bu depoda elle yazılmış her ürün metni kaydı:
  * `README.md:3,5`, `docs/product/ROADMAP.md:3` ve
- * `docs/product/FEATURE_FREEZE.md:9` bugün hâlâ terk edilmiş
- * `Fikir → MVP → Plan` modelini bugünün gerçeği gibi anlatıyor. Sözleşmeden
- * üretilen sekiz belgenin hiçbiri kaymadı. Kök dosyalar deponun en yük taşıyan
- * yeri olduğu için elle yazılmaları aynı kaymayı en kötü yerde üretirdi.
+ * `docs/product/FEATURE_FREEZE.md:9` V3-09'a kadar terk edilmiş
+ * `Fikir → MVP → Plan` modelini bugünün gerçeği gibi anlatıyordu; üçü de elle
+ * düzeltildi ve bir daha kaymasınlar diye `scripts/lib/product-model-ratchet.ts`
+ * belge cırcırına alındı. Sözleşmeden üretilen sekiz belgenin hiçbiri kaymadı.
+ * Kök dosyalar deponun en yük taşıyan yeri olduğu için elle yazılmaları aynı
+ * kaymayı en kötü yerde üretirdi.
  *
  * **İki dosya, iki iş.** `AGENTS.md` Codex geleneğidir ve depo gerçeğini
  * anlatır. `CLAUDE.md` ise kökte durduğu anda bu depodaki **her Claude Code

@@ -6,7 +6,7 @@ Kapsam: Alpha öncesi mimari birleştirme ve kanıt dönemi
 
 ## Amaç
 
-PromtGen’in çekirdek ürünü; kısa bir fikri kullanıcı onaylı MVP kapsamına, izlenebilir gereksinimlere ve dış kodlama araçlarında uygulanabilir görev sözleşmelerine dönüştüren local-first Planner’dır.
+PromtGen’in çekirdek ürünü; kısa bir fikri kullanıcı onaylı bir fikir tasarımına, gerekçeli teknik kararlara, izlenebilir gereksinimlere ve dış kodlama araçlarında uygulanabilir görev sözleşmelerine dönüştüren local-first Planner’dır. Akış dört aşamalıdır: Fikir Tasarımı → Çözüm Tasarımı → Uygulama Planı → Agent Devri.
 
 Bu dönemde başarı yeni özellik sayısıyla değil, mevcut üretim akışının tek sahipli, testli, geri alınabilir ve anlaşılır olmasıyla ölçülür.
 
@@ -141,3 +141,21 @@ Yapılmayan ve bilerek açık bırakılan iki iş:
    Destek seviyesini aşama başına ilan etmek, onu kanıtlayacak veriyi gerektirir.
 2. `promtgen-comparison-v2` çalışmasının açılması ve kullanıcı test
    oturumlarının aşama modeline göre yeniden yazılması. İkisi de insan kararı.
+
+### Kapanış notunun takibi (2026-09-08)
+
+Yukarıdaki kapanış notu 2026-08-16'nın kaydıdır ve öyle kalır — tarihli karar
+gövdesi düzeltme yeri değildir. Açık bırakılan iki işin bugün ölçülen durumu
+buraya eklenir:
+
+1. **Kısmen kapandı.** Kontrat kimlik/sürüm geçişi yapıldı:
+   `src/v4/product/product-contract.ts` bugün `promtgen-project-design-planner`
+   kimliğini ve `version: 3`'ü ilan ediyor. Çok boyutlu destek matrisi hâlâ
+   açık: `supportedProjects` proje türü başına tek bir destek seviyesi yazıyor,
+   aşama başına değil. Gerekçe değişmedi — aşama başına ilan, onu kanıtlayacak
+   veriyi gerektirir.
+2. **Kapandı.** `promtgen-comparison-v2` çalışması açıldı
+   (`benchmarks/comparison-v2/`; kapısı `npm run check:comparison-v2`) ve
+   `USER_TEST_SESSIONS.md` içindeki T2 ile T4 oturumları dört aşamalı akışa
+   göre yeniden yazıldı (T2 "Akış artık dört aşamalı", T4 "V3'e özgü — geri
+   dönüş").

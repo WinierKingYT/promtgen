@@ -118,8 +118,9 @@ describe('Kök ajan dosyaları', () => {
   });
 
   it('yasak modeli ilan etmez ama MVP kuralini yazar', () => {
-    // DOC-06'nın dersi: üretilmiş olmak yetmiyor. `MVP_SCOPE.md` üretiliyor ve
-    // kapı yeşil, yine de "MVP içi ve kapsam dışı alanları onayla" diyor.
+    // DOC-06'nın dersi: üretilmiş olmak yetmiyor. Eski `MVP_SCOPE.md`
+    // üretiliyordu ve kapı yeşildi, yine de bırakılan çerçeveyi ilan ediyordu.
+    // O belge V3-09'da sözleşmeden türetildi; aşağıdaki blok orayı da bekler.
     for (const [fileName, content] of Object.entries(rootDocuments)) {
       assert.doesNotMatch(content, /Fikir → MVP → Plan|MVP Kapsamı/i, fileName);
       assert.ok(content.includes(PRODUCT_CONTRACT.mvpRule), `${fileName}: MVP kuralı sözleşmeden gelmiyor`);
@@ -180,5 +181,48 @@ describe('Sözleşme, çalışan ürünü anlatır', () => {
   it('kimlik ve surum V3 ile hizali', () => {
     assert.equal(PRODUCT_CONTRACT.id, 'promtgen-project-design-planner');
     assert.equal(PRODUCT_CONTRACT.version, 3);
+  });
+});
+
+describe('Üretilen ürün belgeleri — DOC-06', () => {
+  const productDocuments = renderProductDocuments();
+
+  /**
+   * Bırakılan çerçevenin İLAN edilmiş hâli — çıplak `MVP` kelimesi değil.
+   *
+   * Kelimenin kendisi yasak değildir (`PRODUCT_CONTRACT.mvpRule`); yasak olan
+   * onu her projenin evrensel kapsam/aşama çerçevesi gibi yazmaktır. Bu yüzden
+   * kalıp kelimeyi değil, **iddiayı** arar: bir gün sözleşmenin kuralı bir ürün
+   * belgesine basılırsa test haklı olarak susar, "MVP kapsamı" başlığı geri
+   * gelirse düşer.
+   */
+  const ABANDONED_FRAME = /\bMVP['’]?\w*\s+(kapsam|içi|dışı|hedef|sınır|plan|tek iş)|Fikir\s*(→|->|=>)\s*MVP/i;
+
+  it('cekirdek kapsam belgesi sozlesmeden turetilir', () => {
+    // DOC-06 tam olarak buydu: belge üretiliyordu ama metni üreticinin
+    // kaynağına gömülüydü, sözleşmeden gelmiyordu. `check:product-docs`
+    // belgenin üreticiyle eşleşmesini doğrular; üreticinin sözleşmeyle
+    // eşleşmesini yalnız bu test doğrular.
+    const scope = productDocuments['CORE_SCOPE.md'];
+    assert.ok(scope, 'CORE_SCOPE.md üretilmiyor');
+    assert.equal(productDocuments['MVP_SCOPE.md'], undefined, 'eski anahtar hâlâ üretiliyor');
+    assert.equal(existsSync(path.resolve('docs', 'product', 'MVP_SCOPE.md')), false, 'eski belge diskte kalmış');
+
+    assert.ok(scope.includes(PRODUCT_CONTRACT.promise['tr-TR']), 'tek iş sözleşmeden gelmiyor');
+    for (const output of PRODUCT_CONTRACT.coreExports) {
+      assert.ok(scope.includes(output), `çekirdek çıktı eksik: ${output}`);
+    }
+    let cursor = -1;
+    for (const stage of PROJECT_STAGES) {
+      const index = scope.indexOf(`${STAGE_NAMES[stage]} (\`${stage}\`)`);
+      assert.ok(index > cursor, `CORE_SCOPE.md: ${stage} canonical sırada değil`);
+      cursor = index;
+    }
+  });
+
+  it('hicbir uretilen urun belgesi birakilan cerceveyi ILAN etmez', () => {
+    for (const [fileName, content] of Object.entries(productDocuments)) {
+      assert.doesNotMatch(content, ABANDONED_FRAME, fileName);
+    }
   });
 });

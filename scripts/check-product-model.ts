@@ -2,7 +2,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { PRODUCTION_ROOTS as PRODUCTION_ROOT_PATHS } from '../src/v4/source-boundaries.js';
-import { TIER2_RATCHET } from './lib/product-model-ratchet.js';
+import {
+  DOC_SCAN_ROOTS,
+  TIER2_DOC_RATCHET,
+  TIER2_RATCHET,
+  type DocScanRoot,
+  type ProductModelRatchetEntry
+} from './lib/product-model-ratchet.js';
 
 /**
  * Ürün modeli kapısı — depo bırakılan modele sessizce geri kayamaz.
@@ -25,12 +31,27 @@ import { TIER2_RATCHET } from './lib/product-model-ratchet.js';
  * — `src/v4/migrations.js`, `PHASE_MAP` göç tablosu. Muafiyet listesinde tek
  * giriş odur ve gerekçesi girişin yanında yazılıdır.
  *
- * **Kademe 2 — cırcır (ratchet), muafiyet DEĞİL.** Çıplak `MVP` kelimesi
- * yasaklanamaz; kuralın kendisi bunu söylüyor: *"MVP kavramı yasak değildir …
- * yasak olan, MVP'nin PromtGen'in evrensel yaşam döngüsü aşaması olmasıdır."*
- * Bugün üretimde 23 dosyada 54 geçiş var. Hepsini yasaklamak ya derlemeyi
- * düşürürdü ya da 23 girişlik, zamanla çöp tenekesine dönecek bir muafiyet
- * listesi doğururdu. Bunun yerine dosya başına sayım
+ * **Kademe 2 — cırcır (ratchet), muafiyet DEĞİL.** İki yüzeyi vardır: üretim
+ * kaynağı (`PRODUCTION_ROOTS`) ve **belgeler** (`DOC_SCAN_ROOTS`). Mekanizma
+ * tek: dosya başına sayım defterlenir, büyüme reddedilir, küçülme elle işlenir.
+ * Belge yüzeyi V3-09'da eklendi ve gerekçesi ölçümdür: o pakete kadar
+ * `README.md`, `docs/product/ROADMAP.md` ve `docs/product/FEATURE_FREEZE.md`
+ * bırakılan modeli anlatıyordu ve hiçbir kapı bunu görmüyordu. Ayrıntı ve
+ * "neden dizin taraması, neden açık liste değil" için
+ * `scripts/lib/product-model-ratchet.ts` içindeki belge cırcırı başlığına
+ * bakın.
+ *
+ * Kademe 1 belgelere UYGULANMAZ ve bu bilinçlidir: `FEATURE_FREEZE.md`
+ * içindeki tarihli karar kaydı eski akış ifadesini (`Fikir → MVP → Plan`)
+ * bırakıldığını anlatmak için taşır. Sert yasak orayı düşürür ve denetim izini
+ * silmeye zorlardı.
+ *
+ * Çıplak `MVP` kelimesi Kademe 1 gibi yasaklanamaz; kuralın kendisi bunu
+ * söylüyor: *"MVP kavramı yasak değildir … yasak olan, MVP'nin PromtGen'in
+ * evrensel yaşam döngüsü aşaması olmasıdır."* Ölçülen (2026-09-08): üretimde
+ * 23 dosyada 51 geçiş, belgelerde 21 dosyada 106 geçiş. Hepsini yasaklamak ya
+ * derlemeyi düşürürdü ya da kırk küsur girişlik, zamanla çöp tenekesine
+ * dönecek bir muafiyet listesi doğururdu. Bunun yerine dosya başına sayım
  * `scripts/lib/product-model-ratchet.ts` içinde defterlenir ve kapı yalnız
  * **büyümeyi** reddeder. Emsal: `benchmarks/reachability/baseline.json`.
  *
@@ -60,14 +81,14 @@ import { TIER2_RATCHET } from './lib/product-model-ratchet.js';
  * altısı da kuralın kendi metnidir, bu yüzden her iki kademeden de muaftır.
  *
  * `product-documentation.ts` ise **muaf tutulmadı** ve bu, görevin tarifinden
- * bilinçli bir sapmadır. Ölçüm: beş geçişin yalnız ikisi kuralı anlatan
- * yorumdur; üçü `MVP_SCOPE.md` üreticisinin kendi gömülü metnidir
- * (`'MVP Kapsamı'`, `'MVP'nin tek işi'`). Envanter bunu DOC-06 diye adlandırıp
- * *"kapı yeşil kalırken yasaklanan modeli ilan eden tek yer"* diyor
- * (`docs/LEGACY_MODEL_INVENTORY.md` §3). Dosyayı toptan muaf tutmak, kapının
- * tam da envanterin işaret ettiği kör noktayı kutsaması olurdu. Bu yüzden dosya
- * cırcır defterinde, sahibi `V3-09/DOC-06` olarak durur; borcu görünür,
- * büyümesi yasak.
+ * bilinçli bir sapmaydı. Ölçüldüğünde beş geçişin yalnız ikisi kuralı anlatan
+ * yorumdu; üçü eski `MVP_SCOPE.md` üreticisinin kendi gömülü metniydi. Envanter
+ * bunu DOC-06 diye adlandırıp *"kapı yeşil kalırken yasaklanan modeli ilan eden
+ * tek yer"* diyor (`docs/LEGACY_MODEL_INVENTORY.md` §3). Dosyayı toptan muaf
+ * tutmak, kapının tam da envanterin işaret ettiği kör noktayı kutsaması olurdu.
+ * Muaf tutulmadığı için borç görünür kaldı ve V3-09'da kapandı: belge
+ * `CORE_SCOPE.md` oldu, üç cümle sözleşmeye bağlandı, defter 5 → 2 düştü.
+ * Kalan iki geçiş kuralın kendi anlatısıdır.
  *
  * Yalnız **eski akış ifadesi** için ikisi de muaftır: `Fikir → MVP → Görevler`
  * cümlesi o iki dosyada modeli ilan etmek için değil, **bırakıldığını söylemek**
@@ -182,6 +203,17 @@ const TIER2_EXEMPT_FILES: readonly string[] = [
  */
 const MINIMUM_EXPECTED_FILES = 160;
 
+/**
+ * Belge yüzeyinin aynı korumaları.
+ *
+ * Eşik: ölçülen 69 `.md`; ~%80'i. Kanaryaya ayrıca ihtiyaç yoktur çünkü belge
+ * defteri kendisi kanaryadır: `docs/LEGACY_MODEL_INVENTORY.md` 28 geçiş vermek
+ * ZORUNDADIR. Kalıp bozulursa sıfır ölçülür, "küçüldü" yolu tetiklenir ve kapı
+ * düşer. Yine de eşik ayrı durur; bozuk bir yürüyüş "ilerleme" gibi görünmesin,
+ * ekranda TARAMA BOZUK yazsın diye.
+ */
+const MINIMUM_EXPECTED_DOC_FILES = 55;
+
 interface Hit {
   readonly file: string;
   readonly line: number;
@@ -203,7 +235,68 @@ function collectFiles(root: string): string[] {
   return files;
 }
 
+/**
+ * Belge yüzeyi — burada uzantı filtresi VAR ve gerekçesi üretim tarafının
+ * tersidir. Orada her dosya ürün davranışının kaynağıdır; burada kök dizinler
+ * kodun, verinin ve üretilen ağaçların yanında durur. Taranan şey deponun
+ * okunan metnidir, o da `.md`'dir.
+ */
+function collectMarkdown(root: DocScanRoot): string[] {
+  const files: string[] = [];
+  const walk = (current: string, recursive: boolean) => {
+    for (const entry of readdirSync(current)) {
+      const full = path.join(current, entry);
+      if (statSync(full).isDirectory()) {
+        if (recursive) walk(full, true);
+      } else if (full.endsWith('.md')) {
+        files.push(full);
+      }
+    }
+  };
+  walk(path.resolve(root.dir), root.recursive);
+  return files;
+}
+
 const relative = (target: string) => path.relative(REPO_ROOT, target).split(path.sep).join('/');
+
+interface RatchetVerdict {
+  readonly grown: string[];
+  readonly shrunk: string[];
+  readonly measuredTotal: number;
+  readonly baselineTotal: number;
+}
+
+/**
+ * Ölçümü deftere karşı okur. İki yüzey de aynı fonksiyonu çağırır: kural bir
+ * kez yazılır, iki defter aynı anlama gelir.
+ */
+function compareToLedger(
+  measured: ReadonlyMap<string, number>,
+  ledger: readonly ProductModelRatchetEntry[]
+): RatchetVerdict {
+  const baseline = new Map(ledger.map(entry => [entry.file, entry]));
+  const grown: string[] = [];
+  const shrunk: string[] = [];
+
+  for (const [file, count] of [...measured].sort()) {
+    const entry = baseline.get(file);
+    if (!entry) grown.push(`  YENİ  ${file}  ${count} geçiş  (defterde yok)`);
+    else if (count > entry.count) grown.push(`  ARTTI ${file}  ${entry.count} → ${count}`);
+    else if (count < entry.count) shrunk.push(`  ${file}  ${entry.count} → ${count}  (sahip: ${entry.owner})`);
+  }
+  for (const entry of ledger) {
+    if (!measured.has(entry.file)) {
+      shrunk.push(`  ${entry.file}  ${entry.count} → 0  (sahip: ${entry.owner}) — satır tamamen silinebilir`);
+    }
+  }
+
+  return {
+    grown,
+    shrunk,
+    measuredTotal: [...measured.values()].reduce((sum, count) => sum + count, 0),
+    baselineTotal: ledger.reduce((sum, entry) => sum + entry.count, 0)
+  };
+}
 
 /** Yorum maskelemesi YOK — gerekçe dosya başlığında (2). Satır satır gezilir ki `file:line` bedavaya gelsin. */
 function scan(file: string, source: string, pattern: RegExp): Hit[] {
@@ -287,22 +380,7 @@ for (const [file, source] of sources) {
   if (count) measured.set(name, count);
 }
 
-const baseline = new Map(TIER2_RATCHET.map(entry => [entry.file, entry]));
-const grown: string[] = [];
-const shrunk: string[] = [];
-
-for (const [file, count] of [...measured].sort()) {
-  const entry = baseline.get(file);
-  if (!entry) grown.push(`  YENİ  ${file}  ${count} geçiş  (defterde yok)`);
-  else if (count > entry.count) grown.push(`  ARTTI ${file}  ${entry.count} → ${count}`);
-  else if (count < entry.count) shrunk.push(`  ${file}  ${entry.count} → ${count}  (sahip: ${entry.owner})`);
-}
-for (const entry of TIER2_RATCHET) {
-  if (!measured.has(entry.file)) shrunk.push(`  ${entry.file}  ${entry.count} → 0  (sahip: ${entry.owner}) — satır tamamen silinebilir`);
-}
-
-const measuredTotal = [...measured.values()].reduce((sum, count) => sum + count, 0);
-const baselineTotal = TIER2_RATCHET.reduce((sum, entry) => sum + entry.count, 0);
+const { grown, shrunk, measuredTotal, baselineTotal } = compareToLedger(measured, TIER2_RATCHET);
 
 if (grown.length) {
   problems.push(
@@ -317,8 +395,46 @@ if (shrunk.length) {
   problems.push(
     `KADEME 2 — İLERLEME: toplam ${baselineTotal} → ${measuredTotal}. Defter düşürülmeli.`,
     ...shrunk,
-    '  `scripts/lib/product-model-ratchet.ts` içindeki sayıları elle güncelleyin. '
+    '  `scripts/lib/product-model-ratchet.ts` içindeki `TIER2_RATCHET` sayılarını elle güncelleyin. '
     + 'Kapı defteri kendi yazmaz: küçülme kod incelemesinde GÖRÜNMELİDİR.'
+  );
+}
+
+// ── Kademe 2 · belgeler ─────────────────────────────────────────────────────
+const docFiles = DOC_SCAN_ROOTS.flatMap(collectMarkdown).sort();
+
+if (docFiles.length < MINIMUM_EXPECTED_DOC_FILES) {
+  console.error(
+    `Belge taraması yalnız ${docFiles.length} '.md' buldu; en az ${MINIMUM_EXPECTED_DOC_FILES} bekleniyordu. `
+    + 'Belgeler temiz değil — TARAMA BOZUK. `DOC_SCAN_ROOTS` ve dosya toplama adımını kontrol edin.'
+  );
+  process.exit(1);
+}
+
+const measuredDocs = new Map<string, number>();
+for (const file of docFiles) {
+  const count = (readFileSync(file, 'utf8').match(BARE_MVP_PATTERN) ?? []).length;
+  if (count) measuredDocs.set(relative(file), count);
+}
+
+const docVerdict = compareToLedger(measuredDocs, TIER2_DOC_RATCHET);
+
+if (docVerdict.grown.length) {
+  problems.push(
+    `KADEME 2 (BELGELER) — eski model çerçevesi BÜYÜDÜ: toplam ${docVerdict.baselineTotal} → ${docVerdict.measuredTotal}.`,
+    ...docVerdict.grown,
+    '  Bakımdaki bir belge bırakılan modele geri dönemez. Yeni bir tarihsel kayıt '
+    + 'ekleniyorsa satırı `TIER2_DOC_RATCHET` içine `owner: \'PRESERVE_LEGACY\'` ve gerekçesiyle yazılır.'
+  );
+}
+
+if (docVerdict.shrunk.length) {
+  problems.push(
+    `KADEME 2 (BELGELER) — İLERLEME: toplam ${docVerdict.baselineTotal} → ${docVerdict.measuredTotal}. Defter düşürülmeli.`,
+    ...docVerdict.shrunk,
+    '  `scripts/lib/product-model-ratchet.ts` içindeki `TIER2_DOC_RATCHET` sayılarını elle güncelleyin. '
+    + '`PRESERVE_LEGACY` satırlarının düşmesi beklenen bir ilerleme DEĞİLDİR: '
+    + 'düştüyse bir denetim izi silinmiş olabilir, önce onu doğrulayın.'
   );
 }
 
@@ -331,6 +447,8 @@ console.log(
   `Ürün modeli doğrulandı: ${files.length} üretim dosyası tarandı (uzantı filtresi yok, .d.ts dahil).\n`
   + `  Kademe 1 — bırakılmış yaşam döngüsü sabitleri: 0 ihlal `
   + `(${TIER1_ALLOWLIST.length} muaf dosya, ${TIER1_ALLOWLIST.reduce((sum, entry) => sum + entry.hits, 0)} isabet kanaryayı doğruladı).\n`
-  + `  Kademe 2 — çıplak 'MVP' cırcırı: ${measuredTotal} geçiş / ${measured.size} dosya, `
-  + `taban çizgisi ${baselineTotal} / ${TIER2_RATCHET.length}. Büyüme yok.`
+  + `  Kademe 2 — çıplak 'MVP' cırcırı (üretim): ${measuredTotal} geçiş / ${measured.size} dosya, `
+  + `taban çizgisi ${baselineTotal} / ${TIER2_RATCHET.length}. Büyüme yok.\n`
+  + `  Kademe 2 — çıplak 'MVP' cırcırı (belgeler): ${docVerdict.measuredTotal} geçiş / ${measuredDocs.size} dosya `
+  + `(${docFiles.length} '.md' tarandı), taban çizgisi ${docVerdict.baselineTotal} / ${TIER2_DOC_RATCHET.length}. Büyüme yok.`
 );

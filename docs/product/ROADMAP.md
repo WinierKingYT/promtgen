@@ -1,6 +1,6 @@
 # PromtGen Ürün Yol Haritası
 
-PromtGen'in ana ürünü Planner'dır: bireysel geliştiricinin kısa fikrini, açık kullanıcı onayıyla izlenebilir bir MVP planına ve dış kodlama araçlarına verilebilen doğrulanabilir görev sözleşmelerine dönüştürür. PromtGen varsayılan olarak kod yazmaz; gerektiğinde yalnız planlama, örnekleme veya doğrulama bağlamında sınırlı kod parçaları üretebilir.
+PromtGen'in ana ürünü Planner'dır: bireysel geliştiricinin kısa fikrini dört aşamada — Fikir Tasarımı, Çözüm Tasarımı, Uygulama Planı, Agent Devri — ve her aşamada açık kullanıcı onayıyla; onaylanmış bir fikir tasarımına, gerekçeli teknik kararlara ve dış kodlama araçlarına verilebilen doğrulanabilir görev sözleşmelerine dönüştürür. PromtGen varsayılan olarak kod yazmaz; gerektiğinde yalnız planlama, örnekleme veya doğrulama bağlamında sınırlı kod parçaları üretebilir.
 
 ## Güncel çalışma modu — mimari birleştirme
 

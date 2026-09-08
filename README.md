@@ -1,10 +1,10 @@
-# PromtGen V4 — Local-First AI Proje Planlayıcısı
+# PromtGen V4 — Local-First AI Proje Tasarım Aracı
 
-PromtGen, AI kodlama araçlarıyla çalışan bireysel geliştiricilerin dağınık proje fikirlerini; onaylanmış MVP kapsamına, izlenebilir gereksinimlere ve uygulanabilir görev paketlerine dönüştüren local-first proje planlama aracıdır.
+PromtGen, AI kodlama araçlarıyla çalışan bireysel geliştiricilerin dağınık proje fikirlerini; onaylanmış bir fikir tasarımına, gerekçeli teknik kararlara ve izlenebilir gereksinim-görev-test paketlerine dönüştüren local-first proje tasarım aracıdır.
 
-Ana ürün **Planner** akışıdır: fikri anlat → sistem yorumunu düzelt/onayla → MVP içi ve dışını seç → gereksinim ve görevleri doğrula → planı dışa aktar. Kod yürütme, mimari karşılaştırma ve uzman perspektifleri **Labs** altında isteğe bağlıdır.
+Ana ürün **Planner** akışıdır ve dört aşamadan geçer: Fikir Tasarımı → Çözüm Tasarımı → Uygulama Planı → Agent Devri. Vaat şu: fikrini anlat; birlikte netleştirelim ve onayla. Sonra nasıl kuracağımızı tasarlayıp onayla. Planını kodlama aracına dışa aktar. Kod yürütme, mimari karşılaştırma ve uzman perspektifleri **Labs** altında isteğe bağlıdır.
 
-Ürün sınırları ve kanıt sözleşmeleri için [ürün dokümanları](docs/product/PRODUCT_CONTRACT.md) ile [desteklenen proje matrisine](docs/product/SUPPORTED_PROJECTS.md) bakın.
+Ürün sınırları ve kanıt sözleşmeleri için [ürün dokümanları](docs/product/PRODUCT_CONTRACT.md), [çekirdek kapsam](docs/product/CORE_SCOPE.md) ile [desteklenen proje matrisine](docs/product/SUPPORTED_PROJECTS.md) bakın.
 
 ---
 
