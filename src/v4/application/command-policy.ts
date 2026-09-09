@@ -53,6 +53,11 @@ export const CANONICAL_CHANGE_COMMANDS: ReadonlySet<string> = new Set([
   'ApproveSolutionDesign',
   'ReopenIdeaApproval',
   'ReopenSolutionApproval',
+  // Bir gereksinimin kabulü canonical bir karardır: durumu `accepted` yapar,
+  // ifadeyi `sections.requirements.items` içine yazar ve hedefe iz bağı kurar
+  // (`acceptRequirementDraft`). Kardeşleri `UpdateRequirementDraft` /
+  // `RemoveRequirementDraft` belge-içidir çünkü onlar yalnız TASLAĞA dokunur.
+  'AcceptRequirementDraft',
   'ApplyApprovedChanges', 'ApplyTaskPlan', 'ConfirmIdeaPlanConversion',
   'FinalizePlan', 'ReopenPlan', 'RestoreRevision',
   // V3 ÖNCESİNDEN gelen ve hiç sınıflandırılmamış olanlar. Beşi de canonical

@@ -3,10 +3,10 @@
 `src/v4/application` katmanındaki dışa aktarımların üretim kodundan gerçekten
 çağrılıp çağrılmadığı. `npm run check:reachability` bunu zorlar.
 
-- Toplam dışa aktarım: **208**
-- Üretimden erişilebilir: **175**
+- Toplam dışa aktarım: **210**
+- Üretimden erişilebilir: **180**
 - Yalnız kendi modülünde kullanılan: **18**
-- Üretimde hiç çağrılmayan: **15**
+- Üretimde hiç çağrılmayan: **12**
 
 ## Neden var
 
@@ -31,9 +31,6 @@ ya silinmeli; listenin **büyümesi** kapıyı düşürür.
 - `idea-maturity-service.ts::assessIdeaMaturity`
 - `implementation-evidence-service.ts::decideImplementationEvidence`
 - `provider-readiness-service.ts::providerRecoveryHint`
-- `requirement-quality-service.ts::acceptRequirementDraft`
-- `requirement-quality-service.ts::removeRequirementDraft`
-- `requirement-quality-service.ts::updateRequirementDraft`
 
 ## Yalnız kendi modülünde kullanılanlar
 

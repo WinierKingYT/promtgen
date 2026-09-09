@@ -476,6 +476,52 @@ test.describe('PromtGen idea studio production workflow', () => {
     await expect(page.locator('details.pg-advanced-tools')).toHaveCount(0);
   });
 
+  test('gereksinim taslagi ekranda kabul edilir ve gorev uretimini acar', async ({ page }) => {
+    // FAZ C'NİN KANITI. Dönüşüm taslak gereksinim üretiyordu ama onları kabul
+    // edebilecek üç fonksiyonun üretimde sıfır çağıranı vardı: kullanıcı ne
+    // yazarsa yazsın `compileTaskPlan` sıfır görev döndürüyor ve finalizasyon
+    // kapısı hiç açılmıyordu. Bu test o zinciri TARAYICIDA yürütür.
+    await startIdea(page);
+    await advanceToDecisionTurn(page);
+    await resolveDecisionTurn(page);
+    await openGuide(page);
+    await completeConceptAgreement(page);
+    await page.getByRole('button', { name: 'Dönüşümü önizle' }).click();
+    const preview = page.getByRole('region', { name: 'Plan dönüşümü önizlemesi' });
+    await expect(preview).toContainText('Gereksinim taslağı');
+    await preview.getByRole('button', { name: 'Onayla ve plana dönüştür' }).click();
+    await expect(page.getByRole('heading', { name: 'Yaşayan plan' })).toBeVisible();
+
+    await page.getByRole('navigation', { name: 'Plan bölümleri' })
+      .getByRole('button', { name: /^Gereksinimler/ })
+      .click();
+
+    const review = page.getByRole('region', { name: 'Gereksinim kartları' });
+    await expect(review).toBeVisible();
+    const cards = review.locator('li.is-draft');
+    await expect(cards.first()).toBeVisible();
+
+    // ÖNCE: görev derleyicisi hiçbir şey üretemez, çünkü kabul edilmiş
+    // gereksinim yok. Uyarıyı panelin kendisi söylüyor.
+    await expect(review).toContainText('en az bir "Olmazsa olmaz" gereksinimi kabul et');
+
+    await cards.first().getByRole('button', { name: 'Kabul et' }).click();
+    await expect(review.locator('li.is-accepted')).toHaveCount(1);
+    await expect(review.locator('li.is-accepted').getByRole('button', { name: 'Kabul et' })).toBeDisabled();
+
+    // TUZAK: serbest metin kutusuna hiç dokunulmadı; bölümü dolduran şey
+    // kabul edilen gereksinimin `sections.requirements.items`e yazılması.
+    await expect(page.locator('.pg-plan-editor>textarea')).toHaveValue('');
+    await expect(page.locator('.pg-plan-editor>ul li').first()).toBeVisible();
+
+    // SONRA: aynı akış artık görev taslağı üretiyor.
+    await page.getByRole('navigation', { name: 'Plan bölümleri' })
+      .getByRole('button', { name: /^Görevler ve Yol Haritası/ })
+      .click();
+    await page.getByRole('button', { name: 'Gereksinimlerden görev taslağı üret' }).click();
+    await expect(page.locator('.pg-task-preview h3')).toContainText(/^[1-9]\d* görev taslağı hazır$/);
+  });
+
   test('izlenebilirlik ve kod hizalamasi bos durumda gorunmez', async ({ page }) => {
     await startIdea(page);
     await advanceToDecisionTurn(page);

@@ -59,6 +59,7 @@ import { stageWorkAvailable } from '../v4/application/conversion-v2.js';
 import { PlanAlignmentNotice } from './components/PlanAlignmentNotice.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
 import { TaskContractSummary } from './components/TaskContractSummary.js';
+import { PlanRequirementReview } from './components/PlanRequirementReview.js';
 import {
   IdeaCoachTurn,
   IdeaExpansionColumn,
@@ -590,7 +591,9 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
                 {Object.values(project.sections).filter(section => section.required || section.content || section.items.length || impactedSections.has(section.id)).map(section => <button type="button" className={`${activeSection === section.id ? 'is-active' : ''} ${impactedSections.has(section.id) ? 'is-impacted' : ''}`} key={section.id} onClick={() => setActiveSection(section.id)}><span>{section.title}<small>{section.items.length ? `${section.items.length} öğe` : section.required ? 'Gerekli' : 'İsteğe bağlı'}</small></span><ChevronRightIcon/></button>)}
               </nav>
               <section className="pg-plan-editor">
-                {active && <><header><div><span>PLAN BÖLÜMÜ</span><h2>{active.title}</h2><p>{active.description}</p></div><small>r{active.updatedAtRevision}</small></header><textarea aria-label={`${active.title} içeriği`} value={sectionDraft} onChange={event => setSectionDraft(event.target.value)} rows={12} placeholder="Bu bölümün içeriğini yaz…"/><button type="button" className="pg-save-section" disabled={sectionDraft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{active.items.length > 0 && <ul>{active.items.map(item => <li key={item}>{item}</li>)}</ul>}{activeSection === 'tasks' && <><TaskContractSummary tasks={project.tasks}/><button type="button" className="pg-compile-tasks" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button></>}{/* Panel bölüme değil, son kabul edilen etki analizine bağlı: önerileri
+                {active && <><header><div><span>PLAN BÖLÜMÜ</span><h2>{active.title}</h2><p>{active.description}</p></div><small>r{active.updatedAtRevision}</small></header>{/* Gereksinimler bölümünde KARAR YÜZEYİ metin kutusundan ÖNCE gelir:
+    görevler yalnız kabul edilen gereksinimlerden üretiliyor, serbest metin
+    kutusunu hiçbir şey okumuyor. Sıralama bunu söylüyor. */}{activeSection === 'requirements' && <PlanRequirementReview project={project} onCommit={commit} onNotice={notify}/>}<textarea aria-label={`${active.title} içeriği`} value={sectionDraft} onChange={event => setSectionDraft(event.target.value)} rows={12} placeholder="Bu bölümün içeriğini yaz…"/><button type="button" className="pg-save-section" disabled={sectionDraft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{active.items.length > 0 && <ul>{active.items.map(item => <li key={item}>{item}</li>)}</ul>}{activeSection === 'tasks' && <><TaskContractSummary tasks={project.tasks}/><button type="button" className="pg-compile-tasks" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button></>}{/* Panel bölüme değil, son kabul edilen etki analizine bağlı: önerileri
     impactAnalysisId'ye göre süzüyor. Bu yüzden resetKey aktif bölüm değil
     belge revizyonu — tek işi hata durumunu temizlemek, ve belge her
     değiştiğinde yeniden denemeye izin vermek. LazyFeatureBoundary resetKey'i

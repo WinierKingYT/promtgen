@@ -11,9 +11,6 @@
     "idea-guide-service.ts::buildAnonymousStudySession",
     "idea-maturity-service.ts::assessIdeaMaturity",
     "implementation-evidence-service.ts::decideImplementationEvidence",
-    "provider-readiness-service.ts::providerRecoveryHint",
-    "requirement-quality-service.ts::acceptRequirementDraft",
-    "requirement-quality-service.ts::removeRequirementDraft",
-    "requirement-quality-service.ts::updateRequirementDraft"
+    "provider-readiness-service.ts::providerRecoveryHint"
   ]
 }
