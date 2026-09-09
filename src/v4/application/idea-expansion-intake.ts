@@ -3,6 +3,7 @@ import type { ExpansionCard } from './idea-expansion-service.js';
 import { captureDiscussionBundle } from './idea-discussion-service.js';
 import {
   EXPANSION_BUNDLE_TITLE,
+  expansionFingerprint,
   findExpansionItemByTitle,
   nextExpansionBundleId,
   selectExpansionBundle
@@ -161,7 +162,7 @@ export function addExpansionCardAsSuggestion(
   const assessed = card.origin === 'ai';
   const item: SuggestionItem = {
     id: `suggestion-expansion-${bundle.items.length + 1}-${card.id}`,
-    fingerprint: `expansion:${categoryLabel}:${title}`.toLocaleLowerCase('tr-TR'),
+    fingerprint: expansionFingerprint(categoryLabel, title),
     kind: card.kind as SuggestionItem['kind'],
     title,
     description: card.description.trim(),

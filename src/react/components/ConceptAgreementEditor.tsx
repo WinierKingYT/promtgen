@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Save, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, Save, Sparkles, TriangleAlert } from 'lucide-react';
 import type { ConceptSummary, ProjectDocumentV5 } from '../../v4/contracts.js';
 import { getConceptAgreementGate } from '../../v4/application/idea-discussion-service.js';
 import { updateIdeaDocumentWithRevision } from '../../v4/application/idea-document-revision-service.js';
 import { findRemovedScopeDefaults } from '../../v4/application/legacy-scope-defaults.js';
+import { resolveConceptScopeDraft } from '../../v4/application/idea-scope-draft.js';
 // Kutu adları dönüşüm engelleriyle ORTAK sabitten okunur: kullanıcı hangi
 // kutuyu dolduracağını hata metninden okuyabilsin diye ikisi ayrılamaz.
 import { CONCEPT_FIELD_LABELS } from '../../v4/application/concept-field-labels.js';
@@ -14,19 +15,33 @@ type EditableAgreement = Pick<
   'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions' | 'firstReleaseTarget'
 >;
 
-function toDraft(summary: ConceptSummary) {
+/**
+ * Kapsam kutuları BOŞ doğmaz artık: fikir aşamasında "Fikre ekle" ile kabul
+ * edilmiş kartlar buraya taslak olarak düşer (bkz.
+ * v4/application/idea-scope-draft.ts). Kullanıcının aynı şeyi ikinci kez
+ * yazması ölçülmüş bir kusurdu.
+ *
+ * TASLAK BELGEYE YAZILMAZ. Türetme yalnız burada, okuma anında olur; belgeye
+ * geçmesi için kullanıcının kaydetmesi gerekir. `derived` alanı hangi
+ * satırların türetildiğini taşır — köken bildirimi yalnız onlar için çıkar.
+ */
+function toDraft(project: ProjectDocumentV5, summary: ConceptSummary) {
+  const scope = resolveConceptScopeDraft(project, summary);
   return {
-    summary: summary.summary,
-    targetUser: summary.targetUser,
-    problemStatement: summary.problemStatement,
-    currentAlternative: summary.currentAlternative,
-    desiredOutcome: summary.desiredOutcome,
-    firstReleaseTarget: summary.firstReleaseTarget,
-    confirmedFeatures: summary.confirmedFeatures.join('\n'),
-    outOfScope: summary.outOfScope.join('\n'),
-    technicalApproaches: summary.technicalApproaches.join('\n'),
-    knownRisks: summary.knownRisks.join('\n'),
-    openQuestions: summary.openQuestions.join('\n')
+    draft: {
+      summary: summary.summary,
+      targetUser: summary.targetUser,
+      problemStatement: summary.problemStatement,
+      currentAlternative: summary.currentAlternative,
+      desiredOutcome: summary.desiredOutcome,
+      firstReleaseTarget: summary.firstReleaseTarget,
+      confirmedFeatures: scope.confirmedFeatures.join('\n'),
+      outOfScope: scope.outOfScope.join('\n'),
+      technicalApproaches: summary.technicalApproaches.join('\n'),
+      knownRisks: summary.knownRisks.join('\n'),
+      openQuestions: summary.openQuestions.join('\n')
+    },
+    derived: scope.derived
   };
 }
 
@@ -39,8 +54,17 @@ export function ConceptAgreementEditor({ project, onCommit }: {
   onCommit: (project: ProjectDocumentV5, message?: string, commandType?: string) => void;
 }) {
   const summary = project.ideaLabSession?.conceptSummary;
-  const [draft, setDraft] = useState(() => summary ? toDraft(summary) : null);
-  useEffect(() => setDraft(summary ? toDraft(summary) : null), [project.id, project.canonicalRevision, summary]);
+  const [state, setState] = useState(() => summary ? toDraft(project, summary) : null);
+  useEffect(
+    () => setState(summary ? toDraft(project, summary) : null),
+    // `project` bilerek bağımlılık DEĞİL: taslak yalnız belge kimliği, sürümü
+    // ya da özetin kendisi değiştiğinde yeniden kurulur. Her render'da
+    // kurulsaydı kullanıcının yazdığı satırlar her tuşta silinirdi.
+    [project.id, project.canonicalRevision, summary]
+  );
+  const draft = state?.draft || null;
+  const setDraft = (next: NonNullable<typeof draft>) =>
+    setState(current => current ? { ...current, draft: next } : current);
   const gate = getConceptAgreementGate(project);
   const ledger = useMemo(() => ({
     decisions: gate.accepted.filter(record => record.kind === 'decision'),
@@ -103,12 +127,38 @@ export function ConceptAgreementEditor({ project, onCommit }: {
     const isScopeField = key === 'confirmedFeatures' || key === 'outOfScope';
     const legacy = isScopeField ? findRemovedScopeDefaults(lines(draft[key])) : [];
     const noticeId = `legacy-scope-${key}`;
+    // Köken bildirimi KUTUDA HÂLÂ DURAN satırlarla sınırlıdır: kullanıcı bir
+    // satırı silince ya da yeniden yazınca o satır listeden düşer, hepsi
+    // düşerse bildirim kendiliğinden kaybolur. Ayrı bir "kapatıldı" durumu
+    // tutulmaz — legacy uyarısıyla aynı kural.
+    const derivedAll = (key === 'confirmedFeatures' || key === 'outOfScope')
+      ? (state?.derived[key] || [])
+      : [];
+    const present = new Set(lines(draft[key]));
+    const derived = derivedAll.filter(item => present.has(item));
+    const derivedNoticeId = `derived-scope-${key}`;
+    const describedBy = [
+      legacy.length > 0 ? noticeId : '',
+      derived.length > 0 ? derivedNoticeId : ''
+    ].filter(Boolean).join(' ');
     return <div className="agreement-field">
       <label>{label}<small>{hint}</small><textarea
-        aria-describedby={legacy.length > 0 ? noticeId : undefined}
+        aria-describedby={describedBy || undefined}
         value={draft[key]}
         onChange={event => setDraft({ ...draft, [key]: event.target.value })}
       /></label>
+      {derived.length > 0 && <div className="derived-scope-notice" id={derivedNoticeId} role="note">
+        <Sparkles size={14} aria-hidden="true"/>
+        <div>
+          <b>Fikir aşamasında kabul ettiğin kartlardan geldi.</b>
+          <span>
+            Aşağıdaki {derived.length > 1 ? `${derived.length} satır` : 'satır'} "Fikre ekle" ile kabul
+            ettiğin kartlardan TASLAK olarak türetildi; belgene henüz yazılmadı. Bir oku: doğruysa kalsın,
+            değilse düzelt ya da sil. Kaydedene kadar hiçbiri belgeye geçmez.
+          </span>
+          <ul>{derived.map(item => <li key={item}>{item}</li>)}</ul>
+        </div>
+      </div>}
       {isScopeField && legacy.length > 0 && <div className="legacy-scope-notice" id={noticeId} role="note">
         <TriangleAlert size={14} aria-hidden="true"/>
         <div>

@@ -14,6 +14,17 @@ export interface ExpansionCategory {
 }
 
 /**
+ * Kapsamı DARALTAN eksenin etiketi.
+ *
+ * Ayrı bir sabit olarak durur çünkü tek kullanıcısı bu dosya değildir: bir
+ * kartın kabul edilmesi "bunu yapacağım" mı yoksa "bunu KAPSAM DIŞI
+ * bırakacağım" mı demek — bunu ayıran tek işaret kartın hangi başlık altından
+ * geldiğidir (bkz. application/idea-scope-draft.ts). Etiket iki yerde ayrı
+ * ayrı yazılsaydı, başlığı düzeltmek okuyan tarafı sessizce kör bırakırdı.
+ */
+export const SCOPE_NARROWING_CATEGORY_LABEL = 'Kapsamı daralt';
+
+/**
  * Kategori sözlüğü deterministiktir: ağ, AI, tarih veya rastgelelik kullanmaz.
  * Domain pack'lerin sözlüğü plan kalite kapısı dilidir ve fikir aşaması için
  * fazla tekniktir; burada kategoriler kullanıcının dilinde adlandırılır.
@@ -63,7 +74,7 @@ const CORE: ExpansionCategory[] = [
   },
   {
     id: 'narrow',
-    label: 'Kapsamı daralt',
+    label: SCOPE_NARROWING_CATEGORY_LABEL,
     hint: 'Neyi çıkarırsan ürün hâlâ ayakta kalır?',
     seedTitles: ['İkincil kullanıcı grubunu ilk sürümden çıkar', 'Otomasyonu elle yapılan adıma indir']
   }

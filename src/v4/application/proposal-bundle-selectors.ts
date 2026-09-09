@@ -24,6 +24,20 @@ export function isExpansionBundle(bundle: SuggestionBundle): boolean {
 }
 
 /**
+ * Keşif kartının parmak izi. Kartın hangi BAŞLIK altından geldiğini taşıyan
+ * TEK yer burasıdır: fikir defterinin kaydında (`IdeaDiscussionRecord`)
+ * kategori alanı yoktur ve kayıt yalnız paket kimliğini taşır.
+ *
+ * Biçim tek yerde durur ki OKUYAN ile YAZAN ayrışmasın: aynı işlev boş bir
+ * başlıkla çağrıldığında bir kategorinin önekini verir
+ * (`expansionFingerprint(label, '')`), böylece bir öğenin o kategoriden gelip
+ * gelmediği metin biçimini ikinci kez elle kurmadan sınanabilir.
+ */
+export function expansionFingerprint(categoryLabel: string, title: string): string {
+  return `expansion:${categoryLabel}:${title}`.toLocaleLowerCase('tr-TR');
+}
+
+/**
  * Konuşma turunun paketi. Keşif paketleri hiçbir koşulda turun yerine geçemez:
  * tur paketi kapanmış olsa bile en son keşif paketi "güncel tur" sanılırsa
  * konuşma paneli kullanıcının kartlarını turun seçenekleri gibi gösterir.
