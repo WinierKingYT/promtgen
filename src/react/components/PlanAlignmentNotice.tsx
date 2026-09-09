@@ -1,5 +1,6 @@
 import { AlertTriangle, GitCompare, RotateCcw, TimerReset } from 'lucide-react';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import { planSectionTitles } from '../../v4/project-document.js';
 import { createIdeaAlignmentImpactAnalysis } from '../../v4/application/change-impact-service.js';
 import { restoreIdeaDocumentRevision } from '../../v4/application/idea-document-revision-service.js';
 import { deferPlanAlignment } from '../../v4/domain/idea-plan-alignment.js';
@@ -31,7 +32,7 @@ export function PlanAlignmentNotice({ project, onCommit, onInspect }: {
       <span className="meta">{alignment.status === 'stale' ? 'PLAN GÜNCEL DEĞİL' : 'PLAN İNCELEME BEKLİYOR'}</span>
       <h2 id="plan-alignment-title">Fikir r{alignment.currentIdeaRevisionNumber}, planın kaynak r{alignment.sourceIdeaRevisionNumber} sürümünden farklı</h2>
       <p>{alignment.reason}</p>
-      <small>Etkilenen bölümler: {alignment.affectedSections.join(', ')}</small>
+      <small>Etkilenen bölümler: {planSectionTitles(alignment.affectedSections).join(', ')}</small>
     </div>
     <div className="change-impact-actions">
       <button type="button" className="primary" onClick={inspect}><GitCompare size={15}/> Etkiyi incele</button>

@@ -365,8 +365,10 @@ describe('V3 yolu plana ULASIR', () => {
       concerns: [{ id: 'c1', title: 'Fatura kaydı', status: 'deferred' }]
     });
 
+    // Engel, kullanıcının EKRANDA gördüğü kutunun adıyla yazılır; ham
+    // `confirmedFeatures` anahtarı kullanıcıya hiçbir kutu göstermiyordu.
     assert.ok(previewIdeaPlanConversion(document).blockers.some(
-      blocker => /confirmedFeatures/.test(blocker)
+      blocker => /"Kapsam içinde" listesi/.test(blocker)
     ), JSON.stringify(previewIdeaPlanConversion(document).blockers));
   });
 

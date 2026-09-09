@@ -61,6 +61,31 @@ export const PLAN_SECTION_DEFINITIONS: readonly PlanSectionDefinition[] = Object
     { id: 'operations', title: 'Operasyon', description: 'Gözlemlenebilirlik, kapasite ve süreklilik.' }
 ]);
 
+const PLAN_SECTION_TITLE_BY_ID: ReadonlyMap<string, string> = new Map(
+    PLAN_SECTION_DEFINITIONS.map(section => [section.id, section.title])
+);
+
+/**
+ * Bölüm kimliğini kullanıcıya gösterilen Türkçe başlığa çevirir.
+ *
+ * NEDEN BURADA. Başlıklar zaten `PLAN_SECTION_DEFINITIONS` içinde;
+ * çözümleyiciyi arayüz tarafına kopyalamak aynı sabiti ikinci kez yazmak
+ * olurdu (`16abc11`in dersi). Kimliği basan her yüzey bu tek işlevi çağırır.
+ *
+ * TANIMSIZ KİMLİK HAM ADIYLA DÖNER, FIRLATMAZ. Bu listeler yalnız kodun
+ * ürettiği kimliklerden oluşmuyor: senaryo formu kullanıcının yazdığı
+ * kimlikleri, eski belgeler de artık tanımlı olmayan kimlikleri taşıyabilir.
+ * Fırlatmak, kullanıcının kendi yazdığı bir satır yüzünden ekranı düşürürdü.
+ */
+export function planSectionTitle(id: string): string {
+    return PLAN_SECTION_TITLE_BY_ID.get(id) || id;
+}
+
+/** `planSectionTitle`in liste biçimi; sıra korunur. */
+export function planSectionTitles(ids: readonly string[]): string[] {
+    return ids.map(planSectionTitle);
+}
+
 const REQUIRED_BY_DEPTH: Readonly<Record<PlanningDepthLevel, string[]>> = Object.freeze({
     quick: ['vision', 'scope', 'tasks'],
     standard: ['vision', 'objectives', 'scope', 'requirements', 'architecture', 'tasks', 'risks', 'testing'],

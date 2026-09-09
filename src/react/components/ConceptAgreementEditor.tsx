@@ -4,6 +4,9 @@ import type { ConceptSummary, ProjectDocumentV5 } from '../../v4/contracts.js';
 import { getConceptAgreementGate } from '../../v4/application/idea-discussion-service.js';
 import { updateIdeaDocumentWithRevision } from '../../v4/application/idea-document-revision-service.js';
 import { findRemovedScopeDefaults } from '../../v4/application/legacy-scope-defaults.js';
+// Kutu adları dönüşüm engelleriyle ORTAK sabitten okunur: kullanıcı hangi
+// kutuyu dolduracağını hata metninden okuyabilsin diye ikisi ayrılamaz.
+import { CONCEPT_FIELD_LABELS } from '../../v4/application/concept-field-labels.js';
 
 type EditableAgreement = Pick<
   ConceptSummary,
@@ -135,16 +138,16 @@ export function ConceptAgreementEditor({ project, onCommit }: {
       {summary.confidenceRationale.map(reason => <small key={reason}>• {reason}</small>)}
     </div>
     <div className="agreement-primary">
-      <label>Sistem yorumu<small>Projeyi tek paragrafta nasıl anladığımız</small><textarea aria-invalid={!draft.summary.trim()} value={draft.summary} onChange={event => setDraft({ ...draft, summary: event.target.value })}/></label>
-      <label>Birincil kullanıcı<small>Bu ürünü düzenli kullanacak tek ana persona</small><textarea aria-invalid={!draft.targetUser.trim()} value={draft.targetUser} onChange={event => setDraft({ ...draft, targetUser: event.target.value })}/></label>
-      <label>Ana problem<small>Kullanıcının bugün yaşadığı somut sorun</small><textarea aria-invalid={!draft.problemStatement.trim()} value={draft.problemStatement} onChange={event => setDraft({ ...draft, problemStatement: event.target.value })}/></label>
-      <label>Bugünkü çözüm<small>Bu problem şu anda nasıl çözülüyor?</small><textarea aria-invalid={!draft.currentAlternative.trim()} value={draft.currentAlternative} onChange={event => setDraft({ ...draft, currentAlternative: event.target.value })}/></label>
-      <label>Beklenen ana sonuç<small>Ürün kullanıldığında ne değişecek?</small><textarea aria-invalid={!draft.desiredOutcome.trim()} value={draft.desiredOutcome} onChange={event => setDraft({ ...draft, desiredOutcome: event.target.value })}/></label>
-      <label>İlk sürüm hedefi<small>İlk sürümün tek doğrulanabilir sonucu</small><textarea aria-invalid={!draft.firstReleaseTarget.trim()} value={draft.firstReleaseTarget} onChange={event => setDraft({ ...draft, firstReleaseTarget: event.target.value })}/></label>
+      <label>{CONCEPT_FIELD_LABELS.summary}<small>Projeyi tek paragrafta nasıl anladığımız</small><textarea aria-invalid={!draft.summary.trim()} value={draft.summary} onChange={event => setDraft({ ...draft, summary: event.target.value })}/></label>
+      <label>{CONCEPT_FIELD_LABELS.targetUser}<small>Bu ürünü düzenli kullanacak tek ana persona</small><textarea aria-invalid={!draft.targetUser.trim()} value={draft.targetUser} onChange={event => setDraft({ ...draft, targetUser: event.target.value })}/></label>
+      <label>{CONCEPT_FIELD_LABELS.problemStatement}<small>Kullanıcının bugün yaşadığı somut sorun</small><textarea aria-invalid={!draft.problemStatement.trim()} value={draft.problemStatement} onChange={event => setDraft({ ...draft, problemStatement: event.target.value })}/></label>
+      <label>{CONCEPT_FIELD_LABELS.currentAlternative}<small>Bu problem şu anda nasıl çözülüyor?</small><textarea aria-invalid={!draft.currentAlternative.trim()} value={draft.currentAlternative} onChange={event => setDraft({ ...draft, currentAlternative: event.target.value })}/></label>
+      <label>{CONCEPT_FIELD_LABELS.desiredOutcome}<small>Ürün kullanıldığında ne değişecek?</small><textarea aria-invalid={!draft.desiredOutcome.trim()} value={draft.desiredOutcome} onChange={event => setDraft({ ...draft, desiredOutcome: event.target.value })}/></label>
+      <label>{CONCEPT_FIELD_LABELS.firstReleaseTarget}<small>İlk sürümün tek doğrulanabilir sonucu</small><textarea aria-invalid={!draft.firstReleaseTarget.trim()} value={draft.firstReleaseTarget} onChange={event => setDraft({ ...draft, firstReleaseTarget: event.target.value })}/></label>
     </div>
     <div className="agreement-grid">
-      {listField('confirmedFeatures', 'Kapsam içinde', 'En az bir madde · her satıra bir özellik')}
-      {listField('outOfScope', 'Kapsam dışında', 'En az bir madde · kapsam kaymasını önler')}
+      {listField('confirmedFeatures', CONCEPT_FIELD_LABELS.confirmedFeatures, 'En az bir madde · her satıra bir özellik')}
+      {listField('outOfScope', CONCEPT_FIELD_LABELS.outOfScope, 'En az bir madde · kapsam kaymasını önler')}
       {listField('technicalApproaches', 'Teknik yaklaşım', 'Her satıra bir yaklaşım')}
       {listField('knownRisks', 'Bilinen riskler', 'Her satıra bir risk')}
       {listField('openQuestions', 'Açık kritik sorular', 'Onaydan önce cevapla ve bu listeyi temizle')}

@@ -21,6 +21,11 @@ export function PlanningScenarioPanel({ project, onCommit }: { project: ProjectD
   const [description, setDescription] = useState('');
   const [decision, setDecision] = useState('');
   const [rationale, setRationale] = useState('');
+  // BU ALAN BİLEREK HAM KİMLİK TAŞIR. Yazılan metin virgülden bölünüp
+  // doğrudan `affectedSectionIds` olarak SAKLANIR ve aşağı akışta
+  // (`regenerate-affected-sections`, `applySection`) kimlik olarak eşleşir.
+  // Türkçe başlığa çevirmek saklanan değeri de çevirir ve o eşleşmeyi kırardı;
+  // gösterim yerlerindeki `planSectionTitles` çözümlemesi buraya UYGULANMAZ.
   const [sections, setSections] = useState('scope, requirements, architecture');
   const [dependencies, setDependencies] = useState('');
   const [busyId, setBusyId] = useState('');

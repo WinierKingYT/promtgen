@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, CircleAlert, Download, Eye, RotateCcw } from 'lucide-react';
 import type { ProjectDocumentV5 } from '../../v4/contracts.js';
+import { planSectionTitles } from '../../v4/project-document.js';
 import {
   buildIdeaGuide,
   ideaGuideToMarkdown
@@ -75,7 +76,7 @@ export function IdeaGuidePanel({ project, onCommit, onConvert, onOpenPlan }: {
             <div><dt>Risk</dt><dd>{conversionPreview.risks}</dd></div>
           </dl>
           <p><b>Ana hedef:</b> {conversionPreview.objective}</p>
-          <p><b>Etkilenen bölümler:</b> {conversionPreview.affectedSections.join(', ')}</p>
+          <p><b>Etkilenen bölümler:</b> {planSectionTitles(conversionPreview.affectedSections).join(', ')}</p>
           <ul>{conversionPreview.requirementTitles.map(title => <li key={title}>{title} — kullanıcı onayı bekleyen gereksinim taslağı</li>)}</ul>
           <footer><span>Önceki sürüm korunur. İşlem başarısız olursa hiçbir kısmi değişiklik kaydedilmez.</span><button type="button" className="primary" disabled={converting} onClick={convert}><Check size={16}/> {converting ? 'Dönüştürülüyor…' : 'Onayla ve plana dönüştür'}</button></footer>
         </div>}

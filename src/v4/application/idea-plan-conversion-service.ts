@@ -1,6 +1,7 @@
 import { normalizeObjective } from '../canonical-entities.js';
 import type { ProjectDocumentV5 } from '../contracts.js';
 import { confirmConceptSummary } from '../planning-engine.js';
+import { conceptFieldLabel } from './concept-field-labels.js';
 import { getConceptAgreementGate, updateIdeaRecordStatus } from './idea-discussion-service.js';
 import { createRequirementDraftsFromConcept } from './requirement-quality-service.js';
 import { markCurrentIdeaRevisionConverted } from './idea-document-revision-service.js';
@@ -36,8 +37,11 @@ function conversionBlockers(project: ProjectDocumentV5): string[] {
     // Conversion V2: `Idea -> Plan` doğrudan geçişi kaldırıldı. Aşama modeline
     // girmemiş eski belgelerde bu liste boş döner; göç cezaya çevrilmez.
     ...stageConversionBlockers(project),
-    ...gate.missingInterpretationFields.map(field => `${field} alanı tamamlanmalı.`),
-    ...gate.missingScopeLists.map(field => `${field} listesi en az bir madde içermeli.`),
+    // Engel, kullanıcının EKRANDA gördüğü kutunun adını söyler. Ham
+    // TypeScript anahtarı ("confirmedFeatures") kullanıcıya hiçbir kutuyu
+    // göstermiyordu; etiketler formla aynı sabitten okunur.
+    ...gate.missingInterpretationFields.map(field => `"${conceptFieldLabel(field)}" alanı tamamlanmalı.`),
+    ...gate.missingScopeLists.map(field => `"${conceptFieldLabel(field)}" listesi en az bir madde içermeli.`),
     ...gate.unresolvedSummaryQuestions.map(question => `Açık soru kapatılmalı: ${question}`),
     // Yalnız kritik kayıtlar blokler. Ertelenebilir kayıtlar dönüşüm sırasında
     // otomatik ertelenir ve plana varsayım/risk olarak taşınır; kullanıcı üç

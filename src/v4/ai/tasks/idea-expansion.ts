@@ -70,6 +70,20 @@ function normalizeAvoidTitles(input: IdeaExpansionInput): string[] {
  * de bir SÖZDÜR, garanti değil; mekanik denetim
  * `application/expansion-card-tone.ts`tedir ve emir kipli kartı TEK TEK eler.
  *
+ * ÜÇÜNCÜ ÖLÇÜLEN KUSUR — ÖRNEĞİN KENDİSİ KONU SIZDIRIYORDU. O İYİ/KÖTÜ çifti
+ * at-ve-eyer temalı bir test projesinde yazılmıştı ve alana BAĞIMSIZ olan bu
+ * şablonda öylece kaldı: her projeye, her alanda gönderiliyordu. Canlı testte
+ * model "at" ve "eyer"i konusuyla hiç ilgisi olmayan projelere taşıdı. Ders:
+ * az örnek yalnız BİÇİM öğretmez, KONU da öğretir. Bu yüzden örneklerin
+ * konusu YER TUTUCUya çevrildi (`<şeyin adı>`); öğretilen ders — başlık isim
+ * öbeğidir, açıklama kullanıcıya hitap eder, emir kipi yasaktır — ve
+ * yasakların sertliği aynen duruyor.
+ *
+ * `promptVersion` bu yüzden 2.1.0: çıktı sözleşmesinin BİÇİMİ değişmediği
+ * için major değil (emsal `8e2ed62` major'ı tam da biçim değişikliğine
+ * vermişti), ama sürüm provenance'a yazıldığı için 2.0.0'da da kalamaz —
+ * konu sızdıran istemle üretilmiş belgeler ayırt edilebilmeli.
+ *
  * ŞEMA ALANLARI DURUYOR: effort/impact/deliveryHorizon istenmeye devam eder.
  * Bunların kart yüzünden kaldırılması AYRI bir iştir (arayüz aşaması).
  * `deliveryHorizon` V3-04a'da `mvpHint`ten yeniden adlandırıldı; alan hiçbir
@@ -79,7 +93,7 @@ function normalizeAvoidTitles(input: IdeaExpansionInput): string[] {
  */
 export const ideaExpansionTask = {
   id: 'idea-expansion',
-  promptVersion: '2.0.0',
+  promptVersion: '2.1.0',
   schemaId: IDEA_EXPANSION_SCHEMA_ID,
   schemaVersion: 2,
   schema: ideaExpansionSchema,
@@ -106,17 +120,18 @@ Yalnız bu kategoriye ait, bu projeye özel ve somut öneriler yaz; jenerik tavs
 Zaten kararlaştırılmış veya reddedilmiş içeriği yeniden önerme.
 ${avoidLine}En az ${MINIMUM_EXPANSION_CARDS}, en çok 10 kart üret. Üst sınıra ULAŞMAK ZORUNDA DEĞİLSİN: bu kategori kaç GERÇEKTEN AYRI fikir taşıyorsa o kadar kart yaz.
 Az sayıda gerçekten farklı kart, çok sayıda birbirinin varyasyonundan İYİDİR; sayıyı doldurmak için fikir UYDURMA.
-Aynı fiilin veya mekanizmanın parantez içinde değişen varyasyonları TEK kart sayılır: "At etkileşimleri (Sürükleme)" ile "At etkileşimleri (Toplama)" iki kart DEĞİL, bir karttır — bu durumda tek kart yaz ve varyasyonları o kartın açıklamasında say.
+Aynı fiilin veya mekanizmanın parantez içinde değişen varyasyonları TEK kart sayılır: "<aynı başlık> (birinci varyasyon)" ile "<aynı başlık> (ikinci varyasyon)" iki kart DEĞİL, bir karttır — bu durumda tek kart yaz ve varyasyonları o kartın açıklamasında say.
 Her kart tek bir uygulanabilir fikirdir.
 Kart bir "yapılacak iş" DEĞİLDİR; kullanıcının fikrine EKLEYEBİLECEĞİ BİR ŞEYDİR.
-title somut bir ŞEY olsun ve isim öbeği olarak yazılsın: "At dayanıklılığı", "Eyer ve envanter", "Atı uzaktan çağırma".
+title somut bir ŞEY olsun ve isim öbeği olarak yazılsın: başlık o şeyin ADIDIR, o şeye yapılacak işin adı değildir.
 title'ı görev gibi ADLANDIRMA: "... oluşturma", "... implemente etme", "... geliştirme" biçiminde iş adları YASAK.
 description o şeyin fikir için NE ANLAMA GELDİĞİNİ kullanıcıya anlatan TEK cümledir; kullanıcıya hitap eder, geliştiriciye TALİMAT VERMEZ.
 description'da emir kipi kullanma: "oluşturun", "ekleyin", "belirleyin", "implemente edin" gibi biten cümle YAZMA.
-İYİ örnek: {"title":"At dayanıklılığı","description":"At koştukça yorulur, dinlenmesi gerekir."}
-KÖTÜ örnek: {"title":"Dayanıklılık sistemi oluşturma","description":"At için bir dayanıklılık sistemi oluşturun."}
-İYİ örnek: {"title":"Eyer ve envanter","description":"Atın üzerinde taşınan eşyalar için ayrı bir çanta bulunur."}
-KÖTÜ örnek: {"title":"Yorulma mekanizması implemente etme","description":"Yorulma mekanizması implemente edin."}
+Aşağıdaki örneklerde köşeli oklar arasındaki yazı bir YER TUTUCUDUR; yerine bu kategorinin ve bu fikrin gerçek konusu gelir. Örneklerin KONUSUNU değil, BİÇİMİNİ ve KİPİNİ kopyala; "<" ve ">" işaretlerini kartına yazma.
+İYİ örnek: {"title":"<şeyin adı>","description":"<şey> fikirde vardır ve kullanıldığında <şu sonuç> ortaya çıkar."}
+KÖTÜ örnek: {"title":"<şeyin adı> oluşturma","description":"<şey> için bir sistem oluşturun."}
+İYİ örnek: {"title":"<şeyin adı> ve <yanındaki şeyin adı>","description":"<şey> kullanıldığında <yanındaki şey> de devreye girer, ikisi birlikte durur."}
+KÖTÜ örnek: {"title":"<şeyin adı> mekanizmasını implemente etme","description":"<şey> mekanizmasını implemente edin."}
 Her kartta deliveryHorizon zorunludur ve yalnız "core" veya "later" olabilir; boş bırakma.
 "core" bu şeyin fikrin ŞU ANKİ çekirdek kapsamına ait göründüğü, "later" ise beklemesinin sorun olmadığı anlamına gelir.
 Bu yalnız bir sıralama görüşüdür: fikri sabit bir kapsam süzgecinden geçirmez ve plana verilmiş bağlayıcı bir söz değildir.

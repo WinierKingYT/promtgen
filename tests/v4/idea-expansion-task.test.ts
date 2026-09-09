@@ -64,8 +64,10 @@ describe('ideaExpansionTask', () => {
 
   it('parantez içi varyasyonların TEK kart olduğunu örnekle anlatır', () => {
     const prompt = ideaExpansionTask.buildPrompt(project(), input);
-    assert.match(prompt, /\(Sürükleme\)/);
-    assert.match(prompt, /\(Toplama\)/);
+    // Örnek KONUSUZ: aynı başlığın parantezle çoğaltılması gösterilir, bir
+    // proje konusu değil (bkz. aşağıdaki "yer tutucu" testi).
+    assert.match(prompt, /<aynı başlık> \(birinci varyasyon\)/);
+    assert.match(prompt, /<aynı başlık> \(ikinci varyasyon\)/);
     assert.match(prompt, /TEK kart/);
   });
 
@@ -78,7 +80,14 @@ describe('ideaExpansionTask', () => {
     // sözleşmesinin BİÇİMİ değişti, bu yüzden major; emsal 8e2ed62
     // (idea-foundation) aynı durumda promptVersion'ı major, schemaVersion'ı
     // bir artırmış, SCHEMA_ID dizesine dokunmamıştı.
-    assert.equal(ideaExpansionTask.promptVersion, '2.0.0');
+    // 2.1.0: az örnekler bir proje konusuna demirlenmiş olmaktan çıkıp yer
+    // tutucuya döndü. Emsal 8e2ed62 major'ı ÇIKTI SÖZLEŞMESİNİN BİÇİMİ
+    // değiştiği için almıştı; burada alan kümesi, değer kümeleri ve JSON
+    // biçimi aynı kaldı — değişen, modele verilen TALİMATIN içeriğidir.
+    // Yine de 2.0.0'da kalamaz: bu sürüm provenance'a yazılıyor ve konu
+    // sızdıran istemle üretilmiş belgeler düzeltilmiş istemle üretilmiş
+    // olanlardan ayırt edilebilmeli.
+    assert.equal(ideaExpansionTask.promptVersion, '2.1.0');
     assert.equal(ideaExpansionTask.schemaVersion, 2);
   });
 
@@ -111,8 +120,9 @@ describe('ideaExpansionTask — kart bir GÖREV değil FİKİRDİR', () => {
   it('başlığın somut bir ŞEY, isim öbeği olmasını ister', () => {
     const prompt = ideaExpansionTask.buildPrompt(project(), input);
     assert.match(prompt, /isim öbeği/i);
-    assert.match(prompt, /At dayanıklılığı/);
-    assert.match(prompt, /Eyer ve envanter/);
+    assert.match(prompt, /o şeyin ADIDIR/);
+    // İYİ örneğin başlığı bir isim öbeği yer tutucusudur, iş adı değil.
+    assert.match(prompt, /İYİ örnek: \{"title":"<şeyin adı>"/);
   });
 
   it('görev adlandırmasını açıkça yasaklar', () => {
@@ -138,9 +148,30 @@ describe('ideaExpansionTask — kart bir GÖREV değil FİKİRDİR', () => {
     const prompt = ideaExpansionTask.buildPrompt(project(), input);
     assert.match(prompt, /İYİ/);
     assert.match(prompt, /KÖTÜ/);
-    assert.match(prompt, /At koştukça yorulur, dinlenmesi gerekir\./);
-    assert.match(prompt, /At için bir dayanıklılık sistemi oluşturun\./);
-    assert.match(prompt, /Yorulma mekanizması implemente edin\./);
+    // İYİ örnek VAR: isim öbeği başlık + kullanıcıya hitap eden düz cümle.
+    assert.match(prompt, /İYİ örnek: \{"title":"<şeyin adı>","description":"<şey>[^"]+"\}/);
+    // KÖTÜ örnek VAR: iş adı başlık + emir kipli açıklama.
+    assert.match(prompt, /KÖTÜ örnek: \{"title":"<şeyin adı> oluşturma","description":"[^"]*oluşturun\."\}/);
+    assert.match(prompt, /KÖTÜ örnek: \{"title":"[^"]*implemente etme","description":"[^"]*implemente edin\."\}/);
+  });
+
+  /**
+   * A1 — ÖLÇÜLEN SIZINTI. Az örnekler at-ve-eyer temalı bir test projesinde
+   * yazılmış, sonra alana bağımsız şablonda unutulmuştu; canlı testte model
+   * "at/eyer"i ilgisiz projelere taşıdı. Örneğin KONUSU artık yer tutucudur:
+   * kopyalanacak şey biçim ve kiptir, konu değil.
+   */
+  it('az örnekler bir proje konusuna demir atmaz', () => {
+    const prompt = ideaExpansionTask.buildPrompt(project(), input);
+    const examples = prompt.split('\n').filter(line => /^(İYİ|KÖTÜ) örnek: /.test(line));
+    assert.equal(examples.length, 4, 'iki İYİ/KÖTÜ çifti durmalı');
+    for (const line of examples) {
+      assert.match(line, /<[^<>]+>/, `örnek yer tutucu taşımalı: ${line}`);
+    }
+    assert.match(prompt, /YER TUTUCUDUR/, 'modele <…> yazısının kopyalanmayacağı söylenmeli');
+    // Sızıntının kaynağı olan konu istemin HİÇBİR yerinde kalmamalı.
+    assert.doesNotMatch(prompt, /\bAt(ı|ın|a|lar)?\b/, 'at konusu istemde kalmamalı');
+    assert.doesNotMatch(prompt, /Eyer|dizgin|nal\b/i, 'eyer konusu istemde kalmamalı');
   });
 
   /**
