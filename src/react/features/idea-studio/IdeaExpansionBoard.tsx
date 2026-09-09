@@ -29,6 +29,8 @@ import { findExpansionItemByTitle, selectExpansionBundle } from '../../../v4/app
 import { resolveIdeaRecordsForBundle } from '../../../v4/application/idea-discussion-service.js';
 import { applyApprovedChanges, updateSuggestionStatus } from '../../../v4/planning-engine.js';
 import { getModelStrengthHint } from '../../../v4/application/model-strength-hint.js';
+import { getExpansionCardGroundingHint } from '../../../v4/application/expansion-card-grounding-hint.js';
+import { buildFoundationContext } from '../../../v4/ai/context/context-builder.js';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Karar bekliyor',
@@ -520,6 +522,11 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
     ).map(view => [view.categoryId, view])
   );
 
+  // E1 -- bkz. expansion-card-grounding-hint.ts. PANO başına BİR KEZ kurulur
+  // (bölüm başına değil): temel proje boyunca sabittir, `null` ise proje
+  // zeminsizdir ve hiçbir kart için ipucu hesaplanmaz.
+  const foundation = buildFoundationContext(project);
+
   return <section className="pg-expansion-board" aria-label="Keşif panosu">
     <div className="pg-expansion-intro">
       <h2 className="pg-expansion-title">Neler ekleyebiliriz?</h2>
@@ -704,7 +711,9 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
           </p>}
 
           {!!shownCards.length && <div className="pg-expansion-cards">
-            {shownCards.map(card => <article key={card.id} className="pg-expansion-card">
+            {shownCards.map(card => {
+              const groundingHint = card.origin === 'ai' ? getExpansionCardGroundingHint(card, foundation) : null;
+              return <article key={card.id} className="pg-expansion-card">
               <h4>{card.title}</h4>
               <p>{card.description}</p>
               {/* Efor/etki/teslim sırası kart YÜZÜNDE durmuyor. Üçü de modelin
@@ -720,12 +729,18 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
                   <span>{card.impact === 'high' ? 'Yüksek etki' : card.impact === 'medium' ? 'Orta etki' : 'Düşük etki'}</span>
                   <span>{card.deliveryHorizon === 'core' ? 'Çekirdek kapsam' : 'Sonraya bırakılabilir'}</span>
                   <small>Bunlar modelin tahmini; ölçülmüş bir sonuç değil.</small>
+                  {/* E1 -- bkz. expansion-card-grounding-hint.ts. Yalnız ÖLÇÜLEBİLDİĞİNDE
+                      (proje zeminli VE kart/temel yeterince metin taşıyorsa) ve yalnız
+                      ORTAK KELİME yoksa görünür; yokluk (null) hiçbir şey ÇİZMEZ --
+                      "kart yanlış" demez, aynı disiplin A6'da da geçerli. */}
+                  {groundingHint && <small>{groundingHint}</small>}
                 </div> : <p className="is-unassessed">Başlangıç önerisi · efor ve etki değerlendirilmedi.</p>}
               </details>
               <footer>
                 <button type="button" onClick={() => addCard(card, category.label)}><Plus size={14}/> Fikre ekle</button>
               </footer>
-            </article>)}
+            </article>;
+            })}
           </div>}
         </section>;
       })}

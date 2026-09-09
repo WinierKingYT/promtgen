@@ -3,7 +3,7 @@ import type { ProviderSettings } from '../provider-settings.js';
 import type { StructuredProvider } from '../ai/provider-adapters.js';
 import { runRegisteredAITask } from '../ai/runtime.js';
 import { getExpansionCategories, type ExpansionCategory } from '../idea-expansion/categories.js';
-import { findExpansionItemByTitle } from './proposal-bundle-selectors.js';
+import { collectExpansionItemTitles, findExpansionItemByTitle } from './proposal-bundle-selectors.js';
 import { dropDuplicateExpansionCards } from './expansion-card-dedup.js';
 import { dropCommandToneExpansionCards } from './expansion-card-tone.js';
 import { fingerprint } from './deterministic-idea-planning.js';
@@ -83,6 +83,63 @@ function hideDecidedCards(project: ProjectDocumentV5, cards: ExpansionCard[]): {
 } {
   const visible = cards.filter(card => !findExpansionItemByTitle(project, card.title));
   return { cards: visible, hiddenCount: cards.length - visible.length };
+}
+
+/**
+ * E2 -- REDDEDİLEN/KARARLAŞTIRILAN BİR KART GERİ GELEBİLİYORDU (ölçüldü).
+ *
+ * `hideDecidedCards` kartı PANODAN gizler ama modeli hiçbir zaman uyarmaz:
+ * ilk üretim çağrısı `avoidTitles` GEÇMİYORDU, yalnız eleme SONRASI tamamlama
+ * turu geçiyordu ve onun kaynağı da yalnız O TURUN kendi partisiydi -- geçmiş
+ * karar KAYDI değil. Sonuç iki farklı hasar: (1) aynı başlık birebir geri
+ * gelirse gizlenir ama modelin kota hakkı ona harcanmış olur, pano
+ * eskisinden BOŞ görünür; (2) hafifçe yeniden yazılmış hâli tam-eşleşme
+ * filtresinden KAÇAR ve kullanıcıya reddettiği fikir ikinci kez sunulur.
+ *
+ * İstemdeki "varyasyonları da yeniden yazma" sözü (bkz. ai/tasks/idea-expansion.ts
+ * `avoidLine`) zaten TAM bunun için var; yalnız somut bir başlık listesi
+ * olmadan hiç devreye giremiyordu.
+ *
+ * `collectExpansionItemTitles` -- `findExpansionItemByTitle` ile AYNI
+ * taramadan okur (bkz. proposal-bundle-selectors.ts): iki yer ayrı ölçüt
+ * taşırsa panonun gizlediği kart ile isteme giden kısıt listesi ayrışır.
+ *
+ * ÖNBELLEK ANAHTARINA DOKUNULMAZ (bilinçli, bkz. `expansionGenerationKey`
+ * üstündeki not): bu liste yalnız GERÇEK bir üretim çağrısına eklenir --
+ * önbellek isabetinde hiç hesaplanmaz, isabetin kendisi değişmez.
+ *
+ * `extra` -- tamamlama turunun O ANKİ partisi (bkz. `runTopUpRound`) -- ÖNCE
+ * gelir: bu turun kendi elindeki kartlar `ai/tasks/idea-expansion.ts`teki
+ * `MAX_AVOID_TITLES` kırpmasında geçmiş karardan daha ÖNCELİKLİ kalsın diye.
+ * Sıra bir KOTA değildir, yalnız kırpma sırasıdır.
+ *
+ * GEÇMİŞ KISMI YENİDEN-ESKİYE ÇEVRİLİR (ölçülen kusur, bkz. bu dosyanın
+ * başındaki E2 notu). `collectExpansionItemTitles` paketlerin YAZILMA
+ * sırasını -- yani ESKİDEN YENİYE -- korur (bkz. proposal-bundle-selectors.ts
+ * `expansionBundleItems`); o sıra DEĞİŞTİRİLMEZ, çünkü panonun kendisi de
+ * (`findExpansionItemByTitle`) AYNI taramadan okur ve iki yerin ölçütü
+ * ayrışmamalı. Kırpma ise `ai/tasks/idea-expansion.ts`teki
+ * `normalizeAvoidTitles`te listenin BAŞINDAN `MAX_AVOID_TITLES` kadarını
+ * tutar. Geçmiş eskiden-yeniye sırayla buraya girseydi, taşma durumunda
+ * kırpmanın düşürdüğü İLK şey tam da AZ ÖNCE karara bağlanan başlık olurdu
+ * -- ölçüldü: 15 geçmiş başlıktan (cap=12) en yeni 3'ü değil en YENİ kararın
+ * KENDİSİ dahil son 3'ü düşüyordu. Burada -- yalnız modele giden BU listede
+ * -- geçmişi ters çevirip en yeniyi öne alıyoruz: `extra` yine ilk sırada
+ * kalır (kotası aynı gerekçeyle korunur), ardından geçmiş YENİDEN ESKİYE
+ * sıralanır, böylece kırpma sıradaki EN ESKİYİ düşürür.
+ */
+function buildAvoidTitles(project: ProjectDocumentV5, extra: readonly string[] = []): string[] {
+  const recentFirstHistory = [...collectExpansionItemTitles(project)].reverse();
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const title of [...extra, ...recentFirstHistory]) {
+    const trimmed = title.trim();
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      merged.push(trimmed);
+    }
+  }
+  return merged;
 }
 
 /**
@@ -344,7 +401,12 @@ export async function generateExpansionCards(
         categoryId: category.id,
         categoryLabel: category.label,
         categoryHint: category.hint,
-        seedTitles: category.seedTitles
+        seedTitles: category.seedTitles,
+        // E2 -- bkz. `buildAvoidTitles` üstündeki not. Daha önce karara
+        // bağlanmış (ya da hâlâ karar bekleyen) başlıklar modele KISIT olarak
+        // verilir; aksi hâlde reddedilen bir fikir birebir ya da hafif
+        // yeniden yazılmış hâliyle geri gelebiliyordu (ölçüldü).
+        avoidTitles: buildAvoidTitles(project)
       }
     });
     const visible = hideDecidedCards(project, run.output.cards.map(card => ({ ...card, origin: 'ai' as const })));
@@ -377,7 +439,12 @@ export async function generateExpansionCards(
     // her iki hâlde de panoda daha az kart kalır. Yeni bir mekanizma
     // icat edilmez, var olan tur aynı koşulun yanına eklenir.
     if (unique.duplicateCount > 0 || toned.commandToneCount > 0) {
-      const extra = await runTopUpRound(project, category, options, cards.map(card => card.title));
+      // E2 -- tamamlama turu da geçmiş kararlardan HABERSİZ kalmamalı: bu
+      // turun kendi partisi (`cards`) ÖNCELİKLİ kalır, geçmiş karara bağlanmış
+      // başlıklar `buildAvoidTitles` ile arkasına eklenir. Bu bir KOTA
+      // değişikliği DEĞİLDİR -- yalnız KISIT listesi genişler; `runTopUpRound`
+      // hâlâ "az kart dönebilir" sözünü aynen korur.
+      const extra = await runTopUpRound(project, category, options, buildAvoidTitles(project, cards.map(card => card.title)));
       if (extra.length) {
         // Tamamlama kartları da AYNI ÜÇ kapıdan ve AYNI sırayla geçer: model
         // bu turda da karara bağlanmış bir başlığı, emir kipli bir kart ya da

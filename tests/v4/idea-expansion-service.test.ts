@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it, beforeEach } from 'node:test';
 import { analyzeIdea, updateSuggestionStatus } from '../../src/v4/planning-engine.js';
 import { addExpansionCardAsSuggestion } from '../../src/v4/application/idea-expansion-intake.js';
-import { selectExpansionBundle } from '../../src/v4/application/proposal-bundle-selectors.js';
+import {
+  collectExpansionItemTitles,
+  findExpansionItemByTitle,
+  selectExpansionBundle
+} from '../../src/v4/application/proposal-bundle-selectors.js';
 import {
   generateExpansionCards,
   clearExpansionCache,
@@ -245,6 +249,140 @@ describe('karara bağlanmış kartlar panoda tekrar gösterilmez', () => {
     });
     assert.equal(result.cards.length, 4);
     assert.equal(result.hiddenCount, 0);
+  });
+});
+
+/**
+ * E2 -- REDDEDİLEN/KARARLAŞTIRILAN BİR KART GERİ GELEBİLİYORDU.
+ *
+ * ÖLÇÜLEN KUSUR: ilk üretim çağrısı (bkz. idea-expansion-service.ts ~337)
+ * `avoidTitles` HİÇ geçmiyordu; yalnız eleme SONRASI tamamlama turu geçiyordu
+ * ve onun kaynağı da o TURUN kendi partisiydi, geçmiş DEĞİL. `hideDecidedCards`
+ * kartı PANODAN gizliyordu ama modelin kota hakkı zaten o kartı üretmeye
+ * harcanmıştı (etki 1) ve istemdeki "varyasyonları da yeniden yazma" sözü
+ * (bkz. ai/tasks/idea-expansion.ts satır 111) somut bir başlık listesi
+ * olmadan hiçbir zaman devreye giremiyordu (etki 2).
+ *
+ * Ölçüt `findExpansionItemByTitle`/`collectExpansionItemTitles` ile AYNIDIR:
+ * durum farketmeksizin (pending dahil), tüm keşif paketlerindeki başlıklar.
+ * İki yer ayrışırsa panonun gizlediği kart ile isteme giden kısıt listesi
+ * anlaşmazlığa düşer.
+ */
+describe('karara bağlanmış kartlar İLK üretim isteminde KISIT olarak taşınır (E2)', () => {
+  beforeEach(() => clearExpansionCache());
+
+  const promptCapturingProvider = (cards: ReturnType<typeof card>[], log: { prompts: string[] }) => ({
+    model: 'mock',
+    async structured({ system, schema }: { system: string; schema: { parse(value: unknown): unknown } }) {
+      log.prompts.push(system);
+      return schema.parse({ cards });
+    }
+  });
+
+  const decidedProject = (title: string, status: 'pending' | 'accepted' | 'rejected' | 'deferred') => {
+    const once = addExpansionCardAsSuggestion(
+      project(),
+      { id: 'x', title, description: `${title} açıklaması`, kind: 'feature', origin: 'ai' },
+      'Güven ve gizlilik',
+      status === 'pending' ? {} : { status: 'accepted' }
+    );
+    const bundle = selectExpansionBundle(once.project)!;
+    if (status === 'pending') return once.project;
+    return updateSuggestionStatus(once.project, bundle.id, bundle.items[0].id, status) as ProjectDocumentV5;
+  };
+
+  for (const status of ['pending', 'accepted', 'rejected', 'deferred'] as const) {
+    it(`${status} durumundaki kartın başlığı ilk üretim isteminde ZATEN ELİMDE kısıtı olarak geçer`, async () => {
+      const log = { prompts: [] as string[] };
+      const target = decidedProject('Kabul Edilmiş Rota Önerisi', status);
+      await generateExpansionCards(target, 'trust', {
+        settings: aiSettings, provider: promptCapturingProvider([card('A'), card('B'), card('C')], log)
+      });
+
+      assert.equal(log.prompts.length, 1, 'yalnız ilk tur çalışmalı');
+      assert.match(log.prompts[0], /ZATEN ELİMDE/);
+      assert.match(log.prompts[0], /Kabul Edilmiş Rota Önerisi/);
+    });
+  }
+
+  it('hiçbir kart karara bağlanmamışsa ilk tur kısıtsız çalışır', async () => {
+    const log = { prompts: [] as string[] };
+    await generateExpansionCards(project(), 'trust', {
+      settings: aiSettings, provider: promptCapturingProvider([card('A'), card('B'), card('C')], log)
+    });
+    assert.ok(!log.prompts[0].includes('ZATEN ELİMDE'), 'karar yoksa isteme kısıt eklenmemeli');
+  });
+
+  /**
+   * KIRPMA SIRASI -- geçmiş `MAX_AVOID_TITLES`'ı (12) aştığında kırpma
+   * EN ESKİYİ düşürmeli, AZ ÖNCE karara bağlananı DEĞİL. Bu dosyanın
+   * `buildAvoidTitles` üstündeki notun ölçtüğü kusur: geçmiş eskiden-yeniye
+   * sırayla derleniyordu ve `slice(0, MAX_AVOID_TITLES)` listenin SONUNU
+   * -- yani en yeni kararı -- kırpıyordu.
+   */
+  it('geçmiş kapasiteyi aşınca kırpma EN ESKİ başlığı düşürür, AZ ÖNCE reddedileni değil', async () => {
+    let target = project();
+    for (let i = 1; i <= 12; i++) {
+      const once = addExpansionCardAsSuggestion(
+        target,
+        { id: `x-eski-${i}`, title: `Eski-${i}`, description: `Eski-${i} açıklaması`, kind: 'feature', origin: 'ai' },
+        'Güven ve gizlilik'
+      );
+      const bundle = selectExpansionBundle(once.project)!;
+      const item = bundle.items.find(entry => entry.title === `Eski-${i}`)!;
+      target = updateSuggestionStatus(once.project, bundle.id, item.id, 'rejected') as ProjectDocumentV5;
+    }
+    // 13. başlık: cap (12) aşılıyor, tam bir başlık taşmalı.
+    const onceNew = addExpansionCardAsSuggestion(
+      target,
+      { id: 'x-az-once', title: 'Az Once Reddedilen', description: 'açıklama', kind: 'feature', origin: 'ai' },
+      'Güven ve gizlilik'
+    );
+    const newBundle = selectExpansionBundle(onceNew.project)!;
+    const newItem = newBundle.items.find(entry => entry.title === 'Az Once Reddedilen')!;
+    target = updateSuggestionStatus(onceNew.project, newBundle.id, newItem.id, 'rejected') as ProjectDocumentV5;
+
+    const log = { prompts: [] as string[] };
+    await generateExpansionCards(target, 'trust', {
+      settings: aiSettings, provider: promptCapturingProvider([card('A'), card('B'), card('C')], log)
+    });
+
+    assert.match(log.prompts[0], /Az Once Reddedilen/, 'az önce reddedilen başlık kısıt listesinde HÂLÂ olmalı');
+    assert.ok(!log.prompts[0].includes('"Eski-1"'), 'kırpma en eski başlığı düşürmeli (yeniyi değil)');
+  });
+
+  it('kısıt listesi board ile AYNI eşleşme kuralını kullanır: collectExpansionItemTitles findExpansionItemByTitle ile hemfikirdir', () => {
+    const decided = decidedProject('  Boşluklu Başlık  '.trim(), 'rejected');
+    const titles = collectExpansionItemTitles(decided);
+    assert.ok(titles.includes('Boşluklu Başlık'));
+    // Panonun kendi kullandığı fonksiyon (findExpansionItemByTitle) aynı
+    // başlığı aynı kurala göre bulmalı; ikisi ayrışırsa panonun gizlediği
+    // kart ile isteme giden kısıt listesi anlaşmazlığa düşer.
+    for (const title of titles) {
+      assert.ok(findExpansionItemByTitle(decided, title), `${title} board tarafında da bulunmalı`);
+    }
+  });
+
+  it('ÖNBELLEKLİ SONUÇ ETKİLENMEZ: kart kararı önbelleği ZORLA tazelemez (cacheKey değişmez)', async () => {
+    // Bu, dosyanın başındaki bilinçli tasarım kararının (expansionGenerationKey
+    // kart kararlarından etkilenmez) E2 düzeltmesiyle BOZULMADIĞININ kanıtı.
+    const calls = { count: 0 };
+    const provider = okProvider(calls);
+    const target = project();
+    await generateExpansionCards(target, 'trust', { settings: aiSettings, provider });
+
+    // AYNI proje üzerinde bir kart reddedilir -- fikir metni ve zeminli temel
+    // değişmez, yalnız bir öneri kaydı eklenir.
+    const once = addExpansionCardAsSuggestion(
+      target,
+      { id: 'x', title: 'Yeni Reddedilen Başlık', description: 'açıklama', kind: 'feature', origin: 'ai' },
+      'Güven ve gizlilik'
+    );
+    const bundle = selectExpansionBundle(once.project)!;
+    const decided = updateSuggestionStatus(once.project, bundle.id, bundle.items[0].id, 'rejected') as ProjectDocumentV5;
+    await generateExpansionCards(decided, 'trust', { settings: aiSettings, provider });
+
+    assert.equal(calls.count, 1, 'kart kararı önbelleği zorla tazelememeli; ~2.5 dakikalık yeniden üretim tetiklenmemeli');
   });
 });
 

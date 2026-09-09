@@ -55,6 +55,22 @@ export function selectExpansionBundle(project: ProjectDocumentV5): SuggestionBun
 }
 
 /**
+ * Tüm keşif paketlerindeki (kategori farketmeksizin) öğeler, tek bir düz
+ * liste hâlinde. `findExpansionItemByTitle` ve `collectExpansionItemTitles`
+ * AYNI bu listeden okur — iki yer aynı taramayı ikinci kez elle kurarsa
+ * biri değişip diğeri geride kalabilir (bkz. dosya başındaki not: panonun
+ * gösterdiği kart ile alımın kabul ettiği kart ayrışır).
+ */
+function expansionBundleItems(project: ProjectDocumentV5): SuggestionItem[] {
+  const items: SuggestionItem[] = [];
+  for (const bundle of project.proposalStore?.bundles || []) {
+    if (!isExpansionBundle(bundle)) continue;
+    items.push(...bundle.items);
+  }
+  return items;
+}
+
+/**
  * Aynı kartın daha önce eklenmiş hâli — hangi keşif paketinde olursa olsun.
  *
  * Paketler dönüşümlüdür: bir paket karara bağlanınca sonraki kart taze bir
@@ -74,12 +90,25 @@ export function findExpansionItemByTitle(
 ): SuggestionItem | null {
   const needle = title.trim();
   if (!needle) return null;
-  for (const bundle of project.proposalStore?.bundles || []) {
-    if (!isExpansionBundle(bundle)) continue;
-    const match = bundle.items.find(item => item.title.trim() === needle);
-    if (match) return match;
+  return expansionBundleItems(project).find(item => item.title.trim() === needle) || null;
+}
+
+/**
+ * Tüm keşif paketlerindeki öğelerin başlık kümesi — DURUMDAN BAĞIMSIZ
+ * (pending/accepted/edited/deferred/rejected hepsi girer), tıpkı
+ * `findExpansionItemByTitle`in yaptığı gibi. `idea-expansion-service.ts` bu
+ * kümeyi üretim isteminin "ZATEN ELİMDE" kısıtına (`avoidTitles`) besler; iki
+ * yerin AYNI eşleşme kuralını (`expansionBundleItems`, trim) paylaşması
+ * zorunludur — aksi hâlde panonun gizlediği bir kart üretim isteminde hâlâ
+ * "elde yok" sanılıp yeniden önerilebilir (ya da tersi).
+ */
+export function collectExpansionItemTitles(project: ProjectDocumentV5): string[] {
+  const seen = new Set<string>();
+  for (const item of expansionBundleItems(project)) {
+    const trimmed = item.title.trim();
+    if (trimmed) seen.add(trimmed);
   }
-  return null;
+  return [...seen];
 }
 
 /** Yeni keşif paketi için çakışmayan kimlik. */
