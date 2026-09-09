@@ -8,6 +8,13 @@ import { resolveConceptScopeDraft } from '../../v4/application/idea-scope-draft.
 // Kutu adları dönüşüm engelleriyle ORTAK sabitten okunur: kullanıcı hangi
 // kutuyu dolduracağını hata metninden okuyabilsin diye ikisi ayrılamaz.
 import { CONCEPT_FIELD_LABELS } from '../../v4/application/concept-field-labels.js';
+import {
+  describeConceptAgreementBlockers,
+  getConceptAgreementBlockers,
+  isConceptAgreementValid,
+  lines
+} from '../../v4/application/concept-agreement-fields.js';
+import { ConceptOpenQuestionsField } from './ConceptOpenQuestionsField.js';
 
 type EditableAgreement = Pick<
   ConceptSummary,
@@ -45,10 +52,6 @@ function toDraft(project: ProjectDocumentV5, summary: ConceptSummary) {
   };
 }
 
-function lines(value: string): string[] {
-  return value.split('\n').map(item => item.trim()).filter(Boolean);
-}
-
 export function ConceptAgreementEditor({ project, onCommit }: {
   project: ProjectDocumentV5;
   onCommit: (project: ProjectDocumentV5, message?: string, commandType?: string) => void;
@@ -73,18 +76,14 @@ export function ConceptAgreementEditor({ project, onCommit }: {
     questions: gate.accepted.filter(record => record.kind === 'question')
   }), [gate.accepted]);
   if (!summary || !draft) return null;
-  const requiredText = [
-    draft.summary,
-    draft.targetUser,
-    draft.problemStatement,
-    draft.currentAlternative,
-    draft.desiredOutcome,
-    draft.firstReleaseTarget
-  ];
-  const valid = requiredText.every(value => value.trim())
-    && lines(draft.confirmedFeatures).length > 0
-    && lines(draft.outOfScope).length > 0
-    && lines(draft.openQuestions).length === 0;
+  // TASLAK geçerliliği artık `concept-agreement-fields.ts`te, bileşenden
+  // bağımsız test edilebilir hâlde. Kural DEĞİŞMEDİ (altı yorum alanı dolu,
+  // iki kapsam listesinde en az birer madde, açık soru kalmamalı) — yalnız
+  // hangi alanın engellediği artık tek tek biliniyor, "hepsi ya da hiçbiri"
+  // yerine.
+  const blockers = getConceptAgreementBlockers(draft);
+  const valid = isConceptAgreementValid(blockers);
+  const isFieldEmpty = (key: (typeof blockers.emptyTextFields)[number]) => blockers.emptyTextFields.includes(key);
 
   const save = () => {
     const changes: EditableAgreement = {
@@ -120,7 +119,7 @@ export function ConceptAgreementEditor({ project, onCommit }: {
     setDraft({ ...draft, [key]: kept.join('\n') });
   };
   const listField = (
-    key: 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks' | 'openQuestions',
+    key: 'confirmedFeatures' | 'outOfScope' | 'technicalApproaches' | 'knownRisks',
     label: string,
     hint: string
   ) => {
@@ -176,6 +175,35 @@ export function ConceptAgreementEditor({ project, onCommit }: {
       </div>}
     </div>;
   };
+  /**
+   * Altı yorum alanının ortak render'ı. A4'ten önce her alan boş kaldığında
+   * yalnız `aria-invalid` set ediliyordu ve tek geri bildirim, en altta duran
+   * TEK genel cümleydi — kullanıcı hangi kutunun eksik olduğunu görmüyordu.
+   * Şimdi her alan, boşsa kendi altında KISA bir cümle gösteriyor ve
+   * `aria-describedby` ile o cümleye bağlanıyor; ekran okuyucu kullanıcısı
+   * alana odaklanınca "boş; kaydetmeden önce doldur" der. Bu, aşağıdaki genel
+   * `role="alert"` bandıyla AYNI bilgiyi İKİNCİ KEZ duyurmaz: o bant yalnız
+   * bir kez, değiştiğinde canlı bölge olarak duyurulur; buradaki metin canlı
+   * DEĞİLDİR, yalnız odaklanınca okunan bir açıklamadır.
+   */
+  const primaryField = (
+    key: (typeof blockers.emptyTextFields)[number],
+    label: string,
+    hint: string
+  ) => {
+    const empty = isFieldEmpty(key);
+    const blockerId = `primary-field-blocker-${key}`;
+    return <label key={key}>
+      {label}<small>{hint}</small>
+      <textarea
+        aria-invalid={empty}
+        aria-describedby={empty ? blockerId : undefined}
+        value={draft[key]}
+        onChange={event => setDraft({ ...draft, [key]: event.target.value })}
+      />
+      {empty && <small className="agreement-field-blocker" id={blockerId}>Bu alan boş; kaydetmeden önce doldur.</small>}
+    </label>;
+  };
 
   return <div className="concept-agreement">
     <div className="agreement-head">
@@ -188,12 +216,12 @@ export function ConceptAgreementEditor({ project, onCommit }: {
       {summary.confidenceRationale.map(reason => <small key={reason}>• {reason}</small>)}
     </div>
     <div className="agreement-primary">
-      <label>{CONCEPT_FIELD_LABELS.summary}<small>Projeyi tek paragrafta nasıl anladığımız</small><textarea aria-invalid={!draft.summary.trim()} value={draft.summary} onChange={event => setDraft({ ...draft, summary: event.target.value })}/></label>
-      <label>{CONCEPT_FIELD_LABELS.targetUser}<small>Bu ürünü düzenli kullanacak tek ana persona</small><textarea aria-invalid={!draft.targetUser.trim()} value={draft.targetUser} onChange={event => setDraft({ ...draft, targetUser: event.target.value })}/></label>
-      <label>{CONCEPT_FIELD_LABELS.problemStatement}<small>Kullanıcının bugün yaşadığı somut sorun</small><textarea aria-invalid={!draft.problemStatement.trim()} value={draft.problemStatement} onChange={event => setDraft({ ...draft, problemStatement: event.target.value })}/></label>
-      <label>{CONCEPT_FIELD_LABELS.currentAlternative}<small>Bu problem şu anda nasıl çözülüyor?</small><textarea aria-invalid={!draft.currentAlternative.trim()} value={draft.currentAlternative} onChange={event => setDraft({ ...draft, currentAlternative: event.target.value })}/></label>
-      <label>{CONCEPT_FIELD_LABELS.desiredOutcome}<small>Ürün kullanıldığında ne değişecek?</small><textarea aria-invalid={!draft.desiredOutcome.trim()} value={draft.desiredOutcome} onChange={event => setDraft({ ...draft, desiredOutcome: event.target.value })}/></label>
-      <label>{CONCEPT_FIELD_LABELS.firstReleaseTarget}<small>İlk sürümün tek doğrulanabilir sonucu</small><textarea aria-invalid={!draft.firstReleaseTarget.trim()} value={draft.firstReleaseTarget} onChange={event => setDraft({ ...draft, firstReleaseTarget: event.target.value })}/></label>
+      {primaryField('summary', CONCEPT_FIELD_LABELS.summary, 'Projeyi tek paragrafta nasıl anladığımız')}
+      {primaryField('targetUser', CONCEPT_FIELD_LABELS.targetUser, 'Bu ürünü düzenli kullanacak tek ana persona')}
+      {primaryField('problemStatement', CONCEPT_FIELD_LABELS.problemStatement, 'Kullanıcının bugün yaşadığı somut sorun')}
+      {primaryField('currentAlternative', CONCEPT_FIELD_LABELS.currentAlternative, 'Bu problem şu anda nasıl çözülüyor?')}
+      {primaryField('desiredOutcome', CONCEPT_FIELD_LABELS.desiredOutcome, 'Ürün kullanıldığında ne değişecek?')}
+      {primaryField('firstReleaseTarget', CONCEPT_FIELD_LABELS.firstReleaseTarget, 'İlk sürümün tek doğrulanabilir sonucu')}
     </div>
     <div className="agreement-grid">
       {listField('confirmedFeatures', CONCEPT_FIELD_LABELS.confirmedFeatures, 'En az bir madde · her satıra bir özellik')}
@@ -206,7 +234,15 @@ export function ConceptAgreementEditor({ project, onCommit }: {
           bağlamaz. Alanın yapısı değişmedi — yalnız ne olduğu yazıldı. */}
       {listField('technicalApproaches', 'Aklındaki teknik yön (ilk izlenim)', 'Her satıra bir yön · kaba fikir yeter, teknik kararlar Çözüm aşamasında gerekçesiyle verilir')}
       {listField('knownRisks', 'Bilinen riskler', 'Her satıra bir risk')}
-      {listField('openQuestions', 'Açık kritik sorular', 'Onaydan önce cevapla ve bu listeyi temizle')}
+      {/* A4 -- "Açık kritik sorular" ARTIK `listField`ten GEÇMİYOR: kapı
+          kuralı bu listeyi BOŞALTMAYI istiyor ("Onaydan önce cevapla ve bu
+          listeyi temizle"), ama serbest-metin kutusu "buraya yaz" diyordu.
+          Ölçülen tuzak buydu. Ayrı bileşen, işi KAPATMAK olarak gösteriyor —
+          bkz. ConceptOpenQuestionsField.tsx. */}
+      <ConceptOpenQuestionsField
+        value={draft.openQuestions}
+        onChange={next => setDraft({ ...draft, openQuestions: next })}
+      />
     </div>
     {gate.accepted.length > 0 && <div className="agreement-ledger">
       <b>Tartışmadan plana taşınacak kayıtlar</b>
@@ -217,7 +253,14 @@ export function ConceptAgreementEditor({ project, onCommit }: {
         ['Cevaplanan sorular', ledger.questions]
       ] as const).map(([label, records]) => records.length > 0 && <div key={label}><span>{label}</span>{records.map(record => <p key={record.id}>{record.text}{record.answer ? ` — ${record.answer}` : ''}</p>)}</div>)}
     </div>}
-    {!valid && <p className="agreement-error" role="alert">Tüm yorum alanlarını doldur; kapsam içi/dışı listelerine en az birer madde ekle ve açık kritik soruları kapat.</p>}
+    {/* A4 -- bant artık HANGİ alanların engellediğini adıyla söylüyor
+        (`describeConceptAgreementBlockers`), "tümünü doldur" gibi tek bir
+        genel cümle değil. Yalnız BURADA `role="alert"` var; alanların
+        kendi altındaki ipucu metinleri (yukarıda) canlı bölge değildir —
+        aynı bilgi ekran okuyucuya iki kez duyurulmaz. */}
+    {!valid && <p className="agreement-error" role="alert">
+      Kaydetmeden önce eksik: {describeConceptAgreementBlockers(blockers).join(', ')}.
+    </p>}
     <div className="agreement-footer">
       <span>{gate.accepted.length} fikir kabul · {gate.deferred.length} ertelendi · {gate.rejected.length} reddedildi</span>
       <button type="button" className="agreement-save" disabled={!valid} onClick={save}><Save size={15}/> Yorumu ve kapsam sınırlarını kaydet</button>

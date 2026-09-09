@@ -68,7 +68,14 @@ export async function completeConceptAgreement(page: Page) {
   await page.getByLabel('İlk sürüm hedefi').fill('Bir fikri onaylı MVP kapsamına dönüştürmek.');
   await page.getByLabel('Kapsam içinde').fill('Fikir sohbeti\nMVP kapsam onayı');
   await page.getByLabel('Kapsam dışında').fill('Bulut senkronizasyonu');
-  await page.getByLabel('Açık kritik sorular').fill('');
+  // A4: "Açık kritik sorular" artık serbest metin kutusu değil -- her soru
+  // salt-okunur bir satır olarak durur ve tek eylem "Cevaplandı, kapat"tır
+  // (bkz. ConceptOpenQuestionsField.tsx). İlk satırı sırayla kapatmak
+  // tümünü temizler: bir satır kapanınca geri kalanlar öne kayar.
+  const openQuestionRows = page.locator('.agreement-open-questions-list li');
+  while (await openQuestionRows.count() > 0) {
+    await openQuestionRows.first().getByRole('button', { name: 'Cevaplandı, kapat' }).click();
+  }
   await page.getByRole('button', { name: 'Yorumu ve kapsam sınırlarını kaydet' }).click();
 }
 

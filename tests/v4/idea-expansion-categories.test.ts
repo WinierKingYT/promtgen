@@ -111,6 +111,23 @@ describe('getExpansionCategories', () => {
     assert.equal(new Set(ids).size, ids.length);
   });
 
+  /**
+   * A6 -- `isAbstract` yalnız kapalı CORE kümesinde, yalnız `money`/`growth`/
+   * `measure` üstünde AÇIKÇA `true` olmalı. Diğer CORE kategorilerinde ve
+   * BY_DOMAIN/pack eksenlerinde bu alan `undefined` kalmalı: yokluk bir
+   * "somut" iddiası değildir, ölçülmemiş bir alanda susmaktır (bkz.
+   * `application/model-strength-hint.ts`).
+   */
+  it('isAbstract yalnız money/growth/measure üstünde true, kalan hiçbir kategoride tanımlı değil', () => {
+    const categories = getExpansionCategories(projectFor('Bir SaaS dashboard web uygulaması yapmak istiyorum'));
+    const abstractIds = categories.filter(c => c.isAbstract === true).map(c => c.id);
+    assert.deepEqual(abstractIds.sort(), ['growth', 'measure', 'money']);
+    for (const category of categories) {
+      if (abstractIds.includes(category.id)) continue;
+      assert.equal(category.isAbstract, undefined, `${category.id} isAbstract taşımamalı`);
+    }
+  });
+
   describe('sıfır davranış değişikliği kanıtı (pack eksenleri boş olduğu sürece)', () => {
     for (const { idea, expectedIds } of ZERO_BEHAVIOUR_CHANGE_IDEAS) {
       it(`"${idea}" için kimlik dizilimi değişmeden kalır`, () => {

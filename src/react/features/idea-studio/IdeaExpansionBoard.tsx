@@ -28,6 +28,7 @@ import { addExpansionCardAsSuggestion } from '../../../v4/application/idea-expan
 import { findExpansionItemByTitle, selectExpansionBundle } from '../../../v4/application/proposal-bundle-selectors.js';
 import { resolveIdeaRecordsForBundle } from '../../../v4/application/idea-discussion-service.js';
 import { applyApprovedChanges, updateSuggestionStatus } from '../../../v4/planning-engine.js';
+import { getModelStrengthHint } from '../../../v4/application/model-strength-hint.js';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Karar bekliyor',
@@ -619,6 +620,14 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
         // aynı anda "hazırlanıyor" diye duyursaydı ekran okuyucu kullanıcısı
         // panoyu hiç okuyamazdı; beklediği bölümü ise duymak istiyor.
         const liveRegion = category.id === activeId ? { role: 'status' as const } : {};
+        // A6 -- HAFİF bir ipucu, bir engel değil: küçük/yerel modeller soyut
+        // kategorilerde (bkz. idea-expansion/categories.ts `isAbstract`)
+        // ölçülebilir biçimde daha çok hayal görüyor. Koşul yalnız BİLİNEN
+        // iki şeye dayanır -- sağlayıcının yerel kimliği ve kategorinin elle
+        // işaretlenmiş soyutluğu; "küçük" güvenle ölçülemediği için asla tek
+        // başına koşul olmaz (bkz. model-strength-hint.ts). Otomatik
+        // sağlayıcı değişimi yok, yalnız bilgi.
+        const modelStrengthHint = getModelStrengthHint(settings, category);
         return <section
           key={category.id}
           id={sectionDomId(category.id)}
@@ -655,6 +664,10 @@ export function IdeaExpansionBoard({ project, settings, onPersist, onNotice }: {
               başka bir başlığa gittiği an bu not kalkar. */}
           {category.id === autoAxisId && <p className="pg-expansion-auto-note" role="status">
             <Sparkles size={13}/> Fikrine bakarak bu başlığı otomatik önerdim; istersen başka bir başlığa da bakabilirsin.
+          </p>}
+
+          {modelStrengthHint && <p className="pg-expansion-model-hint" role="note">
+            <TriangleAlert size={13}/> {modelStrengthHint}
           </p>}
 
           {showBusyLine && <p className="pg-expansion-loading" {...liveRegion}>

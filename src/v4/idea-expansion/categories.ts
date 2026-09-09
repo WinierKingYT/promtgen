@@ -11,6 +11,15 @@ export interface ExpansionCategory {
   hint: string;
   /** AI bağlı değilken gösterilecek başlangıç başlıkları. Pano boş görünmez. */
   seedTitles: string[];
+  /**
+   * SOYUTLUK bir ÖLÇÜM değil, YAZARIN yargısıdır (bkz. A6,
+   * `application/model-strength-hint.ts`). Yalnız kapalı CORE kümesinde
+   * elle işaretlenir; BY_DOMAIN ve pack/AI eksenleri bu alanı HİÇ taşımaz.
+   * `undefined` "somut" demek DEĞİLDİR -- yalnız ölçülmemiş/yargılanmamış
+   * bir alanda susmaktır. Yeni bir kategori eklendiğinde bu alanı atlamak
+   * bilinçli bir karardır, "false"a düşen sessiz bir varsayılan değil.
+   */
+  isAbstract?: true;
 }
 
 /**
@@ -54,23 +63,35 @@ const CORE: ExpansionCategory[] = [
     hint: 'Kullanıcı neden güvensin?',
     seedTitles: ['Verinin nerede durduğunu açıkça göster', 'Tek tıkla dışa aktarma ve silme']
   },
+  // A6 -- ÜÇÜ DE `isAbstract: true` İŞARETLİ. Ölçüt: seedTitles somut bir
+  // ekran/veri/eylem adı taşımıyor, bunun yerine iş modeli/büyüme/metrik gibi
+  // strateji sorularına model tarafından İCAT EDİLMİŞ bir cevap istiyor.
+  // `onboarding`/`core-depth`/`data`/`narrow` somut bir akış ya da özelliğe
+  // işaret eder; `trust` da somut eylemlere bağlıdır (verinin nerede durduğu,
+  // dışa aktarma/silme). Bu üçü ise kullanıcının projesine dair hiçbir somut
+  // bağlam olmadan üretilebilecek, dolayısıyla küçük modellerde daha çok
+  // hayal görmeye açık, GENİŞ strateji sorularıdır -- bu bir ölçüm değil,
+  // yazarın yargısıdır (bkz. `ExpansionCategory.isAbstract` yorumu).
   {
     id: 'money',
     label: 'Para modeli',
     hint: 'Ayakta nasıl kalır?',
-    seedTitles: ['Ücretsiz katmanın sınırını netleştir', 'Değeri görülmeden ödeme isteme']
+    seedTitles: ['Ücretsiz katmanın sınırını netleştir', 'Değeri görülmeden ödeme isteme'],
+    isAbstract: true
   },
   {
     id: 'growth',
     label: 'Büyüme ve elde tutma',
     hint: 'Neden geri döner?',
-    seedTitles: ['Geri dönmeyi hak eden tek bildirim', 'Sonucu paylaşılabilir hâle getir']
+    seedTitles: ['Geri dönmeyi hak eden tek bildirim', 'Sonucu paylaşılabilir hâle getir'],
+    isAbstract: true
   },
   {
     id: 'measure',
     label: 'Ölçüm ve öğrenme',
     hint: 'Doğru gittiğini nereden bilirsin?',
-    seedTitles: ['Tek bir kuzey yıldızı metriği seç', 'İlk 20 kullanıcıyla konuşma planı']
+    seedTitles: ['Tek bir kuzey yıldızı metriği seç', 'İlk 20 kullanıcıyla konuşma planı'],
+    isAbstract: true
   },
   {
     id: 'narrow',
