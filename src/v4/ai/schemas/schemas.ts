@@ -111,6 +111,23 @@ export const sectionRegenerationSchema = z.object({
   }).strict()).min(1).max(12)
 }).strict();
 
+/**
+ * Faz D (D1) -- BOŞ bir zorunlu plan bölümü için ilk taslak. Yalnızca TEK bir
+ * bölümün gövdesini üretir; `regenerate-affected-sections`in tersine kabul
+ * edilmiş bir etki analizine bağlı değildir ve birden çok bölümü aynı anda
+ * hedeflemez (`draft-plan-section.ts` başlığındaki gerekçeye bakın).
+ * `content` alt sınırı `min(1)` bilerek DÜŞÜKTÜR: boş dizeyi burada
+ * reddetmek "hiçbir şey üretmedi" ile "az/anlamsız bir şey üretti" durumunu
+ * aynı hataya karıştırırdı. İkinciyi ayırt etmek uygulama katmanının işi
+ * (`draft-plan-section-run.ts`, `MIN_MEANINGFUL_LENGTH`), şemanın değil.
+ */
+export const DRAFT_PLAN_SECTION_SCHEMA_ID = 'draft-plan-section-v1';
+export const draftPlanSectionSchema = z.object({
+  content: z.string().trim().min(1).max(6000),
+  warnings: z.array(shortText).max(6).default([])
+}).strict();
+export type DraftPlanSectionOutput = z.infer<typeof draftPlanSectionSchema>;
+
 export const SOLUTION_DISCOVERY_SCHEMA_ID = 'solution-discovery-v1';
 
 /**

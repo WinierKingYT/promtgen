@@ -13,7 +13,8 @@ const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 const registeredTaskIds = [
   'discovery',
   'idea-lab',
-  'regenerate-affected-sections'
+  'regenerate-affected-sections',
+  'draft-plan-section'
 ] as const;
 
 describe('AI schema ownership and prompt parity', () => {

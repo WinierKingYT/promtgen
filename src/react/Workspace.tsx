@@ -50,6 +50,7 @@ import {
   applyIdeaPlanConversion,
   type IdeaPlanConversionPreview
 } from '../v4/application/idea-plan-conversion-service.js';
+import { draftPlanSection } from '../v4/application/draft-plan-section-run.js';
 import { legacyPlanUnlocked } from '../v4/application/project-stages.js';
 import { nextCoachTurn } from '../v4/application/adaptive-idea-coach.js';
 import { StageRail } from './components/StageRail.js';
@@ -143,6 +144,14 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   // Kullanıcı tamamlanmış bir aşamaya dönebilir; seçim yoksa bulunulan aşama.
   const [selectedStage, setSelectedStage] = useState<ProjectStage | null>(null);
   const [sectionDraft, setSectionDraft] = useState('');
+  // Faz D (D1/D2) -- boş bir zorunlu bölüm için istenen AI taslağı.
+  // `aiDraftedSectionId` yalnız "şu an textarea'da duran metin, henüz
+  // kaydedilmemiş bir AI taslağıdır" bilgisini taşır; `PlanSection`a
+  // YAZILMAZ (bkz. draft-plan-section-run.ts başlığı) -- kaydedilince ya da
+  // kullanıcı elle düzenleyince kaybolur. İkisi de PROJE-KAPSAMLI: yukarıdaki
+  // sınıflandırmaya göre proje değişince sıfırlanmalı.
+  const [draftingSection, setDraftingSection] = useState(false);
+  const [aiDraftedSectionId, setAiDraftedSectionId] = useState<string | null>(null);
   const [messageDraft, setMessageDraft] = useState('');
   const [generating, setGenerating] = useState(false);
   const [changeImpactMode, setChangeImpactMode] = useState(false);
@@ -166,6 +175,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     setFinalizationBlockers([]);
     setDiscoveryAnswerDraft(null);
     setTaskCompilation(null);
+    setDraftingSection(false);
+    setAiDraftedSectionId(null);
   }, [project.id]);
 
   // Yalnız konuşma turunun paketi. Keşif panosundan eklenen kartlar kendi
@@ -237,7 +248,12 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     ? undefined
     : { plan: 'Fikrin sınırlarını Ortak Anlayış aşamasında onayladığında açılır.' } as const;
 
-  useEffect(() => setSectionDraft(active?.content || ''), [activeSection, project.id, active?.content]);
+  useEffect(() => {
+    setSectionDraft(active?.content || '');
+    // Bölüm değişince ya da kaydedilince (`active.content` güncellenince)
+    // eski AI taslağı bilgisi bu bölüme ait değildir artık.
+    setAiDraftedSectionId(null);
+  }, [activeSection, project.id, active?.content]);
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ block: 'nearest' });
   }, [project.messages.length, generating, discoveryAnswerDraft]);
@@ -441,6 +457,36 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     commit(updatePlanSection(project, activeSection, { content: sectionDraft }), `${active.title} kaydedildi.`, 'UpdatePlanSection');
   };
 
+  /**
+   * Faz D (D1) -- boş bir zorunlu bölüm için AI taslağı ister.
+   *
+   * Belgeye HİÇBİR ŞEY YAZMAZ: `draftPlanSection` yalnız metni döner, textarea'ya
+   * (`sectionDraft`) konur. Kullanıcı gözden geçirip "Bölümü kaydet"e basmadan
+   * canonical içerik değişmez -- `saveSection` zaten var olan tek yazma yolu.
+   *
+   * Dört sonucun DÖRDÜ de kullanıcıya bir cümle olarak ulaşır (`notify`):
+   * sağlayıcı yok, çağrı düştü, taslak anlamsız/boş, ya da başarı.
+   * `draft-plan-section-run.ts` başlığındaki gerekçeye bakın.
+   */
+  const draftSection = async () => {
+    if (!active || active.content.trim() || active.items.length) return;
+    setDraftingSection(true);
+    try {
+      const credential = await credentialVault.get(providerSettings.providerId) || '';
+      const result = await draftPlanSection(project, activeSection, { settings: providerSettings, credential });
+      if (result.error) { notify(result.error); return; }
+      if (!result.content) { notify(result.notice); return; }
+      // İkinci savunma hattı: istek sürerken kullanıcı elle yazmaya
+      // başladıysa AI taslağı onun üstüne YAZILMAZ -- aynı kural
+      // `ConceptAgreementEditor`in türetilmiş kapsam taslağıyla paylaşılır.
+      if (sectionDraft.trim()) { notify('Bu bölüme az önce kendi içeriğini yazdın; AI taslağı uygulanmadı.'); return; }
+      setSectionDraft(result.content);
+      setAiDraftedSectionId(activeSection);
+    } finally {
+      setDraftingSection(false);
+    }
+  };
+
   const applyTaskPlan = () => {
     if (!taskCompilation) return;
     const result = applyCompiledTaskPlan(project, taskCompilation, { approved: true });
@@ -632,7 +678,9 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
               <section className="pg-plan-editor">
                 {active && <><header><div><span>PLAN BÖLÜMÜ</span><h2>{active.title}</h2><p>{active.description}</p></div><small>r{active.updatedAtRevision}</small></header>{/* Gereksinimler bölümünde KARAR YÜZEYİ metin kutusundan ÖNCE gelir:
     görevler yalnız kabul edilen gereksinimlerden üretiliyor, serbest metin
-    kutusunu hiçbir şey okumuyor. Sıralama bunu söylüyor. */}{activeSection === 'requirements' && <PlanRequirementReview project={project} onCommit={commit} onNotice={notify}/>}<textarea aria-label={`${active.title} içeriği`} value={sectionDraft} onChange={event => setSectionDraft(event.target.value)} rows={12} placeholder="Bu bölümün içeriğini yaz…"/><button type="button" className="pg-save-section" disabled={sectionDraft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{active.items.length > 0 && <ul>{active.items.map(item => <li key={item}>{item}</li>)}</ul>}{activeSection === 'tasks' && <><TaskContractSummary tasks={project.tasks}/><button type="button" className="pg-compile-tasks" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button></>}{/* Panel bölüme değil, son kabul edilen etki analizine bağlı: önerileri
+    kutusunu hiçbir şey okumuyor. Sıralama bunu söylüyor. */}{activeSection === 'requirements' && <PlanRequirementReview project={project} onCommit={commit} onNotice={notify}/>}{/* D1 -- yalnız bölüm hem canonical içerikte hem taslakta BOŞSA görünür:
+    doluysa "üstüne yazma" kuralı düğmeyi göstermeyi bile yanlış kılar. */}{!active.content && !active.items.length && !sectionDraft.trim() && <button type="button" className="pg-draft-section" disabled={draftingSection} onClick={() => void draftSection()}><Sparkles size={14}/> {draftingSection ? 'Taslak hazırlanıyor…' : 'AI ile taslak oluştur'}</button>}{/* D2 -- derived-scope-notice ailesiyle AYNI dil (ConceptAgreementEditor.tsx):
+    ikon + kalın iddia + açıklama. Kaydedilene kadar hiçbir şey belgeye geçmez. */}{aiDraftedSectionId === activeSection && <div className="derived-scope-notice" role="note"><Sparkles size={14} aria-hidden="true"/><div><b>Bu taslak AI tarafından üretildi.</b><span>Henüz kaydedilmedi; bir oku, gerekirse düzenle. "Bölümü kaydet"e basmadan hiçbir şey plana geçmez.</span></div></div>}<textarea aria-label={`${active.title} içeriği`} value={sectionDraft} onChange={event => { setSectionDraft(event.target.value); setAiDraftedSectionId(current => current === activeSection ? null : current); }} rows={12} placeholder="Bu bölümün içeriğini yaz…"/><button type="button" className="pg-save-section" disabled={sectionDraft === active.content} onClick={saveSection}><Save size={16}/> Bölümü kaydet</button>{active.items.length > 0 && <ul>{active.items.map(item => <li key={item}>{item}</li>)}</ul>}{activeSection === 'tasks' && <><TaskContractSummary tasks={project.tasks}/><button type="button" className="pg-compile-tasks" onClick={() => setTaskCompilation(compileTaskPlan(project))}><Sparkles size={15}/> Gereksinimlerden görev taslağı üret</button></>}{/* Panel bölüme değil, son kabul edilen etki analizine bağlı: önerileri
     impactAnalysisId'ye göre süzüyor. Bu yüzden resetKey aktif bölüm değil
     belge revizyonu — tek işi hata durumunu temizlemek, ve belge her
     değiştiğinde yeniden denemeye izin vermek. LazyFeatureBoundary resetKey'i

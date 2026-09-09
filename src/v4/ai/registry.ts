@@ -5,8 +5,9 @@ import { ideaAxesTask } from './tasks/idea-axes.js';
 import { ideaFoundationTask } from './tasks/idea-foundation.js';
 import { regenerateAffectedSectionsTask } from './tasks/regenerate-affected-sections.js';
 import { solutionDiscoveryTask } from './tasks/solution-discovery.js';
+import { draftPlanSectionTask } from './tasks/draft-plan-section.js';
 
-export type AITaskType = 'discovery' | 'idea-lab' | 'idea-expansion' | 'idea-axes' | 'idea-foundation' | 'regenerate-affected-sections' | 'solution-discovery';
+export type AITaskType = 'discovery' | 'idea-lab' | 'idea-expansion' | 'idea-axes' | 'idea-foundation' | 'regenerate-affected-sections' | 'solution-discovery' | 'draft-plan-section';
 export type AITaskDefinition =
   | typeof discoveryTask
   | typeof ideaLabTask
@@ -14,7 +15,8 @@ export type AITaskDefinition =
   | typeof ideaAxesTask
   | typeof ideaFoundationTask
   | typeof regenerateAffectedSectionsTask
-  | typeof solutionDiscoveryTask;
+  | typeof solutionDiscoveryTask
+  | typeof draftPlanSectionTask;
 
 export const TASK_REGISTRY: Record<AITaskType, AITaskDefinition> = {
   discovery: discoveryTask,
@@ -23,7 +25,8 @@ export const TASK_REGISTRY: Record<AITaskType, AITaskDefinition> = {
   'idea-axes': ideaAxesTask,
   'idea-foundation': ideaFoundationTask,
   'regenerate-affected-sections': regenerateAffectedSectionsTask,
-  'solution-discovery': solutionDiscoveryTask
+  'solution-discovery': solutionDiscoveryTask,
+  'draft-plan-section': draftPlanSectionTask
 };
 
 export function getTaskDefinition(taskId: AITaskType): AITaskDefinition {

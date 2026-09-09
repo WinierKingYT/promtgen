@@ -21,6 +21,15 @@ import { closeOpenQuestion, lines } from '../../v4/application/concept-agreement
  * taslak state'ini günceller, hiçbir komut tetiklemez ve belgeye dokunmaz.
  * Belgeye geçmesi için kullanıcının ayrıca "kaydet"e basması gerekir — aynen
  * `removeLegacyLines`teki kural. Sistem kendiliğinden hiçbir satırı kaldırmaz.
+ *
+ * ERİŞİLEBİLİRLİK DÜZELTMESİ (df7dff3'ten hemen sonra ölçüldü): her satırın
+ * düğmesi AYNI erişilebilir ada sahipti ("Cevaplandı, kapat") — ekranda
+ * gezinen bir ekran okuyucu kullanıcısı hangi soruyu kapattığını hiçbir
+ * düğme adından ayırt edemiyordu. `aria-label` her düğmeye kendi sorusunu
+ * ekler; görünen etiket DEĞİŞMEDİ (yalnız `<button>` içeriği), WCAG 2.5.3
+ * (Label in Name) görünen metnin erişilebilir adın İÇİNDE geçmesini ister —
+ * `Workspace.tsx`teki sohbet düğmesi aynı maddeyi anar. Metin burada
+ * kısaltılmadan aynen tekrarlanır, satır başına gelir.
  */
 export function ConceptOpenQuestionsField({ value, onChange }: {
   value: string;
@@ -40,7 +49,7 @@ export function ConceptOpenQuestionsField({ value, onChange }: {
       : <ul className="agreement-open-questions-list">
         {questions.map((question, index) => <li key={`${index}:${question}`}>
           <span>{question}</span>
-          <button type="button" onClick={() => close(index)}>
+          <button type="button" aria-label={`Cevaplandı, kapat: ${question}`} onClick={() => close(index)}>
             <CircleCheck size={14} aria-hidden="true"/> Cevaplandı, kapat
           </button>
         </li>)}
