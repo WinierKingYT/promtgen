@@ -198,7 +198,13 @@ export function ConceptAgreementEditor({ project, onCommit }: {
     <div className="agreement-grid">
       {listField('confirmedFeatures', CONCEPT_FIELD_LABELS.confirmedFeatures, 'En az bir madde · her satıra bir özellik')}
       {listField('outOfScope', CONCEPT_FIELD_LABELS.outOfScope, 'En az bir madde · kapsam kaymasını önler')}
-      {listField('technicalApproaches', 'Teknik yaklaşım', 'Her satıra bir yaklaşım')}
+      {/* Etiket ve ipucu bu alanın DERİNLİĞİNİ söyler. "Teknik yaklaşım"
+          tek başına, Çözüm aşamasının ADR disiplinli karar yüzeyiyle
+          (SolutionStagePanel: aday, gerekçe, kabul/red) aynı şeymiş gibi
+          okunuyordu; ikisi farklı derinlikte ve kullanıcılar bunları
+          karıştırıyor. Burası bir ilk izlenim: gerekçe istemez, kararı
+          bağlamaz. Alanın yapısı değişmedi — yalnız ne olduğu yazıldı. */}
+      {listField('technicalApproaches', 'Aklındaki teknik yön (ilk izlenim)', 'Her satıra bir yön · kaba fikir yeter, teknik kararlar Çözüm aşamasında gerekçesiyle verilir')}
       {listField('knownRisks', 'Bilinen riskler', 'Her satıra bir risk')}
       {listField('openQuestions', 'Açık kritik sorular', 'Onaydan önce cevapla ve bu listeyi temizle')}
     </div>

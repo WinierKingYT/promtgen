@@ -14,6 +14,7 @@ import {
   runConversationalDiscoveryTurnService
 } from './discovery-generation-service.js';
 import { generateIdeaLabBundleService } from './idea-lab-generation-service.js';
+import { runIdeaConcernDiscoveryService } from './idea-concern-discovery-run.js';
 import { createChangeImpactAnalysis } from './change-impact-service.js';
 
 export {
@@ -53,6 +54,23 @@ export async function runConversationalDiscoveryTurn(
   }
 ) {
   return runConversationalDiscoveryTurnService(project, options, discoveryDependencies);
+}
+
+/**
+ * Konu çıkarımı — sohbetin yanındaki İKİNCİ giriş kapısı. Bağımlılıklar
+ * sohbet turuyla AYNI (`discoveryDependencies`): iki kapı da aynı görevi,
+ * aynı eşlemeyi ve aynı yerel-yedek elemesini kullanır.
+ */
+export async function runIdeaConcernDiscovery(
+  project: ProjectDocumentV5,
+  options: {
+    settings?: ProviderSettings;
+    credential?: string;
+    providerLabel: string;
+    signal?: AbortSignal;
+  }
+) {
+  return runIdeaConcernDiscoveryService(project, options, discoveryDependencies);
 }
 
 export async function generateIdeaLabBundle(

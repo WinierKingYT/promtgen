@@ -5,6 +5,7 @@ import {
   FileText,
   Lightbulb,
   ListChecks,
+  LoaderCircle,
   Menu,
   Plus,
   Settings2,
@@ -141,13 +142,23 @@ export function IdeaStudioHeader({
  * panosu">` bölgesini zaten taşıyor, buraya ikinci bir adlandırılmış landmark
  * koymak ekran okuyucuda gereksiz bir iç içe bölge üretirdi.
  */
-export function IdeaExpansionColumn({ project, settings, onPersist, onNotice }: {
+export function IdeaExpansionColumn({
+  project,
+  settings,
+  onPersist,
+  onNotice,
+  discoveringConcerns,
+  onDiscoverConcerns
+}: {
   project: ProjectDocumentV5;
   settings: ProviderSettings;
   /** Keşif panosunun ürettiği belge; komut türü çağırana kadar taşınır. */
   onPersist: (project: ProjectDocumentV5, message: string, commandType: string) => void;
   /** Kalıcı bir değişiklik olmadan kullanıcıya durum bildirmek için. */
   onNotice: (message: string) => void;
+  discoveringConcerns: boolean;
+  /** Konu çıkarımı; kimlik bilgisi kasada olduğu için eylemin sahibi Workspace. */
+  onDiscoverConcerns: () => void;
 }) {
   return <div className="pg-expansion-column">
     <header className="pg-idea-headline">
@@ -159,6 +170,23 @@ export function IdeaExpansionColumn({ project, settings, onPersist, onNotice }: 
       </div>
     </header>
     <article className="pg-original-idea"><span>Başlangıç fikrin</span><p>{project.identity.originalIdea}</p></article>
+
+    {/* İSTEĞE BAĞLI ileri eylem. Konu çıkarımı bugün yalnız sohbet turunda
+        yaşıyor; sohbet ise katlanmış açılıyor ve Faz F'te atlanabilir hâle
+        geliyor. Bu düğme aynı işin ana yüzeydeki ikinci kapısı — bir kapı,
+        bir yönlendirme değil: basmadan da fikir panodan geliştirilmeye,
+        Ortak Anlayış'tan plana geçilmeye devam eder. */}
+    <section className="pg-concern-discovery" aria-label="Bekleyen kararları çıkar">
+      <div>
+        <b>Fikrin bekleyen kararlarını çıkar</b>
+        <small>Fikrinde hangi kararların verilmediğini çıkarır ve Fikir tasarımı panelinde tek tek sorar. İsteğe bağlı; bir AI sağlayıcısı gerekir.</small>
+      </div>
+      <button type="button" onClick={onDiscoverConcerns} disabled={discoveringConcerns}>
+        {discoveringConcerns ? <LoaderCircle className="spin" size={14}/> : <ListChecks size={14}/>}
+        {discoveringConcerns ? 'Çıkarılıyor…' : 'Kararları çıkar'}
+      </button>
+    </section>
+
     <IdeaExpansionBoard project={project} settings={settings} onPersist={onPersist} onNotice={onNotice}/>
   </div>;
 }

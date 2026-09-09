@@ -24,7 +24,8 @@ import { resolveIdeaRecordsForBundle } from '../v4/application/idea-discussion-s
 import {
   generateIdeaLabBundle,
   generateImpactAnalysis,
-  runConversationalDiscoveryTurn
+  runConversationalDiscoveryTurn,
+  runIdeaConcernDiscovery
 } from '../v4/application/idea-planning-api.js';
 import { getProviderMeta } from '../v4/provider-settings.js';
 import { applyCompiledTaskPlan, compileTaskPlan } from '../v4/task-compiler.js';
@@ -119,7 +120,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
   //   veri karışmasına yol açar. `taskCompilation` (bkz. applyTaskPlan) ve
   //   `finalizationBlockers` bunun doğrulanmış örnekleri; `selectedStage`,
   //   `discoveryAnswerDraft`, `messageDraft`, `generating`, `solutionRunning`,
-  //   `comparatorRunning`,
+  //   `comparatorRunning`, `concernRunning`,
   //   `changeImpactMode` ve proje geçmişi diyaloğu (`historyOpen`) aynı
   //   sınıfa giriyor. YENİ proje-kapsamlı state eklenirse buraya (ve aşağıdaki
   //   sıfırlama efektine) eklenmesi gerekir — derleyici bunu hatırlatmaz.
@@ -137,6 +138,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
 
   const [view, setView] = useState<IdeaStudioView>('develop');
   const [solutionRunning, setSolutionRunning] = useState(false);
+  const [concernRunning, setConcernRunning] = useState(false);
   const [comparatorRunning, setComparatorRunning] = useState(false);
   // Kullanıcı tamamlanmış bir aşamaya dönebilir; seçim yoksa bulunulan aşama.
   const [selectedStage, setSelectedStage] = useState<ProjectStage | null>(null);
@@ -155,6 +157,7 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
     setView('develop');
     setSolutionRunning(false);
     setComparatorRunning(false);
+    setConcernRunning(false);
     setSelectedStage(null);
     setMessageDraft('');
     setGenerating(false);
@@ -261,6 +264,40 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
       else await persistCandidate(result.project, result.notice, 'RunSolutionDiscovery');
     } finally {
       setSolutionRunning(false);
+    }
+  };
+
+  /**
+   * Konu çıkarımı — keşif panosundaki İKİNCİ giriş kapısı.
+   *
+   * Konuları bugün yalnız sohbet turu üretiyor ve o yol ÇALIŞIYOR; buradaki
+   * eylem kırık bir zinciri onarmıyor, zincirin tek sahibi olmasını
+   * bitiriyor. Sohbet katlanmış açılıyor (`chatOpen` varsayılanı `false`),
+   * taze projede rozet bile çıkmıyor (`chatAttention` 0) ve Faz F sohbeti
+   * açıkça atlanabilir kılıyor — konu üretimi o panelin özel mülkü kalırsa
+   * sohbeti atlayan kullanıcı Çözüm aşamasına hiç ulaşamaz. Gerekçenin
+   * tamamı `idea-concern-discovery-run.ts` başlığında.
+   *
+   * `discoverSolution` ile AYNI sözleşme: kimlik bilgisi kasadan gelir ve
+   * sağlayıcı hatası SAHTE bir sonuçla gizlenmez. Üç sonucun üçü de
+   * konuşulur — sessiz bir düğme, olmayan bir düğmeden kötüdür.
+   */
+  const discoverIdeaConcerns = async () => {
+    setConcernRunning(true);
+    try {
+      const credential = await credentialVault.get(providerSettings.providerId) || '';
+      const result = await runIdeaConcernDiscovery(project, {
+        settings: providerSettings,
+        credential,
+        providerLabel: getProviderMeta(providerSettings.providerId).label
+      });
+      // Belge yalnız GERÇEKTEN konu eklendiğinde kalıcılaştırılır; değişmemiş
+      // bir belgeyi yazmak revizyonu boş yere ilerletirdi.
+      if (result.error) notify(result.error);
+      else if (!result.addedConcerns) notify(result.notice);
+      else await persistCandidate(result.project, result.notice, 'RunIdeaConcernDiscovery');
+    } finally {
+      setConcernRunning(false);
     }
   };
 
@@ -448,6 +485,8 @@ export function Workspace({ project, projects, onProject, onNew, onPersist, prov
           settings={providerSettings}
           onPersist={(next, message, commandType) => void persistCandidate(next, message, commandType)}
           onNotice={notify}
+          discoveringConcerns={concernRunning}
+          onDiscoverConcerns={() => void discoverIdeaConcerns()}
         />
         {stagePanelVisible && shownStage === 'solution' && ideaApproved && (
           <SolutionStagePanel

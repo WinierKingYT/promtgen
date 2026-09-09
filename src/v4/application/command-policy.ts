@@ -34,7 +34,16 @@ export const DOCUMENT_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   // Canonical revision'ı ilerletmesi, hiç okunmamış hazır bir metnin planı
   // değiştirdiğini iddia etmek olurdu.
   'RunSolutionDiscovery', 'GenerateArchitectureComparison', 'ConfirmProjectFraming',
-  'DeferConcern', 'DismissConcern', 'DeclineTechnologyCandidate'
+  'DeferConcern', 'DismissConcern', 'DeclineTechnologyCandidate',
+  // `RunIdeaConcernDiscovery`, `AddDiscoveryTurn` ile AYNI şeyi yazar: ikisi
+  // de aynı `discovery` görevinin paketini `concernsFromBundle` üzerinden
+  // `ideaDesign.concerns`e çevirir. Tek fark giriş kapısı — biri sohbet turu,
+  // öbürü keşif panosundaki eylem. Konu bir SORUDUR, karar değil: eklenen
+  // konuların durumu `open`dır, bu yüzden `usesStageModel` bile kıpırdamaz
+  // (ölçüldü) ve canonical plan yalnız iki onaydan sonra
+  // `ConfirmIdeaPlanConversion` ile üretilir. Farklı sınıflandırmak, aynı
+  // yazımı iki farklı şey saymak olurdu.
+  'RunIdeaConcernDiscovery'
 ]);
 
 /**

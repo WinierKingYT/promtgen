@@ -3,9 +3,9 @@
 `src/v4/application` katmanındaki dışa aktarımların üretim kodundan gerçekten
 çağrılıp çağrılmadığı. `npm run check:reachability` bunu zorlar.
 
-- Toplam dışa aktarım: **210**
-- Üretimden erişilebilir: **180**
-- Yalnız kendi modülünde kullanılan: **18**
+- Toplam dışa aktarım: **213**
+- Üretimden erişilebilir: **182**
+- Yalnız kendi modülünde kullanılan: **19**
 - Üretimde hiç çağrılmayan: **12**
 
 ## Neden var
@@ -44,6 +44,7 @@ Kod canlı; dışa aktarım gereksiz olabilir. Kapıyı düşürmez, bilgi amaç
 - `conversion-v2.ts::conversionSources`
 - `expansion-card-tone.ts::hasCommandTone`
 - `expansion-card-tone.ts::hasTaskToneTitle`
+- `idea-concern-discovery-run.ts::applyConcernDiscoveryResult`
 - `idea-document-revision-service.ts::snapshotIdeaDocument`
 - `implementation-evidence-format.ts::IMPLEMENTATION_EVIDENCE_FORMAT`
 - `implementation-evidence-format.ts::IMPLEMENTATION_EVIDENCE_FORMAT_VERSION`
